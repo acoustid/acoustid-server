@@ -1,0 +1,64 @@
+# Copyright (C) 2011 Lukas Lalinsky
+# Distributed under the MIT license, see the LICENSE file for details. 
+
+import logging
+from sqlalchemy import sql
+from acoustid import tables as schema
+
+logger = logging.getLogger(__name__)
+
+
+def lookup_mbids(conn, track_ids):
+    """
+    Lookup MBIDs for the specified Acoustid track IDs.
+    """
+    query = sql.select(
+        [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
+        schema.track_mbid.c.track_id.in_(track_ids))
+    results = {}
+    for track_id, mbid in conn.execute(query):
+        results.setdefault(track_id, []).append(mbid)
+    return results
+
+
+def merge_mbids(conn, target_mbid, source_mbids):
+    """
+    Merge the specified MBIDs.
+    """
+    logger.info("Merging MBIDs %r INTO %s", source_mbids, target_mbid)
+    with conn.begin():
+        query = sql.select(
+            [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
+            schema.track_mbid.c.mbid.in_(source_mbids + [target_mbid]))
+        rows = conn.execute(query).fetchall()
+        source_track_ids = set([r[0] for r in rows if r[1] != target_mbid])
+        target_track_ids = set([r[0] for r in rows if r[1] == target_mbid])
+        missing_track_ids = source_track_ids - target_track_ids
+        if missing_track_ids:
+            conn.execute(schema.track_mbid.insert(),
+                [{'track_id': track_id, 'mbid': target_mbid}
+                    for track_id in missing_track_ids])
+        delete_stmt = schema.track_mbid.delete().where(
+            schema.track_mbid.c.mbid.in_(source_mbids))
+        conn.execute(delete_stmt)
+
+
+def merge_missing_mbids(conn):
+    """
+    Lookup which MBIDs has been merged in MusicBrainz and merge then
+    in the Acoustid database as well.
+    """
+    logger.info("Merging missing MBIDs")
+    results = conn.execute("""
+        SELECT tm.mbid AS old_mbid, mt.gid AS new_mbid
+        FROM track_mbid tm
+        JOIN musicbrainz.gid_redirect mgr ON tm.mbid = mgr.gid
+        JOIN musicbrainz.track mt ON mt.id = mgr.newid
+        WHERE mgr.tbl=3
+    """)
+    merge = {}
+    for old_mbid, new_mbid in results:
+        merge.setdefault(new_mbid, []).append(old_mbid)
+    for new_mbid, old_mbids in merge.iteritems():
+        merge_mbids(conn, new_mbid, old_mbids)
+
