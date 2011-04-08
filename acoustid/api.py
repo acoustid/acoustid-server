@@ -2,10 +2,14 @@
 # Distributed under the MIT license, see the LICENSE file for details. 
 
 from acoustid.handler import Handler, Response
-from acoustid.track import lookup_mbids
-from acoustid.musicbrainz import lookup_metadata
-from acoustid.submission import insert_submission
-from acoustid.fingerprintdata import FingerprintData
+from acoustid.data.track import lookup_mbids
+from acoustid.data.musicbrainz import lookup_metadata
+from acoustid.data.submission import insert_submission
+from acoustid.data.fingerprintdata import FingerprintData
+from acoustid.data.format import find_or_insert_format
+from acoustid.data.application import lookup_application_id_by_apikey
+from acoustid.data.account import lookup_account_id_by_apikey
+from acoustid.data.source import find_or_insert_source
 from werkzeug.exceptions import HTTPException
 import xml.etree.cElementTree as etree
 import chromaprint
@@ -127,7 +131,17 @@ class SubmitHandler(Handler):
         params = []
         for suffix in iter_args_suffixes(req.args, 'fingerprint'):
             params.append(self._read_fp_params(req.args, suffix))
+        application_apikey = req.args['client']
+        application_id = lookup_application_id_by_apikey(self.conn, application_apikey)
+        account_apikey = req.args['user']
+        account_id = lookup_account_id_by_apikey(self.conn, account_apikey)
+        source_id = find_or_insert_source(self.conn, application_id, account_id)
+        user = req.args['user']
         with self.conn.begin():
+            format_ids = {}
+            for p in params:
+                if p['format'] and p['format'] not in format_ids:
+                    format_ids[p['format']] = find_or_insert_format(self.conn, p['format'])
             for p in params:
                 for mbid in p['mbids']:
                     insert_submission(self.conn, {
@@ -135,7 +149,9 @@ class SubmitHandler(Handler):
                         'puid': p['puid'],
                         'bitrate': p['bitrate'],
                         'fingerprint': p['fingerprint'],
-                        'length': p['length']
+                        'length': p['length'],
+                        'format_id': format_ids[p['format']] if p['format'] else None,
+                        'source_id': source_id
                     })
         root = etree.Element('response', status='ok')
         return xml_response(root)

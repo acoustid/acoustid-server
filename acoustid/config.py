@@ -47,11 +47,15 @@ class DatabaseConfig(object):
 class LoggingConfig(object):
 
     def __init__(self):
-        self.echo_queries = False
+        self.levels = {}
 
     def read(self, parser, section):
-        if parser.has_option(section, 'echo_queries'):
-            self.echo_queries = parser.getboolean(section, 'echo_queries')
+        from logging import _levelNames as level_names
+        for name in parser.options(section):
+            if name == 'level':
+                self.levels[''] = level_names[parser.get(section, name)]
+            elif name.startswith('level.'):
+                self.levels[name.split('.', 1)[1]] = level_names[parser.get(section, name)]
 
 
 class Config(object):

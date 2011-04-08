@@ -2,7 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details. 
 
 from acoustid.handler import Handler, Response
-from acoustid.track import merge_missing_mbids
+from acoustid.data.track import merge_missing_mbids
 
 
 class MergeMissingMBIDsHandler(Handler):

@@ -3,7 +3,7 @@
 
 from nose.tools import *
 from tests import prepare_database, with_database
-from acoustid.track import merge_missing_mbids
+from acoustid.data.track import merge_missing_mbids
 
 
 @with_database

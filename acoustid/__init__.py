@@ -34,7 +34,7 @@ class Server(object):
         url_rules = website_url_rules + api_url_rules + admin_url_rules
         self.url_map = Map(url_rules, strict_slashes=False)
         self.config = Config(config_path)
-        self.engine = sqlalchemy.create_engine(self.config.database.create_url(), echo=self.config.logging.echo_queries)
+        self.engine = sqlalchemy.create_engine(self.config.database.create_url())
 
     def __call__(self, environ, start_response):
         urls = self.url_map.bind_to_environ(environ)
