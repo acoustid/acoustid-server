@@ -4,6 +4,7 @@
 from acoustid.handler import Handler, Response
 from acoustid.track import lookup_mbids
 from acoustid.musicbrainz import lookup_metadata
+from acoustid.submission import insert_submission
 from acoustid.fingerprintdata import FingerprintData
 from werkzeug.exceptions import HTTPException
 import xml.etree.cElementTree as etree
@@ -94,11 +95,53 @@ class LookupHandler(Handler):
         return cls(conn, FingerprintData(conn))
 
 
+def iter_args_suffixes(args, prefix):
+    prefix_dot = prefix + '.'
+    for name in args.iterkeys():
+        if name == prefix:
+            yield ''
+        elif name.startswith(prefix_dot):
+            prefix, suffix = name.split('.', 1)
+            if suffix.isdigit():
+                yield '.' + suffix
+
 class SubmitHandler(Handler):
-    def __init__(self):
-        pass
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def _read_fp_params(self, args, suffix):
+        def read_arg(name):
+            if name + suffix in args:
+                return args[name + suffix]
+        p = {}
+        p['puid'] = read_arg('puid')
+        p['mbids'] = [read_arg('mbid')]
+        p['length'] = read_arg('length')
+        p['fingerprint'] = chromaprint.decode_fingerprint(read_arg('fingerprint'))[0]
+        p['bitrate'] = read_arg('bitrate')
+        p['format'] = read_arg('format')
+        return p
+
+    def handle(self, req):
+        params = []
+        for suffix in iter_args_suffixes(req.args, 'fingerprint'):
+            params.append(self._read_fp_params(req.args, suffix))
+        with self.conn.begin():
+            for p in params:
+                for mbid in p['mbids']:
+                    insert_submission(self.conn, {
+                        'mbid': mbid,
+                        'puid': p['puid'],
+                        'bitrate': p['bitrate'],
+                        'fingerprint': p['fingerprint'],
+                        'length': p['length']
+                    })
+        root = etree.Element('response', status='ok')
+        return xml_response(root)
 
     @classmethod
     def create_from_server(cls, server):
-        return cls()
+        conn = server.engine.connect()
+        return cls(conn)
 

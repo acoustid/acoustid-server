@@ -1,0 +1,11 @@
+[database]
+user=acoustid
+password=XXX
+superuser=postgres
+name=acoustid
+host=localhost
+port=5432
+
+[logging]
+echo_queries=no
+
