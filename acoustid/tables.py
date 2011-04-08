@@ -1,6 +1,7 @@
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY
 
+
 metadata = MetaData()
 
 account = Table('account', metadata,

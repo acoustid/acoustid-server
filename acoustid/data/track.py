@@ -25,7 +25,7 @@ def merge_mbids(conn, target_mbid, source_mbids):
     """
     Merge the specified MBIDs.
     """
-    logger.info("Merging MBIDs %r INTO %s", source_mbids, target_mbid)
+    logger.info("Merging MBIDs %r into %s", source_mbids, target_mbid)
     with conn.begin():
         query = sql.select(
             [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
@@ -61,4 +61,30 @@ def merge_missing_mbids(conn):
         merge.setdefault(new_mbid, []).append(old_mbid)
     for new_mbid, old_mbids in merge.iteritems():
         merge_mbids(conn, new_mbid, old_mbids)
+
+
+def merge_tracks(conn, target_id, source_ids):
+    """
+    Merge the specified tracks.
+    """
+    logger.info("Merging tracks %r into %s", source_ids, target_id)
+    with conn.begin():
+        query = sql.select(
+            [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
+            schema.track_mbid.c.track_id.in_(source_ids + [target_id]))
+        rows = conn.execute(query).fetchall()
+        source_track_mbids = set([r[1] for r in rows if r[0] != target_id])
+        target_track_mbids = set([r[1] for r in rows if r[0] == target_id])
+        missing_track_mbids = source_track_mbids - target_track_mbids
+        if missing_track_mbids:
+            conn.execute(schema.track_mbid.insert(),
+                [{'track_id': target_id, 'mbid': mbid}
+                    for mbid in missing_track_mbids])
+        # XXX don't move duplicate fingerprints
+        update_stmt = schema.fingerprint.update().where(
+            schema.track_mbid.c.track_id.in_(source_ids))
+        conn.execute(update_stmt.values(track_id=target_id))
+        delete_stmt = schema.track_mbid.delete().where(
+            schema.track_mbid.c.track_id.in_(source_ids))
+        conn.execute(delete_stmt)
 

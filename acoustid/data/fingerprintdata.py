@@ -49,4 +49,3 @@ class FingerprintData(object):
                 break
         return matched
 
-
