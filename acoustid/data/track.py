@@ -25,7 +25,7 @@ def merge_mbids(conn, target_mbid, source_mbids):
     """
     Merge the specified MBIDs.
     """
-    logger.info("Merging MBIDs %r into %s", source_mbids, target_mbid)
+    logger.info("Merging MBIDs %s into %s", ', '.join(source_mbids), target_mbid)
     with conn.begin():
         query = sql.select(
             [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
@@ -67,7 +67,7 @@ def merge_tracks(conn, target_id, source_ids):
     """
     Merge the specified tracks.
     """
-    logger.info("Merging tracks %r into %s", source_ids, target_id)
+    logger.info("Merging tracks %s into %s", ', '.join(source_ids), target_id)
     with conn.begin():
         query = sql.select(
             [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
