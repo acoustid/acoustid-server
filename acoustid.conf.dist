@@ -9,4 +9,6 @@ port=5432
 [logging]
 level=WARN
 #level.sqlalchemy=INFO
+#syslog=no
+#syslog_facility=local1
 

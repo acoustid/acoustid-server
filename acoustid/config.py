@@ -48,6 +48,8 @@ class LoggingConfig(object):
 
     def __init__(self):
         self.levels = {}
+        self.syslog = False
+        self.syslog_facility = None
 
     def read(self, parser, section):
         from logging import _levelNames as level_names
@@ -56,6 +58,10 @@ class LoggingConfig(object):
                 self.levels[''] = level_names[parser.get(section, name)]
             elif name.startswith('level.'):
                 self.levels[name.split('.', 1)[1]] = level_names[parser.get(section, name)]
+        if parser.has_option(section, 'syslog'):
+            self.syslog = parser.getboolean(section, 'syslog')
+        if parser.has_option(section, 'syslog_facility'):
+            self.syslog_facility = parser.get(section, 'syslog_facility')
 
 
 class Config(object):
