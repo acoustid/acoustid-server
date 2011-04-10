@@ -13,7 +13,7 @@ class FingerprintData(object):
 
     MAX_LENGTH_DIFF = 7
     QUERY_SIZE = 120
-    PARTS = ((100, 20), (1, 100))
+    PARTS = ((1, 20), (21, 100))
     PART_SEARCH_SQL = """
         SELECT id, track_id, score FROM (
         SELECT id, track_id, acoustid_compare(fingerprint, query) AS score
