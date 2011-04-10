@@ -48,5 +48,5 @@ def run_script(func):
         logger.exception("Script finished %s with an exception", sys.argv[0])
         raise
     else:
-        logger.exception("Script finished %s successfuly", sys.argv[0])
+        logger.info("Script finished %s successfuly", sys.argv[0])
 
