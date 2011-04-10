@@ -42,5 +42,11 @@ def run_script(func):
     script = Script(options.config)
     script.setup_console_logging()
     logger.info("Running script %s", sys.argv[0])
-    func(script, options, args)
+    try:
+        func(script, options, args)
+    except:
+        logger.exception("Script finished %s with an exception", sys.argv[0])
+        raise
+    else:
+        logger.exception("Script finished %s successfuly", sys.argv[0])
 
