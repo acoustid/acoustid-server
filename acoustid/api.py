@@ -69,16 +69,16 @@ class LookupHandler(Handler):
                 etree.SubElement(artist, 'name').text = track_meta['artist_name']
 
     def handle(self, req):
-        fingerprint_string = req.args.get('fingerprint')
+        fingerprint_string = req.values.get('fingerprint')
         if not fingerprint_string:
             raise MissingArgument('fingerprint')
         fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
         if version != 1:
             raise BadRequest('Unsupported fingerprint version')
-        length = req.args.get('length', type=int)
+        length = req.values.get('length', type=int)
         if not length:
             raise MissingArgument('length')
-        meta = req.args.get('meta', type=int, default=0)
+        meta = req.values.get('meta', type=int, default=0)
         root = etree.Element('response', status='ok')
         results = etree.SubElement(root, 'results')
         matches = self.fingerprint_data.search(fingerprint, length, 0.7, 0.3)
@@ -129,14 +129,14 @@ class SubmitHandler(Handler):
 
     def handle(self, req):
         params = []
-        for suffix in iter_args_suffixes(req.args, 'fingerprint'):
-            params.append(self._read_fp_params(req.args, suffix))
-        application_apikey = req.args['client']
+        for suffix in iter_args_suffixes(req.values, 'fingerprint'):
+            params.append(self._read_fp_params(req.values, suffix))
+        application_apikey = req.values['client']
         application_id = lookup_application_id_by_apikey(self.conn, application_apikey)
-        account_apikey = req.args['user']
+        account_apikey = req.values['user']
         account_id = lookup_account_id_by_apikey(self.conn, account_apikey)
         source_id = find_or_insert_source(self.conn, application_id, account_id)
-        user = req.args['user']
+        user = req.values['user']
         with self.conn.begin():
             format_ids = {}
             for p in params:

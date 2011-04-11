@@ -1,6 +1,8 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details. 
 
+import gzip
+from cStringIO import StringIO
 from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount
 from werkzeug.wrappers import Request, Response
@@ -34,7 +36,18 @@ class Server(Script):
         url_rules = website_url_rules + api_url_rules + admin_url_rules
         self.url_map = Map(url_rules, strict_slashes=False)
 
+    def _ungzip_body(self, environ):
+        # XXX can we do this without loading everything into memory?
+        content_encoding = environ.get('HTTP_CONTENT_ENCODING', '').lower().strip()
+        if content_encoding == 'gzip' and 'wsgi.input' in environ and 'CONTENT_LENGTH' in environ:
+            compressed_body = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
+            body = gzip.GzipFile(fileobj=StringIO(compressed_body)).read()
+            environ['wsgi.input'] = StringIO(body)
+            environ['CONTENT_LENGTH'] = str(len(body))
+            del environ['HTTP_CONTENT_ENCODING']
+
     def __call__(self, environ, start_response):
+        self._ungzip_body(environ)
         urls = self.url_map.bind_to_environ(environ)
         try:
             handler_class, args = urls.match()
