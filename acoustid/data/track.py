@@ -48,7 +48,7 @@ def merge_missing_mbids(conn):
     Lookup which MBIDs has been merged in MusicBrainz and merge then
     in the Acoustid database as well.
     """
-    logger.info("Merging missing MBIDs")
+    logger.debug("Merging missing MBIDs")
     results = conn.execute("""
         SELECT tm.mbid AS old_mbid, mt.gid AS new_mbid
         FROM track_mbid tm

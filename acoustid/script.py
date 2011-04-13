@@ -46,12 +46,12 @@ def run_script(func):
         parser.error('no configuration file')
     script = Script(options.config)
     script.setup_console_logging(options.quiet)
-    logger.info("Running script %s", sys.argv[0])
+    logger.debug("Running script %s", sys.argv[0])
     try:
         func(script, options, args)
     except:
         logger.exception("Script finished %s with an exception", sys.argv[0])
         raise
     else:
-        logger.info("Script finished %s successfuly", sys.argv[0])
+        logger.debug("Script finished %s successfuly", sys.argv[0])
 
