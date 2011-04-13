@@ -36,18 +36,7 @@ class Server(Script):
         url_rules = website_url_rules + api_url_rules + admin_url_rules
         self.url_map = Map(url_rules, strict_slashes=False)
 
-    def _ungzip_body(self, environ):
-        # XXX can we do this without loading everything into memory?
-        content_encoding = environ.get('HTTP_CONTENT_ENCODING', '').lower().strip()
-        if content_encoding == 'gzip' and 'wsgi.input' in environ and 'CONTENT_LENGTH' in environ:
-            compressed_body = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
-            body = gzip.GzipFile(fileobj=StringIO(compressed_body)).read()
-            environ['wsgi.input'] = StringIO(body)
-            environ['CONTENT_LENGTH'] = str(len(body))
-            del environ['HTTP_CONTENT_ENCODING']
-
     def __call__(self, environ, start_response):
-        self._ungzip_body(environ)
         urls = self.url_map.bind_to_environ(environ)
         try:
             handler_class, args = urls.match()
@@ -56,4 +45,34 @@ class Server(Script):
         except HTTPException, e:
             return e(environ, start_response)
         return response(environ, start_response)
+
+
+class GzipRequestMiddleware(object):
+    """WSGI middleware to handle GZip-compressed HTTP requests bodies
+
+    :param app: a WSGI application
+    """
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        # XXX can we do this without loading everything into memory?
+        content_encoding = environ.get('HTTP_CONTENT_ENCODING', '').lower().strip()
+        if content_encoding == 'gzip' and 'wsgi.input' in environ and 'CONTENT_LENGTH' in environ:
+            compressed_body = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
+            body = gzip.GzipFile(fileobj=StringIO(compressed_body)).read()
+            environ['wsgi.input'] = StringIO(body)
+            environ['CONTENT_LENGTH'] = str(len(body))
+            del environ['HTTP_CONTENT_ENCODING']
+        return self.app(environ, start_response)
+
+
+def make_application(config_path):
+    """Construct a WSGI application for the Acoustid server
+
+    :param config_path: path to the server configuration file
+    """
+    app = Server(config_path)
+    app = GzipRequestMiddleware(app)
+    return app
 

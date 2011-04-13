@@ -3,12 +3,12 @@
 import os
 import logging
 from wsgiref.simple_server import make_server
-from acoustid.server import Server
+from acoustid.server import make_application
 
 logging.basicConfig(level=logging.DEBUG)
 
 config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid.conf'
-application = Server(config_path)
+application = make_application(config_path)
 
 host = 'localhost'
 port = 8080

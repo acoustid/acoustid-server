@@ -6,7 +6,7 @@
 # uwsgi -w acoustid.wsgi --pythonpath ~/acoustid/ --env ACOUSTID_CONFIG=~/acoustid/acoustid.conf -M -L --socket 127.0.0.1:1717
 
 import os
-from acoustid.server import Server
+from acoustid.server import make_application
 
-application = Server(os.environ['ACOUSTID_CONFIG'])
+application = make_application(os.environ['ACOUSTID_CONFIG'])
 
