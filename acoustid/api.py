@@ -12,6 +12,7 @@ from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
 from werkzeug.exceptions import HTTPException
 import xml.etree.cElementTree as etree
+import json
 import chromaprint
 
 
@@ -56,23 +57,57 @@ class LookupHandler(Handler):
             track_meta_map = lookup_metadata(self.conn, all_mbids)
         for track_id, mbids in track_mbid_map.iteritems():
             result = result_map[track_id]
-            tracks = etree.SubElement(result, 'tracks')
+            result['tracks'] = tracks = []
             for mbid in mbids:
-                track = etree.SubElement(tracks, 'track')
-                etree.SubElement(track, 'id').text = str(mbid)
+                track = {}
+                tracks.append(track)
+                track['id'] = str(mbid)
                 if meta == 1:
                     continue
                 track_meta = track_meta_map[mbid]
-                etree.SubElement(track, 'name').text = track_meta['name']
-                artist = etree.SubElement(track, 'artist')
-                etree.SubElement(artist, 'id').text = track_meta['artist_id']
-                etree.SubElement(artist, 'name').text = track_meta['artist_name']
-                etree.SubElement(artist, 'length').text = str(track_meta['length'])
-                release = etree.SubElement(track, 'release')
-                etree.SubElement(release, 'id').text = track_meta['release_id']
-                etree.SubElement(release, 'name').text = track_meta['release_name']
-                etree.SubElement(release, 'track-num').text = str(track_meta['track_num'])
-                etree.SubElement(release, 'track-count').text = str(track_meta['total_tracks'])
+                track['name'] = track_meta['name']
+                track['length'] = track_meta['length']
+                track['artist'] = artist = {}
+                artist['id'] = track_meta['artist_id']
+                artist['name'] = track_meta['artist_name']
+                track['release'] = release = {}
+                release['id'] = track_meta['release_id']
+                release['name'] = track_meta['release_name']
+                release['track-num'] = track_meta['track_num']
+                release['track-count'] = track_meta['total_tracks']
+
+    def _serialize_xml_node(self, parent, data):
+        if isinstance(data, dict):
+            self._serialize_xml_dict(parent, data)
+        elif isinstance(data, list):
+            self._serialize_xml_list(parent, data)
+        else:
+            parent.text = unicode(data)
+
+    def _serialize_xml_dict(self, parent, data):
+        for name, value in data.iteritems():
+            elem = etree.SubElement(parent, name)
+            self._serialize_xml_node(elem, value)
+
+    def _serialize_xml_list(self, parent, data):
+        name = parent.tag
+        if name.endswith('es'):
+            name = name[:-2]
+        elif name.endswith('s'):
+            name = name[:-1]
+        for item in data:
+            elem = etree.SubElement(parent, name)
+            self._serialize_xml_node(elem, item)
+
+    def _serialize_xml(self, data):
+        root = etree.Element('response')
+        self._serialize_xml_node(root, data)
+        res = etree.tostring(root, encoding="UTF-8")
+        return Response(res, content_type='text/xml')
+
+    def _serialize_json(self, data):
+        res = json.dumps(data, indent=4)
+        return Response(res, content_type='text/json')
 
     def handle(self, req):
         fingerprint_string = req.values.get('fingerprint')
@@ -85,19 +120,22 @@ class LookupHandler(Handler):
         if not length:
             raise MissingArgument('length')
         meta = req.values.get('meta', type=int, default=0)
-        root = etree.Element('response', status='ok')
-        results = etree.SubElement(root, 'results')
+        response = {'status': 'ok'}
+        response['results'] = results = []
         matches = self.fingerprint_data.search(fingerprint, length, 0.7, 0.3)
         result_map = {}
         for fingerprint_id, track_id, score in matches:
             if track_id in result_map:
                 continue
-            result_map[track_id] = result = etree.SubElement(results, 'result')
-            etree.SubElement(result, 'id').text = str(track_id)
-            etree.SubElement(result, 'score').text = '%.2f' % score
+            result_map[track_id] = result = {'id': track_id, 'score': score}
+            results.append(result)
         if meta and result_map:
             self._inject_metadata(meta, result_map)
-        return xml_response(root)
+        format = req.values.get('format')
+        if format == 'json':
+            return self._serialize_json(response)
+        else:
+            return self._serialize_xml(response)
 
     @classmethod
     def create_from_server(cls, server):
