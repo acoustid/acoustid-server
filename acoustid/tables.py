@@ -72,3 +72,25 @@ mb_track = Table('track', metadata,
     schema='musicbrainz',
 )
 
+mb_album = Table('album', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('artist', Integer, ForeignKey('musicbrainz.artist.id')),
+    Column('name', String),
+    Column('gid', String),
+    schema='musicbrainz',
+)
+
+mb_album_meta = Table('albummeta', metadata,
+    Column('id', Integer, ForeignKey('musicbrainz.album.id'), primary_key=True),
+    Column('tracks', String),
+    schema='musicbrainz',
+)
+
+mb_album_track = Table('albumjoin', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('album', Integer, ForeignKey('musicbrainz.album.id')),
+    Column('track', Integer, ForeignKey('musicbrainz.track.id')),
+    Column('sequence', Integer),
+    schema='musicbrainz',
+)
+

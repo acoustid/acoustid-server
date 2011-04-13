@@ -67,6 +67,12 @@ class LookupHandler(Handler):
                 artist = etree.SubElement(track, 'artist')
                 etree.SubElement(artist, 'id').text = track_meta['artist_id']
                 etree.SubElement(artist, 'name').text = track_meta['artist_name']
+                etree.SubElement(artist, 'length').text = str(track_meta['length'])
+                release = etree.SubElement(track, 'release')
+                etree.SubElement(release, 'id').text = track_meta['release_id']
+                etree.SubElement(release, 'name').text = track_meta['release_name']
+                etree.SubElement(release, 'track-num').text = str(track_meta['track_num'])
+                etree.SubElement(release, 'track-count').text = str(track_meta['total_tracks'])
 
     def handle(self, req):
         fingerprint_string = req.values.get('fingerprint')
