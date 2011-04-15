@@ -17,15 +17,56 @@ import json
 import chromaprint
 
 
-def xml_response(elem, **kwargs):
-    xml = etree.tostring(elem, encoding="UTF-8")
-    return Response(xml, content_type='text/xml')
-
-
 def error_response(error):
-    root = etree.Element('response', status='error')
-    etree.SubElement(root, 'error').text = error
-    return xml_response(root, status=400)
+    data = {
+        'status': 'error',
+        'error': {
+            'code': 1,
+            'message': error
+        }
+    }
+    return serialize_response(data)
+
+
+def _serialize_xml_node(parent, data):
+    if isinstance(data, dict):
+        _serialize_xml_dict(parent, data)
+    elif isinstance(data, list):
+        _serialize_xml_list(parent, data)
+    else:
+        parent.text = unicode(data)
+
+
+def _serialize_xml_dict(parent, data):
+    for name, value in data.iteritems():
+        elem = etree.SubElement(parent, name)
+        _serialize_xml_node(elem, value)
+
+
+def _serialize_xml_list(parent, data):
+    name = singular(parent.tag)
+    for item in data:
+        elem = etree.SubElement(parent, name)
+        _serialize_xml_node(elem, item)
+
+
+def serialize_xml(data):
+    root = etree.Element('response')
+    _serialize_xml_node(root, data)
+    res = etree.tostring(root, encoding="UTF-8")
+    return Response(res, content_type='text/xml')
+
+
+def serialize_json(data):
+    res = json.dumps(data)
+    return Response(res, content_type='text/json')
+
+
+def serialize_response(data, format):
+    if format == 'json':
+        return serialize_json(data)
+    else:
+        return serialize_xml(data)
 
 
 class BadRequest(HTTPException):
@@ -77,35 +118,6 @@ class LookupHandler(Handler):
                 release['track-num'] = track_meta['track_num']
                 release['track-count'] = track_meta['total_tracks']
 
-    def _serialize_xml_node(self, parent, data):
-        if isinstance(data, dict):
-            self._serialize_xml_dict(parent, data)
-        elif isinstance(data, list):
-            self._serialize_xml_list(parent, data)
-        else:
-            parent.text = unicode(data)
-
-    def _serialize_xml_dict(self, parent, data):
-        for name, value in data.iteritems():
-            elem = etree.SubElement(parent, name)
-            self._serialize_xml_node(elem, value)
-
-    def _serialize_xml_list(self, parent, data):
-        name = singular(parent.tag)
-        for item in data:
-            elem = etree.SubElement(parent, name)
-            self._serialize_xml_node(elem, item)
-
-    def _serialize_xml(self, data):
-        root = etree.Element('response')
-        self._serialize_xml_node(root, data)
-        res = etree.tostring(root, encoding="UTF-8")
-        return Response(res, content_type='text/xml')
-
-    def _serialize_json(self, data):
-        res = json.dumps(data, indent=4)
-        return Response(res, content_type='text/json')
-
     def handle(self, req):
         fingerprint_string = req.values.get('fingerprint')
         if not fingerprint_string:
@@ -128,11 +140,7 @@ class LookupHandler(Handler):
             results.append(result)
         if meta and result_map:
             self._inject_metadata(meta, result_map)
-        format = req.values.get('format')
-        if format == 'json':
-            return self._serialize_json(response)
-        else:
-            return self._serialize_xml(response)
+        return serialize_response(response, req.values.get('format'))
 
     @classmethod
     def create_from_server(cls, server):
@@ -194,8 +202,8 @@ class SubmitHandler(Handler):
                         'format_id': format_ids[p['format']] if p['format'] else None,
                         'source_id': source_id
                     })
-        root = etree.Element('response', status='ok')
-        return xml_response(root)
+        response = {'status': 'ok'}
+        return serialize_response(response, req.values.get('format'))
 
     @classmethod
     def create_from_server(cls, server):
