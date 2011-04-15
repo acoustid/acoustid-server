@@ -8,9 +8,6 @@ from acoustid.data.format import find_or_insert_format
 
 @with_database
 def test_find_or_insert_format(conn):
-    prepare_database(conn, """
-INSERT INTO format (name) VALUES ('FLAC');
-""")
     id = find_or_insert_format(conn, 'FLAC')
     assert_equals(1, id)
     id = find_or_insert_format(conn, 'MP3')
