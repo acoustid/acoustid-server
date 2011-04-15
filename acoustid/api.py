@@ -10,6 +10,7 @@ from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
+from acoustid.utils import singular
 from werkzeug.exceptions import HTTPException
 import xml.etree.cElementTree as etree
 import json
@@ -90,11 +91,7 @@ class LookupHandler(Handler):
             self._serialize_xml_node(elem, value)
 
     def _serialize_xml_list(self, parent, data):
-        name = parent.tag
-        if name.endswith('es'):
-            name = name[:-2]
-        elif name.endswith('s'):
-            name = name[:-1]
+        name = singular(parent.tag)
         for item in data:
             elem = etree.SubElement(parent, name)
             self._serialize_xml_node(elem, item)
