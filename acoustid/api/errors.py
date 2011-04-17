@@ -12,6 +12,7 @@ ERROR_INVALID_FINGERPRINT = 3
 ERROR_INVALID_APIKEY = 4
 ERROR_INTERNAL = 5
 ERROR_INVALID_USER_APIKEY = 6
+ERROR_INVALID_UUID = 7
 
 
 class WebServiceError(Exception):
@@ -62,4 +63,12 @@ class InternalError(WebServiceError):
     def __init__(self):
         message = 'internal error'
         WebServiceError.__init__(self, ERROR_INTERNAL, message)
+
+
+class InvalidUUIDError(WebServiceError):
+
+    def __init__(self, name):
+        message = 'parameter "%s" is not a valid UUID' % (name,)
+        WebServiceError.__init__(self, ERROR_INVALID_UUID, message)
+        self.parameter = name
 

@@ -1,6 +1,16 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details. 
 
+import re
+
+
+def is_uuid(s):
+    """
+    Check whether the given string is a valid UUID
+    """
+    return bool(re.match(r'^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$', s))
+
+
 def singular(plural):
     """
     Take a plural English word and turn it into singular

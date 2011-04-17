@@ -13,6 +13,7 @@ from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
+from acoustid.utils import is_uuid
 from acoustid.api import serialize_response, errors
 
 logger = logging.getLogger(__name__)
@@ -181,13 +182,23 @@ class SubmitHandlerParams(APIHandlerParams):
         if not self.account_id:
             raise errors.InvalidUserAPIKeyError()
 
+    def _parse_duration_and_format(self, p, values, suffix):
+        p['duration'] = values.get('duration' + suffix, type=int)
+        if not p['duration']:
+            raise MissingParameterError('duration' + suffix)
+        p['format'] = values.get('fileformat' + suffix)
+
     def _parse_submission(self, values, suffix):
         p = {}
         p['puid'] = values.get('puid' + suffix)
+        if p['puid'] and not is_uuid(p['puid']):
+            raise errors.InvalidUUIDError('puid' + suffix)
         p['mbids'] = values.getlist('mbid' + suffix)
         if not p['puid'] and not p['mbids']:
             raise errors.MissingParameterError('mbid' + suffix)
-        p['duration'] = values.get('duration' + suffix, type=int)
+        if p['mbids'] and not all(map(is_uuid, p['mbids'])):
+            raise errors.InvalidUUIDError('mbid' + suffix)
+        self._parse_duration_and_format(p, values, suffix)
         fingerprint_string = values.get('fingerprint' + suffix)
         if not fingerprint_string:
             raise errors.MissingParameterError('fingerprint' + suffix)
@@ -195,7 +206,6 @@ class SubmitHandlerParams(APIHandlerParams):
         if not p['fingerprint']:
             raise errors.InvalidFingerprintError()
         p['bitrate'] = values.get('bitrate' + suffix, type=int)
-        p['format'] = values.get('fileformat' + suffix)
         self.submissions.append(p)
 
     def parse(self, values, conn):

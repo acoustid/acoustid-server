@@ -186,6 +186,36 @@ def test_submit_handler_params(conn):
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key'})
     params = SubmitHandlerParams()
     assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    # wrong mbid
+    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'mbid': '4d814cb1-20ec-494f-996f-xxxxxxxxxxxx',
+        'duration': str(TEST_1_LENGTH),
+        'fingerprint': TEST_1_FP,
+        'bitrate': '192',
+        'fileformat': 'MP3'
+    })
+    params = SubmitHandlerParams()
+    assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
+    # one wrong mbid, one good
+    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'mbid': ['4d814cb1-20ec-494f-996f-xxxxxxxxxxxx', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
+        'duration': str(TEST_1_LENGTH),
+        'fingerprint': TEST_1_FP,
+        'bitrate': '192',
+        'fileformat': 'MP3'
+    })
+    params = SubmitHandlerParams()
+    assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
+    # wrong puid
+    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'puid': '4d814cb1-20ec-494f-996f-xxxxxxxxxxxx',
+        'duration': str(TEST_1_LENGTH),
+        'fingerprint': TEST_1_FP,
+        'bitrate': '192',
+        'fileformat': 'MP3'
+    })
+    params = SubmitHandlerParams()
+    assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
     # all ok (single submission)
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],

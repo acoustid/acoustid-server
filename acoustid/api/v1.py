@@ -64,24 +64,11 @@ class SubmitHandlerParams(v2.SubmitHandlerParams):
     def _parse_format(self, values):
         self.format = FORMAT
 
-    def _parse_submission(self, values, suffix):
-        p = {}
-        p['puid'] = values.get('puid' + suffix)
-        p['mbids'] = values.getlist('mbid' + suffix)
-        if not p['puid'] and not p['mbids']:
-            raise MissingParameterError('mbid' + suffix)
+    def _parse_duration_and_format(self, p, values, suffix):
         p['duration'] = values.get('length' + suffix, type=int)
         if not p['duration']:
             raise MissingParameterError('length' + suffix)
-        fingerprint_string = values.get('fingerprint' + suffix)
-        if not fingerprint_string:
-            raise MissingParameterError('fingerprint' + suffix)
-        p['fingerprint'] = decode_fingerprint(fingerprint_string)
-        if not p['fingerprint']:
-            raise InvalidFingerprintError()
-        p['bitrate'] = values.get('bitrate' + suffix, type=int)
         p['format'] = values.get('format' + suffix)
-        self.submissions.append(p)
 
 
 class SubmitHandler(v2.SubmitHandler):
