@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime
+from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import ARRAY
 
 
@@ -48,6 +48,17 @@ submission = Table('submission', metadata,
     Column('source_id', Integer, ForeignKey('source.id')),
     Column('format_id', Integer, ForeignKey('format.id')),
     Column('created', DateTime),
+    Column('handled', Boolean),
+)
+
+fingerprint = Table('fingerprint', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('fingerprint', ARRAY(Integer)),
+    Column('length', Integer),
+    Column('bitrate', Integer),
+    Column('source_id', Integer, ForeignKey('source.id')),
+    Column('format_id', Integer, ForeignKey('format.id')),
+    Column('track_id', Integer, ForeignKey('track.id')),
 )
 
 track_mbid = Table('track_mbid', metadata,
@@ -91,6 +102,19 @@ mb_album_track = Table('albumjoin', metadata,
     Column('album', Integer, ForeignKey('musicbrainz.album.id')),
     Column('track', Integer, ForeignKey('musicbrainz.track.id')),
     Column('sequence', Integer),
+    schema='musicbrainz',
+)
+
+mb_puid = Table('puid', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('puid', String),
+    schema='musicbrainz',
+)
+
+mb_puid_track = Table('puidjoin', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('puid', Integer, ForeignKey('musicbrainz.puid.id')),
+    Column('track', Integer, ForeignKey('musicbrainz.track.id')),
     schema='musicbrainz',
 )
 

@@ -3,7 +3,7 @@
 
 from nose.tools import *
 from tests import prepare_database, with_database
-from acoustid.data.track import merge_missing_mbids
+from acoustid.data.track import merge_missing_mbids, insert_track
 
 
 @with_database
@@ -31,3 +31,11 @@ INSERT INTO musicbrainz.gid_redirect (newid, gid, tbl) VALUES
         (4, '6d885000-4dad-11e0-98ed-0025225356f3'),
     ]
     assert_equals(expected_rows, rows)
+
+@with_database
+def test_insert_track(conn):
+    id = insert_track(conn)
+    assert_equals(5, id)
+    id = insert_track(conn)
+    assert_equals(6, id)
+

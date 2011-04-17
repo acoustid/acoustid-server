@@ -37,3 +37,17 @@ def lookup_metadata(conn, mbids):
         results[row['gid']] = result
     return results
 
+
+def find_puid_mbids(conn, puid, min_duration, max_duration):
+    """
+    Find MBIDs for MusicBrainz tracks that are linked to the given PUID and
+    have duration within the given range
+    """
+    src = schema.mb_puid
+    src = src.join(schema.mb_puid_track, schema.mb_puid_track.c.puid == schema.mb_puid.c.id)
+    src = src.join(schema.mb_track, schema.mb_track.c.id == schema.mb_puid_track.c.track)
+    condition = sql.and_(
+        schema.mb_puid.c.puid == puid,
+        schema.mb_track.c.length.between(min_duration * 1000, max_duration * 1000))
+    query = sql.select([schema.mb_track.c.gid], condition, from_obj=src)
+    return [r[0] for r in conn.execute(query)]

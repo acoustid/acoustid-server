@@ -35,7 +35,7 @@ def decode_fingerprint(fingerprint_string):
         return fingerprint
 
 
-def lookup_fingerprint(conn, fp, length, good_enough_score, min_score):
+def lookup_fingerprint(conn, fp, length, good_enough_score, min_score, fast=False):
     """Search for a fingerprint in the database"""
     matched = []
     best_score = 0.0
@@ -51,4 +51,22 @@ def lookup_fingerprint(conn, fp, length, good_enough_score, min_score):
         if best_score > good_enough_score:
             break
     return matched
+
+
+def insert_fingerprint(conn, data):
+    """
+    Insert a new fingerprint into the database
+    """
+    with conn.begin():
+        insert_stmt = schema.fingerprint.insert().values({
+            'fingerprint': data['fingerprint'],
+            'length': data['length'],
+            'bitrate': data.get('bitrate'),
+            'source_id': data['source_id'],
+            'format_id': data.get('format_id'),
+            'track_id': data['track_id'],
+        })
+        id = conn.execute(insert_stmt).inserted_primary_key[0]
+    logger.debug("Inserted fingerprint %r with data %r", id, data)
+    return id
 

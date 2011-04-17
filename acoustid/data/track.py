@@ -88,3 +88,12 @@ def merge_tracks(conn, target_id, source_ids):
             schema.track_mbid.c.track_id.in_(source_ids))
         conn.execute(delete_stmt)
 
+def insert_track(conn):
+    """
+    Insert a new track into the database
+    """
+    insert_stmt = schema.track.insert()
+    id = conn.execute(insert_stmt).inserted_primary_key[0]
+    logger.debug("Inserted track %r", id)
+    return id
+
