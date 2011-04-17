@@ -13,7 +13,7 @@ from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
-from acoustid.api import serialize_response
+from acoustid.api import serialize_response, errors
 
 logger = logging.getLogger(__name__)
 
@@ -22,130 +22,58 @@ DEFAULT_FORMAT = 'xml'
 FORMATS = set(['xml', 'json'])
 
 
-ERROR_UNKNOWN_FORMAT = 1
-ERROR_MISSING_PARAMETER = 2
-ERROR_INVALID_FINGERPRINT = 3
-ERROR_INVALID_APIKEY = 4
-ERROR_INTERNAL = 5
-ERROR_INVALID_USER_APIKEY = 6
-
-
-def error(code, message, format=DEFAULT_FORMAT, status=400):
-    response_data = {
-        'status': 'error',
-        'error': {
-            'code': code,
-            'message': message
-        }
-    }
-    return serialize_response(response_data, format, status=status)
-
-
-def ok(data, format=DEFAULT_FORMAT):
-    response_data = {'status': 'ok'}
-    response_data.update(data)
-    return serialize_response(response_data, format)
-
-
-class BadRequest(HTTPException):
-
-    code = 400
-
-    def get_response(self, environ):
-        return error_response(self.description)
-
-
-class MissingArgument(BadRequest):
-
-    def __init__(self, name):
-        description = "Missing argument '%s'" % (name,)
-        BadRequest.__init__(self, description)
-
-
-class WebServiceError(Exception):
-
-    def __init__(self, code, message):
-        self.code = code
-        self.message = message
-
-
-class UnknownFormatError(WebServiceError):
-
-    def __init__(self, name):
-        message = 'unknown format "%s"' % (name,)
-        WebServiceError.__init__(self, ERROR_UNKNOWN_FORMAT, message)
-
-
-class MissingParameterError(WebServiceError):
-
-    def __init__(self, name):
-        message = 'missing required parameter "%s"' % (name,)
-        WebServiceError.__init__(self, ERROR_MISSING_PARAMETER, message)
-        self.parameter = name
-
-
-class InvalidFingerprintError(WebServiceError):
-
-    def __init__(self):
-        message = 'invalid fingerprint'
-        WebServiceError.__init__(self, ERROR_INVALID_FINGERPRINT, message)
-
-
-class InvalidAPIKeyError(WebServiceError):
-
-    def __init__(self):
-        message = 'invalid API key'
-        WebServiceError.__init__(self, ERROR_INVALID_APIKEY, message)
-
-
-class InvalidUserAPIKeyError(WebServiceError):
-
-    def __init__(self):
-        message = 'invalid user API key'
-        WebServiceError.__init__(self, ERROR_INVALID_USER_APIKEY, message)
-
-
-class InternalError(WebServiceError):
-
-    def __init__(self):
-        message = 'internal error'
-        WebServiceError.__init__(self, ERROR_INTERNAL, message)
-
-
 class APIHandlerParams(object):
 
     def _parse_client(self, values, conn):
         application_apikey = values.get('client')
         if not application_apikey:
-            raise MissingParameterError('client')
+            raise errors.MissingParameterError('client')
         self.application_id = lookup_application_id_by_apikey(conn, application_apikey)
         if not self.application_id:
-            raise InvalidAPIKeyError()
+            raise errors.InvalidAPIKeyError()
 
-    def parse(self, values, conn):
+    def _parse_format(self, values):
         self.format = values.get('format', DEFAULT_FORMAT)
         if self.format not in FORMATS:
             self.format = DEFAULT_FORMAT # used for the error response
-            raise UnknownFormatError(self.format)
+            raise errors.UnknownFormatError(self.format)
+
+    def parse(self, values, conn):
+        self._parse_format(values)
 
 
 class APIHandler(Handler):
 
     params_class = None
 
+    def _error(self, code, message, format=DEFAULT_FORMAT, status=400):
+        response_data = {
+            'status': 'error',
+            'error': {
+                'code': code,
+                'message': message
+            }
+        }
+        return serialize_response(response_data, format, status=status)
+
+    def _ok(self, data, format=DEFAULT_FORMAT):
+        response_data = {'status': 'ok'}
+        response_data.update(data)
+        return serialize_response(response_data, format)
+
     def handle(self, req):
         params = self.params_class()
         try:
             try:
                 params.parse(req.values, self.conn)
-                return ok(self._handle_internal(params), params.format)
+                return self._ok(self._handle_internal(params), params.format)
             except WebServiceError:
                 raise
             except StandardError:
                 logger.exception('Error while handling API request')
-                raise InternalError()
+                raise errors.InternalError()
         except WebServiceError, e:
-            return error(e.code, e.message, params.format)
+            return self._error(e.code, e.message, params.format)
 
 
 class LookupHandlerParams(APIHandlerParams):
@@ -156,13 +84,13 @@ class LookupHandlerParams(APIHandlerParams):
         self.meta = values.get('meta', type=int)
         self.duration = values.get('duration', type=int)
         if not self.duration:
-            raise MissingParameterError('duration')
+            raise errors.MissingParameterError('duration')
         fingerprint_string = values.get('fingerprint')
         if not fingerprint_string:
-            raise MissingParameterError('fingerprint')
+            raise errors.MissingParameterError('fingerprint')
         self.fingerprint = decode_fingerprint(fingerprint_string)
         if not self.fingerprint:
-            raise InvalidFingerprintError()
+            raise errors.InvalidFingerprintError()
 
 
 class LookupHandler(APIHandler):
@@ -248,24 +176,24 @@ class SubmitHandlerParams(APIHandlerParams):
     def _parse_user(self, values, conn):
         account_apikey = values.get('user')
         if not account_apikey:
-            raise MissingParameterError('user')
+            raise errors.MissingParameterError('user')
         self.account_id = lookup_account_id_by_apikey(conn, account_apikey)
         if not self.account_id:
-            raise InvalidUserAPIKeyError()
+            raise errors.InvalidUserAPIKeyError()
 
     def _parse_submission(self, values, suffix):
         p = {}
         p['puid'] = values.get('puid' + suffix)
         p['mbids'] = values.getlist('mbid' + suffix)
         if not p['puid'] and not p['mbids']:
-            raise MissingParameterError('mbid' + suffix)
+            raise errors.MissingParameterError('mbid' + suffix)
         p['duration'] = values.get('duration' + suffix, type=int)
         fingerprint_string = values.get('fingerprint' + suffix)
         if not fingerprint_string:
-            raise MissingParameterError('fingerprint' + suffix)
+            raise errors.MissingParameterError('fingerprint' + suffix)
         p['fingerprint'] = decode_fingerprint(fingerprint_string)
         if not p['fingerprint']:
-            raise InvalidFingerprintError()
+            raise errors.InvalidFingerprintError()
         p['bitrate'] = values.get('bitrate' + suffix, type=int)
         p['format'] = values.get('fileformat' + suffix)
         self.submissions.append(p)
@@ -278,7 +206,7 @@ class SubmitHandlerParams(APIHandlerParams):
         for suffix in iter_args_suffixes(values, 'fingerprint'):
             self._parse_submission(values, suffix)
         if not self.submissions:
-            raise MissingParameterError('fingerprint')
+            raise errors.MissingParameterError('fingerprint')
 
 
 class SubmitHandler(Handler):
