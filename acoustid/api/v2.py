@@ -11,12 +11,9 @@ from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
-from acoustid.utils import singular
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
-import xml.etree.cElementTree as etree
-import json
-
+from acoustid.api import serialize_response
 
 logger = logging.getLogger(__name__)
 
@@ -48,47 +45,6 @@ def ok(data, format=DEFAULT_FORMAT):
     response_data = {'status': 'ok'}
     response_data.update(data)
     return serialize_response(response_data, format)
-
-
-def _serialize_xml_node(parent, data):
-    if isinstance(data, dict):
-        _serialize_xml_dict(parent, data)
-    elif isinstance(data, list):
-        _serialize_xml_list(parent, data)
-    else:
-        parent.text = unicode(data)
-
-
-def _serialize_xml_dict(parent, data):
-    for name, value in data.iteritems():
-        elem = etree.SubElement(parent, name)
-        _serialize_xml_node(elem, value)
-
-
-def _serialize_xml_list(parent, data):
-    name = singular(parent.tag)
-    for item in data:
-        elem = etree.SubElement(parent, name)
-        _serialize_xml_node(elem, item)
-
-
-def serialize_xml(data, **kwargs):
-    root = etree.Element('response')
-    _serialize_xml_node(root, data)
-    res = etree.tostring(root, encoding="UTF-8")
-    return Response(res, content_type='text/xml', **kwargs)
-
-
-def serialize_json(data, **kwargs):
-    res = json.dumps(data)
-    return Response(res, content_type='text/json', **kwargs)
-
-
-def serialize_response(data, format, **kwargs):
-    if format == 'json':
-        return serialize_json(data, **kwargs)
-    else:
-        return serialize_xml(data, **kwargs)
 
 
 class BadRequest(HTTPException):
