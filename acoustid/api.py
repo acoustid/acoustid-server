@@ -30,8 +30,9 @@ FINGERPRINT_VERSION = 1
 ERROR_UNKNOWN_FORMAT = 1
 ERROR_MISSING_PARAMETER = 2
 ERROR_INVALID_FINGERPRINT = 3
-ERROR_INVALID_APIKEY = 3
-ERROR_INTERNAL = 3
+ERROR_INVALID_APIKEY = 4
+ERROR_INTERNAL = 5
+ERROR_INVALID_USER_APIKEY = 6
 
 
 def error(code, message, format=DEFAULT_FORMAT, status=400):
@@ -140,6 +141,13 @@ class InvalidAPIKeyError(WebServiceError):
     def __init__(self):
         message = 'invalid API key'
         WebServiceError.__init__(self, ERROR_INVALID_APIKEY, message)
+
+
+class InvalidUserAPIKeyError(WebServiceError):
+
+    def __init__(self):
+        message = 'invalid user API key'
+        WebServiceError.__init__(self, ERROR_INVALID_USER_APIKEY, message)
 
 
 class InternalError(WebServiceError):
@@ -269,14 +277,16 @@ class LookupHandler(APIHandler):
 
 def iter_args_suffixes(args, prefix):
     prefix_dot = prefix + '.'
+    results = []
     for name in args.iterkeys():
         if name == prefix:
-            yield ''
+            results.append(None)
         elif name.startswith(prefix_dot):
             prefix, suffix = name.split('.', 1)
             if suffix.isdigit():
-                yield '.' + suffix
-
+                results.append(int(suffix))
+    results.sort()
+    return ['.%d' % i if i is not None else '' for i in results]
 
 class SubmitHandlerParams(APIHandlerParams):
 
@@ -286,24 +296,23 @@ class SubmitHandlerParams(APIHandlerParams):
             raise MissingParameterError('user')
         self.account_id = lookup_account_id_by_apikey(conn, account_apikey)
         if not self.account_id:
-            raise InvalidAPIKeyError()
+            raise InvalidUserAPIKeyError()
 
     def _parse_submission(self, values, suffix):
-        def read_arg(name):
-            if name + suffix in args:
-                return args[name + suffix]
         p = {}
-        p['puid'] = read_arg('puid')
-        p['mbids'] = [read_arg('mbid')]
+        p['puid'] = values.get('puid' + suffix)
+        p['mbids'] = values.getlist('mbid' + suffix)
+        if not p['puid'] and not p['mbids']:
+            raise MissingParameterError('mbid' + suffix)
         p['duration'] = values.get('duration' + suffix, type=int)
         fingerprint_string = values.get('fingerprint' + suffix)
         if not fingerprint_string:
-            raise MissingParameterError('fingerprint')
+            raise MissingParameterError('fingerprint' + suffix)
         p['fingerprint'], version = chromaprint.decode_fingerprint(fingerprint_string)
         if version != FINGERPRINT_VERSION:
             raise InvalidFingerprintError()
         p['bitrate'] = values.get('bitrate' + suffix, type=int)
-        p['format'] = read_arg('format')
+        p['format'] = values.get('fileformat' + suffix)
         self.submissions.append(p)
 
     def parse(self, values, conn):
@@ -312,14 +321,9 @@ class SubmitHandlerParams(APIHandlerParams):
         self._parse_user(values, conn)
         self.submissions = []
         for suffix in iter_args_suffixes(values, 'fingerprint'):
-            self.parse_submission(values, suffix)
-        self.duration = values.get('duration', type=int)
-        if not self.duration:
-            raise MissingParameterError('duration')
-        fingerprint_string = values.get('fingerprint')
-        if not fingerprint_string:
+            self._parse_submission(values, suffix)
+        if not self.submissions:
             raise MissingParameterError('fingerprint')
-        self.fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
 
 
 class SubmitHandler(Handler):
