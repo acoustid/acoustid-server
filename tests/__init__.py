@@ -25,7 +25,9 @@ SEQUENCES = [
     ('application', 'id'),
     ('format', 'id'),
     ('source', 'id'),
+    ('submission', 'id'),
     ('track', 'id'),
+    ('fingerprint', 'id'),
 ]
 
 TABLES = [
@@ -41,6 +43,9 @@ TABLES = [
     'musicbrainz.albummeta',
     'musicbrainz.albumjoin',
     'musicbrainz.release_group',
+    'musicbrainz.puid',
+    'musicbrainz.puidjoin',
+    'musicbrainz.clientversion',
 ]
 
 BASE_SQL = '''
@@ -67,6 +72,12 @@ INSERT INTO musicbrainz.albummeta (id, tracks) VALUES
     (1, 2);
 INSERT INTO musicbrainz.albumjoin (album, track, sequence) VALUES
     (1, 1, 1), (1, 2, 2);
+INSERT INTO musicbrainz.clientversion (id, version) VALUES
+    (1, 'test/1.0');
+INSERT INTO musicbrainz.puid (id, puid, version) VALUES
+    (1, 'c12f1170-db63-4e85-931b-e46094b49085', 1);
+INSERT INTO musicbrainz.puidjoin (puid, track) VALUES
+    (1, 1), (1, 2);
 '''
 
 def prepare_database(conn, sql, params=None):
@@ -102,10 +113,11 @@ def setup():
     config = Config(config_path)
     engine = sqlalchemy.create_engine(config.database.create_url(),
         poolclass=sqlalchemy.pool.AssertionPool)
-    with closing(engine.connect()) as conn:
-        for table in TABLES:
-            conn.execute("TRUNCATE TABLE %s CASCADE" % (table,))
-        prepare_database(conn, BASE_SQL)
+    if not os.environ.get('SKIP_DB_SETUP'):
+        with closing(engine.connect()) as conn:
+            for table in TABLES:
+                conn.execute("TRUNCATE TABLE %s CASCADE" % (table,))
+            prepare_database(conn, BASE_SQL)
 
 
 def assert_json_equals(expected, actual):
