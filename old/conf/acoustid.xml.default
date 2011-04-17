@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Acoustid server configuration file -->
+<acoustid-config>
+	<database>
+		<host>psql.example.com</host>
+		<port>5432</port>
+		<name>fp</name>
+		<user>fp</user>
+		<!-- <password>fp</password> -->
+	</database>
+</acoustid-config>

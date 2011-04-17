@@ -1,0 +1,165 @@
+body {
+	background: #b3b3b3;
+	margin: 6% 0 0 0;
+	font-family: 'DejaVu Sans', 'Verdana', sans;
+}
+#container {
+	background: #fff;
+	position: relative;
+	width: 840px;
+	min-height: 290px;
+	margin: auto;
+}
+#container-inner {
+	padding: 24px;
+}
+.tl {
+	width: 20px;
+	height: 20px;
+	background: url(sprite.gif) 0px 0px no-repeat;
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+.tr {
+	width: 20px;
+	height: 20px;
+	background: url(sprite.gif) -22px 0px no-repeat;
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+.bl {
+	width: 20px;
+	height: 20px;
+	background: url(sprite.gif) 0px -23px no-repeat;
+	position: absolute;
+	bottom: 0;
+	left: 0;
+}
+.br {
+	width: 20px;
+	height: 20px;
+	background: url(sprite.gif) -22px -23px no-repeat;
+	position: absolute;
+	bottom: 0;
+	right: 0;
+}
+
+h1 {
+	position: absolute;
+	top: 24px;
+	left: 24px;
+	width: 235px;
+	height: 43px;
+	margin: 0;
+	background: url(sprite.gif) -44px 0px no-repeat;
+}
+h1 a {
+	display: block;
+	width: 235px;
+	height: 43px;
+}
+h1 a span {
+	display: none;
+}
+
+ul#menu {
+	position: absolute;
+	top: 100px;
+	list-style-type: none;
+	margin: 0;
+	padding: 0;
+	text-align: center;
+	width: 235px;
+	line-height: 1.7;
+}
+
+ul a {
+	ceolor: #000;
+}
+
+#content {
+	margin-left: 280px;
+	line-height: 1.9;
+	font-size: 14px;
+}
+
+#content p {
+	margin-top: 0;
+}
+
+a {
+	color: #0145aa;
+	text-decoration: none;
+}
+
+a:hover {
+	color: #aa0000;
+	text-decoration: underline;
+}
+
+h2 {
+	margin-top: 0;
+	font-size: 16px;
+}
+
+h3 {
+	margin-top: 0;
+	font-size: 14px;
+}
+
+input.openid {
+	background: #FFFFFF url('/openid-icon-small.gif') no-repeat scroll 4px 50%;
+	padding: 4px 4px 4px 24px;
+	border: #b0b0b0 solid 1px;
+	width: 350px;
+}
+
+input.text {
+	padding: 4px;
+	border: #b0b0b0 solid 1px;
+	width: 370px;
+}
+
+.lbl {
+	width: 6em;
+}
+
+.errors {
+	background: #FF3700;
+	color: #FFF;
+	font-size: 90%;
+	padding: 0.1em 0.5em;
+}
+
+table.apps {
+	width: 90%;
+	margin: 1em auto;
+	border-collapse: collapse;
+}
+table.apps th {
+	text-align: center;
+	padding: 0.2em;
+	border-bottom: solid 1px #b2b2b2;
+}
+table.apps td {
+	text-align: center;
+	padding: 0.4em;
+	border-bottom: solid 1px #b2b2b2;
+}
+
+.center {
+	text-align: center;
+}
+
+#footer {
+	font-size: 70%;
+	text-align: center;
+	color: #555;
+}
+
+#footer a {
+	text-align: center;
+	color: #333;
+}

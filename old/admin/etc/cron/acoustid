@@ -1,0 +1,6 @@
+MAILTO=acoustid
+
+40 1 * * *     acoustid if [ -x /home/acoustid/acoustid-server/admin/cron/daily.sh ]; then /home/acoustid/acoustid-server/admin/cron/daily.sh; fi
+50 * * * *     acoustid if [ -x /home/acoustid/acoustid-server/admin/cron/hourly.sh ]; then /home/acoustid/acoustid-server/admin/cron/hourly.sh; fi
+*/3 * * * *    acoustid if [ -x /home/acoustid/acoustid-server/admin/cron/import.sh ]; then /home/acoustid/acoustid-server/admin/cron/import.sh; fi
+

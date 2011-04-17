@@ -1,0 +1,88 @@
+limit_req_zone  $binary_remote_addr  zone=one:10m   rate=1r/s;
+
+upstream phpfastcgi {
+        server 127.0.0.1:9000;
+}
+
+upstream jetty {
+        server 127.0.0.1:8080;
+}
+
+server {
+        listen 80;
+        listen 443 default ssl;
+	server_tokens off;
+
+        server_name acoustid.org www.acoustid.org;
+	server_name_in_redirect on;
+
+        ssl_certificate         ssl-www.acoustid.org.crt;
+        ssl_certificate_key     ssl-www.acoustid.org.key;
+
+        access_log  /var/log/nginx/acoustid.access.log;
+
+        # do not allow /login on non-encrypted HTTP
+        if ($scheme = "http") {
+                rewrite ^(/login) https://$server_name$1 permanent;
+        }
+
+        # do not allow /login on non-encrypted HTTP
+        if ($host != "acoustid.org") {
+                rewrite ^(.*) $scheme://$server_name$1 permanent;
+        }
+
+        root /home/acoustid/acoustid-server/web;
+        try_files $uri @website;
+
+        location @website {
+                rewrite ^/?$ /index.php last;
+                rewrite ^/([a-z-]*) /$1.php last;
+        }
+
+        location ~ ^/(lib|tpl) {
+                deny all;
+        }
+
+        location ~ \.php$ {
+		internal;
+
+                # limit PHP requests to 1 per second, delay fast requests
+                limit_req   zone=one  burst=5;
+
+                # check if the PHP script exists
+                if (!-f $request_filename) {
+                        return 404;
+                }
+
+                include fastcgi_params;
+                fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                fastcgi_pass phpfastcgi;
+        }
+
+}
+
+server {
+	listen 80;
+	server_tokens off;
+
+	server_name api.acoustid.org;
+
+        access_log  /var/log/nginx/api.acoustid.access.log;
+
+        rewrite ^/?$ http://wiki.acoustid.org/wiki/Web_Service permanent;
+
+        location ~ ^/(submit) {
+	#location ~ ^/(submit|lookup) {
+		proxy_pass http://jetty;
+        }
+
+        location /status {
+                access_log off;
+                allow 127.0.0.1;
+		deny all;
+                proxy_pass http://jetty;
+        }
+
+}
+
+

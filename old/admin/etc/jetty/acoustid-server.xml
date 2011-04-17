@@ -1,0 +1,6 @@
+<Configure class="org.mortbay.jetty.webapp.WebAppContext">
+  <Set name="contextPath">/</Set>
+  <Set name="war">/home/acoustid/release/acoustid-server-XXX.war</Set>
+  <Set name="overrideDescriptor"><SystemProperty name="jetty.home" default="."/>/contexts/acoustid-server.d/override-web.xml</Set>
+</Configure>
+
