@@ -149,29 +149,21 @@ class InternalError(WebServiceError):
         WebServiceError.__init__(self, ERROR_INTERNAL, message)
 
 
-class LookupHandlerParams(object):
+class APIHandlerParams(object):
 
-    def parse(self, values, conn):
-        self.format = values.get('format', DEFAULT_FORMAT)
-        if self.format not in FORMATS:
-            self.format = DEFAULT_FORMAT # used for the error response
-            raise UnknownFormatError(self.format)
+    def _parse_client(self, values, conn):
         application_apikey = values.get('client')
         if not application_apikey:
             raise MissingParameterError('client')
         self.application_id = lookup_application_id_by_apikey(conn, application_apikey)
         if not self.application_id:
             raise InvalidAPIKeyError()
-        self.meta = values.get('meta', type=int)
-        self.duration = values.get('duration', type=int)
-        if not self.duration:
-            raise MissingParameterError('duration')
-        fingerprint_string = values.get('fingerprint')
-        if not fingerprint_string:
-            raise MissingParameterError('fingerprint')
-        self.fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
-        if version != FINGERPRINT_VERSION:
-            raise InvalidFingerprintError()
+
+    def parse(self, values, conn):
+        self.format = values.get('format', DEFAULT_FORMAT)
+        if self.format not in FORMATS:
+            self.format = DEFAULT_FORMAT # used for the error response
+            raise UnknownFormatError(self.format)
 
 
 class APIHandler(Handler):
@@ -191,6 +183,23 @@ class APIHandler(Handler):
                 raise InternalError()
         except WebServiceError, e:
             return error(e.code, e.message, params.format)
+
+
+class LookupHandlerParams(APIHandlerParams):
+
+    def parse(self, values, conn):
+        super(LookupHandlerParams, self).parse(values, conn)
+        self._parse_client(values, conn)
+        self.meta = values.get('meta', type=int)
+        self.duration = values.get('duration', type=int)
+        if not self.duration:
+            raise MissingParameterError('duration')
+        fingerprint_string = values.get('fingerprint')
+        if not fingerprint_string:
+            raise MissingParameterError('fingerprint')
+        self.fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
+        if version != FINGERPRINT_VERSION:
+            raise InvalidFingerprintError()
 
 
 class LookupHandler(APIHandler):
@@ -269,52 +278,74 @@ def iter_args_suffixes(args, prefix):
                 yield '.' + suffix
 
 
-class SubmitHandler(Handler):
+class SubmitHandlerParams(APIHandlerParams):
 
-    def __init__(self, conn):
-        self.conn = conn
+    def _parse_user(self, values, conn):
+        account_apikey = values.get('user')
+        if not account_apikey:
+            raise MissingParameterError('user')
+        self.account_id = lookup_account_id_by_apikey(conn, account_apikey)
+        if not self.account_id:
+            raise InvalidAPIKeyError()
 
-    def _read_fp_params(self, args, suffix):
+    def _parse_submission(self, values, suffix):
         def read_arg(name):
             if name + suffix in args:
                 return args[name + suffix]
         p = {}
         p['puid'] = read_arg('puid')
         p['mbids'] = [read_arg('mbid')]
-        p['length'] = read_arg('length')
-        p['fingerprint'] = chromaprint.decode_fingerprint(read_arg('fingerprint'))[0]
-        p['bitrate'] = read_arg('bitrate')
+        p['duration'] = values.get('duration' + suffix, type=int)
+        fingerprint_string = values.get('fingerprint' + suffix)
+        if not fingerprint_string:
+            raise MissingParameterError('fingerprint')
+        p['fingerprint'], version = chromaprint.decode_fingerprint(fingerprint_string)
+        if version != FINGERPRINT_VERSION:
+            raise InvalidFingerprintError()
+        p['bitrate'] = values.get('bitrate' + suffix, type=int)
         p['format'] = read_arg('format')
-        return p
+        self.submissions.append(p)
 
-    def handle(self, req):
-        params = []
-        for suffix in iter_args_suffixes(req.values, 'fingerprint'):
-            params.append(self._read_fp_params(req.values, suffix))
-        application_apikey = req.values['client']
-        application_id = lookup_application_id_by_apikey(self.conn, application_apikey)
-        account_apikey = req.values['user']
-        account_id = lookup_account_id_by_apikey(self.conn, account_apikey)
-        source_id = find_or_insert_source(self.conn, application_id, account_id)
-        user = req.values['user']
+    def parse(self, values, conn):
+        super(SubmitHandlerParams, self).parse(values, conn)
+        self._parse_client(values, conn)
+        self._parse_user(values, conn)
+        self.submissions = []
+        for suffix in iter_args_suffixes(values, 'fingerprint'):
+            self.parse_submission(values, suffix)
+        self.duration = values.get('duration', type=int)
+        if not self.duration:
+            raise MissingParameterError('duration')
+        fingerprint_string = values.get('fingerprint')
+        if not fingerprint_string:
+            raise MissingParameterError('fingerprint')
+        self.fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
+
+
+class SubmitHandler(Handler):
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def _handle_internal(self, params):
         with self.conn.begin():
+            source_id = find_or_insert_source(self.conn, params.application_id, params.account_id)
             format_ids = {}
-            for p in params:
+            for p in params.submissions:
                 if p['format'] and p['format'] not in format_ids:
                     format_ids[p['format']] = find_or_insert_format(self.conn, p['format'])
-            for p in params:
+            for p in params.submissions:
                 for mbid in p['mbids']:
                     insert_submission(self.conn, {
-                        'mbid': mbid,
-                        'puid': p['puid'],
-                        'bitrate': p['bitrate'],
+                        'mbid': mbid or None,
+                        'puid': p['puid'] or None,
+                        'bitrate': p['bitrate'] or None,
                         'fingerprint': p['fingerprint'],
                         'length': p['length'],
                         'format_id': format_ids[p['format']] if p['format'] else None,
                         'source_id': source_id
                     })
-        response = {'status': 'ok'}
-        return serialize_response(response, req.values.get('format'))
+        return {}
 
     @classmethod
     def create_from_server(cls, server):

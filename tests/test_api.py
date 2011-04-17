@@ -10,6 +10,7 @@ from acoustid.api import (
     serialize_json, serialize_xml, ok, error,
     LookupHandler,
     LookupHandlerParams,
+    SubmitHandlerParams,
 )
 from acoustid import api as errors
 
@@ -171,3 +172,22 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
 
+
+@with_database
+def test_submit_handler_params(conn):
+    # invalid format
+    values = MultiDict({'format': 'xls'})
+    params = SubmitHandlerParams()
+    assert_raises(errors.UnknownFormatError, params.parse, values, conn)
+    # missing client
+    values = MultiDict({'format': 'json'})
+    params = SubmitHandlerParams()
+    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    # invalid client
+    values = MultiDict({'format': 'json', 'client': 'N/A'})
+    params = SubmitHandlerParams()
+    assert_raises(errors.InvalidAPIKeyError, params.parse, values, conn)
+    # missing duration
+    values = MultiDict({'format': 'json', 'client': 'app1key'})
+    params = SubmitHandlerParams()
+    assert_raises(errors.MissingParameterError, params.parse, values, conn)
