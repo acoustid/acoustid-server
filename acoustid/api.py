@@ -6,7 +6,7 @@ from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.submission import insert_submission
-from acoustid.data.fingerprintdata import FingerprintData
+from acoustid.data.fingerprint import lookup_fingerprint, decode_fingerprint
 from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
@@ -16,7 +16,6 @@ from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
 import xml.etree.cElementTree as etree
 import json
-import chromaprint
 
 
 logger = logging.getLogger(__name__)
@@ -24,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FORMAT = 'xml'
 FORMATS = set(['xml', 'json'])
-FINGERPRINT_VERSION = 1
 
 
 ERROR_UNKNOWN_FORMAT = 1
@@ -106,6 +104,7 @@ class MissingArgument(BadRequest):
     def __init__(self, name):
         description = "Missing argument '%s'" % (name,)
         BadRequest.__init__(self, description)
+
 
 class WebServiceError(Exception):
 
@@ -205,8 +204,8 @@ class LookupHandlerParams(APIHandlerParams):
         fingerprint_string = values.get('fingerprint')
         if not fingerprint_string:
             raise MissingParameterError('fingerprint')
-        self.fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
-        if version != FINGERPRINT_VERSION:
+        self.fingerprint = decode_fingerprint(fingerprint_string)
+        if not self.fingerprint:
             raise InvalidFingerprintError()
 
 
@@ -218,7 +217,6 @@ class LookupHandler(APIHandler):
         self.server = server
         if conn is not None:
             self.__dict__['conn'] = conn
-        self.fingerprint_data = FingerprintData(self.conn)
 
     @cached_property
     def conn(self):
@@ -259,7 +257,7 @@ class LookupHandler(APIHandler):
     def _handle_internal(self, params):
         response = {}
         response['results'] = results = []
-        matches = self.fingerprint_data.search(params.fingerprint, params.duration, 0.7, 0.3)
+        matches = lookup_fingerprint(self.conn, params.fingerprint, params.duration, 0.7, 0.3)
         result_map = {}
         for fingerprint_id, track_id, score in matches:
             if track_id in result_map:
@@ -288,6 +286,7 @@ def iter_args_suffixes(args, prefix):
     results.sort()
     return ['.%d' % i if i is not None else '' for i in results]
 
+
 class SubmitHandlerParams(APIHandlerParams):
 
     def _parse_user(self, values, conn):
@@ -308,8 +307,8 @@ class SubmitHandlerParams(APIHandlerParams):
         fingerprint_string = values.get('fingerprint' + suffix)
         if not fingerprint_string:
             raise MissingParameterError('fingerprint' + suffix)
-        p['fingerprint'], version = chromaprint.decode_fingerprint(fingerprint_string)
-        if version != FINGERPRINT_VERSION:
+        p['fingerprint'] = decode_fingerprint(fingerprint_string)
+        if not p['fingerprint']:
             raise InvalidFingerprintError()
         p['bitrate'] = values.get('bitrate' + suffix, type=int)
         p['format'] = values.get('fileformat' + suffix)
