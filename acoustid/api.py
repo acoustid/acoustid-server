@@ -216,7 +216,7 @@ class LookupHandler(APIHandler):
             track_meta_map = lookup_metadata(self.conn, all_mbids)
         for track_id, mbids in track_mbid_map.iteritems():
             result = result_map[track_id]
-            result['tracks'] = tracks = []
+            result['recordings'] = tracks = []
             for mbid in mbids:
                 track = {}
                 tracks.append(track)
@@ -231,7 +231,9 @@ class LookupHandler(APIHandler):
                 track['artist'] = artist = {}
                 artist['id'] = track_meta['artist_id']
                 artist['name'] = track_meta['artist_name']
-                track['release'] = release = {}
+                track['releases'] = releases = []
+                release = {}
+                releases.append(release)
                 release['id'] = track_meta['release_id']
                 release['name'] = track_meta['release_name']
                 release['track_num'] = track_meta['track_num']

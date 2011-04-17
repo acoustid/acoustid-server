@@ -135,7 +135,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
         "results": [{
             "id": 1,
             "score": 1.0,
-            "tracks": [{"id": "b81f83ee-4da4-11e0-9ed8-0025225356f3"}],
+            "recordings": [{"id": "b81f83ee-4da4-11e0-9ed8-0025225356f3"}],
         }],
     }
     assert_json_equals(expected, resp.data)
@@ -151,16 +151,16 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
         "results": [{
             "id": 1,
             "score": 1.0,
-            "tracks": [{
+            "recordings": [{
                 "id": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
                 "name": "Track A",
                 "length": 123,
-                "release": {
+                "releases": [{
                     "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
                     "name": "Album A",
                     "track_num": 1,
                     "track_count": 2,
-                },
+                }],
                 "artist": {
                     "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
                     "name": "Artist A",
