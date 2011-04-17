@@ -6,13 +6,13 @@ from tests import prepare_database, with_database, assert_json_equals
 from werkzeug.wrappers import Request
 from werkzeug.test import EnvironBuilder
 from werkzeug.datastructures import MultiDict
-from acoustid.api import (
+from acoustid.api.v2 import (
     serialize_json, serialize_xml, ok, error,
     LookupHandler,
     LookupHandlerParams,
     SubmitHandlerParams,
 )
-from acoustid import api as errors
+from acoustid.api import v2
 
 
 TEST_1_LENGTH = 223
@@ -66,27 +66,27 @@ def test_lookup_handler_params(conn):
     # invalid format
     values = MultiDict({'format': 'xls'})
     params = LookupHandlerParams()
-    assert_raises(errors.UnknownFormatError, params.parse, values, conn)
+    assert_raises(v2.UnknownFormatError, params.parse, values, conn)
     # missing client
     values = MultiDict({'format': 'json'})
     params = LookupHandlerParams()
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    assert_raises(v2.MissingParameterError, params.parse, values, conn)
     # invalid client
     values = MultiDict({'format': 'json', 'client': 'N/A'})
     params = LookupHandlerParams()
-    assert_raises(errors.InvalidAPIKeyError, params.parse, values, conn)
+    assert_raises(v2.InvalidAPIKeyError, params.parse, values, conn)
     # missing duration
     values = MultiDict({'format': 'json', 'client': 'app1key'})
     params = LookupHandlerParams()
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    assert_raises(v2.MissingParameterError, params.parse, values, conn)
     # missing fingerprint
     values = MultiDict({'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH)})
     params = LookupHandlerParams()
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    assert_raises(v2.MissingParameterError, params.parse, values, conn)
     # invalid fingerprint
     values = MultiDict({'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': '...'})
     params = LookupHandlerParams()
-    assert_raises(errors.InvalidFingerprintError, params.parse, values, conn)
+    assert_raises(v2.InvalidFingerprintError, params.parse, values, conn)
     # all ok
     values = MultiDict({'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP})
     params = LookupHandlerParams()
@@ -182,27 +182,27 @@ def test_submit_handler_params(conn):
     # invalid format
     values = MultiDict({'format': 'xls'})
     params = SubmitHandlerParams()
-    assert_raises(errors.UnknownFormatError, params.parse, values, conn)
+    assert_raises(v2.UnknownFormatError, params.parse, values, conn)
     # missing client
     values = MultiDict({'format': 'json'})
     params = SubmitHandlerParams()
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    assert_raises(v2.MissingParameterError, params.parse, values, conn)
     # invalid client
     values = MultiDict({'format': 'json', 'client': 'N/A'})
     params = SubmitHandlerParams()
-    assert_raises(errors.InvalidAPIKeyError, params.parse, values, conn)
+    assert_raises(v2.InvalidAPIKeyError, params.parse, values, conn)
     # missing user
     values = MultiDict({'format': 'json', 'client': 'app1key'})
     params = SubmitHandlerParams()
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    assert_raises(v2.MissingParameterError, params.parse, values, conn)
     # invalid user
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'N/A'})
     params = SubmitHandlerParams()
-    assert_raises(errors.InvalidUserAPIKeyError, params.parse, values, conn)
+    assert_raises(v2.InvalidUserAPIKeyError, params.parse, values, conn)
     # missing fingerprint
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key'})
     params = SubmitHandlerParams()
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    assert_raises(v2.MissingParameterError, params.parse, values, conn)
     # all ok (single submission)
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
