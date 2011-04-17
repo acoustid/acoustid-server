@@ -1,0 +1,4 @@
+*.pyc
+acoustid.conf
+acoustid-test.conf
+
