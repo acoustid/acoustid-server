@@ -200,7 +200,7 @@ class LookupHandler(APIHandler):
     def __init__(self, server=None, conn=None):
         self.server = server
         if conn is not None:
-            self.conn = conn
+            self.__dict__['conn'] = conn
         self.fingerprint_data = FingerprintData(self.conn)
 
     @cached_property
