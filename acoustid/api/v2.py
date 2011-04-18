@@ -68,12 +68,12 @@ class APIHandler(Handler):
             try:
                 params.parse(req.values, self.conn)
                 return self._ok(self._handle_internal(params), params.format)
-            except WebServiceError:
+            except errors.WebServiceError:
                 raise
             except StandardError:
                 logger.exception('Error while handling API request')
                 raise errors.InternalError()
-        except WebServiceError, e:
+        except errors.WebServiceError, e:
             return self._error(e.code, e.message, params.format)
 
 
@@ -219,7 +219,7 @@ class SubmitHandlerParams(APIHandlerParams):
             raise errors.MissingParameterError('fingerprint')
 
 
-class SubmitHandler(Handler):
+class SubmitHandler(APIHandler):
 
     def __init__(self, conn):
         self.conn = conn
@@ -238,7 +238,7 @@ class SubmitHandler(Handler):
                         'puid': p['puid'] or None,
                         'bitrate': p['bitrate'] or None,
                         'fingerprint': p['fingerprint'],
-                        'length': p['length'],
+                        'length': p['duration'],
                         'format_id': format_ids[p['format']] if p['format'] else None,
                         'source_id': source_id
                     })

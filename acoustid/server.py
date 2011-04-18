@@ -10,11 +10,14 @@ import sqlalchemy
 from acoustid.config import Config
 from acoustid import api, website, handlers
 from acoustid.script import Script
+import api.v1
 import api.v2
 
 
 api_url_rules = [
     Submount('/ws', [
+        Rule('/lookup', endpoint=api.v1.LookupHandler),
+        Rule('/submit', endpoint=api.v1.SubmitHandler),
         Submount('/v2', [
             Rule('/lookup', endpoint=api.v2.LookupHandler),
             Rule('/submit', endpoint=api.v2.SubmitHandler),
