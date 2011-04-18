@@ -80,24 +80,27 @@ INSERT INTO musicbrainz.puidjoin (puid, track) VALUES
     (1, 1), (1, 2);
 '''
 
-def prepare_database(conn, sql, params=None):
+
+def prepare_sequences(conn):
     with conn.begin():
         for table, column in SEQUENCES:
             conn.execute("""
                 SELECT setval('%(table)s_%(column)s_seq',
                     coalesce((SELECT max(%(column)s) FROM %(table)s), 0) + 1, false)
             """ % {'table': table, 'column': column})
+
+
+def prepare_database(conn, sql, params=None):
+    with conn.begin():
+        prepare_sequences(conn)
         conn.execute(sql, params)
-        for table, column in SEQUENCES:
-            conn.execute("""
-                SELECT setval('%(table)s_%(column)s_seq',
-                    coalesce((SELECT max(%(column)s) FROM %(table)s), 0) + 1, false)
-            """ % {'table': table, 'column': column})
+        prepare_sequences(conn)
 
 
 def with_database(func):
     def wrapper(*args, **kwargs):
         with closing(engine.connect()) as conn:
+            prepare_sequences(conn)
             trans = conn.begin()
             try:
                 func(conn, *args, **kwargs)

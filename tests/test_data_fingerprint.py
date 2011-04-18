@@ -16,7 +16,7 @@ def test_insert_fingerprint(conn):
         'format_id': 1,
         'track_id': 2,
     })
-    assert_equals(2, id)
+    assert_equals(1, id)
     rows = conn.execute("""
         SELECT fingerprint, length, bitrate, source_id, format_id, track_id
         FROM fingerprint WHERE id=%s

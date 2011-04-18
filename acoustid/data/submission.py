@@ -45,26 +45,39 @@ def import_submission(conn, submission):
         if submission['puid']:
             mbids.extend(find_puid_mbids(submission['puid']))
         logger.info("Importing submission %d with MBIDs %s",
-            (submission['id'], ', '.join(mbids)))
+            submission['id'], ', '.join(mbids))
         matches = lookup_fingerprint(conn,
-            submission['fingerprint'], submission['duration'],
+            submission['fingerprint'], submission['length'],
             TRACK_MERGE_TRESHOLD, FINGERPRINT_MERGE_TRESHOLD, fast=True)
+        fingerprint = {
+            'id': None,
+            'track_id': None,
+            'fingerprint': submission['fingerprint'],
+            'length': submission['length'],
+            'bitrate': submission['bitrate'],
+            'source_id': submission['source_id'],
+            'format_id': submission['format_id'],
+        }
         if matches:
             match = matches[0]
             logger.debug("Matches %d results, the top result (%s) is %d%% similar",
-                (len(matches), match['id'], match['score'] * 100))
+                len(matches), match['id'], match['score'] * 100)
             fingerprint['track_id'] = match['track_id']
             if match['score'] > FINGERPRINT_MERGE_TRESHOLD:
                 fingerprint['id'] = match['id']
         if not fingerprint['track_id']:
             fingerprint['track_id'] = insert_track(conn)
-            logger.info('Added new track %d', (fingerprint['track_id'],))
+            logger.info('Added new track %d', fingerprint['track_id'])
         if not fingerprint['id']:
             fingerprint['id'] = insert_fingerprint(conn, fingerprint)
-            logger.info('Added new fingerprint %d', (fingerprint['id'],))
+            logger.info('Added new fingerprint %d', fingerprint['id'])
         for mbid in mbids:
             if insert_mbid(conn, fingerprint['track_id'], mbid):
                 logger.info('Added MBID %s to track %d', (mbid, fingerprint['track_id']))
+        update_stmt = schema.submission.update().where(
+            schema.submission.c.id == submission['id'])
+        conn.execute(update_stmt.values(handled=True))
+        return fingerprint
 
 
 def import_queued_submissions(conn, limit=50):
