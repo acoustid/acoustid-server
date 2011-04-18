@@ -33,6 +33,23 @@ class DatabaseConfig(object):
             kwargs['password'] = self.password
         return URL('postgresql', **kwargs)
 
+    def create_psql_args(self, superuser=False):
+        args = []
+        if superuser:
+            args.append('-U')
+            args.append(self.superuser)
+        else:
+            args.append('-U')
+            args.append(self.user)
+        if self.host is not None:
+            args.append('-h')
+            args.append(self.host)
+        if self.port is not None:
+            args.append('-p')
+            args.append(str(self.port))
+        args.append(self.name)
+        return args
+
     def read(self, parser, section):
         self.user = parser.get(section, 'user')
         self.name = parser.get(section, 'name')
