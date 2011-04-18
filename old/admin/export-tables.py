@@ -46,4 +46,4 @@ for table, sql in TABLES:
         else:
             copy_sql = "COPY (%s) TO STDOUT" % sql
         cursor.copy_expert(copy_sql, fileobj)
-    
+

@@ -1,5 +1,5 @@
 # Copyright (C) 2011 Lukas Lalinsky
-# Distributed under the MIT license, see the LICENSE file for details. 
+# Distributed under the MIT license, see the LICENSE file for details.
 
 from nose.tools import *
 from tests import (prepare_database, with_database, assert_json_equals,

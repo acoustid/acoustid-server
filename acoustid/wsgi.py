@@ -1,5 +1,5 @@
 # Copyright (C) 2011 Lukas Lalinsky
-# Distributed under the MIT license, see the LICENSE file for details. 
+# Distributed under the MIT license, see the LICENSE file for details.
 
 # Simple WSGI module intended to be used by uWSGI, e.g.:
 # uwsgi -w acoustid.wsgi --pythonpath ~/acoustid/ --env ACOUSTID_CONFIG=~/acoustid/acoustid.conf --http :9090
