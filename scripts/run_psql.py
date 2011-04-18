@@ -4,11 +4,11 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 from acoustid.script import run_script
-import subprocess
+import os
 
 
 def main(script, opts, args):
-    subprocess.call(['psql'] + script.config.database.create_psql_args())
+    os.execlp('psql', 'psql', *script.config.database.create_psql_args())
 
 run_script(main)
 
