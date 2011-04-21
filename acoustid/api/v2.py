@@ -108,6 +108,7 @@ class LookupHandlerParams(APIHandlerParams):
 class LookupHandler(APIHandler):
 
     params_class = LookupHandlerParams
+    recordings_name = 'recordings'
 
     def _inject_metadata(self, meta, result_map):
         track_mbid_map = lookup_mbids(self.conn, result_map.keys())
@@ -118,7 +119,7 @@ class LookupHandler(APIHandler):
             track_meta_map = lookup_metadata(self.conn, all_mbids)
         for track_id, mbids in track_mbid_map.iteritems():
             result = result_map[track_id]
-            result['recordings'] = tracks = []
+            result[self.recordings_name] = tracks = []
             for mbid in mbids:
                 track = {}
                 tracks.append(track)

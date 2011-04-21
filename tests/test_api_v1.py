@@ -16,6 +16,7 @@ from werkzeug.datastructures import MultiDict
 from acoustid import tables
 from acoustid.api import errors
 from acoustid.api.v1 import (
+    LookupHandler,
     LookupHandlerParams,
     SubmitHandler,
     SubmitHandlerParams,
@@ -76,6 +77,49 @@ def test_lookup_handler_params(conn):
     assert_equals(1, params.application_id)
     assert_equals(TEST_1_LENGTH, params.duration)
     assert_equals(TEST_1_FP_RAW, params.fingerprint)
+
+
+@with_database
+def test_lookup_handler(conn):
+    values = {'client': 'app1key', 'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = LookupHandler(connect=provider(conn))
+    # no matches
+    handler = LookupHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('text/xml', resp.content_type)
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results /></response>"
+    assert_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    # one exact match
+    prepare_database(conn, """
+INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
+    VALUES (%s, %s, 1, 1);
+""", (TEST_1_LENGTH, TEST_1_FP_RAW))
+    handler = LookupHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('text/xml', resp.content_type)
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><score>1.0</score><id>1</id></result></results></response>"
+    assert_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    # one exact match with MBIDs
+    values = {'client': 'app1key', 'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '1'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = LookupHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('text/xml', resp.content_type)
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id></track></tracks><score>1.0</score><id>1</id></result></results></response>"
+    assert_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    # one exact match with MBIDs and metadata
+    values = {'client': 'app1key', 'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '2'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = LookupHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('text/xml', resp.content_type)
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><length>123</length><artist><id>a64796c0-4da4-11e0-bf81-0025225356f3</id><name>Artist A</name></artist><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id><releases><release><track_num>1</track_num><id>dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23</id><track_count>2</track_count><name>Album A</name></release></releases><name>Track A</name></track></tracks><score>1.0</score><id>1</id></result></results></response>"
+    assert_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
 
 
 @with_database

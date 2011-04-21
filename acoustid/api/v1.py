@@ -57,6 +57,7 @@ class LookupHandlerParams(APIHandlerParams):
 class LookupHandler(v2.LookupHandler):
 
     params_class = LookupHandlerParams
+    recordings_name = 'tracks'
 
 
 class SubmitHandlerParams(v2.SubmitHandlerParams):
