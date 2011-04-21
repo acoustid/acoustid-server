@@ -29,6 +29,9 @@ def singular(plural):
 
 
 def provider(value):
+    """
+    Returns a function that returns the given value.
+    """
     def func():
         return value
     return func
