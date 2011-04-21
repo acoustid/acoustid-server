@@ -21,6 +21,7 @@ from acoustid.api.v1 import (
     SubmitHandlerParams,
     APIHandler,
 )
+from acoustid.utils import provider
 
 
 def test_ok():
@@ -155,7 +156,7 @@ def test_submit_handler(conn):
         'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
         'mbid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'format': 'FLAC'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = SubmitHandler(conn=conn)
+    handler = SubmitHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/xml', resp.content_type)
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status></response>"

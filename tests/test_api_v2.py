@@ -22,6 +22,7 @@ from acoustid.api.v2 import (
     SubmitHandlerParams,
     APIHandler,
 )
+from acoustid.utils import provider
 
 def test_ok():
     handler = APIHandler()
@@ -86,9 +87,9 @@ def test_lookup_handler_params(conn):
 def test_lookup_handler(conn):
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = LookupHandler(conn=conn)
+    handler = LookupHandler(connect=provider(conn))
     # no matches
-    handler = LookupHandler(conn=conn)
+    handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/json', resp.content_type)
     expected = {
@@ -102,7 +103,7 @@ def test_lookup_handler(conn):
 INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     VALUES (%s, %s, 1, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
-    handler = LookupHandler(conn=conn)
+    handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/json', resp.content_type)
     expected = {
@@ -117,7 +118,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     # one exact match with MBIDs
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '1'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = LookupHandler(conn=conn)
+    handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/json', resp.content_type)
     expected = {
@@ -133,7 +134,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     # one exact match with MBIDs and metadata
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '2'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = LookupHandler(conn=conn)
+    handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/json', resp.content_type)
     expected = {
@@ -274,7 +275,7 @@ def test_submit_handler(conn):
         'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
         'mbid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'fileformat': 'FLAC'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = SubmitHandler(conn=conn)
+    handler = SubmitHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/json', resp.content_type)
     expected = {"status": "ok"}

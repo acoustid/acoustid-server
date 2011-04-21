@@ -26,3 +26,10 @@ def singular(plural):
     if plural.endswith('s'):
         return plural[:-1]
     raise ValueError('unknown plural form %r' % (plural,))
+
+
+def provider(value):
+    def func():
+        return value
+    return func
+

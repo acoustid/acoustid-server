@@ -47,13 +47,16 @@ class APIHandler(Handler):
 
     params_class = None
 
-    def __init__(self, conn=None):
-        self.conn = conn
+    def __init__(self, connect=None):
+        self._connect = connect
+
+    @cached_property
+    def conn(self):
+        return self._connect()
 
     @classmethod
     def create_from_server(cls, server):
-        conn = server.engine.connect()
-        return cls(conn=conn)
+        return cls(connect=server.engine.connect)
 
     def _error(self, code, message, format=DEFAULT_FORMAT, status=400):
         response_data = {
