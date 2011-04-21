@@ -221,6 +221,8 @@ class SubmitHandlerParams(APIHandlerParams):
 
 class SubmitHandler(APIHandler):
 
+    params_class = SubmitHandlerParams
+
     def __init__(self, conn):
         self.conn = conn
 
