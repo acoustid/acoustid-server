@@ -85,7 +85,7 @@ class APIHandler(Handler):
                 logger.exception('Error while handling API request')
                 raise errors.InternalError()
         except errors.WebServiceError, e:
-            return self._error(e.code, e.message, params.format)
+            return self._error(e.code, e.message, params.format, status=e.status)
 
 
 class LookupHandlerParams(APIHandlerParams):
@@ -184,7 +184,7 @@ class SubmitHandlerParams(APIHandlerParams):
     def _parse_duration_and_format(self, p, values, suffix):
         p['duration'] = values.get('duration' + suffix, type=int)
         if not p['duration']:
-            raise MissingParameterError('duration' + suffix)
+            raise errors.MissingParameterError('duration' + suffix)
         p['format'] = values.get('fileformat' + suffix)
 
     def _parse_submission(self, values, suffix):

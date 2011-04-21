@@ -21,6 +21,7 @@ from acoustid.api.v2 import (
     SubmitHandler,
     SubmitHandlerParams,
     APIHandler,
+    APIHandlerParams,
 )
 from acoustid.utils import provider
 
@@ -83,6 +84,52 @@ def test_lookup_handler_params(conn):
     assert_equals(TEST_1_FP_RAW, params.fingerprint)
 
 
+class WebServiceErrorHandler(APIHandler):
+
+    params_class = APIHandlerParams
+
+    def _handle_internal(self, params):
+        raise errors.InvalidAPIKeyError()
+
+
+class InternalErrorHandler(APIHandler):
+
+    params_class = APIHandlerParams
+
+    def _handle_internal(self, params):
+        return {'infinity': 43 / 0}
+
+
+@with_database
+def test_apihandler_ws_error(conn):
+    values = {'format': 'json'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = WebServiceErrorHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('text/json', resp.content_type)
+    expected = {
+        "status": "error",
+        "error": {
+            "message": "invalid API key",
+            "code": 4,
+        }
+    }
+    assert_json_equals(expected, resp.data)
+    assert_equals('400 BAD REQUEST', resp.status)
+    handler = InternalErrorHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('text/json', resp.content_type)
+    expected = {
+        "status": "error",
+        "error": {
+            "message": "internal error",
+            "code": 5,
+        }
+    }
+    assert_json_equals(expected, resp.data)
+    assert_equals('500 INTERNAL SERVER ERROR', resp.status)
+
+
 @with_database
 def test_lookup_handler(conn):
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
@@ -132,6 +179,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     # one exact match with MBIDs and metadata
+    prepare_database(conn, "INSERT INTO track_mbid (track_id, mbid) VALUES (1, '373e6728-35e3-4633-aab1-bf7092ec43d8')")
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '2'}
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(connect=provider(conn))
@@ -156,8 +204,29 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
                     "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
                     "name": "Artist A",
                 },
+            }, {
+                "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
             }],
         }]
+    }
+    assert_json_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    # duplicate fingerprint
+    prepare_database(conn, """
+INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
+    VALUES (%s, %s, 1, 1);
+""", (TEST_1_LENGTH, TEST_1_FP_RAW))
+    values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = LookupHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('text/json', resp.content_type)
+    expected = {
+        "status": "ok",
+        "results": [{
+            "id": 1,
+            "score": 1.0,
+        }],
     }
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
@@ -219,6 +288,36 @@ def test_submit_handler_params(conn):
     })
     params = SubmitHandlerParams()
     assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
+    # empty fingerprint
+    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
+        'puid': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
+        'duration': str(TEST_1_LENGTH),
+        'fingerprint': '',
+        'bitrate': '192',
+        'fileformat': 'MP3'
+    })
+    params = SubmitHandlerParams()
+    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    # missing puid and mbid
+    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'duration': str(TEST_1_LENGTH),
+        'fingerprint': TEST_1_FP,
+        'bitrate': '192',
+        'fileformat': 'MP3'
+    })
+    params = SubmitHandlerParams()
+    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    # missing duration
+    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
+        'puid': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
+        'fingerprint': TEST_1_FP,
+        'bitrate': '192',
+        'fileformat': 'MP3'
+    })
+    params = SubmitHandlerParams()
+    assert_raises(errors.MissingParameterError, params.parse, values, conn)
     # all ok (single submission)
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],

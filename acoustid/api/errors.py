@@ -17,6 +17,8 @@ ERROR_INVALID_UUID = 7
 
 class WebServiceError(Exception):
 
+    status = 400
+
     def __init__(self, code, message):
         self.code = code
         self.message = message
@@ -59,6 +61,8 @@ class InvalidUserAPIKeyError(WebServiceError):
 
 
 class InternalError(WebServiceError):
+
+    status = 500
 
     def __init__(self):
         message = 'internal error'
