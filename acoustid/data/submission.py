@@ -42,7 +42,9 @@ def import_submission(conn, submission):
         if submission['mbid']:
             mbids.append(submission['mbid'])
         if submission['puid']:
-            mbids.extend(find_puid_mbids(submission['puid']))
+            min_duration = submission['length'] - 15
+            max_duration = submission['length'] + 15
+            mbids.extend(find_puid_mbids(conn, submission['puid'], min_duration, max_duration))
         logger.info("Importing submission %d with MBIDs %s",
             submission['id'], ', '.join(mbids))
         matches = lookup_fingerprint(conn,

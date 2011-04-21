@@ -68,7 +68,7 @@ class SubmitHandlerParams(v2.SubmitHandlerParams):
     def _parse_duration_and_format(self, p, values, suffix):
         p['duration'] = values.get('length' + suffix, type=int)
         if not p['duration']:
-            raise MissingParameterError('length' + suffix)
+            raise errors.MissingParameterError('length' + suffix)
         p['format'] = values.get('format' + suffix)
 
 

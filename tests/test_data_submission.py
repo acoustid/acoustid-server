@@ -42,6 +42,8 @@ def test_import_submission(conn):
         'bitrate': 192,
         'source_id': 1,
         'format_id': 1,
+        'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
+        'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
     })
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
@@ -76,6 +78,8 @@ def test_import_submission(conn):
         'bitrate': 192,
         'source_id': 1,
         'format_id': 1,
+        'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
+        'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
     })
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()

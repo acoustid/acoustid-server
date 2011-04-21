@@ -9,6 +9,7 @@ def test_singular():
     assert_equals('artist', singular('artists'))
     assert_equals('release', singular('releases'))
     assert_equals('city', singular('cities'))
+    assert_raises(ValueError, singular, 'city')
 
 
 def test_is_uuid():

@@ -24,7 +24,7 @@ def test_find_or_insert_source(conn):
     expected_rows = [
         (1, 1, 1),
         (2, 2, 2),
-        (3, 1, 2),
+        (3, 2, 1),
     ]
     assert_equals(expected_rows, rows)
 

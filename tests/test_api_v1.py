@@ -144,6 +144,16 @@ def test_submit_handler_params(conn):
     values = MultiDict({'client': 'app1key', 'user': 'user1key'})
     params = SubmitHandlerParams()
     assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    # missing duration
+    values = MultiDict({'client': 'app1key', 'user': 'user1key',
+        'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
+        'puid': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
+        'fingerprint': TEST_1_FP,
+        'bitrate': '192',
+        'format': 'MP3'
+    })
+    params = SubmitHandlerParams()
+    assert_raises(errors.MissingParameterError, params.parse, values, conn)
     # all ok (single submission)
     values = MultiDict({'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
