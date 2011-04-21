@@ -13,9 +13,11 @@ from tests import (prepare_database, with_database, assert_json_equals,
 from werkzeug.wrappers import Request
 from werkzeug.test import EnvironBuilder
 from werkzeug.datastructures import MultiDict
+from acoustid import tables
 from acoustid.api import errors
 from acoustid.api.v1 import (
     LookupHandlerParams,
+    SubmitHandler,
     SubmitHandlerParams,
     APIHandler,
 )
@@ -145,3 +147,24 @@ def test_submit_handler_params(conn):
     assert_equals(TEST_2_FP_RAW, params.submissions[1]['fingerprint'])
     assert_equals(500, params.submissions[1]['bitrate'])
     assert_equals('FLAC', params.submissions[1]['format'])
+
+
+@with_database
+def test_submit_handler(conn):
+    values = {'client': 'app1key', 'user': 'user1key',
+        'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
+        'mbid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'format': 'FLAC'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = SubmitHandler(conn=conn)
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('text/xml', resp.content_type)
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status></response>"
+    assert_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
+    submission = conn.execute(query).fetchone()
+    assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
+    assert_equals(1, submission['format_id'])
+    assert_equals(192, submission['bitrate'])
+    assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
+    assert_equals(TEST_1_LENGTH, submission['length'])
