@@ -47,6 +47,14 @@ class APIHandler(Handler):
 
     params_class = None
 
+    def __init__(self, conn=None):
+        self.conn = conn
+
+    @classmethod
+    def create_from_server(cls, server):
+        conn = server.engine.connect()
+        return cls(conn=conn)
+
     def _error(self, code, message, format=DEFAULT_FORMAT, status=400):
         response_data = {
             'status': 'error',
@@ -98,15 +106,6 @@ class LookupHandler(APIHandler):
 
     params_class = LookupHandlerParams
 
-    def __init__(self, server=None, conn=None):
-        self.server = server
-        if conn is not None:
-            self.__dict__['conn'] = conn
-
-    @cached_property
-    def conn(self):
-        return self.server.engine.connect()
-
     def _inject_metadata(self, meta, result_map):
         track_mbid_map = lookup_mbids(self.conn, result_map.keys())
         if meta > 1:
@@ -152,10 +151,6 @@ class LookupHandler(APIHandler):
         if params.meta and result_map:
             self._inject_metadata(params.meta, result_map)
         return response
-
-    @classmethod
-    def create_from_server(cls, server):
-        return cls(server)
 
 
 def iter_args_suffixes(args, prefix):
@@ -223,9 +218,6 @@ class SubmitHandler(APIHandler):
 
     params_class = SubmitHandlerParams
 
-    def __init__(self, conn):
-        self.conn = conn
-
     def _handle_internal(self, params):
         with self.conn.begin():
             source_id = find_or_insert_source(self.conn, params.application_id, params.account_id)
@@ -245,9 +237,4 @@ class SubmitHandler(APIHandler):
                         'source_id': source_id
                     })
         return {}
-
-    @classmethod
-    def create_from_server(cls, server):
-        conn = server.engine.connect()
-        return cls(conn)
 
