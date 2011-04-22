@@ -81,7 +81,7 @@ class PageHandler(WebSiteHandler):
         return cls(server.config.website, server.templates, filename)
 
     def _handle_request(self, req):
-        from markdown import markdown
+        from markdown import Markdown
         if not self.filename.startswith(self.config.pages_path):
             logger.warn('Attempting to access page outside of the pages directory: %s', self.filename)
             raise NotFound()
@@ -90,7 +90,10 @@ class PageHandler(WebSiteHandler):
         except IOError:
             logger.warn('Page does not exist: %s', self.filename)
             raise NotFound()
-        return self.render_template('page.html', content=markdown(text))
+        md = Markdown(extensions=['meta'])
+        html = md.convert(text)
+        title = ' '.join(md.Meta.get('title', []))
+        return self.render_template('page.html', content=html, title=title)
 
 
 class IndexHandler(Handler):
