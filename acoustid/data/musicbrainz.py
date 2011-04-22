@@ -12,6 +12,8 @@ def lookup_metadata(conn, mbids):
     """
     Lookup MusicBrainz metadata for the specified MBIDs.
     """
+    if not mbids:
+        return {}
     src = schema.mb_track.join(schema.mb_artist)
     src = src.join(schema.mb_album_track, schema.mb_album_track.c.track == schema.mb_track.c.id)
     src = src.join(schema.mb_album, schema.mb_album.c.id == schema.mb_album_track.c.album)

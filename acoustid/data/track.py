@@ -12,6 +12,8 @@ def lookup_mbids(conn, track_ids):
     """
     Lookup MBIDs for the specified Acoustid track IDs.
     """
+    if not track_ids:
+        return {}
     query = sql.select(
         [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
         schema.track_mbid.c.track_id.in_(track_ids))
