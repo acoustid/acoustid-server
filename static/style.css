@@ -110,7 +110,7 @@ h3 {
 }
 
 input.openid {
-	background: #FFFFFF url('/openid-icon-small.gif') no-repeat scroll 4px 50%;
+	background: #FFFFFF url('openid-icon-small.gif') no-repeat scroll 4px 50%;
 	padding: 4px 4px 4px 24px;
 	border: #b0b0b0 solid 1px;
 	width: 350px;

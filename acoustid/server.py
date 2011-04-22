@@ -33,6 +33,8 @@ admin_url_rules = [
 
 website_url_rules = [
     Rule('/', endpoint=website.IndexHandler),
+    Rule('/login', endpoint=website.LoginHandler),
+    Rule('/logout', endpoint=website.LogoutHandler),
     Rule('/<path:page>', endpoint=website.PageHandler),
 ]
 

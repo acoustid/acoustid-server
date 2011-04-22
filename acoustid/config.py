@@ -88,11 +88,18 @@ class WebSiteConfig(object):
         root_path = os.path.dirname(__file__) + '/../'
         self.templates_path = os.path.normpath(root_path + 'templates')
         self.pages_path = os.path.normpath(root_path + 'pages')
-        self.base_url = '/'
+        self.base_url = 'http://localhost:8080/'
         self.base_https_url = None
+        self.secret = None
 
     def read(self, parser, section):
-        pass
+        if parser.has_option(section, 'base_url'):
+            self.base_url = parser.get(section, 'base_url')
+        if parser.has_option(section, 'base_https_url'):
+            self.base_https_url = parser.get(section, 'base_https_url')
+        if not self.base_https_url:
+            self.base_https_url = self.base_url
+        self.secret = parser.get(section, 'secret')
 
 
 class Config(object):

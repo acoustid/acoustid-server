@@ -12,3 +12,7 @@ level=WARN
 #syslog=no
 #syslog_facility=local1
 
+[website]
+base_url=http://acoustid.org/
+base_https_url=https://acoustid.org/
+secret=XXX

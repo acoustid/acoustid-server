@@ -1,3 +1,6 @@
+License
+-------
+
 The [database of audio fingerprints and metadata][db] is licensed under the
 [Creative Commons Attribution-ShareAlike 3.0 Unported License][cc].
 
