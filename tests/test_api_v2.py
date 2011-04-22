@@ -28,7 +28,7 @@ from acoustid.utils import provider
 def test_ok():
     handler = APIHandler()
     resp = handler._ok({'tracks': [{'id': 1, 'name': 'Track 1'}]}, 'json')
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = '{"status": "ok", "tracks": [{"id": 1, "name": "Track 1"}]}'
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
@@ -37,12 +37,12 @@ def test_ok():
 def test_error():
     handler = APIHandler()
     resp = handler._error(123, 'something is wrong', 'json')
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = '{"status": "error", "error": {"message": "something is wrong", "code": 123}}'
     assert_equals(expected, resp.data)
     assert_equals('400 BAD REQUEST', resp.status)
     resp = handler._error(234, 'oops', 'json', status=500)
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = '{"status": "error", "error": {"message": "oops", "code": 234}}'
     assert_equals(expected, resp.data)
     assert_equals('500 INTERNAL SERVER ERROR', resp.status)
@@ -106,7 +106,7 @@ def test_apihandler_ws_error(conn):
     builder = EnvironBuilder(method='POST', data=values)
     handler = WebServiceErrorHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = {
         "status": "error",
         "error": {
@@ -118,7 +118,7 @@ def test_apihandler_ws_error(conn):
     assert_equals('400 BAD REQUEST', resp.status)
     handler = InternalErrorHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = {
         "status": "error",
         "error": {
@@ -138,7 +138,7 @@ def test_lookup_handler(conn):
     # no matches
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = {
         "status": "ok",
         "results": []
@@ -152,7 +152,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = {
         "status": "ok",
         "results": [{
@@ -167,7 +167,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = {
         "status": "ok",
         "results": [{
@@ -184,7 +184,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = {
         "status": "ok",
         "results": [{
@@ -220,7 +220,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = {
         "status": "ok",
         "results": [{
@@ -376,7 +376,7 @@ def test_submit_handler(conn):
     builder = EnvironBuilder(method='POST', data=values)
     handler = SubmitHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = {"status": "ok"}
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)

@@ -44,7 +44,7 @@ def serialize_xml(data, **kwargs):
 
 def serialize_json(data, **kwargs):
     res = json.dumps(data)
-    return Response(res, content_type='text/json', **kwargs)
+    return Response(res, content_type='application/json', **kwargs)
 
 
 def serialize_response(data, format, **kwargs):

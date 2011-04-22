@@ -9,7 +9,7 @@ from acoustid.api import serialize_json, serialize_xml
 def test_serialize_json():
     data = {'status': 'ok', 'artists': [{'name': 'Jean Michel Jarre', 'year': 1948, 'cities': ['Paris', 'Lyon']}]}
     resp = serialize_json(data)
-    assert_equals('text/json', resp.content_type)
+    assert_equals('application/json', resp.content_type)
     expected = '''{"status": "ok", "artists": [{"cities": ["Paris", "Lyon"], "name": "Jean Michel Jarre", "year": 1948}]}'''
     assert_equals(expected, resp.data)
 
