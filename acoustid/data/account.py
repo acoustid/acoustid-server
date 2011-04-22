@@ -23,6 +23,11 @@ def lookup_account_id_by_openid(conn, openid):
     return conn.execute(query).scalar()
 
 
+def get_account_details(conn, id):
+    query = schema.account.select(schema.account.c.id == id)
+    return conn.execute(query).fetchone()
+
+
 def insert_account(conn, data):
     """
     Insert a new account into the database

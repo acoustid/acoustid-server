@@ -16,6 +16,7 @@ from acoustid.data.account import (
     lookup_account_id_by_mbuser,
     lookup_account_id_by_openid,
     insert_account,
+    get_account_details,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,10 @@ class WebSiteHandler(Handler):
     def __init__(self, config, templates):
         self.config = config
         self.templates = templates
+
+    @property
+    def login_url(self):
+        return self.config.base_https_url + 'login'
 
     @classmethod
     def create_from_server(cls, server):
@@ -114,7 +119,6 @@ class LoginHandler(WebSiteHandler):
     def __init__(self, config, templates, connect):
         super(LoginHandler, self).__init__(config, templates)
         self.conn = connect()
-        self.url = self.config.base_https_url + 'login'
 
     @classmethod
     def create_from_server(cls, server):
@@ -160,14 +164,14 @@ class LoginHandler(WebSiteHandler):
                     ax_req.add(ax.AttrInfo('http://axschema.org/namePerson/friendly',
                               alias='nickname'))
                     openid_req.addExtension(ax_req)
-                    url = openid_req.redirectURL(self.config.base_url, self.url)
+                    url = openid_req.redirectURL(self.config.base_url, self.login_url)
                     return redirect(url)
         else:
             errors.append('Missing OpenID')
 
     def _handle_openid_login_response(self, req, errors):
         consumer = openid.Consumer(self.session, None)
-        info = consumer.complete(req.args, self.url)
+        info = consumer.complete(req.args, self.login_url)
         if info.status == openid.SUCCESS:
             openid_url = info.identity_url
             values = {}
@@ -220,4 +224,22 @@ class LogoutHandler(WebSiteHandler):
         if 'id' in self.session:
             del self.session['id']
         return redirect(self.config.base_url)
+
+
+class APIKeyHandler(WebSiteHandler):
+
+    def __init__(self, config, templates, connect):
+        super(APIKeyHandler, self).__init__(config, templates)
+        self.conn = connect()
+
+    @classmethod
+    def create_from_server(cls, server):
+        return cls(server.config.website, server.templates, server.engine.connect)
+
+    def _handle_request(self, req):
+        if 'id' not in self.session:
+            return redirect(self.login_url)
+        title = 'Your API Key'
+        info = get_account_details(self.conn, self.session['id'])
+        return self.render_template('apikey.html', apikey=info['apikey'], title=title)
 
