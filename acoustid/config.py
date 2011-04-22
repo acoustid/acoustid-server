@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import os.path
 import logging
 import ConfigParser
 from sqlalchemy.engine.url import URL
@@ -81,6 +82,19 @@ class LoggingConfig(object):
             self.syslog_facility = parser.get(section, 'syslog_facility')
 
 
+class WebSiteConfig(object):
+
+    def __init__(self):
+        root_path = os.path.dirname(__file__) + '/../'
+        self.templates_path = os.path.normpath(root_path + 'templates')
+        self.pages_path = os.path.normpath(root_path + 'pages')
+        self.base_url = '/'
+        self.base_https_url = None
+
+    def read(self, parser, section):
+        pass
+
+
 class Config(object):
 
     def __init__(self, path):
@@ -91,4 +105,6 @@ class Config(object):
         self.database.read(parser, 'database')
         self.logging = LoggingConfig()
         self.logging.read(parser, 'logging')
+        self.website = WebSiteConfig()
+        self.website.read(parser, 'website')
 

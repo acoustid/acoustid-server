@@ -2,7 +2,7 @@
 
 import os
 import logging
-from wsgiref.simple_server import make_server
+from werkzeug.serving import run_simple
 from acoustid.server import make_application
 
 logging.basicConfig(level=logging.DEBUG)
@@ -10,10 +10,16 @@ logging.basicConfig(level=logging.DEBUG)
 config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid.conf'
 application = make_application(config_path)
 
+# server static files
+static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
+print static_path
+static_files = {
+    '/favicon.ico': os.path.join(static_path, 'favicon.ico'),
+    '/static': static_path,
+}
+
 host = 'localhost'
 port = 8080
 
-server = make_server(host, port, application)
-print 'Listening on http://%s:%s/ ...' % (host, port)
-server.serve_forever()
+run_simple(host, port, application, use_reloader=True, static_files=static_files)
 

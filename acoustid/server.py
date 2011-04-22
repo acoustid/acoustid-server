@@ -6,6 +6,7 @@ from cStringIO import StringIO
 from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount
 from werkzeug.wrappers import Request, Response
+from jinja2 import Environment, FileSystemLoader
 import sqlalchemy
 from acoustid.config import Config
 from acoustid import api, website, handlers
@@ -32,6 +33,7 @@ admin_url_rules = [
 
 website_url_rules = [
     Rule('/', endpoint=website.IndexHandler),
+    Rule('/<path:page>', endpoint=website.PageHandler),
 ]
 
 
@@ -41,12 +43,17 @@ class Server(Script):
         super(Server, self).__init__(config_path)
         url_rules = website_url_rules + api_url_rules + admin_url_rules
         self.url_map = Map(url_rules, strict_slashes=False)
+        self._setup_website()
+
+    def _setup_website(self):
+        loader = FileSystemLoader(self.config.website.templates_path)
+        self.templates = Environment(loader=loader)
 
     def __call__(self, environ, start_response):
         urls = self.url_map.bind_to_environ(environ)
         try:
             handler_class, args = urls.match()
-            handler = handler_class.create_from_server(self)
+            handler = handler_class.create_from_server(self, **args)
             response = handler.handle(Request(environ))
         except HTTPException, e:
             return e(environ, start_response)
