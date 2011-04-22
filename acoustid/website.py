@@ -156,7 +156,7 @@ class LoginHandler(WebSiteHandler):
                 else:
                     ax_req = ax.FetchRequest()
                     ax_req.add(ax.AttrInfo('http://schema.openid.net/contact/email',
-                              alias='email', required=True))
+                              alias='email'))
                     ax_req.add(ax.AttrInfo('http://axschema.org/namePerson/friendly',
                               alias='nickname'))
                     openid_req.addExtension(ax_req)

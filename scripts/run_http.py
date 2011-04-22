@@ -12,7 +12,6 @@ application = make_application(config_path)
 
 # server static files
 static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
-print static_path
 static_files = {
     '/favicon.ico': os.path.join(static_path, 'favicon.ico'),
     '/static': static_path,
