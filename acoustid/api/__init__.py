@@ -39,12 +39,12 @@ def serialize_xml(data, **kwargs):
     root = etree.Element('response')
     _serialize_xml_node(root, data)
     res = etree.tostring(root, encoding="UTF-8")
-    return Response(res, content_type='text/xml', **kwargs)
+    return Response(res, content_type='text/xml; charset=UTF-8', **kwargs)
 
 
 def serialize_json(data, **kwargs):
     res = json.dumps(data)
-    return Response(res, content_type='application/json', **kwargs)
+    return Response(res, content_type='application/json; charset=UTF-8', **kwargs)
 
 
 def serialize_response(data, format, **kwargs):

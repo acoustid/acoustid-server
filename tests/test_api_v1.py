@@ -28,7 +28,7 @@ from acoustid.utils import provider
 def test_ok():
     handler = APIHandler()
     resp = handler._ok({'tracks': [{'id': 1, 'name': 'Track 1'}]})
-    assert_equals('text/xml', resp.content_type)
+    assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="ok"><tracks><track><id>1</id><name>Track 1</name></track></tracks></response>'
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
@@ -37,12 +37,12 @@ def test_ok():
 def test_error():
     handler = APIHandler()
     resp = handler._error(123, 'something is wrong')
-    assert_equals('text/xml', resp.content_type)
+    assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="error"><error>something is wrong</error></response>'
     assert_equals(expected, resp.data)
     assert_equals('400 BAD REQUEST', resp.status)
     resp = handler._error(234, 'oops', status=500)
-    assert_equals('text/xml', resp.content_type)
+    assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="error"><error>oops</error></response>'
     assert_equals(expected, resp.data)
     assert_equals('500 INTERNAL SERVER ERROR', resp.status)
@@ -87,7 +87,7 @@ def test_lookup_handler(conn):
     # no matches
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml', resp.content_type)
+    assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results /></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
@@ -98,7 +98,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml', resp.content_type)
+    assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><score>1.0</score><id>1</id></result></results></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
@@ -107,7 +107,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml', resp.content_type)
+    assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id></track></tracks><score>1.0</score><id>1</id></result></results></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
@@ -116,7 +116,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml', resp.content_type)
+    assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><length>123</length><artist><id>a64796c0-4da4-11e0-bf81-0025225356f3</id><name>Artist A</name></artist><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id><releases><release><track_num>1</track_num><id>dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23</id><track_count>2</track_count><name>Album A</name></release></releases><name>Track A</name></track></tracks><score>1.0</score><id>1</id></result></results></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
@@ -212,7 +212,7 @@ def test_submit_handler(conn):
     builder = EnvironBuilder(method='POST', data=values)
     handler = SubmitHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml', resp.content_type)
+    assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
