@@ -17,7 +17,7 @@ itself.
 [1]: /database
 [2]: http://wiki.acoustid.org/wiki/Server
 [3]: /chromaprint
-[4]: http://wiki.acoustid.org/wiki/Fingerprinter
+[4]: /fingerprinter
 [5]: http://musicbrainz.org/
 [6]: http://wiki.acoustid.org/wiki/Web_Service
 

@@ -3,6 +3,9 @@ body {
 	margin: 1% 0 0 0;
 	font-family: 'DejaVu Sans', 'Verdana', sans;
 }
+.rightimg {
+	float: right;
+}
 #container {
 	background: #fff;
 	position: relative;

@@ -8,8 +8,6 @@ found in the blog post ["How does Chromaprint work?"][blog2].
 The library exposes a simple [C API][api] and the package also included
 bindings for the Python language.
 
-The source code is licensed under the [LGPL2.1+ license][lgpl].
-
 ### Download
 
 Latest release &mdash; 0.2 (Jan 29, 2011)
@@ -36,6 +34,8 @@ If you want to build the full package, you will also need
 	$ cd chromaprint
 	$ cmake .
 	$ make
+
+The source code is licensed under the [LGPL2.1+ license][lgpl].
 
 [lgpl]: http://www.gnu.org/licenses/lgpl-2.1.html
 [blog1]: http://oxygene.sk/lukas/2010/07/introducing-chromaprint/
