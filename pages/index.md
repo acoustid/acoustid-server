@@ -12,9 +12,9 @@ interested in the project, you can download the source code for the
 [client library][3], the [server application][2] and also the [database][1]
 itself.
 
-[1]: http://wiki.acoustid.org/wiki/Database
+[1]: /database
 [2]: http://wiki.acoustid.org/wiki/Server
-[3]: http://wiki.acoustid.org/wiki/Chromaprint
+[3]: /chromaprint
 [4]: http://wiki.acoustid.org/wiki/Fingerprinter
 [5]: http://musicbrainz.org/
 [6]: http://wiki.acoustid.org/wiki/Web_Service

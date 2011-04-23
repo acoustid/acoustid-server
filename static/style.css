@@ -163,3 +163,9 @@ table.apps td {
 	text-align: center;
 	color: #333;
 }
+
+pre {
+	background: #F4F4F4;
+	padding: 0.5em;
+	border: solid 2px #C5C5C5;
+}
