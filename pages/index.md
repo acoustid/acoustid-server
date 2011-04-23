@@ -1,4 +1,6 @@
-**Acoustid** is an open source project that aims to create a
+Title: Welcome to Acoustid!
+
+Acoustid is an open source project that aims to create a
 free database of audio fingerprints with mapping to the [MusicBrainz][5]
 metadata database and provide a [web service][6] for audio file
 identification using this database.

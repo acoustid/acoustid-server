@@ -138,7 +138,7 @@ class LoginHandler(WebSiteHandler):
                         'name': username,
                         'mbuser': username,
                     })
-                logger.info("Successfuly identified MusicBrainz user %s (%d)", userame, account_id)
+                logger.info("Successfuly identified MusicBrainz user %s (%d)", username, account_id)
                 self.session['id'] = account_id
             else:
                 errors.append('Invalid username or password')

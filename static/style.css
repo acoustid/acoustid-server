@@ -1,6 +1,6 @@
 body {
-	background: #b3b3b3;
-	margin: 6% 0 0 0;
+	background: #fff;
+	margin: 1% 0 0 0;
 	font-family: 'DejaVu Sans', 'Verdana', sans;
 }
 #container {
@@ -75,10 +75,6 @@ ul#menu {
 	line-height: 1.7;
 }
 
-ul a {
-	ceolor: #000;
-}
-
 #content {
 	margin-left: 280px;
 	line-height: 1.9;
@@ -101,7 +97,7 @@ a:hover {
 
 h2 {
 	margin-top: 0;
-	font-size: 16px;
+	font-size: 18px;
 }
 
 h3 {
