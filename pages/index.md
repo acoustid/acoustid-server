@@ -19,5 +19,5 @@ itself.
 [3]: /chromaprint
 [4]: /fingerprinter
 [5]: http://musicbrainz.org/
-[6]: http://wiki.acoustid.org/wiki/Web_Service
+[6]: /webservice
 
