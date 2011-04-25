@@ -48,3 +48,12 @@ def insert_account(conn, data):
     logger.debug("Inserted account %r with data %r", id, data)
     return id
 
+
+def reset_account_apikey(conn, id):
+    with conn.begin():
+        update_stmt = schema.account.update().where(
+            schema.account.c.id == id)
+        update_stmt = update_stmt.values(apikey=sql.text('generate_api_key()'))
+        conn.execute(update_stmt)
+    logger.debug("Reset API key for account %r", id)
+
