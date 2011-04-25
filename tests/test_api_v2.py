@@ -191,6 +191,8 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
             "id": 1,
             "score": 1.0,
             "recordings": [{
+                "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
+            }, {
                 "id": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
                 "name": "Track A",
                 "length": 123,
@@ -204,8 +206,6 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
                     "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
                     "name": "Artist A",
                 },
-            }, {
-                "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
             }],
         }]
     }

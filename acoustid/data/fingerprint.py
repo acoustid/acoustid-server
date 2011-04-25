@@ -24,7 +24,7 @@ SELECT id, track_id, score FROM (
             (%(length)s <= 50 AND subarray(extract_short_fp_query(query), %(part_start)s, %(part_length)s)
                                && extract_short_fp_query(fingerprint))
         )
-) f WHERE score > %(min_score)s ORDER BY score DESC
+) f WHERE score > %(min_score)s ORDER BY score DESC, id
 """
 
 
