@@ -10,6 +10,7 @@ from openid.consumer import consumer as openid
 from openid.extensions import ax, sreg
 from werkzeug import redirect
 from werkzeug.exceptions import NotFound
+from werkzeug.utils import cached_property
 from werkzeug.contrib.securecookie import SecureCookie
 from acoustid.handler import Handler, Response
 from acoustid.data.account import (
@@ -39,9 +40,14 @@ fetchers.setDefaultFetcher(fetcher)
 
 class WebSiteHandler(Handler):
 
-    def __init__(self, config, templates):
+    def __init__(self, config, templates, connect=None):
         self.config = config
         self.templates = templates
+        self.connect = connect
+
+    @cached_property
+    def conn(self):
+        return self.connect()
 
     @property
     def login_url(self):
@@ -49,7 +55,7 @@ class WebSiteHandler(Handler):
 
     @classmethod
     def create_from_server(cls, server):
-        return cls(server.config.website, server.templates)
+        return cls(server.config.website, server.templates, server.engine.connect)
 
     def handle(self, req):
         self.session = SecureCookie.load_cookie(req, secret_key=self.config.secret)
@@ -70,16 +76,12 @@ class WebSiteHandler(Handler):
 
 class PageHandler(WebSiteHandler):
 
-    def __init__(self, config, templates, filename):
-        super(PageHandler, self).__init__(config, templates)
-        self.filename = filename
-
     @classmethod
     def create_from_server(cls, server, page=None):
-        filename = os.path.normpath(
-            os.path.join(server.config.website.pages_path,
-                         page + '.md'))
-        return cls(server.config.website, server.templates, filename)
+        self = cls(server.config.website, server.templates, server.engine.connect)
+        self.filename  = os.path.normpath(
+            os.path.join(server.config.website.pages_path, page + '.md'))
+        return self
 
     def _handle_request(self, req):
         from markdown import Markdown
@@ -119,14 +121,6 @@ def check_mb_account(username, password):
 
 
 class LoginHandler(WebSiteHandler):
-
-    def __init__(self, config, templates, connect):
-        super(LoginHandler, self).__init__(config, templates)
-        self.conn = connect()
-
-    @classmethod
-    def create_from_server(cls, server):
-        return cls(server.config.website, server.templates, server.engine.connect)
 
     def _handle_musicbrainz_login(self, req, errors):
         username = req.form.get('mb_user')
@@ -232,14 +226,6 @@ class LogoutHandler(WebSiteHandler):
 
 class APIKeyHandler(WebSiteHandler):
 
-    def __init__(self, config, templates, connect):
-        super(APIKeyHandler, self).__init__(config, templates)
-        self.conn = connect()
-
-    @classmethod
-    def create_from_server(cls, server):
-        return cls(server.config.website, server.templates, server.engine.connect)
-
     def _handle_request(self, req):
         if 'id' not in self.session:
             return redirect(self.login_url)
@@ -249,14 +235,6 @@ class APIKeyHandler(WebSiteHandler):
 
 
 class NewAPIKeyHandler(WebSiteHandler):
-
-    def __init__(self, config, templates, connect):
-        super(NewAPIKeyHandler, self).__init__(config, templates)
-        self.conn = connect()
-
-    @classmethod
-    def create_from_server(cls, server):
-        return cls(server.config.website, server.templates, server.engine.connect)
 
     def _handle_request(self, req):
         if 'id' not in self.session:
