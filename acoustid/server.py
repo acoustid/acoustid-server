@@ -36,6 +36,7 @@ website_url_rules = [
     Rule('/login', endpoint=website.LoginHandler),
     Rule('/logout', endpoint=website.LogoutHandler),
     Rule('/api-key', endpoint=website.APIKeyHandler),
+    Rule('/new-api-key', endpoint=website.NewAPIKeyHandler),
     Rule('/<path:page>', endpoint=website.PageHandler),
 ]
 

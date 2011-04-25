@@ -17,6 +17,7 @@ from acoustid.data.account import (
     lookup_account_id_by_openid,
     insert_account,
     get_account_details,
+    reset_account_apikey,
 )
 
 logger = logging.getLogger(__name__)
@@ -245,4 +246,21 @@ class APIKeyHandler(WebSiteHandler):
         title = 'Your API Key'
         info = get_account_details(self.conn, self.session['id'])
         return self.render_template('apikey.html', apikey=info['apikey'], title=title)
+
+
+class NewAPIKeyHandler(WebSiteHandler):
+
+    def __init__(self, config, templates, connect):
+        super(NewAPIKeyHandler, self).__init__(config, templates)
+        self.conn = connect()
+
+    @classmethod
+    def create_from_server(cls, server):
+        return cls(server.config.website, server.templates, server.engine.connect)
+
+    def _handle_request(self, req):
+        if 'id' not in self.session:
+            return redirect(self.login_url)
+        reset_account_apikey(self.conn, self.session['id'])
+        return redirect(self.config.base_url + 'api-key')
 
