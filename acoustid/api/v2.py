@@ -201,8 +201,6 @@ class SubmitHandlerParams(APIHandlerParams):
         if p['puid'] and not is_uuid(p['puid']):
             raise errors.InvalidUUIDError('puid' + suffix)
         p['mbids'] = values.getlist('mbid' + suffix)
-        if not p['puid'] and not p['mbids']:
-            raise errors.MissingParameterError('mbid' + suffix)
         if p['mbids'] and not all(map(is_uuid, p['mbids'])):
             raise errors.InvalidUUIDError('mbid' + suffix)
         self._parse_duration_and_format(p, values, suffix)
