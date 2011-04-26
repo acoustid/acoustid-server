@@ -2,6 +2,9 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import re
+import syslog
+from logging import Handler
+from logging.handlers import SysLogHandler
 
 
 def is_uuid(s):
@@ -35,4 +38,44 @@ def provider(value):
     def func():
         return value
     return func
+
+
+class LocalSysLogHandler(Handler):
+    """
+    Logging handler that logs to the local syslog using the syslog module
+    """
+
+    facility_names = SysLogHandler.facility_names
+
+    priority_map = {
+        "DEBUG": syslog.LOG_DEBUG,
+        "INFO": syslog.LOG_INFO,
+        "WARNING": syslog.LOG_WARNING,
+        "ERROR": syslog.LOG_ERR,
+        "CRITICAL": syslog.LOG_CRIT
+    }
+
+    def __init__(self, ident=None, facility=syslog.LOG_USER, log_pid=False):
+        Handler.__init__(self)
+        if isinstance(facility, basestring):
+            facility = self.facility_names[facility]
+        options = 0
+        if log_pid:
+            options |= syslog.LOG_PID
+        syslog.openlog(ident, options, facility)
+        self.formatter = None
+
+    def close(self):
+        Handler.close(self)
+        syslog.closelog()
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            if isinstance(msg, unicode):
+                msg = msg.encode('utf-8')
+            priority = self.priority_map[record.levelname]
+            syslog.syslog(priority, msg)
+        except StandardError:
+            self.handleError(record)
 
