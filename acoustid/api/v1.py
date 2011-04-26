@@ -43,6 +43,8 @@ class LookupHandlerParams(APIHandlerParams):
         super(LookupHandlerParams, self).parse(values, conn)
         self._parse_client(values, conn)
         self.meta = values.get('meta', type=int)
+        if self.meta > 1:
+            self.meta = 1
         self.duration = values.get('length', type=int)
         if not self.duration:
             raise errors.MissingParameterError('length')

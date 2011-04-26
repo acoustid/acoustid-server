@@ -191,21 +191,25 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
             "id": 1,
             "score": 1.0,
             "recordings": [{
-                "id": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
-                "name": "Track A",
-                "length": 123,
-                "releases": [{
-                    "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
-                    "name": "Album A",
-                    "track_num": 1,
-                    "track_count": 2,
-                }],
-                "artist": {
-                    "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
-                    "name": "Artist A",
-                },
-            }, {
                 "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
+            }, {
+                "id": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
+                "tracks": [{
+                    "title": "Track A",
+                    "duration": 123,
+                    "position": 1,
+                    "medium": {
+                        "track_count": 2,
+                        "release": {
+                            "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
+                            "title": "Album A",
+                        },
+                    },
+                    "artist": {
+                        "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
+                        "name": "Artist A",
+                    },
+                }],
             }],
         }]
     }

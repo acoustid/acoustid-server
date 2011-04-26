@@ -1,7 +1,10 @@
 body {
-	background: #b3b3b3;
-	margin: 6% 0 0 0;
+	background: #fff;
+	margin: 1% 0 0 0;
 	font-family: 'DejaVu Sans', 'Verdana', sans;
+}
+.rightimg {
+	float: right;
 }
 #container {
 	background: #fff;
@@ -75,10 +78,6 @@ ul#menu {
 	line-height: 1.7;
 }
 
-ul a {
-	ceolor: #000;
-}
-
 #content {
 	margin-left: 280px;
 	line-height: 1.9;
@@ -101,16 +100,22 @@ a:hover {
 
 h2 {
 	margin-top: 0;
-	font-size: 16px;
+	font-size: 18px;
 }
 
 h3 {
+	margin-top: 0;
+	font-size: 16px;
+	border-bottom: dotted 2px #e0e0e0;
+}
+
+h4 {
 	margin-top: 0;
 	font-size: 14px;
 }
 
 input.openid {
-	background: #FFFFFF url('/openid-icon-small.gif') no-repeat scroll 4px 50%;
+	background: #FFFFFF url('openid-icon-small.gif') no-repeat scroll 4px 50%;
 	padding: 4px 4px 4px 24px;
 	border: #b0b0b0 solid 1px;
 	width: 350px;
@@ -163,3 +168,29 @@ table.apps td {
 	text-align: center;
 	color: #333;
 }
+
+pre {
+	background: #F4F4F4;
+	padding: 0.5em;
+	border: solid 2px #C5C5C5;
+	overflow: auto;
+}
+
+table.listing {
+	margin-top: 0;
+	margin-bottom: 1em;
+	border-collapse: collapse;
+	border: solid 2px #C5C5C5;
+	width: 100%;
+}
+
+table.listing td, table.listing th {
+	padding: 0.2em 0.5em;
+	text-align: left;
+}
+
+table.listing td {
+	border-top: solid 1px #eee;
+	vertical-align: top;
+}
+

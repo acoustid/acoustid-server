@@ -16,7 +16,7 @@ def lookup_mbids(conn, track_ids):
         return {}
     query = sql.select(
         [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
-        schema.track_mbid.c.track_id.in_(track_ids))
+        schema.track_mbid.c.track_id.in_(track_ids)).order_by(schema.track_mbid.c.mbid)
     results = {}
     for track_id, mbid in conn.execute(query):
         results.setdefault(track_id, []).append(mbid)

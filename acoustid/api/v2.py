@@ -121,26 +121,34 @@ class LookupHandler(APIHandler):
             result = result_map[track_id]
             result[self.recordings_name] = tracks = []
             for mbid in mbids:
-                track = {}
-                tracks.append(track)
-                track['id'] = str(mbid)
+                recording = {}
+                tracks.append(recording)
+                recording['id'] = str(mbid)
                 if meta == 1:
                     continue
                 track_meta = track_meta_map.get(mbid)
                 if track_meta is None:
                     continue
-                track['name'] = track_meta['name']
-                track['length'] = track_meta['length']
-                track['artist'] = artist = {}
-                artist['id'] = track_meta['artist_id']
-                artist['name'] = track_meta['artist_name']
-                track['releases'] = releases = []
-                release = {}
-                releases.append(release)
-                release['id'] = track_meta['release_id']
-                release['name'] = track_meta['release_name']
-                release['track_num'] = track_meta['track_num']
-                release['track_count'] = track_meta['total_tracks']
+                recording['tracks'] = [{
+                    'title': track_meta['name'],
+                    'duration': track_meta['length'],
+                    'artist': {
+                        'id': track_meta['artist_id'],
+                        'name': track_meta['artist_name'],
+                    },
+                    'position': track_meta['track_num'],
+                    'medium': {
+                        'track_count': track_meta['total_tracks'],
+                        # position
+                        # title
+                        # format
+                        'release': {
+                            'id': track_meta['release_id'],
+                            'title': track_meta['release_name'],
+                            # medium_count
+                        },
+                    },
+                }]
 
     def _handle_internal(self, params):
         response = {}

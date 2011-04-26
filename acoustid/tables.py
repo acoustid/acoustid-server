@@ -14,6 +14,11 @@ account = Table('account', metadata,
     Column('submission_count', Integer),
 )
 
+account_openid = Table('account_openid', metadata,
+    Column('account_id', Integer, ForeignKey('account.id'), primary_key=True),
+    Column('openid', String, primary_key=True),
+)
+
 application = Table('application', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
