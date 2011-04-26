@@ -9,7 +9,7 @@ from openid import oidutil, fetchers
 from openid.consumer import consumer as openid
 from openid.extensions import ax, sreg
 from werkzeug import redirect
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import NotFound, abort, HTTPException
 from werkzeug.utils import cached_property
 from werkzeug.contrib.securecookie import SecureCookie
 from acoustid.handler import Handler, Response
@@ -63,7 +63,10 @@ class WebSiteHandler(Handler):
 
     def handle(self, req):
         self.session = SecureCookie.load_cookie(req, secret_key=self.config.secret)
-        resp = self._handle_request(req)
+        try:
+            resp = self._handle_request(req)
+        except HTTPException, e:
+            resp = e.get_response(req.environ)
         self.session.save_cookie(resp)
         return resp
 
@@ -76,6 +79,10 @@ class WebSiteHandler(Handler):
         context.update(params)
         html = self.templates.get_template(name).render(**context)
         return Response(html, content_type='text/html; charset=UTF-8')
+
+    def require_user(self):
+        if 'id' not in self.session:
+            raise abort(redirect(self.login_url))
 
 
 class PageHandler(WebSiteHandler):
@@ -231,8 +238,7 @@ class LogoutHandler(WebSiteHandler):
 class APIKeyHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        if 'id' not in self.session:
-            return redirect(self.login_url)
+        self.require_user()
         title = 'Your API Key'
         info = get_account_details(self.conn, self.session['id'])
         return self.render_template('apikey.html', apikey=info['apikey'], title=title)
@@ -241,8 +247,7 @@ class APIKeyHandler(WebSiteHandler):
 class NewAPIKeyHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        if 'id' not in self.session:
-            return redirect(self.login_url)
+        self.require_user()
         reset_account_apikey(self.conn, self.session['id'])
         return redirect(self.config.base_url + 'api-key')
 
@@ -250,8 +255,7 @@ class NewAPIKeyHandler(WebSiteHandler):
 class ApplicationsHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        if 'id' not in self.session:
-            return redirect(self.login_url)
+        self.require_user()
         title = 'Your Applications'
         applications = find_applications_by_account(self.conn, self.session['id'])
         return self.render_template('applications.html', title=title,
@@ -261,8 +265,7 @@ class ApplicationsHandler(WebSiteHandler):
 class NewApplicationHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        if 'id' not in self.session:
-            return redirect(self.login_url)
+        self.require_user()
         errors = []
         title = 'New Applications'
         if req.form.get('submit'):
