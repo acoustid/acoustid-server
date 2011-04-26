@@ -13,6 +13,9 @@ from werkzeug.exceptions import NotFound
 from werkzeug.utils import cached_property
 from werkzeug.contrib.securecookie import SecureCookie
 from acoustid.handler import Handler, Response
+from acoustid.data.application import (
+    find_applications_by_account,
+)
 from acoustid.data.account import (
     lookup_account_id_by_mbuser,
     lookup_account_id_by_openid,
@@ -241,4 +244,15 @@ class NewAPIKeyHandler(WebSiteHandler):
             return redirect(self.login_url)
         reset_account_apikey(self.conn, self.session['id'])
         return redirect(self.config.base_url + 'api-key')
+
+
+class ApplicationsHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        if 'id' not in self.session:
+            return redirect(self.login_url)
+        title = 'Your Applications'
+        applications = find_applications_by_account(self.conn, self.session['id'])
+        return self.render_template('applications.html', title=title,
+            applications=applications)
 

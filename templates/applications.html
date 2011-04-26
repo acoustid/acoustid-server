@@ -1,0 +1,45 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>{{ title }}</h2>
+
+{% if applications %}
+
+<p>
+	If you are the developer of an application that uses the Acoustid web service, please register your application.
+	So far you've registered the following applications:
+</p>
+
+<table class="apps">
+<thead>
+	<tr>
+		<th>Name</th>
+		<th>Version</th>
+		<th>API Key</th>
+	</tr>
+</thead>
+<tbody>
+{% for app in applications %}
+	<tr>
+		<td>{{ app.name }}</td>
+		<td>{{ app.version }}</td>
+		<td><code>{{ app.apikey }}</code></td>
+	</tr>
+{% endfor  %}
+</tbody>
+</table>
+
+{% else %}
+
+<p>
+	You do not have any registered applications. If you are the developer of an application that uses the Acoustid web service, please register your application.
+</p>
+
+{% endif %}
+
+<p class="center">
+	<a href="{{ base_url }}new-application">Register a new application</a>
+</p>
+
+{% endblock %}
+
