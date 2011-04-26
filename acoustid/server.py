@@ -38,6 +38,7 @@ website_url_rules = [
     Rule('/api-key', endpoint=website.APIKeyHandler),
     Rule('/new-api-key', endpoint=website.NewAPIKeyHandler),
     Rule('/applications', endpoint=website.ApplicationsHandler),
+    Rule('/new-application', endpoint=website.NewApplicationHandler),
     Rule('/<path:page>', endpoint=website.PageHandler),
 ]
 

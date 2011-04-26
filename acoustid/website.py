@@ -15,6 +15,7 @@ from werkzeug.contrib.securecookie import SecureCookie
 from acoustid.handler import Handler, Response
 from acoustid.data.application import (
     find_applications_by_account,
+    insert_application,
 )
 from acoustid.data.account import (
     lookup_account_id_by_mbuser,
@@ -255,4 +256,30 @@ class ApplicationsHandler(WebSiteHandler):
         applications = find_applications_by_account(self.conn, self.session['id'])
         return self.render_template('applications.html', title=title,
             applications=applications)
+
+
+class NewApplicationHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        if 'id' not in self.session:
+            return redirect(self.login_url)
+        errors = []
+        title = 'New Applications'
+        if req.form.get('submit'):
+            name = req.form.get('name')
+            version = req.form.get('version')
+            if name and version:
+                insert_application(self.conn, {
+                    'name': name,
+                    'version': version,
+                    'account_id': self.session['id'],
+                })
+                return redirect(self.config.base_url + 'applications')
+            else:
+                if not name:
+                    errors.append('Missing application name')
+                if not version:
+                    errors.append('Missing version number')
+        return self.render_template('new-application.html', title=title,
+            form=req.form, errors=errors)
 
