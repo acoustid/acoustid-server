@@ -1,0 +1,61 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>{{ title }}</h2>
+
+<p>Basic statistics</p>
+
+<table class="listing">
+    <tr>
+        <td>Submissions</td>
+        <td class="r">{{ basic.submissions }}</td>
+    </tr>
+    <tr>
+        <td>Fingerprints</td>
+        <td class="r">{{ basic.fingerprints }}</td>
+    </tr>
+    <tr>
+        <td>Tracks</td>
+        <td class="r">{{ basic.tracks }}</td>
+    </tr>
+    <tr>
+        <td>MBIDs</td>
+        <td class="r">{{ basic.mbids }}</td>
+    </tr>
+    <tr>
+        <td>Contributors</td>
+        <td class="r">{{ basic.contributors }}</td>
+    </tr>
+</table>
+
+<p>Tracks per the number of linked MBIDs</p>
+
+<table class="listing">
+    <tr>
+        <td>Tracks with at least 1 MBID</td>
+        <td class="r">{{ basic.tracks_with_mbid }}</td>
+        <td class="r">{{ basic.tracks_with_mbid_percent }} %</td>
+    </tr>
+    {% for t in track_mbid %}
+    <tr>
+        <td>Tracks with {% if t.i == 1 %}1 MBID{% elif t.i == 10 %}10 or more MBIDs{% else %}{{ t.i }} MBIDs{% endif %}</td>
+        <td class="r">{{ t.count }}</td>
+        <td class="r">{{ t.percent }} %</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<p>MBIDs per the number of linked tracks</p>
+
+<table class="listing">
+    {% for t in mbid_track %}
+    <tr>
+        <td>MBIDs with {% if t.i == 1 %}1 track{% elif t.i == 10 %}10 or more tracks{% else %}{{ t.i }} tracks{% endif %}</td>
+        <td class="r">{{ t.count }}</td>
+        <td class="r">{{ t.percent }} %</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}
+
