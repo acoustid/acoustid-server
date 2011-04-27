@@ -1,0 +1,55 @@
+Acoustid Server
+===============
+
+Dependencies
+------------
+
+ * PostgreSQL 8.4+
+   http://www.postgresql.org/
+
+ * Python 2.6+
+   http://www.python.org/
+
+ * SQLAlchemy
+   http://www.sqlalchemy.org/
+
+ * Werkzeug
+   http://werkzeug.pocoo.org/
+
+ * Jinja2
+   http://jinja.pocoo.org/
+
+ * Python-OpenID
+   http://pypi.python.org/pypi/python-openid/
+
+ * Python-Markdown
+   http://www.freewisdom.org/projects/python-markdown/
+
+ * Chromaprint
+   http://acoustid.org/chromaprint
+
+Installation
+------------
+
+On Ubuntu you can install all dependencies using the following command:
+
+$ sudo add-apt-repository ppa:luks/acoustid
+$ sudo apt-get update
+$ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev \
+                       python-sqlalchemy python-werkzeug python-jinja2 \
+					   python-openid python-markdown python-chromaprint
+
+Compile and install the included PostgreSQL extension:
+
+$ cd postgresql
+$ make
+$ sudo make install
+$ cd ..
+
+Prepare the configuration file:
+
+$ cp acoustid.conf.dist acoustid.conf
+$ vim acoustid.conf
+
+TODO
+
