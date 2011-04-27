@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean
+from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean, Date
 from sqlalchemy.dialects.postgresql import ARRAY
 
 
@@ -55,6 +55,13 @@ submission = Table('submission', metadata,
     Column('format_id', Integer, ForeignKey('format.id')),
     Column('created', DateTime),
     Column('handled', Boolean),
+)
+
+stats = Table('stats', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String),
+    Column('date', Date),
+    Column('value', Integer),
 )
 
 fingerprint = Table('fingerprint', metadata,
