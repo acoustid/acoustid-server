@@ -5,5 +5,5 @@ acoustid-test.conf
 *.so
 *.o
 .coverage
-old/postgresql/acoustid.sql
+postgresql/acoustid.sql
 

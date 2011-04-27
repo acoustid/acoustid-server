@@ -42,8 +42,7 @@ $ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev \
 Compile and install the included PostgreSQL extension:
 
 $ cd postgresql
-$ make
-$ sudo make install
+$ sudo make install clean
 $ cd ..
 
 Prepare the configuration file:
