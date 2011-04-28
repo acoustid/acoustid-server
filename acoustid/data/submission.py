@@ -49,7 +49,7 @@ def import_submission(conn, submission):
             submission['id'], ', '.join(mbids))
         matches = lookup_fingerprint(conn,
             submission['fingerprint'], submission['length'],
-            TRACK_MERGE_TRESHOLD, FINGERPRINT_MERGE_TRESHOLD, fast=True)
+            FINGERPRINT_MERGE_TRESHOLD, TRACK_MERGE_TRESHOLD, fast=True)
         fingerprint = {
             'id': None,
             'track_id': None,
