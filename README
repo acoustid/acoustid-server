@@ -33,22 +33,40 @@ Installation
 
 On Ubuntu you can install all dependencies using the following command:
 
-$ sudo add-apt-repository ppa:luks/acoustid
-$ sudo apt-get update
-$ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev \
-                       python-sqlalchemy python-werkzeug python-jinja2 \
-                       python-openid python-markdown python-chromaprint
+ $ sudo add-apt-repository ppa:luks/acoustid
+ $ sudo apt-get update
+ $ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev \
+                        python-sqlalchemy python-werkzeug python-jinja2 \
+                        python-openid python-markdown python-chromaprint
 
 Compile and install the included PostgreSQL extension:
 
-$ cd postgresql
-$ sudo make install clean
-$ cd ..
+ $ cd postgresql
+ $ sudo make install clean
+ $ cd ..
 
 Prepare the configuration file:
 
-$ cp acoustid.conf.dist acoustid.conf
-$ vim acoustid.conf
+ $ cp acoustid.conf.dist acoustid.conf
+ $ vim acoustid.conf
 
 TODO
+
+Unit Tests
+----------
+
+Before you can run the test suite, you need to create a configuration file
+called acoustid-test.conf. This should use a separate database from the
+one you use for development, but it should have the same structure. The
+simplest way to create it is to copy your development database.
+
+You can then run the test suite like this:
+
+ $ nosetests -v
+
+The first thing it does is setting up the database. Normally you shouldn't
+need to do this more than once, so the next time you can run the test suite
+without the database setup code:
+
+ $ SKIP_DB_SETUP=1 nosetests -v
 
