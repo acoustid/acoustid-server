@@ -289,6 +289,9 @@ class NewApplicationHandler(WebSiteHandler):
 
 
 def percent(x, total):
+    if total == 0:
+        x = 0
+        total = 1
     return '%.2f' % (100.0 * x / total,)
 
 
