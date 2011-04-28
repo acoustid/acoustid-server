@@ -4,6 +4,7 @@
 import sys
 import logging
 import sqlalchemy
+import sqlalchemy.pool
 from optparse import OptionParser
 from acoustid.config import Config
 from acoustid.utils import LocalSysLogHandler
@@ -15,6 +16,8 @@ class Script(object):
 
     def __init__(self, config_path):
         self.config = Config(config_path)
+        #self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
+        #    poolclass=sqlalchemy.pool.AssertionPool)
         self.engine = sqlalchemy.create_engine(self.config.database.create_url())
         self.setup_logging()
 

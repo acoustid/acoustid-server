@@ -58,13 +58,18 @@ class Server(Script):
 
     def __call__(self, environ, start_response):
         urls = self.url_map.bind_to_environ(environ)
+        handler = None
         try:
-            handler_class, args = urls.match()
-            handler = handler_class.create_from_server(self, **args)
-            response = handler.handle(Request(environ))
-        except HTTPException, e:
-            return e(environ, start_response)
-        return response(environ, start_response)
+            try:
+                handler_class, args = urls.match()
+                handler = handler_class.create_from_server(self, **args)
+                response = handler.handle(Request(environ))
+            except HTTPException, e:
+                return e(environ, start_response)
+            return response(environ, start_response)
+        finally:
+            if handler is not None and 'conn' in handler.__dict__:
+                handler.__dict__['conn'].close()
 
 
 class GzipRequestMiddleware(object):
