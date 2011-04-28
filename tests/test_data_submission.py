@@ -206,6 +206,34 @@ def test_import_submission_new_track_different(conn):
 
 
 @with_database
+def test_import_submission_merge_existing_tracks(conn):
+    prepare_database(conn, """
+    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
+        VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 1, 2);
+    """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
+              fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH))
+    id = insert_submission(conn, {
+        'fingerprint': TEST_1C_FP_RAW,
+        'length': TEST_1C_LENGTH,
+        'source_id': 1,
+        'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
+        'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
+    })
+    query = tables.submission.select(tables.submission.c.id == id)
+    submission = conn.execute(query).fetchone()
+    assert_false(submission['handled'])
+    fingerprint = import_submission(conn, submission)
+    assert_equals(3, fingerprint['id'])
+    assert_equals(2, fingerprint['track_id'])
+    query = tables.fingerprint.select(tables.fingerprint.c.id == 1)
+    fingerprint = conn.execute(query).fetchone()
+    assert_equals(2, fingerprint['track_id'])
+    query = tables.track.select(tables.track.c.id == 1)
+    track = conn.execute(query).fetchone()
+    assert_equals(None, track)
+
+
+@with_database
 def test_import_queued_submissions(conn):
     insert_submission(conn, {
         'fingerprint': TEST_1_FP_RAW,

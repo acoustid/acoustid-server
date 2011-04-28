@@ -37,7 +37,7 @@ $ sudo add-apt-repository ppa:luks/acoustid
 $ sudo apt-get update
 $ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev \
                        python-sqlalchemy python-werkzeug python-jinja2 \
-					   python-openid python-markdown python-chromaprint
+                       python-openid python-markdown python-chromaprint
 
 Compile and install the included PostgreSQL extension:
 

@@ -69,7 +69,7 @@ def merge_tracks(conn, target_id, source_ids):
     """
     Merge the specified tracks.
     """
-    logger.info("Merging tracks %s into %s", ', '.join(source_ids), target_id)
+    logger.info("Merging tracks %s into %s", ', '.join(map(str, source_ids)), target_id)
     with conn.begin():
         query = sql.select(
             [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
@@ -84,11 +84,14 @@ def merge_tracks(conn, target_id, source_ids):
                     for mbid in missing_track_mbids])
         # XXX don't move duplicate fingerprints
         update_stmt = schema.fingerprint.update().where(
-            schema.track_mbid.c.track_id.in_(source_ids))
+            schema.fingerprint.c.track_id.in_(source_ids))
         conn.execute(update_stmt.values(track_id=target_id))
         delete_stmt = schema.track_mbid.delete().where(
             schema.track_mbid.c.track_id.in_(source_ids))
         conn.execute(delete_stmt)
+        delete_track_stmt = schema.track.delete().where(
+            schema.track.c.id.in_(source_ids))
+        conn.execute(delete_track_stmt)
 
 
 def insert_track(conn):
