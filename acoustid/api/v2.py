@@ -19,7 +19,7 @@ from acoustid.api import serialize_response, errors
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_FORMAT = 'xml'
+DEFAULT_FORMAT = 'json'
 FORMATS = set(['xml', 'json'])
 
 
