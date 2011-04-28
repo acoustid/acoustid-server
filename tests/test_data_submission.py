@@ -6,6 +6,14 @@ from tests import (
     prepare_database, with_database,
     TEST_1_FP_RAW,
     TEST_1_LENGTH,
+    TEST_1A_FP_RAW,
+    TEST_1A_LENGTH,
+    TEST_1B_FP_RAW,
+    TEST_1B_LENGTH,
+    TEST_1C_FP_RAW,
+    TEST_1C_LENGTH,
+    TEST_1D_FP_RAW,
+    TEST_1D_LENGTH,
     TEST_2_FP_RAW,
     TEST_2_LENGTH,
 )
@@ -90,6 +98,111 @@ def test_import_submission(conn):
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_true(submission['handled'])
+
+
+@with_database
+def test_import_submission_reuse_fingerprint_97(conn):
+    prepare_database(conn, """
+    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
+        VALUES (%(fp)s, %(len)s, 1, 1);
+    """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
+    id = insert_submission(conn, {
+        'fingerprint': TEST_1B_FP_RAW,
+        'length': TEST_1B_LENGTH,
+        'source_id': 1,
+        'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
+        'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
+    })
+    query = tables.submission.select(tables.submission.c.id == id)
+    submission = conn.execute(query).fetchone()
+    assert_false(submission['handled'])
+    fingerprint = import_submission(conn, submission)
+    assert_equals(1, fingerprint['id'])
+    assert_equals(1, fingerprint['track_id'])
+
+
+@with_database
+def test_import_submission_reuse_fingerprint_100(conn):
+    prepare_database(conn, """
+    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
+        VALUES (%(fp)s, %(len)s, 1, 1);
+    """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
+    id = insert_submission(conn, {
+        'fingerprint': TEST_1A_FP_RAW,
+        'length': TEST_1A_LENGTH,
+        'source_id': 1,
+        'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
+        'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
+    })
+    query = tables.submission.select(tables.submission.c.id == id)
+    submission = conn.execute(query).fetchone()
+    assert_false(submission['handled'])
+    fingerprint = import_submission(conn, submission)
+    assert_equals(1, fingerprint['id'])
+    assert_equals(1, fingerprint['track_id'])
+
+
+@with_database
+def test_import_submission_reuse_track_93(conn):
+    prepare_database(conn, """
+    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
+        VALUES (%(fp)s, %(len)s, 1, 1);
+    """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
+    id = insert_submission(conn, {
+        'fingerprint': TEST_1C_FP_RAW,
+        'length': TEST_1C_LENGTH,
+        'source_id': 1,
+        'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
+        'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
+    })
+    query = tables.submission.select(tables.submission.c.id == id)
+    submission = conn.execute(query).fetchone()
+    assert_false(submission['handled'])
+    fingerprint = import_submission(conn, submission)
+    assert_equals(2, fingerprint['id'])
+    assert_equals(1, fingerprint['track_id'])
+
+
+@with_database
+def test_import_submission_new_track_55(conn):
+    prepare_database(conn, """
+    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
+        VALUES (%(fp)s, %(len)s, 1, 1);
+    """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
+    id = insert_submission(conn, {
+        'fingerprint': TEST_1D_FP_RAW,
+        'length': TEST_1D_LENGTH,
+        'source_id': 1,
+        'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
+        'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
+    })
+    query = tables.submission.select(tables.submission.c.id == id)
+    submission = conn.execute(query).fetchone()
+    assert_false(submission['handled'])
+    fingerprint = import_submission(conn, submission)
+    assert_equals(2, fingerprint['id'])
+    assert_equals(5, fingerprint['track_id'])
+
+
+@with_database
+def test_import_submission_new_track_different(conn):
+    prepare_database(conn, """
+    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
+        VALUES (%(fp)s, %(len)s, 1, 1);
+    """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
+    id = insert_submission(conn, {
+        'fingerprint': TEST_2_FP_RAW,
+        'length': TEST_2_LENGTH,
+        'source_id': 1,
+        'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
+        'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
+    })
+    query = tables.submission.select(tables.submission.c.id == id)
+    submission = conn.execute(query).fetchone()
+    assert_false(submission['handled'])
+    fingerprint = import_submission(conn, submission)
+    assert_equals(2, fingerprint['id'])
+    assert_equals(5, fingerprint['track_id'])
 
 
 @with_database
