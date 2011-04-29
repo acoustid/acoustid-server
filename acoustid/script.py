@@ -3,10 +3,11 @@
 
 import sys
 import logging
-import logging.handlers
 import sqlalchemy
+import sqlalchemy.pool
 from optparse import OptionParser
 from acoustid.config import Config
+from acoustid.utils import LocalSysLogHandler
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,8 @@ class Script(object):
 
     def __init__(self, config_path):
         self.config = Config(config_path)
+        #self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
+        #    poolclass=sqlalchemy.pool.AssertionPool)
         self.engine = sqlalchemy.create_engine(self.config.database.create_url())
         self.setup_logging()
 
@@ -22,8 +25,9 @@ class Script(object):
         for logger_name, level in sorted(self.config.logging.levels.items()):
             logging.getLogger(logger_name).setLevel(level)
         if self.config.logging.syslog:
-            handler = logging.handlers.SysLogHandler(address='/dev/log', facility=self.config.logging.syslog_facility)
-            handler.setFormatter(logging.Formatter('acoustid[%(process)s]: %(name)s: %(message)s'))
+            handler = LocalSysLogHandler(ident='acoustid',
+                facility=self.config.logging.syslog_facility, log_pid=True)
+            handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
             logging.getLogger().addHandler(handler)
 
     def setup_console_logging(self, quiet=False):

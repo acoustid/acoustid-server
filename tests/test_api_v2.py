@@ -303,15 +303,6 @@ def test_submit_handler_params(conn):
     })
     params = SubmitHandlerParams()
     assert_raises(errors.MissingParameterError, params.parse, values, conn)
-    # missing puid and mbid
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
-        'duration': str(TEST_1_LENGTH),
-        'fingerprint': TEST_1_FP,
-        'bitrate': '192',
-        'fileformat': 'MP3'
-    })
-    params = SubmitHandlerParams()
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
     # missing duration
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],

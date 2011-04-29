@@ -9,10 +9,14 @@ from openid import oidutil, fetchers
 from openid.consumer import consumer as openid
 from openid.extensions import ax, sreg
 from werkzeug import redirect
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import NotFound, abort, HTTPException
 from werkzeug.utils import cached_property
 from werkzeug.contrib.securecookie import SecureCookie
 from acoustid.handler import Handler, Response
+from acoustid.data.application import (
+    find_applications_by_account,
+    insert_application,
+)
 from acoustid.data.account import (
     lookup_account_id_by_mbuser,
     lookup_account_id_by_openid,
@@ -20,6 +24,7 @@ from acoustid.data.account import (
     get_account_details,
     reset_account_apikey,
 )
+from acoustid.data.stats import find_current_stats
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +64,10 @@ class WebSiteHandler(Handler):
 
     def handle(self, req):
         self.session = SecureCookie.load_cookie(req, secret_key=self.config.secret)
-        resp = self._handle_request(req)
+        try:
+            resp = self._handle_request(req)
+        except HTTPException, e:
+            resp = e.get_response(req.environ)
         self.session.save_cookie(resp)
         return resp
 
@@ -72,6 +80,10 @@ class WebSiteHandler(Handler):
         context.update(params)
         html = self.templates.get_template(name).render(**context)
         return Response(html, content_type='text/html; charset=UTF-8')
+
+    def require_user(self):
+        if 'id' not in self.session:
+            raise abort(redirect(self.login_url))
 
 
 class PageHandler(WebSiteHandler):
@@ -227,8 +239,7 @@ class LogoutHandler(WebSiteHandler):
 class APIKeyHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        if 'id' not in self.session:
-            return redirect(self.login_url)
+        self.require_user()
         title = 'Your API Key'
         info = get_account_details(self.conn, self.session['id'])
         return self.render_template('apikey.html', apikey=info['apikey'], title=title)
@@ -237,8 +248,85 @@ class APIKeyHandler(WebSiteHandler):
 class NewAPIKeyHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        if 'id' not in self.session:
-            return redirect(self.login_url)
+        self.require_user()
         reset_account_apikey(self.conn, self.session['id'])
         return redirect(self.config.base_url + 'api-key')
+
+
+class ApplicationsHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        self.require_user()
+        title = 'Your Applications'
+        applications = find_applications_by_account(self.conn, self.session['id'])
+        return self.render_template('applications.html', title=title,
+            applications=applications)
+
+
+class NewApplicationHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        self.require_user()
+        errors = []
+        title = 'New Applications'
+        if req.form.get('submit'):
+            name = req.form.get('name')
+            version = req.form.get('version')
+            if name and version:
+                insert_application(self.conn, {
+                    'name': name,
+                    'version': version,
+                    'account_id': self.session['id'],
+                })
+                return redirect(self.config.base_url + 'applications')
+            else:
+                if not name:
+                    errors.append('Missing application name')
+                if not version:
+                    errors.append('Missing version number')
+        return self.render_template('new-application.html', title=title,
+            form=req.form, errors=errors)
+
+
+def percent(x, total):
+    if total == 0:
+        x = 0
+        total = 1
+    return '%.2f' % (100.0 * x / total,)
+
+
+class StatsHandler(WebSiteHandler):
+
+    def _get_pie_chart(self, stats, pattern):
+        track_mbid_data = []
+        for i in range(11):
+            track_mbid_data.append(stats.get(pattern % i, 0))
+        track_mbid_sum = sum(track_mbid_data)
+        track_mbid = []
+        for i, count in enumerate(track_mbid_data):
+            if i == 0:
+                continue
+            track_mbid.append({
+                'i': i,
+                'count': count,
+                'percent': percent(count, track_mbid_sum),
+            })
+        return track_mbid
+
+    def _handle_request(self, req):
+        title = 'Statistics'
+        stats = find_current_stats(self.conn)
+        basic = {
+            'submissions': stats.get('submission.all', 0),
+            'fingerprints': stats.get('fingerprint.all', 0),
+            'tracks': stats.get('track.all', 0),
+            'mbids': stats.get('track_mbid.unique', 0),
+            'contributors': stats.get('account.active', 0),
+        }
+        track_mbid = self._get_pie_chart(stats, 'track.%dmbids')
+        mbid_track = self._get_pie_chart(stats, 'mbid.%dtracks')
+        basic['tracks_with_mbid'] = basic['tracks'] - stats.get('track.0mbids', 0)
+        basic['tracks_with_mbid_percent'] = percent(basic['tracks_with_mbid'], basic['tracks'])
+        return self.render_template('stats.html', title=title, basic=basic,
+            track_mbid=track_mbid, mbid_track=mbid_track)
 

@@ -195,3 +195,7 @@ table.listing td {
 	vertical-align: top;
 }
 
+table.listing td.r {
+    text-align: right;
+    width: 5em;
+}

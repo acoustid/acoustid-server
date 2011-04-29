@@ -1,0 +1,24 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>{{ title }}</h2> 
+
+{% if errors %}
+<p class="errors">{% for error in errors %}{{ error }}<br />{% endfor %}</p>
+{% endif %}
+
+<form action="{{ base_https_url }}new-application" method="POST"> 
+<p>
+	<small><label for="name_i">Application name:</label></small><br />
+ 	<input name="name" id="name_i" type="text" class="text" value="{{ form.name }}" /><br />
+	<small><label for="version_i">Version number:</label></small><br />
+	<input name="version" id="version_i" type="text" class="text value="{{ form.version }}"" />
+</p>
+<p>
+	<input type="submit" value="Register" />
+	<input type="hidden" name="submit" value="1" />
+</p>
+</form>
+
+{% endblock %}
+

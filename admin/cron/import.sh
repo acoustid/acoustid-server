@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-LOGFILE=/var/log/acoustid/import.log
 LOCKDIR=/var/lock/acoustid-import.lock
 
 #perl -e 'exit 1 if `cut -f1 -d" " /proc/loadavg` > 0.6;' || exit 0
@@ -21,10 +20,6 @@ fi
 trap "rm -rf $LOCKDIR" EXIT
 echo $$ >$LOCKDIR/pid
 
+DIR=`dirname $0`/../..
+PYTHONPATH=$DIR $DIR/scripts/import_queued_submissions.py -q -c $DIR/acoustid.conf
 
-OUTPUT=$(curl -s 'http://127.0.0.1:8080/admin/import?batchSize=70')
-
-if [ "$OUTPUT" != "OK" ]; then
-	echo $OUTPUT
-	exit 1
-fi
