@@ -7,6 +7,7 @@ from acoustid.data.account import (
     lookup_account_id_by_apikey,
     get_account_details,
     reset_account_apikey,
+    update_account_lastlogin,
 )
 
 
@@ -25,4 +26,12 @@ def test_reset_account_apikey(conn):
     reset_account_apikey(conn, 1)
     info = get_account_details(conn, 1)
     assert_not_equal('user1key', info['apikey'])
+
+
+@with_database
+def test_update_account_lastlogin(conn):
+    info1 = get_account_details(conn, 1)
+    update_account_lastlogin(conn, 1)
+    info2 = get_account_details(conn, 1)
+    assert_true(info1['lastlogin'] < info2['lastlogin'])
 

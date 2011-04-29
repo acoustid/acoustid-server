@@ -145,6 +145,8 @@ class LoginHandler(WebSiteHandler):
                         'name': username,
                         'mbuser': username,
                     })
+                else:
+                    update_account_lastlogin(self.conn, account_id)
                 logger.info("Successfuly identified MusicBrainz user %s (%d)", username, account_id)
                 self.session['id'] = account_id
             else:
@@ -204,6 +206,8 @@ class LoginHandler(WebSiteHandler):
                     'name': 'OpenID User',
                     'openid': openid_url,
                 })
+            else:
+                update_account_lastlogin(self.conn, account_id)
             logger.info("Successfuly identified OpenID user %s (%d) with email '%s' and nickname '%s'",
                 openid_url, account_id, values.get('email', ''), values.get('name', ''))
             self.session['id'] = account_id

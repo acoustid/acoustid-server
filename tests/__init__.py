@@ -70,8 +70,8 @@ TABLES = [
 ]
 
 BASE_SQL = '''
-INSERT INTO account (name, apikey) VALUES ('User 1', 'user1key');
-INSERT INTO account (name, apikey) VALUES ('User 2', 'user2key');
+INSERT INTO account (name, apikey, lastlogin) VALUES ('User 1', 'user1key', now() - INTERVAL '2 day');
+INSERT INTO account (name, apikey, lastlogin) VALUES ('User 2', 'user2key', now() - INTERVAL '5 day');
 INSERT INTO application (name, apikey, version, account_id) VALUES ('App 1', 'app1key', '0.1', 1);
 INSERT INTO application (name, apikey, version, account_id) VALUES ('App 2', 'app2key', '0.1', 2);
 INSERT INTO format (name) VALUES ('FLAC');

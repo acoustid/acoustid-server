@@ -28,6 +28,14 @@ def get_account_details(conn, id):
     return conn.execute(query).fetchone()
 
 
+def update_account_lastlogin(conn, id):
+    with conn.begin():
+        update_stmt = schema.account.update().where(schema.account.c.id == id)
+        update_stmt = update_stmt.values(lastlogin=sql.text('now()'))
+        logger.info('%s', update_stmt)
+        conn.execute(update_stmt)
+
+
 def insert_account(conn, data):
     """
     Insert a new account into the database
@@ -36,6 +44,7 @@ def insert_account(conn, data):
         insert_stmt = schema.account.insert().values({
             'name': data['name'],
             'mbuser': data.get('mbuser'),
+            'lastlogin': sql.text('now()'),
             'apikey': sql.text('generate_api_key()'),
         })
         id = conn.execute(insert_stmt).inserted_primary_key[0]
