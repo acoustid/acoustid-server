@@ -57,7 +57,7 @@ INSERT INTO stats_top_accounts (account_id, count)
 		SELECT so.account_id
 		FROM submission su
 		JOIN source so ON su.source_id=so.id
-		WHERE su.created > now() - INTERVAL '5' DAY
+		WHERE su.created > now() - INTERVAL '14' DAY
 	) a
 	GROUP BY account_id;
 

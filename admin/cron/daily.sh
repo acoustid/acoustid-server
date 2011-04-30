@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-ADMINDIR=`dirname $0`/../
-PSQL=$ADMINDIR/psql.sh
+ROOTDIR=`dirname $0`/../../
+PSQL=$ROOTDIR/run_psql.sh
 
-$PSQL -q <$ADMINDIR/sql/CollectStats.sql
+$PSQL <$ROOTDIR/sql/CollectStats.sql
 
