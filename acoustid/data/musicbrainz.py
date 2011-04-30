@@ -40,6 +40,31 @@ def lookup_metadata(conn, mbids):
     return results
 
 
+def lookup_recording_metadata(conn, mbids):
+    """
+    Lookup MusicBrainz metadata for the specified MBIDs.
+    """
+    if not mbids:
+        return {}
+    src = schema.mb_track.join(schema.mb_artist)
+    query = sql.select(
+        [
+            schema.mb_track.c.gid,
+            schema.mb_track.c.name,
+            schema.mb_track.c.length,
+            schema.mb_artist.c.gid.label('artist_id'),
+            schema.mb_artist.c.name.label('artist_name'),
+        ],
+        schema.mb_track.c.gid.in_(mbids),
+        from_obj=src)
+    results = {}
+    for row in conn.execute(query):
+        result = dict(row)
+        result['length'] /= 1000
+        results[row['gid']] = result
+    return results
+
+
 def find_puid_mbids(conn, puid, min_duration, max_duration):
     """
     Find MBIDs for MusicBrainz tracks that are linked to the given PUID and

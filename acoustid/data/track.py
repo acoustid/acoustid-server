@@ -122,9 +122,12 @@ def get_track_fingerprint_matrix(conn, track_id):
         SELECT
             f1.id AS fp1_id,
             f2.id AS fp2_id,
-            acoustid_compare(f1.fingerprint, f2.fingerprint) AS score
+            CASE WHEN f1.id = f2.id
+                THEN 1.0
+                ELSE acoustid_compare(f1.fingerprint, f2.fingerprint)
+            END AS score
         FROM fingerprint f1
-        JOIN fingerprint f2 ON f1.id < f2.id AND f2.track_id = f1.track_id
+        JOIN fingerprint f2 ON f1.id <= f2.id AND f2.track_id = f1.track_id
         WHERE f1.track_id = %s
         ORDER BY f1.id, f2.id
     """

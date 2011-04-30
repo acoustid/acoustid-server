@@ -63,8 +63,10 @@ class WebSiteHandler(Handler):
         return self.config.base_https_url + 'login'
 
     @classmethod
-    def create_from_server(cls, server):
-        return cls(server.config.website, server.templates, server.engine.connect)
+    def create_from_server(cls, server, **args):
+        self = cls(server.config.website, server.templates, server.engine.connect)
+        self.url_args = args
+        return self
 
     def handle(self, req):
         self.session = SecureCookie.load_cookie(req, secret_key=self.config.secret)
@@ -92,22 +94,17 @@ class WebSiteHandler(Handler):
 
 class PageHandler(WebSiteHandler):
 
-    @classmethod
-    def create_from_server(cls, server, page=None):
-        self = cls(server.config.website, server.templates, server.engine.connect)
-        self.filename  = os.path.normpath(
-            os.path.join(server.config.website.pages_path, page + '.md'))
-        return self
-
     def _handle_request(self, req):
         from markdown import Markdown
-        if not self.filename.startswith(self.config.pages_path):
-            logger.warn('Attempting to access page outside of the pages directory: %s', self.filename)
+        filename = os.path.normpath(
+            os.path.join(server.config.website.pages_path, self.url_args['page'] + '.md'))
+        if not filename.startswith(self.config.pages_path):
+            logger.warn('Attempting to access page outside of the pages directory: %s', filename)
             raise NotFound()
         try:
-            text = open(self.filename, 'r').read().decode('utf8')
+            text = open(filename, 'r').read().decode('utf8')
         except IOError:
-            logger.warn('Page does not exist: %s', self.filename)
+            logger.warn('Page does not exist: %s', filename)
             raise NotFound()
         md = Markdown(extensions=['meta'])
         html = md.convert(text)
@@ -345,4 +342,39 @@ class ContributorsHandler(WebSiteHandler):
         contributors = find_all_contributors(self.conn)
         return self.render_template('contributors.html', title=title,
             contributors=contributors)
+
+
+class TrackHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        from acoustid.data.track import get_track_fingerprint_matrix, lookup_mbids
+        from acoustid.data.musicbrainz import lookup_recording_metadata
+        track_id = self.url_args['id']
+        title = 'Track #%d' % (track_id,)
+        matrix = get_track_fingerprint_matrix(self.conn, track_id)
+        ids = sorted(matrix.keys())
+        if not ids:
+            return self.render_template('track-not-found.html', title=title,
+                track_id=track_id)
+        fingerprints = [{'id': id, 'i': i + 1} for i, id in enumerate(ids)]
+        color1 = (172, 0, 0)
+        color2 = (255, 255, 255)
+        for id1 in ids:
+            for id2 in ids:
+                sim = matrix[id1][id2]
+                color = [color1[i] + (color2[i] - color1[i]) * sim for i in range(3)]
+                matrix[id1][id2] = {
+                    'value': sim,
+                    'color': '#%02x%02x%02x' % tuple(color),
+                }
+        mbids = lookup_mbids(self.conn, [track_id])[track_id]
+        metadata = lookup_recording_metadata(self.conn, mbids)
+        recordings = []
+        for mbid in mbids:
+            recording = metadata.get(mbid, {})
+            recording['mbid'] = mbid
+            recordings.append(recording)
+        recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
+        return self.render_template('track.html', title=title,
+            matrix=matrix, fingerprints=fingerprints, recordings=recordings)
 

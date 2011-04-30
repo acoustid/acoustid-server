@@ -204,3 +204,18 @@ table.listing td.index {
     text-align: right;
     width: 1.5em;
 }
+
+table.matrix {
+	margin-top: 0;
+	margin-bottom: 1em;
+	border-collapse: collapse;
+}
+
+table.matrix th,
+table.matrix td {
+    vertical-align: middle;
+    text-align: center;
+    font-size: 70%;
+    padding: 0.1em 0.3em;
+}
+

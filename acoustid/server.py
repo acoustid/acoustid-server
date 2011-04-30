@@ -41,6 +41,7 @@ website_url_rules = [
     Rule('/new-application', endpoint=website.NewApplicationHandler),
     Rule('/stats', endpoint=website.StatsHandler),
     Rule('/contributors', endpoint=website.ContributorsHandler),
+    Rule('/track/<int:id>', endpoint=website.TrackHandler),
     Rule('/<path:page>', endpoint=website.PageHandler),
 ]
 
