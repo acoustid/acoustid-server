@@ -199,3 +199,8 @@ table.listing td.r {
     text-align: right;
     width: 5em;
 }
+
+table.listing td.index {
+    text-align: right;
+    width: 1.5em;
+}

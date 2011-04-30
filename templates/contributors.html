@@ -9,6 +9,7 @@
 <table class="listing">
     {% for t in contributors %}
     <tr>
+        <td class="index">{{ loop.index }}.</td>
         <td>{% if t.mbuser %}<a href="http://musicbrainz.org/show/user/?username={{ t.mbuser }}">{% endif %}{{ t.name }}{% if t.mbuser %}</a>{% endif %}</td>
         <td class="r">{{ t.count }}</td>
     </tr>
