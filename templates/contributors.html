@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>{{ title }}</h2>
+
+<p>This page lists all people that have contributed fingerprints to the Acoustid database.</p>
+
+{% if contributors %}
+<table class="listing">
+    {% for t in contributors %}
+    <tr>
+        <td>{% if t.mbuser %}<a href="http://musicbrainz.org/show/user/?username={{ t.mbuser }}">{% endif %}{{ t.name }}{% if t.mbuser %}</a>{% endif %}</td>
+        <td class="r">{{ t.count }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nobody has submitted any fingerprints. :-(</p>
+{% endif %}
+
+{% endblock %}
+

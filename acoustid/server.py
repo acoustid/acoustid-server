@@ -40,6 +40,7 @@ website_url_rules = [
     Rule('/applications', endpoint=website.ApplicationsHandler),
     Rule('/new-application', endpoint=website.NewApplicationHandler),
     Rule('/stats', endpoint=website.StatsHandler),
+    Rule('/contributors', endpoint=website.ContributorsHandler),
     Rule('/<path:page>', endpoint=website.PageHandler),
 ]
 

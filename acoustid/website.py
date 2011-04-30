@@ -24,7 +24,11 @@ from acoustid.data.account import (
     get_account_details,
     reset_account_apikey,
 )
-from acoustid.data.stats import find_current_stats
+from acoustid.data.stats import (
+    find_current_stats,
+    find_top_contributors,
+    find_all_contributors,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +331,17 @@ class StatsHandler(WebSiteHandler):
         mbid_track = self._get_pie_chart(stats, 'mbid.%dtracks')
         basic['tracks_with_mbid'] = basic['tracks'] - stats.get('track.0mbids', 0)
         basic['tracks_with_mbid_percent'] = percent(basic['tracks_with_mbid'], basic['tracks'])
+        top_contributors = find_top_contributors(self.conn)
         return self.render_template('stats.html', title=title, basic=basic,
-            track_mbid=track_mbid, mbid_track=mbid_track)
+            track_mbid=track_mbid, mbid_track=mbid_track,
+            top_contributors=top_contributors)
+
+
+class ContributorsHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        title = 'Contributors'
+        contributors = find_all_contributors(self.conn)
+        return self.render_template('contributors.html', title=title,
+            contributors=contributors)
 
