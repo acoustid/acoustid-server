@@ -15,7 +15,7 @@ interested in the project, you can download the source code for the
 itself.
 
 [1]: /database
-[2]: http://wiki.acoustid.org/wiki/Server
+[2]: /server
 [3]: /chromaprint
 [4]: /fingerprinter
 [5]: http://musicbrainz.org/
