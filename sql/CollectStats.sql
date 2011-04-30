@@ -51,4 +51,14 @@ INSERT INTO stats (name, value) VALUES ('account.active', (
     SELECT count(*) FROM account WHERE submission_count > 0
 ));
 
+DELETE FROM stats_top_accounts;
+INSERT INTO stats_top_accounts (account_id, count)
+	SELECT account_id, count(*) FROM (
+		SELECT so.account_id
+		FROM submission su
+		JOIN source so ON su.source_id=so.id
+		WHERE su.created > now() - INTERVAL '5' DAY
+	) a
+	GROUP BY account_id;
+
 COMMIT;

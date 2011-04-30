@@ -84,5 +84,11 @@ CREATE TABLE stats (
     value int NOT NULL
 );
 
+CREATE TABLE stats_top_accounts (
+    id serial NOT NULL,
+	account_id int NOT NULL,
+	count int NOT NULL
+);
+
 COMMIT;
 
