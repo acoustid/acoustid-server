@@ -17,7 +17,10 @@ from tests import (
     TEST_2_FP_RAW,
     TEST_2_LENGTH,
 )
-from acoustid.data.track import merge_missing_mbids, insert_track, merge_tracks
+from acoustid.data.track import (
+    merge_missing_mbids, insert_track, merge_tracks,
+    get_track_fingerprint_matrix,
+)
 
 
 @with_database
@@ -80,4 +83,23 @@ INSERT INTO track_mbid (track_id, mbid) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025
     assert_true(expected, rows)
     rows = conn.execute("SELECT id FROM track ORDER BY id").fetchall()
     assert_true([(3,)], rows)
+
+
+@with_database
+def test_track_fingerprint_matrix(conn):
+    prepare_database(conn, """
+INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
+    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 1, 1),
+           (%(fp3)s, %(len3)s, 1, 1);
+    """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
+              fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH,
+              fp3=TEST_1C_FP_RAW, len3=TEST_1C_LENGTH))
+    matrix = get_track_fingerprint_matrix(conn, 1)
+    assert_equal([1, 2, 3], matrix.keys())
+    assert_almost_equal(0.991228, matrix[1][2])
+    assert_almost_equal(0.938596, matrix[1][3])
+    assert_almost_equal(0.991228, matrix[2][1])
+    assert_almost_equal(0.94152, matrix[2][3])
+    assert_almost_equal(0.938596, matrix[3][1])
+    assert_almost_equal(0.94152, matrix[3][2])
 

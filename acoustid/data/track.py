@@ -116,3 +116,22 @@ def insert_mbid(conn, track_id, mbid):
     logger.debug("Added MBID %s to track %d", mbid, track_id)
     return True
 
+
+def get_track_fingerprint_matrix(conn, track_id):
+    query = """
+        SELECT
+            f1.id AS fp1_id,
+            f2.id AS fp2_id,
+            acoustid_compare(f1.fingerprint, f2.fingerprint) AS score
+        FROM fingerprint f1
+        JOIN fingerprint f2 ON f1.id < f2.id AND f2.track_id = f1.track_id
+        WHERE f1.track_id = %s
+        ORDER BY f1.id, f2.id
+    """
+    rows = conn.execute(query, (track_id,))
+    result = {}
+    for fp1_id, fp2_id, score in rows:
+        result.setdefault(fp1_id, {})[fp2_id] = score
+        result.setdefault(fp2_id, {})[fp1_id] = score
+    return result
+
