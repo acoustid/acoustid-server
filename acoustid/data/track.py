@@ -23,6 +23,18 @@ def lookup_mbids(conn, track_ids):
     return results
 
 
+def lookup_tracks(conn, mbids):
+    if not mbids:
+        return {}
+    query = sql.select(
+        [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
+        schema.track_mbid.c.mbid.in_(mbids)).order_by(schema.track_mbid.c.track_id)
+    results = {}
+    for track_id, mbid in conn.execute(query):
+        results.setdefault(mbid, []).append(track_id)
+    return results
+
+
 def merge_mbids(conn, target_mbid, source_mbids):
     """
     Merge the specified MBIDs.

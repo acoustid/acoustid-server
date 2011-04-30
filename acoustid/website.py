@@ -354,6 +354,7 @@ class TrackHandler(WebSiteHandler):
         matrix = get_track_fingerprint_matrix(self.conn, track_id)
         ids = sorted(matrix.keys())
         if not ids:
+            title = 'Incorrect Track'
             return self.render_template('track-not-found.html', title=title,
                 track_id=track_id)
         fingerprints = [{'id': id, 'i': i + 1} for i, id in enumerate(ids)]
@@ -377,4 +378,25 @@ class TrackHandler(WebSiteHandler):
         recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
         return self.render_template('track.html', title=title,
             matrix=matrix, fingerprints=fingerprints, recordings=recordings)
+
+
+
+class MBIDHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        from acoustid.data.track import lookup_tracks
+        from acoustid.data.musicbrainz import lookup_recording_metadata
+        mbid = self.url_args['mbid']
+        metadata = lookup_recording_metadata(self.conn, [mbid])
+        if mbid not in metadata:
+            title = 'Incorrect Recording'
+            return self.render_template('mbid-not-found.html', title=title, mbid=mbid)
+        metadata = metadata[mbid]
+        title = 'Recording "%s" by %s' % (metadata['name'], metadata['artist_name'])
+        tracks = lookup_tracks(self.conn, [mbid])
+        if mbid in tracks:
+            tracks = [{'id': id} for id in tracks[mbid]]
+        else:
+            tracks = []
+        return self.render_template('mbid.html', title=title, tracks=tracks, mbid=mbid)
 

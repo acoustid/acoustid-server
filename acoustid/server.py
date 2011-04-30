@@ -42,6 +42,7 @@ website_url_rules = [
     Rule('/stats', endpoint=website.StatsHandler),
     Rule('/contributors', endpoint=website.ContributorsHandler),
     Rule('/track/<int:id>', endpoint=website.TrackHandler),
+    Rule('/mbid/<string:mbid>', endpoint=website.MBIDHandler),
     Rule('/<path:page>', endpoint=website.PageHandler),
 ]
 
