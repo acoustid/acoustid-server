@@ -97,7 +97,7 @@ class PageHandler(WebSiteHandler):
     def _handle_request(self, req):
         from markdown import Markdown
         filename = os.path.normpath(
-            os.path.join(server.config.website.pages_path, self.url_args['page'] + '.md'))
+            os.path.join(self.config.pages_path, self.url_args['page'] + '.md'))
         if not filename.startswith(self.config.pages_path):
             logger.warn('Attempting to access page outside of the pages directory: %s', filename)
             raise NotFound()
@@ -116,7 +116,7 @@ class IndexHandler(Handler):
 
     @classmethod
     def create_from_server(cls, server, page=None):
-        return PageHandler.create_from_server(server, 'index')
+        return PageHandler.create_from_server(server, page='index')
 
 
 def check_mb_account(username, password):
