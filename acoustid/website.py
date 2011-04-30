@@ -178,7 +178,8 @@ class LoginHandler(WebSiteHandler):
                     ax_req.add(ax.AttrInfo('http://axschema.org/namePerson/friendly',
                               alias='nickname'))
                     openid_req.addExtension(ax_req)
-                    url = openid_req.redirectURL(self.config.base_url, self.login_url)
+                    realm = self.config.base_https_url.rstrip('/')
+                    url = openid_req.redirectURL(realm, self.login_url)
                     return redirect(url)
         else:
             errors.append('Missing OpenID')
