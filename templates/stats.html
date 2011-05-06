@@ -28,6 +28,10 @@
     </tr>
 </table>
 
+<p><b>Daily additions</b></p>
+
+<div id="graph-fp"></div>
+
 <p><b>Tracks per the number of linked MBIDs</b></p>
 
 <table class="listing">
@@ -48,6 +52,11 @@
 <p><b>MBIDs per the number of linked tracks</b></p>
 
 <table class="listing">
+    <tr>
+        <td>MBIDs with at least 1 track</td>
+        <td class="r">{{ basic.mbids }}</td>
+        <td class="r">100.00 %</td>
+    </tr>
     {% for t in mbid_track %}
     <tr>
         <td>MBIDs with {% if t.i == 1 %}1 track{% elif t.i == 10 %}10 or more tracks{% else %}{{ t.i }} tracks{% endif %}</td>
@@ -74,6 +83,59 @@
 {% endif %}
 
 <p><a href="{{ base_url }}contributors">See all contributors</a></p>
+
+{% macro data_series(name, data, visible=True)  %}
+{
+    name: '{{ name }}',
+	data: [
+		{% for i in data -%}
+			[Date.UTC({{ i.date.year }}, {{ i.date.month - 1 }}, {{ i.date.day }}), {{ i.value }}]{% if not loop.last %},{% endif %}
+		{%- endfor %}
+	],
+	visible: {{ 'true' if visible else 'false' }}
+}
+{% endmacro %}
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js" type="text/javascript"></script>
+<script src="/static/highcharts.js" type="text/javascript"></script>
+<script type="text/javascript">
+var chart1; // globally available
+$(document).ready(function() {
+	chart1 = new Highcharts.Chart({
+		chart: {
+			renderTo: 'graph-fp',
+			height: 250,
+			zoomType: 'x',
+			defaultSeriesType: 'line'
+		},
+		title: { text: '' },
+		xAxis: {
+			type: 'datetime',
+			dateTimeLabelFormats: {
+				month: '%e. %b',
+				year: '%b'
+			}
+		},
+		yAxis: {
+			title: { text: '' }
+		},
+		legend: {
+			shadow: false
+		},
+		plotOptions: {
+			line: {
+			lineWidth: 1
+			},
+		},
+		series: [
+			{{ data_series('Submissions', daily.submissions, false) }},
+			{{ data_series('Fingerprints', daily.fingerprints, false) }},
+			{{ data_series('Tracks', daily.tracks, false) }},
+			{{ data_series('MBIDs', daily.mbids) }}
+		]
+	});
+});
+</script>
 
 {% endblock %}
 

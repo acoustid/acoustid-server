@@ -16,6 +16,25 @@ def find_current_stats(conn):
     return stats
 
 
+def find_daily_stats(conn, names):
+    query = """
+        SELECT
+            date, name,
+            value - first_value(value) over(PARTITION BY name
+                                            ORDER BY date
+                                            ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS value
+        FROM stats
+        WHERE date > now() - INTERVAL '30 day' AND name IN (""" + ",".join(["%s" for i in names]) +  """)
+        ORDER BY name, date
+    """
+    stats = {}
+    for name in names:
+        stats[name] = []
+    for row in conn.execute(query, tuple(names)):
+        stats[row['name']].append({'date': row['date'], 'value': row['value']})
+    return stats
+
+
 def find_top_contributors(conn):
     src = schema.stats_top_accounts.join(schema.account)
     query = sql.select([
@@ -54,4 +73,6 @@ def find_all_contributors(conn):
             'count': row[schema.account.c.submission_count],
         })
     return results
+
+
 

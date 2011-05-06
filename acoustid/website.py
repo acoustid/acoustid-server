@@ -26,6 +26,7 @@ from acoustid.data.account import (
 )
 from acoustid.data.stats import (
     find_current_stats,
+    find_daily_stats,
     find_top_contributors,
     find_all_contributors,
 )
@@ -330,9 +331,16 @@ class StatsHandler(WebSiteHandler):
         basic['tracks_with_mbid'] = basic['tracks'] - stats.get('track.0mbids', 0)
         basic['tracks_with_mbid_percent'] = percent(basic['tracks_with_mbid'], basic['tracks'])
         top_contributors = find_top_contributors(self.conn)
+        daily_raw = find_daily_stats(self.conn, ['submission.all', 'fingerprint.all', 'track.all', 'track_mbid.unique'])
+        daily = {
+            'submissions': daily_raw['submission.all'],
+            'fingerprints': daily_raw['fingerprint.all'],
+            'tracks': daily_raw['track.all'],
+            'mbids': daily_raw['track_mbid.unique'],
+        }
         return self.render_template('stats.html', title=title, basic=basic,
             track_mbid=track_mbid, mbid_track=mbid_track,
-            top_contributors=top_contributors)
+            top_contributors=top_contributors, daily=daily)
 
 
 class ContributorsHandler(WebSiteHandler):
