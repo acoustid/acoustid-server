@@ -213,7 +213,7 @@ class SubmitHandlerParams(APIHandlerParams):
         if not p['fingerprint']:
             raise errors.InvalidFingerprintError()
         p['bitrate'] = values.get('bitrate' + suffix, type=int)
-        if p['bitrate'] <= 0:
+        if p['bitrate'] is not None and p['bitrate'] <= 0:
             raise errors.InvalidBitrateError('bitrate' + suffix)
         self.submissions.append(p)
 
