@@ -61,12 +61,17 @@ def import_submission(conn, submission):
         }
         if matches:
             match = matches[0]
-            logger.debug("Matches %d results, the top result (%s) is %d%% similar",
-                len(matches), match['id'], match['score'] * 100)
+            logger.debug("Matches %d results, the top result %s with track %d is %d%% similar",
+                len(matches), match['id'], match['track_id'], match['score'] * 100)
             fingerprint['track_id'] = match['track_id']
             if match['score'] > FINGERPRINT_MERGE_TRESHOLD:
                 fingerprint['id'] = match['id']
-            all_track_ids = set([m['track_id'] for m in matches])
+            all_track_ids = set([match['track_id']])
+            for m in matches:
+                if m['track_id'] not in all_track_ids:
+                    logger.debug("Fingerprint %d with track %d is %d%% similar",
+                        m['id'], m['track_id'], m['score'] * 100)
+                    all_track_ids.add(m['track_id'])
             if len(all_track_ids) > 1:
                 all_track_ids.remove(match['track_id'])
                 merge_tracks(conn, match['track_id'], list(all_track_ids))

@@ -1,0 +1,47 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>{{ title }}</h2>
+
+<p>
+    This track has {{ fingerprints | length }} fingerprints(s) and is linked
+    to {{ recordings | length }} MusicBrainz recording(s).
+</p>
+
+{% if fingerprints[1] %}
+
+<p>Similarity matrix of the track's fingerprints:</p>
+
+<table class="matrix">
+<tr>
+    <th>&nbsp;</th>
+{% for fp1 in fingerprints %}
+    <th title="{{ fp1.id }}">{{ fp1.i  }}</th>
+{% endfor  %}
+</td>
+{% for fp1 in fingerprints %}
+<tr>
+    <th title="{{ fp1.id }}">{{ fp1.i }}</th>
+    {% for fp2 in fingerprints %}
+    <td style="background-color: {{ matrix[fp1.id][fp2.id].color }};" title="{{ fp1.id }} vs {{ fp2.id }}">{{ matrix[fp1.id][fp2.id].value | round(2) }}</td>
+    {% endfor  %}
+</td>
+{% endfor  %}
+</table>
+
+{% endif %}
+
+<p>Linked MusicBrainz recordings:</p>
+
+<ul>
+{% for rec in recordings %}
+    {% if rec.name %}
+    <li><a href="http://musicbrainz.org/track/{{ rec.mbid }}">{{ rec.name }}</a> by <a href="http://musicbrainz.org/artist/{{ rec.artist_id }}">{{ rec.artist_name }}</a></li>
+    {% else %}
+    <li><i><a href="http://musicbrainz.org/track/{{ rec.mbid }}">{{ rec.mbid }}</a></i></li>
+    {% endif %}
+{% endfor %}
+</ul>
+
+{% endblock %}
+

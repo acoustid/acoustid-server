@@ -14,6 +14,12 @@ helping developing the software or just spreading the word.
 
 [mb]: http://musicbrainz.org/
 
+### Can the service identify short audio snippets?
+
+No, it can't. The service has been designed for identifying full audio files.
+We would like to eventually support also this use case, but it's not a priority
+at the moment.
+
 ### Why do I need to log in to submit fingerprints?
 
 We want to be able to track fingerprint submission for statistical and

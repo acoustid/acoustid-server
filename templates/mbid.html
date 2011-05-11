@@ -1,0 +1,24 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>{{ title }}</h2>
+
+<p>
+    See more information about this recording on
+    <a href="http://musicbrainz.org/track/{{ mbid }}">MusicBrainz</a>.
+</p>
+
+{% if tracks %}
+
+<p>Linked tracks:</p>
+
+<ul>
+{% for tr in tracks %}
+    <li><a href="{{ base_url }}track/{{ tr.id }}">#{{ tr.id }}</a></li>
+{% endfor %}
+</ul>
+
+{% endif %}
+
+{% endblock %}
+

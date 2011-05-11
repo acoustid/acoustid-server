@@ -8,4 +8,5 @@ ALTER TABLE track ADD CONSTRAINT track_pkey PRIMARY KEY (id);
 ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_pkey PRIMARY KEY (track_id, mbid);
 ALTER TABLE submission ADD CONSTRAINT submission_pkey PRIMARY KEY (id);
 ALTER TABLE stats ADD CONSTRAINT stats_pkey PRIMARY KEY (id);
+ALTER TABLE stats_top_accounts ADD CONSTRAINT stats_top_accounts_pkey PRIMARY KEY (id);
 

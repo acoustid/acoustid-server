@@ -51,4 +51,55 @@ INSERT INTO stats (name, value) VALUES ('account.active', (
     SELECT count(*) FROM account WHERE submission_count > 0
 ));
 
+SELECT track_count, count(*) mbid_count
+    INTO TEMP TABLE tmp_mbid_tracks
+    FROM (
+        SELECT count(track_id) track_count FROM track_mbid
+        GROUP BY mbid
+    ) a
+    GROUP BY track_count ORDER BY track_count;
+
+INSERT INTO stats (name, value) VALUES ('mbid.0tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=0), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.1tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=1), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.2tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=2), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.3tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=3), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.4tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=4), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.5tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=5), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.6tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=6), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.7tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=7), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.8tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=8), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.9tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count=9), 0));
+INSERT INTO stats (name, value) VALUES ('mbid.10tracks', coalesce((SELECT sum(mbid_count) FROM tmp_mbid_tracks WHERE track_count>=10), 0));
+
+SELECT mbid_count, count(*) track_count
+    INTO TEMP TABLE tmp_track_mbids
+    FROM (
+        SELECT count(tm.mbid) mbid_count
+        FROM track t LEFT JOIN track_mbid tm ON t.id=tm.track_id
+        GROUP BY t.id
+    ) a
+    GROUP BY mbid_count ORDER BY mbid_count;
+
+INSERT INTO stats (name, value) VALUES ('track.0mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=0), 0));
+INSERT INTO stats (name, value) VALUES ('track.1mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=1), 0));
+INSERT INTO stats (name, value) VALUES ('track.2mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=2), 0));
+INSERT INTO stats (name, value) VALUES ('track.3mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=3), 0));
+INSERT INTO stats (name, value) VALUES ('track.4mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=4), 0));
+INSERT INTO stats (name, value) VALUES ('track.5mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=5), 0));
+INSERT INTO stats (name, value) VALUES ('track.6mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=6), 0));
+INSERT INTO stats (name, value) VALUES ('track.7mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=7), 0));
+INSERT INTO stats (name, value) VALUES ('track.8mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=8), 0));
+INSERT INTO stats (name, value) VALUES ('track.9mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=9), 0));
+INSERT INTO stats (name, value) VALUES ('track.10mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count>=10), 0));
+
+DELETE FROM stats_top_accounts;
+INSERT INTO stats_top_accounts (account_id, count)
+	SELECT account_id, count(*) FROM (
+		SELECT so.account_id
+		FROM submission su
+		JOIN source so ON su.source_id=so.id
+		WHERE su.created > now() - INTERVAL '14' DAY
+	) a
+	GROUP BY account_id;
+
 COMMIT;

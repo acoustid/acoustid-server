@@ -34,3 +34,7 @@ ALTER TABLE submission ADD CONSTRAINT submission_fk_format_id
     FOREIGN KEY (format_id)
     REFERENCES format (id);
 
+ALTER TABLE stats_top_accounts ADD CONSTRAINT stats_top_accounts_fk_account_id
+    FOREIGN KEY (account_id)
+    REFERENCES account (id);
+

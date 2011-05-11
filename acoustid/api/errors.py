@@ -13,6 +13,8 @@ ERROR_INVALID_APIKEY = 4
 ERROR_INTERNAL = 5
 ERROR_INVALID_USER_APIKEY = 6
 ERROR_INVALID_UUID = 7
+ERROR_INVALID_DURATION = 8
+ERROR_INVALID_BITRATE = 9
 
 
 class WebServiceError(Exception):
@@ -74,5 +76,21 @@ class InvalidUUIDError(WebServiceError):
     def __init__(self, name):
         message = 'parameter "%s" is not a valid UUID' % (name,)
         WebServiceError.__init__(self, ERROR_INVALID_UUID, message)
+        self.parameter = name
+
+
+class InvalidDurationError(WebServiceError):
+
+    def __init__(self, name):
+        message = 'parameter "%s" must be a positive integer'
+        WebServiceError.__init__(self, ERROR_INVALID_DURATION, message)
+        self.parameter = name
+
+
+class InvalidBitrateError(WebServiceError):
+
+    def __init__(self, name):
+        message = 'parameter "%s" must be a positive integer'
+        WebServiceError.__init__(self, ERROR_INVALID_BITRATE, message)
         self.parameter = name
 

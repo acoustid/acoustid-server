@@ -64,6 +64,12 @@ stats = Table('stats', metadata,
     Column('value', Integer),
 )
 
+stats_top_accounts = Table('stats_top_accounts', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('account_id', Integer, ForeignKey('account.id')),
+    Column('count', Integer),
+)
+
 fingerprint = Table('fingerprint', metadata,
     Column('id', Integer, primary_key=True),
     Column('fingerprint', ARRAY(Integer)),

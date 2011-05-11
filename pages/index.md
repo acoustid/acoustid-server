@@ -6,7 +6,7 @@ metadata database and provide a [web service][6] for audio file
 identification using this database.
 
 The content of the database is all submitted by users. If you have a
-MusicBraiz-tagged music collection, you can help by downloading our
+MusicBrainz-tagged music collection, you can help by downloading our
 [submission tool][4] and letting it to analyze your audio files.
 
 All software components are open source, so if you are a developer
@@ -15,7 +15,7 @@ interested in the project, you can download the source code for the
 itself.
 
 [1]: /database
-[2]: http://wiki.acoustid.org/wiki/Server
+[2]: /server
 [3]: /chromaprint
 [4]: /fingerprinter
 [5]: http://musicbrainz.org/

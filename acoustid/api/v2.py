@@ -191,8 +191,10 @@ class SubmitHandlerParams(APIHandlerParams):
 
     def _parse_duration_and_format(self, p, values, suffix):
         p['duration'] = values.get('duration' + suffix, type=int)
-        if not p['duration']:
+        if p['duration'] is None:
             raise errors.MissingParameterError('duration' + suffix)
+        if p['duration'] <= 0:
+            raise errors.InvalidDurationError('duration' + suffix)
         p['format'] = values.get('fileformat' + suffix)
 
     def _parse_submission(self, values, suffix):
@@ -211,6 +213,8 @@ class SubmitHandlerParams(APIHandlerParams):
         if not p['fingerprint']:
             raise errors.InvalidFingerprintError()
         p['bitrate'] = values.get('bitrate' + suffix, type=int)
+        if p['bitrate'] is not None and p['bitrate'] <= 0:
+            raise errors.InvalidBitrateError('bitrate' + suffix)
         self.submissions.append(p)
 
     def parse(self, values, conn):

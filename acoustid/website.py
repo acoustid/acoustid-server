@@ -24,7 +24,12 @@ from acoustid.data.account import (
     get_account_details,
     reset_account_apikey,
 )
-from acoustid.data.stats import find_current_stats
+from acoustid.data.stats import (
+    find_current_stats,
+    find_daily_stats,
+    find_top_contributors,
+    find_all_contributors,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +64,10 @@ class WebSiteHandler(Handler):
         return self.config.base_https_url + 'login'
 
     @classmethod
-    def create_from_server(cls, server):
-        return cls(server.config.website, server.templates, server.engine.connect)
+    def create_from_server(cls, server, **args):
+        self = cls(server.config.website, server.templates, server.engine.connect)
+        self.url_args = args
+        return self
 
     def handle(self, req):
         self.session = SecureCookie.load_cookie(req, secret_key=self.config.secret)
@@ -88,22 +95,17 @@ class WebSiteHandler(Handler):
 
 class PageHandler(WebSiteHandler):
 
-    @classmethod
-    def create_from_server(cls, server, page=None):
-        self = cls(server.config.website, server.templates, server.engine.connect)
-        self.filename  = os.path.normpath(
-            os.path.join(server.config.website.pages_path, page + '.md'))
-        return self
-
     def _handle_request(self, req):
         from markdown import Markdown
-        if not self.filename.startswith(self.config.pages_path):
-            logger.warn('Attempting to access page outside of the pages directory: %s', self.filename)
+        filename = os.path.normpath(
+            os.path.join(self.config.pages_path, self.url_args['page'] + '.md'))
+        if not filename.startswith(self.config.pages_path):
+            logger.warn('Attempting to access page outside of the pages directory: %s', filename)
             raise NotFound()
         try:
-            text = open(self.filename, 'r').read().decode('utf8')
+            text = open(filename, 'r').read().decode('utf8')
         except IOError:
-            logger.warn('Page does not exist: %s', self.filename)
+            logger.warn('Page does not exist: %s', filename)
             raise NotFound()
         md = Markdown(extensions=['meta'])
         html = md.convert(text)
@@ -115,7 +117,7 @@ class IndexHandler(Handler):
 
     @classmethod
     def create_from_server(cls, server, page=None):
-        return PageHandler.create_from_server(server, 'index')
+        return PageHandler.create_from_server(server, page='index')
 
 
 def check_mb_account(username, password):
@@ -176,7 +178,8 @@ class LoginHandler(WebSiteHandler):
                     ax_req.add(ax.AttrInfo('http://axschema.org/namePerson/friendly',
                               alias='nickname'))
                     openid_req.addExtension(ax_req)
-                    url = openid_req.redirectURL(self.config.base_url, self.login_url)
+                    realm = self.config.base_https_url.rstrip('/')
+                    url = openid_req.redirectURL(realm, self.login_url)
                     return redirect(url)
         else:
             errors.append('Missing OpenID')
@@ -331,6 +334,81 @@ class StatsHandler(WebSiteHandler):
         mbid_track = self._get_pie_chart(stats, 'mbid.%dtracks')
         basic['tracks_with_mbid'] = basic['tracks'] - stats.get('track.0mbids', 0)
         basic['tracks_with_mbid_percent'] = percent(basic['tracks_with_mbid'], basic['tracks'])
+        top_contributors = find_top_contributors(self.conn)
+        daily_raw = find_daily_stats(self.conn, ['submission.all', 'fingerprint.all', 'track.all', 'track_mbid.unique'])
+        daily = {
+            'submissions': daily_raw['submission.all'],
+            'fingerprints': daily_raw['fingerprint.all'],
+            'tracks': daily_raw['track.all'],
+            'mbids': daily_raw['track_mbid.unique'],
+        }
         return self.render_template('stats.html', title=title, basic=basic,
-            track_mbid=track_mbid, mbid_track=mbid_track)
+            track_mbid=track_mbid, mbid_track=mbid_track,
+            top_contributors=top_contributors, daily=daily)
+
+
+class ContributorsHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        title = 'Contributors'
+        contributors = find_all_contributors(self.conn)
+        return self.render_template('contributors.html', title=title,
+            contributors=contributors)
+
+
+class TrackHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        from acoustid.data.track import get_track_fingerprint_matrix, lookup_mbids
+        from acoustid.data.musicbrainz import lookup_recording_metadata
+        track_id = self.url_args['id']
+        title = 'Track #%d' % (track_id,)
+        matrix = get_track_fingerprint_matrix(self.conn, track_id)
+        ids = sorted(matrix.keys())
+        if not ids:
+            title = 'Incorrect Track'
+            return self.render_template('track-not-found.html', title=title,
+                track_id=track_id)
+        fingerprints = [{'id': id, 'i': i + 1} for i, id in enumerate(ids)]
+        color1 = (172, 0, 0)
+        color2 = (255, 255, 255)
+        for id1 in ids:
+            for id2 in ids:
+                sim = matrix[id1][id2]
+                color = [color1[i] + (color2[i] - color1[i]) * sim for i in range(3)]
+                matrix[id1][id2] = {
+                    'value': sim,
+                    'color': '#%02x%02x%02x' % tuple(color),
+                }
+        mbids = lookup_mbids(self.conn, [track_id])[track_id]
+        metadata = lookup_recording_metadata(self.conn, mbids)
+        recordings = []
+        for mbid in mbids:
+            recording = metadata.get(mbid, {})
+            recording['mbid'] = mbid
+            recordings.append(recording)
+        recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
+        return self.render_template('track.html', title=title,
+            matrix=matrix, fingerprints=fingerprints, recordings=recordings)
+
+
+
+class MBIDHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        from acoustid.data.track import lookup_tracks
+        from acoustid.data.musicbrainz import lookup_recording_metadata
+        mbid = self.url_args['mbid']
+        metadata = lookup_recording_metadata(self.conn, [mbid])
+        if mbid not in metadata:
+            title = 'Incorrect Recording'
+            return self.render_template('mbid-not-found.html', title=title, mbid=mbid)
+        metadata = metadata[mbid]
+        title = 'Recording "%s" by %s' % (metadata['name'], metadata['artist_name'])
+        tracks = lookup_tracks(self.conn, [mbid])
+        if mbid in tracks:
+            tracks = [{'id': id} for id in tracks[mbid]]
+        else:
+            tracks = []
+        return self.render_template('mbid.html', title=title, tracks=tracks, mbid=mbid)
 
