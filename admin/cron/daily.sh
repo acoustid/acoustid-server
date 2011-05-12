@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-ROOTDIR=`dirname $0`/../../
-PSQL=$ROOTDIR/run_psql.sh
+LOCKNAME=acoustid-daily
+. `dirname $0`/lock.sh
 
-$PSQL <$ROOTDIR/sql/CollectStats.sql
+DIR=`dirname $0`/../..
+PSQL=$DIR/run_psql.sh
+
+$PSQL <$DIR/sql/CollectStats.sql
 
