@@ -23,6 +23,7 @@ from acoustid.data.account import (
     insert_account,
     get_account_details,
     reset_account_apikey,
+    update_account_lastlogin
 )
 from acoustid.data.stats import (
     find_current_stats,
