@@ -166,7 +166,7 @@ class LoginHandler(WebSiteHandler):
                 consumer = openid.Consumer(self.session, None)
                 openid_req = consumer.begin(openid_url)
             except openid.DiscoveryFailure:
-                logger.traceback('Error in OpenID discovery')
+                logger.exception('Error in OpenID discovery')
                 errors.append('Error while trying to verify the OpenID')
             else:
                 if openid_req is None:
