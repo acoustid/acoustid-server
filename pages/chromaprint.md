@@ -7,7 +7,7 @@ found in the blog post ["How does Chromaprint work?"][blog2].
 
 ### Download
 
-Latest release &mdash; 0.2 (Jan 29, 2011)
+Latest release &mdash; 0.3 (April 26, 2011)
 
  * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.3.tar.gz)
  * Packages
