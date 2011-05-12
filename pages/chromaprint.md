@@ -11,9 +11,10 @@ Latest release &mdash; 0.3 (April 26, 2011)
 
  * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.3.tar.gz)
  * Packages
-     * [Ubuntu][ppa] ([daily builds][ppad])
      * [Arch Linux](http://aur.archlinux.org/packages.php?ID=46382)
+     * [Debian](http://packages.debian.org/search?suite=default&section=all&arch=any&searchon=names&keywords=chromaprint)
      * [FreeBSD](https://github.com/lalinsky/ports)
+     * [Ubuntu][ppa] ([daily builds][ppad])
 
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
 [ppad]: https://launchpad.net/~luks/+archive/acoustid-daily
