@@ -122,7 +122,7 @@ And also additional metadata about the recordings from the MusicBrainz database 
               "track_count": 16,
               "release": {
                 "id": "79903505-a23e-4790-8cd5-d5d801337f46",
-                "name": "Before the Dawn Heals Us"
+                "title": "Before the Dawn Heals Us"
               }
             }
           }]
