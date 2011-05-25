@@ -49,6 +49,22 @@ fetcher.urlopen = lambda req: urllib2.urlopen(req, timeout=HTTP_TIMEOUT)
 fetchers.setDefaultFetcher(fetcher)
 
 
+class DigestAuthHandler(urllib2.HTTPDigestAuthHandler):
+    """Patched DigestAuthHandler to correctly handle Digest Auth according to RFC 2617.
+
+    This will allow multiple qop values in the WWW-Authenticate header (e.g. "auth,auth-int").
+    The only supported qop value is still auth, though.
+    See http://bugs.python.org/issue9714
+
+    @author Kuno Woudt
+    """
+    def get_authorization(self, req, chal):
+        qop = chal.get('qop')
+        if qop and ',' in qop and 'auth' in qop.split(','):
+            chal['qop'] = 'auth'
+        return urllib2.HTTPDigestAuthHandler.get_authorization(self, req, chal)
+
+
 class WebSiteHandler(Handler):
 
     def __init__(self, config, templates, connect=None):
@@ -124,13 +140,14 @@ class IndexHandler(Handler):
 def check_mb_account(username, password):
     data = {'type': 'xml', 'name': username}
     url = 'http://musicbrainz.org/ws/1/user?' + urllib.urlencode(data)
-    auth_handler = urllib2.HTTPDigestAuthHandler()
+    auth_handler = DigestAuthHandler()
     auth_handler.add_password('musicbrainz.org', 'http://musicbrainz.org/',
                               username, password)
     opener = urllib2.build_opener(auth_handler)
     try:
         opener.open(url, timeout=HTTP_TIMEOUT)
     except StandardError:
+        logger.exception('MB error')
         return False
     return True
 
