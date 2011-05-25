@@ -27,9 +27,10 @@ Latest release &mdash; 0.1 (Nov 20, 2010)
  * Packages
      * [Windows][win]
      * [Mac OS X][osx] (thanks to [Aleksandar Topuzović][osxthread])
-     * [Ubuntu][ppa] ([daily builds][ppad])
      * [Arch Linux](http://aur.archlinux.org/packages.php?ID=46359)
+     * [Debian](http://packages.debian.org/acoustid-fingerprinter)
      * [Gentoo](http://proaudio.tuxfamily.org/wiki/index.php?title=Usage) (Pro-Audio Gentoo overlay)
+     * [Ubuntu][ppa] ([daily builds][ppad])
 
 [src]: http://launchpad.net/acoustid-fingerprinter/trunk/0.1/+download/acoustid-fingerprinter-0.1.tar.gz
 [win]: http://launchpad.net/acoustid-fingerprinter/trunk/0.1/+download/acoustid-fingerprinter-0.1-win32-2.zip

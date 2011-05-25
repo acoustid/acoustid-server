@@ -12,7 +12,7 @@ Latest release &mdash; 0.4 (May 14, 2011)
  * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.4.tar.gz) (529K)
  * Packages
      * [Arch Linux](http://aur.archlinux.org/packages.php?ID=46382)
-     * [Debian](http://packages.debian.org/search?suite=default&section=all&arch=any&searchon=names&keywords=chromaprint)
+     * [Debian](http://packages.debian.org/chromaprint)
      * [FreeBSD](https://github.com/lalinsky/ports)
      * [Ubuntu][ppa] ([daily builds][ppad])
  * Static binaries for the fpcalc tool
