@@ -242,6 +242,16 @@ class LoginHandler(WebSiteHandler):
         if 'login' in req.form:
             if req.form['login'] == 'mb':
                 self._handle_musicbrainz_login(req, errors['mb'])
+                from acoustid.api import serialize_response, errors, v2 as api_v2
+                if req.form['format'] in api_v2.FORMATS:
+                    if self.session.get('id'):
+                        info = get_account_details(self.conn, self.session['id'])
+                        response = {'status': 'ok', 'api_key': info['apikey']}
+                        return serialize_response(response, req.form['format'])
+                    else:
+                        e = errors.InvalidUserAPIKeyError()
+                        response = {'status': 'error', 'error': {'code': e.code, 'message': e.message}}
+                        return serialize_response(response, req.form['format'], status=400)
             elif req.form['login'] == 'openid':
                 resp = self._handle_openid_login(req, errors['openid'])
                 if resp is not None:
