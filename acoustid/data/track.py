@@ -66,9 +66,8 @@ def merge_missing_mbids(conn):
     results = conn.execute("""
         SELECT DISTINCT tm.mbid AS old_mbid, mt.gid AS new_mbid
         FROM track_mbid tm
-        JOIN musicbrainz.gid_redirect mgr ON tm.mbid = mgr.gid
-        JOIN musicbrainz.track mt ON mt.id = mgr.newid
-        WHERE mgr.tbl=3
+        JOIN musicbrainz.recording_gid_redirect mgr ON tm.mbid = mgr.gid
+        JOIN musicbrainz.recording mt ON mt.id = mgr.new_id
     """)
     merge = {}
     for old_mbid, new_mbid in results:

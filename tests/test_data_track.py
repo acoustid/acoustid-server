@@ -33,10 +33,10 @@ INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'd575d506-4da4-11e0-b951-0025
 INSERT INTO track_mbid (track_id, mbid) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3');
 INSERT INTO track_mbid (track_id, mbid) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f3');
 INSERT INTO track_mbid (track_id, mbid) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f3');
-INSERT INTO musicbrainz.gid_redirect (newid, gid, tbl) VALUES
-    (1, 'd575d506-4da4-11e0-b951-0025225356f3', 3),
-    (2, '5d0290a6-4dad-11e0-a47a-0025225356f3', 3),
-    (99, 'b44dfb2a-4dad-11e0-bae4-0025225356f3', 2);
+INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
+    (1, 'd575d506-4da4-11e0-b951-0025225356f3'),
+    (2, '5d0290a6-4dad-11e0-a47a-0025225356f3'),
+    (99, 'b44dfb2a-4dad-11e0-bae4-0025225356f3');
 """)
     merge_missing_mbids(conn)
     rows = conn.execute("SELECT track_id, mbid FROM track_mbid ORDER BY track_id, mbid").fetchall()

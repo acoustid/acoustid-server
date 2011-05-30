@@ -86,41 +86,61 @@ track_mbid = Table('track_mbid', metadata,
     Column('created', DateTime),
 )
 
-mb_artist = Table('artist', metadata,
+mb_artist = Table('s_artist', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
     Column('gid', String),
     schema='musicbrainz',
 )
 
-mb_track = Table('track', metadata,
+mb_artist_credit = Table('s_artist_credit', metadata,
     Column('id', Integer, primary_key=True),
-    Column('artist', Integer, ForeignKey('musicbrainz.artist.id')),
+    Column('name', String),
+    Column('artist_count', Integer),
+    schema='musicbrainz',
+)
+
+mb_artist_credit_name = Table('artist_credit_name', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String),
+    Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
+    Column('artist', Integer, ForeignKey('musicbrainz.s_artist.id')),
+    schema='musicbrainz',
+)
+
+mb_recording = Table('s_recording', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
     Column('name', String),
     Column('gid', String),
     Column('length', Integer),
     schema='musicbrainz',
 )
 
-mb_album = Table('album', metadata,
+mb_track = Table('s_track', metadata,
     Column('id', Integer, primary_key=True),
-    Column('artist', Integer, ForeignKey('musicbrainz.artist.id')),
+    Column('position', Integer),
+    Column('tracklist', Integer, ForeignKey('musicbrainz.tracklist.id')),
+    Column('recording', Integer, ForeignKey('musicbrainz.s_recording.id')),
+    Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
+    Column('name', String),
+    Column('length', Integer),
+    schema='musicbrainz',
+)
+
+mb_release = Table('s_release', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
     Column('name', String),
     Column('gid', String),
     schema='musicbrainz',
 )
 
-mb_album_meta = Table('albummeta', metadata,
-    Column('id', Integer, ForeignKey('musicbrainz.album.id'), primary_key=True),
-    Column('tracks', String),
-    schema='musicbrainz',
-)
-
-mb_album_track = Table('albumjoin', metadata,
+mb_medium = Table('medium', metadata,
     Column('id', Integer, primary_key=True),
-    Column('album', Integer, ForeignKey('musicbrainz.album.id')),
-    Column('track', Integer, ForeignKey('musicbrainz.track.id')),
-    Column('sequence', Integer),
+    Column('release', Integer, ForeignKey('musicbrainz.s_release.id')),
+    Column('tracklist', Integer, ForeignKey('musicbrainz.tracklist.id')),
+    Column('position', Integer),
     schema='musicbrainz',
 )
 
@@ -130,10 +150,16 @@ mb_puid = Table('puid', metadata,
     schema='musicbrainz',
 )
 
-mb_puid_track = Table('puidjoin', metadata,
+mb_recording_puid = Table('recording_puid', metadata,
     Column('id', Integer, primary_key=True),
     Column('puid', Integer, ForeignKey('musicbrainz.puid.id')),
-    Column('track', Integer, ForeignKey('musicbrainz.track.id')),
+    Column('recording', Integer, ForeignKey('musicbrainz.s_recording.id')),
+    schema='musicbrainz',
+)
+
+mb_tracklist = Table('tracklist', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_count', Integer),
     schema='musicbrainz',
 )
 
