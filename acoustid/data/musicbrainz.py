@@ -55,17 +55,21 @@ def lookup_metadata(conn, mbids):
         schema.mb_release.c.name.label('release_name'),
         schema.mb_medium_format.c.name.label('medium_format'),
     ]
-    query = sql.select(columns, condition, from_obj=src)
+    query = sql.select(columns, condition, from_obj=src).order_by(schema.mb_track.c.id, schema.mb_release.c.id)
     artist_credit_ids = set()
     results = {}
+    i = 0
     for row in conn.execute(query):
+        i += 1
         result = dict(row)
         result['length'] /= 1000
-        results[row['gid']] = result
+        results.setdefault(row['gid'], []).append(result)
         artist_credit_ids.add(row['_artist_credit_id'])
+    print i
     artists = load_artists(conn, artist_credit_ids)
-    for result in results.itervalues():
-        result['artists'] = artists[result.pop('_artist_credit_id')]
+    for tracks in results.itervalues():
+        for result in tracks:
+            result['artists'] = artists[result.pop('_artist_credit_id')]
     return results
 
 

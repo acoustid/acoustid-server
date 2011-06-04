@@ -3,10 +3,12 @@
 
 import os
 import json
+import pprint
+import difflib
 import sqlalchemy
 import sqlalchemy.pool
 from contextlib import closing
-from nose.tools import make_decorator, assert_equals
+from nose.tools import *
 from acoustid.config import Config
 
 TEST_2_LENGTH = 320
@@ -66,6 +68,7 @@ TABLES = [
     'musicbrainz.track',
     'musicbrainz.release',
     'musicbrainz.medium',
+    'musicbrainz.medium_format',
     'musicbrainz.recording',
     'musicbrainz.release_name',
     'musicbrainz.release_group',
@@ -109,11 +112,13 @@ INSERT INTO musicbrainz.release_name (id, name) VALUES
 INSERT INTO musicbrainz.release_group (id, artist_credit, name, gid) VALUES
     (1, 1, 1, '83a6c956-e340-48be-b604-72bfc28016fc');
 INSERT INTO musicbrainz.release (id, artist_credit, name, gid, release_group) VALUES
-    (1, 1, 2, 'dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23', 1);
+    (1, 1, 2, 'dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23', 1),
+    (2, 1, 2, '1d4d546f-e2ec-4553-8df7-9004298924d5', 1);
 INSERT INTO musicbrainz.medium_format (id, name) VALUES
-    (1, 'CD');
+    (1, 'CD'), (2, 'DVD');
 INSERT INTO musicbrainz.medium (id, release, tracklist, position, format) VALUES
-    (1, 1, 1, 1, 1);
+    (1, 1, 1, 1, 1),
+    (2, 2, 1, 1, 2);
 INSERT INTO musicbrainz.clientversion (id, version) VALUES
     (1, 'test/1.0');
 INSERT INTO musicbrainz.puid (id, puid, version) VALUES
@@ -165,9 +170,18 @@ def setup():
             prepare_database(conn, BASE_SQL)
 
 
+def assert_dict_equals(d1, d2, msg=None):
+    if d1 != d2:
+        standardMsg = '%s != %s' % (repr(d1), repr(d2))
+        diff = ('\n' + '\n'.join(difflib.ndiff(
+                       pprint.pformat(d1).splitlines(),
+                       pprint.pformat(d2).splitlines())))
+        assert d1 == d2, standardMsg + '\n' + diff
+
+
 def assert_json_equals(expected, actual):
     #import pprint
     #pprint.pprint(expected)
     #pprint.pprint(json.loads(actual))
-    assert_equals(expected, json.loads(actual))
+    assert_dict_equals(expected, json.loads(actual))
 

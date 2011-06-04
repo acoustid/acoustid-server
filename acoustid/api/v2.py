@@ -126,28 +126,31 @@ class LookupHandler(APIHandler):
                 recording['id'] = str(mbid)
                 if meta == 1:
                     continue
-                track_meta = track_meta_map.get(mbid)
-                if track_meta is None:
+                tracks_meta = track_meta_map.get(mbid)
+                if tracks_meta is None:
                     continue
-                medium = {
-                    'track_count': track_meta['total_tracks'],
-                    'position': track_meta['disc_num'],
-                    # title
-                    'release': {
-                        'id': track_meta['release_id'],
-                        'title': track_meta['release_name'],
-                        # medium_count
-                    },
-                }
-                if track_meta['medium_format']:
-                    medium['format'] = track_meta['medium_format']
-                recording['tracks'] = [{
-                    'title': track_meta['name'],
-                    'duration': track_meta['length'],
-                    'artists': track_meta['artists'],
-                    'position': track_meta['track_num'],
-                    'medium': medium,
-                }]
+                tracks = []
+                for track_meta in tracks_meta:
+                    medium = {
+                        'track_count': track_meta['total_tracks'],
+                        'position': track_meta['disc_num'],
+                        # title
+                        'release': {
+                            'id': track_meta['release_id'],
+                            'title': track_meta['release_name'],
+                            # medium_count
+                        },
+                    }
+                    if track_meta['medium_format']:
+                        medium['format'] = track_meta['medium_format']
+                    tracks.append({
+                        'title': track_meta['name'],
+                        'duration': track_meta['length'],
+                        'artists': track_meta['artists'],
+                        'position': track_meta['track_num'],
+                        'medium': medium,
+                    })
+                recording['tracks'] = tracks
 
     def _handle_internal(self, params):
         response = {}

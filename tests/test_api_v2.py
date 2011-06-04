@@ -211,6 +211,23 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
                             "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
                             "name": "Artist A",
                     }],
+                }, {
+                    "title": "Track A",
+                    "duration": 123,
+                    "position": 1,
+                    "medium": {
+                        "track_count": 2,
+                        "position": 1,
+                        "format": "DVD",
+                        "release": {
+                            "id": "1d4d546f-e2ec-4553-8df7-9004298924d5",
+                            "title": "Album A",
+                        },
+                    },
+                    "artists": [{
+                            "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
+                            "name": "Artist A",
+                    }],
                 }],
             }],
         }]
