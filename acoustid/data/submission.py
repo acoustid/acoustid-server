@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 TRACK_MERGE_TRESHOLD = 0.7
 FINGERPRINT_MERGE_TRESHOLD = 0.95
+FINGERPRINT_MIN_UNIQUE_ITEMS = 30
 
 
 def insert_submission(conn, data):
@@ -47,6 +48,13 @@ def import_submission(conn, submission):
             mbids.extend(find_puid_mbids(conn, submission['puid'], min_duration, max_duration))
         logger.info("Importing submission %d with MBIDs %s",
             submission['id'], ', '.join(mbids))
+        update_stmt = schema.submission.update().where(
+            schema.submission.c.id == submission['id'])
+        conn.execute(update_stmt.values(handled=True))
+        num_unique_items = len(set(submission['fingerprint']))
+        if num_unique_items < FINGERPRINT_MIN_UNIQUE_ITEMS:
+            logger.info("Skipping, has only %d unique items", num_unique_items)
+            return
         matches = lookup_fingerprint(conn,
             submission['fingerprint'], submission['length'],
             FINGERPRINT_MERGE_TRESHOLD, TRACK_MERGE_TRESHOLD, fast=True)
@@ -84,9 +92,6 @@ def import_submission(conn, submission):
         for mbid in mbids:
             if insert_mbid(conn, fingerprint['track_id'], mbid):
                 logger.info('Added MBID %s to track %d', mbid, fingerprint['track_id'])
-        update_stmt = schema.submission.update().where(
-            schema.submission.c.id == submission['id'])
-        conn.execute(update_stmt.values(handled=True))
         return fingerprint
 
 
