@@ -243,7 +243,7 @@ class LoginHandler(WebSiteHandler):
             if req.form['login'] == 'mb':
                 self._handle_musicbrainz_login(req, errors['mb'])
                 from acoustid.api import serialize_response, errors, v2 as api_v2
-                if req.form['format'] in api_v2.FORMATS:
+                if req.form.get('format') in api_v2.FORMATS:
                     if self.session.get('id'):
                         info = get_account_details(self.conn, self.session['id'])
                         response = {'status': 'ok', 'api_key': info['apikey']}
