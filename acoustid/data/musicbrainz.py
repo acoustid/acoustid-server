@@ -61,7 +61,7 @@ def lookup_metadata(conn, mbids):
     for row in conn.execute(query):
         i += 1
         result = dict(row)
-        result['length'] /= 1000
+        result['length'] = (result['length'] or 0) / 1000
         results.setdefault(row['gid'], []).append(result)
         artist_credit_ids.add(row['_artist_credit_id'])
     print i
@@ -78,21 +78,20 @@ def lookup_recording_metadata(conn, mbids):
     """
     if not mbids:
         return {}
-    src = schema.mb_track.join(schema.mb_artist)
+    src = schema.mb_recording.join(schema.mb_artist_credit)
     query = sql.select(
         [
-            schema.mb_track.c.gid,
-            schema.mb_track.c.name,
-            schema.mb_track.c.length,
-            schema.mb_artist.c.gid.label('artist_id'),
-            schema.mb_artist.c.name.label('artist_name'),
+            schema.mb_recording.c.gid,
+            schema.mb_recording.c.name,
+            schema.mb_recording.c.length,
+            schema.mb_artist_credit.c.name.label('artist_name'),
         ],
-        schema.mb_track.c.gid.in_(mbids),
+        schema.mb_recording.c.gid.in_(mbids),
         from_obj=src)
     results = {}
     for row in conn.execute(query):
         result = dict(row)
-        result['length'] /= 1000
+        result['length'] = (result['length'] or 0) / 1000
         results[row['gid']] = result
     return results
 
