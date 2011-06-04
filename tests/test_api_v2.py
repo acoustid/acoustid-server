@@ -200,6 +200,8 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
                     "position": 1,
                     "medium": {
                         "track_count": 2,
+                        "position": 1,
+                        "format": "CD",
                         "release": {
                             "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
                             "title": "Album A",

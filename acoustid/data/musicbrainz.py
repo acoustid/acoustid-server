@@ -41,6 +41,7 @@ def lookup_metadata(conn, mbids):
     src = src.join(schema.mb_tracklist, schema.mb_track.c.tracklist == schema.mb_tracklist.c.id)
     src = src.join(schema.mb_medium, schema.mb_tracklist.c.id == schema.mb_medium.c.tracklist)
     src = src.join(schema.mb_release, schema.mb_medium.c.release == schema.mb_release.c.id)
+    src = src.outerjoin(schema.mb_medium_format, schema.mb_medium.c.format == schema.mb_medium_format.c.id)
     condition = schema.mb_recording.c.gid.in_(mbids)
     columns = [
         schema.mb_recording.c.gid,
@@ -52,6 +53,7 @@ def lookup_metadata(conn, mbids):
         schema.mb_tracklist.c.track_count.label('total_tracks'),
         schema.mb_release.c.gid.label('release_id'),
         schema.mb_release.c.name.label('release_name'),
+        schema.mb_medium_format.c.name.label('medium_format'),
     ]
     query = sql.select(columns, condition, from_obj=src)
     artist_credit_ids = set()

@@ -110,8 +110,10 @@ INSERT INTO musicbrainz.release_group (id, artist_credit, name, gid) VALUES
     (1, 1, 1, '83a6c956-e340-48be-b604-72bfc28016fc');
 INSERT INTO musicbrainz.release (id, artist_credit, name, gid, release_group) VALUES
     (1, 1, 2, 'dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23', 1);
-INSERT INTO musicbrainz.medium (id, release, tracklist, position) VALUES
-    (1, 1, 1, 1);
+INSERT INTO musicbrainz.medium_format (id, name) VALUES
+    (1, 'CD');
+INSERT INTO musicbrainz.medium (id, release, tracklist, position, format) VALUES
+    (1, 1, 1, 1, 1);
 INSERT INTO musicbrainz.clientversion (id, version) VALUES
     (1, 'test/1.0');
 INSERT INTO musicbrainz.puid (id, puid, version) VALUES
