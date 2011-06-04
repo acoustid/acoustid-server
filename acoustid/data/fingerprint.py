@@ -18,12 +18,8 @@ SELECT id, track_id, score FROM (
     SELECT id, track_id, acoustid_compare(fingerprint, query) AS score
     FROM fingerprint, (SELECT %(fp)s::int4[] AS query) q
     WHERE
-        length BETWEEN %(length)s - %(max_length_diff)s AND %(length)s + %(max_length_diff)s AND (
-            (%(length)s >= 34 AND subarray(extract_fp_query(query), %(part_start)s, %(part_length)s)
-                               && extract_fp_query(fingerprint)) OR
-            (%(length)s <= 50 AND subarray(extract_short_fp_query(query), %(part_start)s, %(part_length)s)
-                               && extract_short_fp_query(fingerprint))
-        )
+        length BETWEEN %(length)s - %(max_length_diff)s AND %(length)s + %(max_length_diff)s AND
+        subarray(extract_fp_query(query), %(part_start)s, %(part_length)s) && extract_fp_query(fingerprint)
 ) f WHERE score > %(min_score)s ORDER BY score DESC, id
 """
 

@@ -10,12 +10,7 @@ CREATE UNIQUE INDEX format_idx_name ON format (name);
 CREATE UNIQUE INDEX source_idx_uniq ON source (application_id, account_id);
 
 CREATE INDEX fingerprint_idx_fingerprint ON fingerprint
-    USING gin (extract_fp_query(fingerprint) gin__int_ops)
-    WHERE length >= 34;
-
-CREATE INDEX fingerprint_idx_fingerprint_short ON fingerprint
-    USING gin (extract_short_fp_query(fingerprint) gin__int_ops)
-    WHERE length <= 50;
+    USING gin (extract_fp_query(fingerprint) gin__int_ops);
 
 CREATE INDEX fingerprint_idx_length ON fingerprint (length);
 CREATE INDEX fingerprint_idx_track_id ON fingerprint (track_id);
