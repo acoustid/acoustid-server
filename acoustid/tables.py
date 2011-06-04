@@ -100,7 +100,7 @@ mb_artist_credit = Table('s_artist_credit', metadata,
     schema='musicbrainz',
 )
 
-mb_artist_credit_name = Table('artist_credit_name', metadata,
+mb_artist_credit_name = Table('s_artist_credit_name', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
     Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),

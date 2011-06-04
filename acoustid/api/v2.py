@@ -132,10 +132,7 @@ class LookupHandler(APIHandler):
                 recording['tracks'] = [{
                     'title': track_meta['name'],
                     'duration': track_meta['length'],
-                    'artist': {
-                        'id': track_meta['artist_id'],
-                        'name': track_meta['artist_name'],
-                    },
+                    'artists': track_meta['artists'],
                     'position': track_meta['track_num'],
                     'medium': {
                         'track_count': track_meta['total_tracks'],

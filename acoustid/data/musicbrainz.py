@@ -8,20 +8,24 @@ from acoustid import tables as schema
 logger = logging.getLogger(__name__)
 
 
-def load_artist_ids(conn, artist_credit_ids):
+def load_artists(conn, artist_credit_ids):
     if not artist_credit_ids:
         return {}
     src = schema.mb_artist_credit_name
     src = src.join(schema.mb_artist)
     condition = schema.mb_artist_credit_name.c.artist_credit.in_(artist_credit_ids)
     columns = [
+        schema.mb_artist_credit_name.c.name,
         schema.mb_artist_credit_name.c.artist_credit,
         schema.mb_artist.c.gid
     ]
     query = sql.select(columns, condition, from_obj=src)
     result = {}
     for row in conn.execute(query):
-        result.setdefault(row['artist_credit'], []).append(row['gid'])
+        result.setdefault(row['artist_credit'], []).append({
+            'id': row['gid'],
+            'name': row['name']
+        })
     return result
 
 
@@ -43,7 +47,6 @@ def lookup_metadata(conn, mbids):
         schema.mb_track.c.name,
         schema.mb_track.c.length,
         schema.mb_artist_credit.c.id.label('_artist_credit_id'),
-        schema.mb_artist_credit.c.name.label('artist_name'),
         schema.mb_track.c.position.label('track_num'),
         schema.mb_medium.c.position.label('disc_num'),
         schema.mb_tracklist.c.track_count.label('total_tracks'),
@@ -58,9 +61,9 @@ def lookup_metadata(conn, mbids):
         result['length'] /= 1000
         results[row['gid']] = result
         artist_credit_ids.add(row['_artist_credit_id'])
-    artist_ids = load_artist_ids(conn, artist_credit_ids)
+    artists = load_artists(conn, artist_credit_ids)
     for result in results.itervalues():
-        result['artist_id'] = artist_ids[result.pop('_artist_credit_id')]
+        result['artists'] = artists[result.pop('_artist_credit_id')]
     return results
 
 

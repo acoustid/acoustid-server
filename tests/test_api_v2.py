@@ -205,10 +205,10 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
                             "title": "Album A",
                         },
                     },
-                    "artist": {
-                        "id": ["a64796c0-4da4-11e0-bf81-0025225356f3"],
-                        "name": "Artist A",
-                    },
+                    "artists": [{
+                            "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
+                            "name": "Artist A",
+                    }],
                 }],
             }],
         }]
