@@ -85,6 +85,7 @@ class APIHandler(Handler):
                 logger.exception('Error while handling API request')
                 raise errors.InternalError()
         except errors.WebServiceError, e:
+            logger.error("WS error: %s", e.message)
             return self._error(e.code, e.message, params.format, status=e.status)
 
 
@@ -195,7 +196,7 @@ class SubmitHandlerParams(APIHandlerParams):
         p['duration'] = values.get('duration' + suffix, type=int)
         if p['duration'] is None:
             raise errors.MissingParameterError('duration' + suffix)
-        if p['duration'] <= 0:
+        if p['duration'] <= 0 or p['duration'] > 0x7fff:
             raise errors.InvalidDurationError('duration' + suffix)
         p['format'] = values.get('fileformat' + suffix)
 

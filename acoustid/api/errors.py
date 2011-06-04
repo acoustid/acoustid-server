@@ -58,7 +58,7 @@ class InvalidAPIKeyError(WebServiceError):
 class InvalidUserAPIKeyError(WebServiceError):
 
     def __init__(self):
-        message = 'invalid user API key'
+        message = 'invalid user API key ("User with the API key does not exist")'
         WebServiceError.__init__(self, ERROR_INVALID_USER_APIKEY, message)
 
 
