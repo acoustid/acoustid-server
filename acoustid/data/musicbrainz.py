@@ -37,7 +37,6 @@ def lookup_metadata(conn, mbids):
         return {}
     src = schema.mb_recording
     src = src.join(schema.mb_track, schema.mb_recording.c.id == schema.mb_track.c.recording)
-    src = src.join(schema.mb_artist_credit, schema.mb_track.c.artist_credit == schema.mb_artist_credit.c.id)
     src = src.join(schema.mb_tracklist, schema.mb_track.c.tracklist == schema.mb_tracklist.c.id)
     src = src.join(schema.mb_medium, schema.mb_tracklist.c.id == schema.mb_medium.c.tracklist)
     src = src.join(schema.mb_release, schema.mb_medium.c.release == schema.mb_release.c.id)
@@ -47,7 +46,7 @@ def lookup_metadata(conn, mbids):
         schema.mb_recording.c.gid,
         schema.mb_track.c.name,
         schema.mb_track.c.length,
-        schema.mb_artist_credit.c.id.label('_artist_credit_id'),
+        schema.mb_track.c.artist_credit.label('_artist_credit_id'),
         schema.mb_track.c.position.label('track_num'),
         schema.mb_medium.c.position.label('disc_num'),
         schema.mb_tracklist.c.track_count.label('total_tracks'),
