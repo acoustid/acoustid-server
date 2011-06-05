@@ -243,7 +243,8 @@ class SubmitHandler(APIHandler):
                 if p['format'] and p['format'] not in format_ids:
                     format_ids[p['format']] = find_or_insert_format(self.conn, p['format'])
             for p in params.submissions:
-                for mbid in p['mbids']:
+                mbids = p['mbids'] or [None]
+                for mbid in mbids:
                     insert_submission(self.conn, {
                         'mbid': mbid or None,
                         'puid': p['puid'] or None,

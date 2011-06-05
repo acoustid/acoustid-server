@@ -402,3 +402,25 @@ def test_submit_handler(conn):
     assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
     assert_equals(TEST_1_LENGTH, submission['length'])
 
+
+@with_database
+def test_submit_handler_puid(conn):
+    values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
+        'puid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'fileformat': 'FLAC'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = SubmitHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('application/json; charset=UTF-8', resp.content_type)
+    expected = {"status": "ok"}
+    assert_json_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
+    submission = conn.execute(query).fetchone()
+    assert_equals(None, submission['mbid'])
+    assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['puid'])
+    assert_equals(1, submission['format_id'])
+    assert_equals(192, submission['bitrate'])
+    assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
+    assert_equals(TEST_1_LENGTH, submission['length'])
+
