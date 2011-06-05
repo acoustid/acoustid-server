@@ -13,3 +13,36 @@ $$ LANGUAGE 'SQL' IMMUTABLE STRICT;
 CREATE INDEX fingerprint_idx_fingerprint ON fingerprint
     USING gin (extract_fp_query(fingerprint) gin__int_ops);
 
+ALTER TABLE fingerprint DROP COLUMN source_id;
+ALTER TABLE fingerprint ADD COLUMN submission_id int;
+ALTER TABLE fingerprint ADD COLUMN hash_full bytea NOT NULL;
+ALTER TABLE fingerprint ADD COLUMN hash_query bytea NOT NULL;
+ALTER TABLE track_mbid ADD COLUMN submission_id int;
+
+CREATE INDEX fingerprint_idx_hash_query ON fingerprint (hash_query);
+CREATE INDEX fingerprint_idx_hash_full ON fingerprint (hash_full);
+
+CREATE OR REPLACE FUNCTION fp_hash(int[]) RETURNS bytea
+AS $$
+    SELECT digest($1::text, 'sha1');
+$$ LANGUAGE 'SQL' IMMUTABLE STRICT;
+
+CREATE OR REPLACE FUNCTION tr_ins_fingerprint() RETURNS trigger
+AS $$
+BEGIN
+	NEW.hash_full = fp_hash(NEW.fingerprint);
+	NEW.hash_query = fp_hash(extract_fp_query(NEW.fingerprint));
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_ins_fingerprint BEFORE INSERT ON fingerprint
+    FOR EACH ROW EXECUTE PROCEDURE tr_ins_fingerprint();
+
+ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_submission_id
+    FOREIGN KEY (submission_id)
+    REFERENCES submission (id);
+
+ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_fk_submission_id
+    FOREIGN KEY (submission_id)
+    REFERENCES submission (id);

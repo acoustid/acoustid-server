@@ -49,8 +49,10 @@ CREATE TABLE fingerprint (
     bitrate smallint CHECK (bitrate > 0),
     format_id int,
     created timestamp with time zone NOT NULL DEFAULT current_timestamp,
-    source_id int NOT NULL,
-    track_id int NOT NULL
+    track_id int NOT NULL,
+	submission_id int,
+	hash_full bytea NOT NULL,
+	hash_query bytea NOT NULL
 );
 
 CREATE TABLE track (
@@ -61,7 +63,8 @@ CREATE TABLE track (
 CREATE TABLE track_mbid (
     track_id int NOT NULL,
     mbid uuid NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
+    created timestamp with time zone DEFAULT current_timestamp,
+	submission_id int
 );
 
 CREATE TABLE submission (

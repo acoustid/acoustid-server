@@ -30,3 +30,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION fp_hash(int[]) RETURNS bytea
+AS $$
+    SELECT digest($1::text, 'sha1');
+$$ LANGUAGE 'SQL' IMMUTABLE STRICT;
+
+CREATE OR REPLACE FUNCTION tr_ins_fingerprint() RETURNS trigger
+AS $$
+BEGIN
+	NEW.hash_full = fp_hash(NEW.fingerprint);
+	NEW.hash_query = fp_hash(extract_fp_query(NEW.fingerprint));
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+

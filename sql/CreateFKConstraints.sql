@@ -10,9 +10,9 @@ ALTER TABLE source ADD CONSTRAINT source_fk_account_id
     FOREIGN KEY (account_id)
     REFERENCES account (id);
 
-ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_source_id
-    FOREIGN KEY (source_id)
-    REFERENCES source (id);
+ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_submission_id
+    FOREIGN KEY (submission_id)
+    REFERENCES submission (id);
 
 ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_format_id
     FOREIGN KEY (format_id)
@@ -25,6 +25,10 @@ ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_track_id
 ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_fk_track_id
     FOREIGN KEY (track_id)
     REFERENCES track (id);
+
+ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_fk_submission_id
+    FOREIGN KEY (submission_id)
+    REFERENCES submission (id);
 
 ALTER TABLE submission ADD CONSTRAINT submission_fk_source_id
     FOREIGN KEY (source_id)
