@@ -55,6 +55,10 @@ def import_submission(conn, submission):
         if num_unique_items < FINGERPRINT_MIN_UNIQUE_ITEMS:
             logger.info("Skipping, has only %d unique items", num_unique_items)
             return
+        num_query_items = conn.execute("SELECT icount(extract_fp_query(%(fp)s))", dict(fp=submission['fingerprint']))
+        if not num_query_items:
+            logger.info("Skipping, no data to index")
+            return
         matches = lookup_fingerprint(conn,
             submission['fingerprint'], submission['length'],
             FINGERPRINT_MERGE_TRESHOLD, TRACK_MERGE_TRESHOLD, fast=True)
