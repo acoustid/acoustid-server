@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import re
 from sqlalchemy import sql
 from acoustid import tables as schema
 
@@ -96,6 +97,26 @@ def lookup_recording_metadata(conn, mbids):
     return results
 
 
+def cluster_track_names(names):
+    tokenized_names = [set([i.lower() for i in re.findall("(\w+)", n)]) for n in names]
+    stats = {}
+    for tokens in tokenized_names:
+        for token in tokens:
+            stats[token] = stats.get(token, 0) + 1
+    if not stats:
+        return
+    top_words = set()
+    max_score = max(stats.values())
+    threshold = 0.7 * max_score
+    for token, score in stats.items():
+        if score > threshold:
+            top_words.add(token)
+    for i, tokens in enumerate(tokenized_names):
+        score = 1.0 * sum([float(stats[t]) / max_score for t in tokens if t in top_words]) / len(tokens)
+        if score > 0.8:
+            yield i
+
+
 def find_puid_mbids(conn, puid, min_duration, max_duration):
     """
     Find MBIDs for MusicBrainz tracks that are linked to the given PUID and
@@ -104,8 +125,17 @@ def find_puid_mbids(conn, puid, min_duration, max_duration):
     src = schema.mb_puid
     src = src.join(schema.mb_recording_puid, schema.mb_recording_puid.c.puid == schema.mb_puid.c.id)
     src = src.join(schema.mb_recording, schema.mb_recording.c.id == schema.mb_recording_puid.c.recording)
+    src = src.join(schema.mb_artist_credit, schema.mb_artist_credit.c.id == schema.mb_recording.c.artist_credit)
     condition = sql.and_(
         schema.mb_puid.c.puid == puid,
         schema.mb_recording.c.length.between(min_duration * 1000, max_duration * 1000))
-    query = sql.select([schema.mb_recording.c.gid], condition, from_obj=src)
-    return [r[0] for r in conn.execute(query)]
+    columns = [
+        schema.mb_recording.c.gid,
+        schema.mb_recording.c.name,
+        schema.mb_artist_credit.c.name.label('artist')
+    ]
+    query = sql.select(columns, condition, from_obj=src)
+    rows = conn.execute(query).fetchall()
+    good_group = cluster_track_names(r['name'] + ' ' + r['artist'] for r in rows)
+    return [rows[i]['gid'] for i in good_group]
+

@@ -101,7 +101,8 @@ INSERT INTO musicbrainz.track_name (id, name) VALUES
     (1, 'Track A'), (2, 'Track B');
 INSERT INTO musicbrainz.recording (id, artist_credit, name, gid, length) VALUES
     (1, 1, 1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 123000),
-    (2, 1, 2, '6d885000-4dad-11e0-98ed-0025225356f3', 456000);
+    (2, 1, 2, '6d885000-4dad-11e0-98ed-0025225356f3', 456000),
+    (3, 1, 1, '8d77b21e-2b41-4751-a88f-a2ab37cbd41c', 456000);
 INSERT INTO musicbrainz.tracklist (id, track_count)
     VALUES (1, 2);
 INSERT INTO musicbrainz.track (id, artist_credit, name, recording, length, position, tracklist) VALUES
@@ -124,7 +125,7 @@ INSERT INTO musicbrainz.clientversion (id, version) VALUES
 INSERT INTO musicbrainz.puid (id, puid, version) VALUES
     (1, 'c12f1170-db63-4e85-931b-e46094b49085', 1);
 INSERT INTO musicbrainz.recording_puid (puid, recording) VALUES
-    (1, 1), (1, 2);
+    (1, 1), (1, 2), (1, 3);
 '''
 
 
