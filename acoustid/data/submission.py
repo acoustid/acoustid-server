@@ -27,6 +27,7 @@ def insert_submission(conn, data):
             'mbid': data.get('mbid'),
             'puid': data.get('puid'),
             'format_id': data.get('format_id'),
+            'meta_id': data.get('meta_id'),
         })
         id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted submission %r with data %r", id, data)
@@ -58,6 +59,7 @@ def import_submission(conn, submission):
             'bitrate': submission['bitrate'],
             'source_id': submission['source_id'],
             'format_id': submission['format_id'],
+            'meta_id': submission['meta_id'],
         }
         if matches:
             match = matches[0]

@@ -48,6 +48,7 @@ SEQUENCES = [
     ('submission', 'id'),
     ('track', 'id'),
     ('fingerprint', 'id'),
+    ('meta', 'id'),
 ]
 
 TABLES = [
@@ -58,6 +59,7 @@ TABLES = [
     'stats',
     'track',
     'track_mbid',
+    'meta',
     'musicbrainz.artist_credit_name',
     'musicbrainz.artist_credit',
     'musicbrainz.artist_name',

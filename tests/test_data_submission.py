@@ -18,6 +18,7 @@ from tests import (
     TEST_2_LENGTH,
 )
 from acoustid import tables
+from acoustid.data.meta import insert_meta
 from acoustid.data.submission import insert_submission, import_submission, import_queued_submissions
 
 
@@ -235,12 +236,14 @@ def test_import_submission_merge_existing_tracks(conn):
 
 @with_database
 def test_import_queued_submissions(conn):
+    insert_meta(conn, {'track': 'Foo'})
     insert_submission(conn, {
         'fingerprint': TEST_1_FP_RAW,
         'length': TEST_1_LENGTH,
         'bitrate': 192,
         'source_id': 1,
         'format_id': 1,
+        'meta_id': 1,
     })
     insert_submission(conn, {
         'fingerprint': TEST_2_FP_RAW,

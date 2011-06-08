@@ -55,6 +55,7 @@ submission = Table('submission', metadata,
     Column('format_id', Integer, ForeignKey('format.id')),
     Column('created', DateTime),
     Column('handled', Boolean),
+    Column('meta_id', Integer, ForeignKey('meta.id')),
 )
 
 stats = Table('stats', metadata,
@@ -68,6 +69,17 @@ stats_top_accounts = Table('stats_top_accounts', metadata,
     Column('id', Integer, primary_key=True),
     Column('account_id', Integer, ForeignKey('account.id')),
     Column('count', Integer),
+)
+
+meta = Table('meta', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track', String),
+    Column('artist', String),
+    Column('album', String),
+    Column('album_artist', String),
+    Column('track_no', Integer),
+    Column('disc_no', Integer),
+    Column('year', Integer),
 )
 
 fingerprint = Table('fingerprint', metadata,

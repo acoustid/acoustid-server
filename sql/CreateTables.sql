@@ -50,7 +50,8 @@ CREATE TABLE fingerprint (
     format_id int,
     created timestamp with time zone NOT NULL DEFAULT current_timestamp,
     source_id int NOT NULL,
-    track_id int NOT NULL
+    track_id int NOT NULL,
+    meta_id int,
 );
 
 CREATE TABLE track (
@@ -74,7 +75,8 @@ CREATE TABLE submission (
     source_id int NOT NULL,
     mbid uuid,
     handled boolean DEFAULT false,
-    puid uuid
+    puid uuid,
+    meta_id int
 );
 
 CREATE TABLE stats (
@@ -88,6 +90,17 @@ CREATE TABLE stats_top_accounts (
     id serial NOT NULL,
 	account_id int NOT NULL,
 	count int NOT NULL
+);
+
+CREATE TABLE meta (
+    id serial NOT NULL,
+    track varchar,
+    artist varchar,
+    album varchar,
+    album_artist varchar,
+    track_no int,
+    disc_no int,
+    year int
 );
 
 COMMIT;

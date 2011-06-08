@@ -383,3 +383,41 @@ def test_submit_handler(conn):
     assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
     assert_equals(TEST_1_LENGTH, submission['length'])
 
+
+@with_database
+def test_submit_handler_with_meta(conn):
+    values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
+        'mbid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'fileformat': 'FLAC',
+        'track': 'Voodoo People',
+        'artist': 'The Prodigy',
+        'album': 'Music For The Jitled People',
+        'album_artist': 'Prodigy',
+        'track_no': '2',
+        'disc_no': '3',
+        'year': '2030'
+    }
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = SubmitHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('application/json; charset=UTF-8', resp.content_type)
+    expected = {"status": "ok"}
+    assert_json_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
+    submission = conn.execute(query).fetchone()
+    assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
+    assert_equals(1, submission['meta_id'])
+    row = conn.execute("SELECT * FROM meta WHERE id=1").fetchone()
+    expected = {
+        'id': 1,
+        'track': 'Voodoo People',
+        'artist': 'The Prodigy',
+        'album': 'Music For The Jitled People',
+        'album_artist': 'Prodigy',
+        'track_no': 2,
+        'disc_no': 3,
+        'year': 2030
+    }
+    assert_equals(expected, dict(row))
+

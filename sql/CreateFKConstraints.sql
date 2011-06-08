@@ -38,3 +38,9 @@ ALTER TABLE stats_top_accounts ADD CONSTRAINT stats_top_accounts_fk_account_id
     FOREIGN KEY (account_id)
     REFERENCES account (id);
 
+ALTER TABLE submission ADD CONSTRAINT submission_fk_meta_id
+    FOREIGN KEY (meta_id) REFERENCES meta (id);
+
+ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_meta_id
+    FOREIGN KEY (meta_id) REFERENCES meta (id);
+

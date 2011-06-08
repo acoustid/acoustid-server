@@ -11,6 +11,7 @@ from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
+from acoustid.data.meta import insert_meta
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
 from acoustid.utils import is_uuid
@@ -215,6 +216,13 @@ class SubmitHandlerParams(APIHandlerParams):
         p['bitrate'] = values.get('bitrate' + suffix, type=int)
         if p['bitrate'] is not None and p['bitrate'] <= 0:
             raise errors.InvalidBitrateError('bitrate' + suffix)
+        p['track'] = values.get('track' + suffix)
+        p['artist'] = values.get('artist' + suffix)
+        p['album'] = values.get('album' + suffix)
+        p['album_artist'] = values.get('album_artist' + suffix)
+        p['track_no'] = values.get('track_no' + suffix, type=int)
+        p['disc_no'] = values.get('disc_no' + suffix, type=int)
+        p['year'] = values.get('year' + suffix, type=int)
         self.submissions.append(p)
 
     def parse(self, values, conn):
@@ -231,24 +239,32 @@ class SubmitHandlerParams(APIHandlerParams):
 class SubmitHandler(APIHandler):
 
     params_class = SubmitHandlerParams
+    meta_fields = ('track', 'artist', 'album', 'album_artist', 'track_no',
+                   'disc_no', 'year')
 
     def _handle_internal(self, params):
         with self.conn.begin():
             source_id = find_or_insert_source(self.conn, params.application_id, params.account_id)
             format_ids = {}
             for p in params.submissions:
-                if p['format'] and p['format'] not in format_ids:
-                    format_ids[p['format']] = find_or_insert_format(self.conn, p['format'])
+                if p['format']:
+                    if p['format'] not in format_ids:
+                        format_ids[p['format']] = find_or_insert_format(self.conn, p['format'])
+                    p['format_id'] = format_ids[p['format']]
             for p in params.submissions:
                 for mbid in p['mbids']:
-                    insert_submission(self.conn, {
+                    values = {
                         'mbid': mbid or None,
                         'puid': p['puid'] or None,
                         'bitrate': p['bitrate'] or None,
                         'fingerprint': p['fingerprint'],
                         'length': p['duration'],
-                        'format_id': format_ids[p['format']] if p['format'] else None,
+                        'format_id': p.get('format_id'),
                         'source_id': source_id
-                    })
+                    }
+                    meta_values = dict((n, p[n] or None) for n in self.meta_fields)
+                    if any(meta_values.itervalues()):
+                        values['meta_id'] = insert_meta(self.conn, meta_values)
+                    insert_submission(self.conn, values)
         return {}
 
