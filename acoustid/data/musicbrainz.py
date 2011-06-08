@@ -134,7 +134,7 @@ def find_puid_mbids(conn, puid, min_duration, max_duration):
         schema.mb_recording.c.name,
         schema.mb_artist_credit.c.name.label('artist')
     ]
-    query = sql.select(columns, condition, from_obj=src)
+    query = sql.select(columns, condition, from_obj=src).order_by(schema.mb_recording.c.id)
     rows = conn.execute(query).fetchall()
     good_group = cluster_track_names(r['name'] + ' ' + r['artist'] for r in rows)
     return [rows[i]['gid'] for i in good_group]
