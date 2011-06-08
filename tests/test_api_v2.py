@@ -147,8 +147,8 @@ def test_lookup_handler(conn):
     assert_equals('200 OK', resp.status)
     # one exact match
     prepare_database(conn, """
-INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
-    VALUES (%s, %s, 1, 1);
+INSERT INTO fingerprint (length, fingerprint, track_id)
+    VALUES (%s, %s, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
@@ -200,15 +200,34 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
                     "position": 1,
                     "medium": {
                         "track_count": 2,
+                        "position": 1,
+                        "format": "CD",
                         "release": {
                             "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
                             "title": "Album A",
                         },
                     },
-                    "artist": {
-                        "id": ["a64796c0-4da4-11e0-bf81-0025225356f3"],
-                        "name": "Artist A",
+                    "artists": [{
+                            "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
+                            "name": "Artist A",
+                    }],
+                }, {
+                    "title": "Track A",
+                    "duration": 123,
+                    "position": 1,
+                    "medium": {
+                        "track_count": 2,
+                        "position": 1,
+                        "format": "DVD",
+                        "release": {
+                            "id": "1d4d546f-e2ec-4553-8df7-9004298924d5",
+                            "title": "Album A",
+                        },
                     },
+                    "artists": [{
+                            "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
+                            "name": "Artist A",
+                    }],
                 }],
             }],
         }]
@@ -217,8 +236,8 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     assert_equals('200 OK', resp.status)
     # duplicate fingerprint
     prepare_database(conn, """
-INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
-    VALUES (%s, %s, 1, 1);
+INSERT INTO fingerprint (length, fingerprint, track_id)
+    VALUES (%s, %s, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
     builder = EnvironBuilder(method='POST', data=values)
@@ -420,4 +439,25 @@ def test_submit_handler_with_meta(conn):
         'year': 2030
     }
     assert_equals(expected, dict(row))
+
+@with_database
+def test_submit_handler_puid(conn):
+    values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
+        'puid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'fileformat': 'FLAC'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = SubmitHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('application/json; charset=UTF-8', resp.content_type)
+    expected = {"status": "ok"}
+    assert_json_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
+    submission = conn.execute(query).fetchone()
+    assert_equals(None, submission['mbid'])
+    assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['puid'])
+    assert_equals(1, submission['format_id'])
+    assert_equals(192, submission['bitrate'])
+    assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
+    assert_equals(TEST_1_LENGTH, submission['length'])
 

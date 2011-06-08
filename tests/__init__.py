@@ -3,10 +3,12 @@
 
 import os
 import json
+import pprint
+import difflib
 import sqlalchemy
 import sqlalchemy.pool
 from contextlib import closing
-from nose.tools import make_decorator, assert_equals
+from nose.tools import *
 from acoustid.config import Config
 
 TEST_2_LENGTH = 320
@@ -68,6 +70,7 @@ TABLES = [
     'musicbrainz.track',
     'musicbrainz.release',
     'musicbrainz.medium',
+    'musicbrainz.medium_format',
     'musicbrainz.recording',
     'musicbrainz.release_name',
     'musicbrainz.release_group',
@@ -100,7 +103,8 @@ INSERT INTO musicbrainz.track_name (id, name) VALUES
     (1, 'Track A'), (2, 'Track B');
 INSERT INTO musicbrainz.recording (id, artist_credit, name, gid, length) VALUES
     (1, 1, 1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 123000),
-    (2, 1, 2, '6d885000-4dad-11e0-98ed-0025225356f3', 456000);
+    (2, 1, 2, '6d885000-4dad-11e0-98ed-0025225356f3', 456000),
+    (3, 1, 1, '8d77b21e-2b41-4751-a88f-a2ab37cbd41c', 456000);
 INSERT INTO musicbrainz.tracklist (id, track_count)
     VALUES (1, 2);
 INSERT INTO musicbrainz.track (id, artist_credit, name, recording, length, position, tracklist) VALUES
@@ -111,15 +115,19 @@ INSERT INTO musicbrainz.release_name (id, name) VALUES
 INSERT INTO musicbrainz.release_group (id, artist_credit, name, gid) VALUES
     (1, 1, 1, '83a6c956-e340-48be-b604-72bfc28016fc');
 INSERT INTO musicbrainz.release (id, artist_credit, name, gid, release_group) VALUES
-    (1, 1, 2, 'dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23', 1);
-INSERT INTO musicbrainz.medium (id, release, tracklist, position) VALUES
-    (1, 1, 1, 1);
+    (1, 1, 2, 'dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23', 1),
+    (2, 1, 2, '1d4d546f-e2ec-4553-8df7-9004298924d5', 1);
+INSERT INTO musicbrainz.medium_format (id, name) VALUES
+    (1, 'CD'), (2, 'DVD');
+INSERT INTO musicbrainz.medium (id, release, tracklist, position, format) VALUES
+    (1, 1, 1, 1, 1),
+    (2, 2, 1, 1, 2);
 INSERT INTO musicbrainz.clientversion (id, version) VALUES
     (1, 'test/1.0');
 INSERT INTO musicbrainz.puid (id, puid, version) VALUES
     (1, 'c12f1170-db63-4e85-931b-e46094b49085', 1);
 INSERT INTO musicbrainz.recording_puid (puid, recording) VALUES
-    (1, 1), (1, 2);
+    (1, 1), (1, 2), (1, 3);
 '''
 
 
@@ -165,9 +173,18 @@ def setup():
             prepare_database(conn, BASE_SQL)
 
 
+def assert_dict_equals(d1, d2, msg=None):
+    if d1 != d2:
+        standardMsg = '%s != %s' % (repr(d1), repr(d2))
+        diff = ('\n' + '\n'.join(difflib.ndiff(
+                       pprint.pformat(d1).splitlines(),
+                       pprint.pformat(d2).splitlines())))
+        assert d1 == d2, standardMsg + '\n' + diff
+
+
 def assert_json_equals(expected, actual):
     #import pprint
     #pprint.pprint(expected)
     #pprint.pprint(json.loads(actual))
-    assert_equals(expected, json.loads(actual))
+    assert_dict_equals(expected, json.loads(actual))
 

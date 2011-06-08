@@ -86,6 +86,7 @@ class APIHandler(Handler):
                 logger.exception('Error while handling API request')
                 raise errors.InternalError()
         except errors.WebServiceError, e:
+            logger.error("WS error: %s", e.message)
             return self._error(e.code, e.message, params.format, status=e.status)
 
 
@@ -127,29 +128,31 @@ class LookupHandler(APIHandler):
                 recording['id'] = str(mbid)
                 if meta == 1:
                     continue
-                track_meta = track_meta_map.get(mbid)
-                if track_meta is None:
+                tracks_meta = track_meta_map.get(mbid)
+                if tracks_meta is None:
                     continue
-                recording['tracks'] = [{
-                    'title': track_meta['name'],
-                    'duration': track_meta['length'],
-                    'artist': {
-                        'id': track_meta['artist_id'],
-                        'name': track_meta['artist_name'],
-                    },
-                    'position': track_meta['track_num'],
-                    'medium': {
+                tracks = []
+                for track_meta in tracks_meta:
+                    medium = {
                         'track_count': track_meta['total_tracks'],
-                        # position
+                        'position': track_meta['disc_num'],
                         # title
-                        # format
                         'release': {
                             'id': track_meta['release_id'],
                             'title': track_meta['release_name'],
                             # medium_count
                         },
-                    },
-                }]
+                    }
+                    if track_meta['medium_format']:
+                        medium['format'] = track_meta['medium_format']
+                    tracks.append({
+                        'title': track_meta['name'],
+                        'duration': track_meta['length'],
+                        'artists': track_meta['artists'],
+                        'position': track_meta['track_num'],
+                        'medium': medium,
+                    })
+                recording['tracks'] = tracks
 
     def _handle_internal(self, params):
         response = {}
@@ -194,7 +197,7 @@ class SubmitHandlerParams(APIHandlerParams):
         p['duration'] = values.get('duration' + suffix, type=int)
         if p['duration'] is None:
             raise errors.MissingParameterError('duration' + suffix)
-        if p['duration'] <= 0:
+        if p['duration'] <= 0 or p['duration'] > 0x7fff:
             raise errors.InvalidDurationError('duration' + suffix)
         p['format'] = values.get('fileformat' + suffix)
 
@@ -252,7 +255,8 @@ class SubmitHandler(APIHandler):
                         format_ids[p['format']] = find_or_insert_format(self.conn, p['format'])
                     p['format_id'] = format_ids[p['format']]
             for p in params.submissions:
-                for mbid in p['mbids']:
+                mbids = p['mbids'] or [None]
+                for mbid in mbids:
                     values = {
                         'mbid': mbid or None,
                         'puid': p['puid'] or None,
