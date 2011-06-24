@@ -92,6 +92,18 @@ INSERT INTO stats (name, value) VALUES ('track.8mbids', coalesce((SELECT sum(tra
 INSERT INTO stats (name, value) VALUES ('track.9mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=9), 0));
 INSERT INTO stats (name, value) VALUES ('track.10mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count>=10), 0));
 
+INSERT INTO stats (name, value) VALUES ('mbid.onlyacoustid', (
+    select count(distinct mbid) from track_mbid tm join musicbrainz.recording r on r.gid=tm.mbid left join musicbrainz.recording_puid rp on rp.recording=r.id where rp.recording is null
+));
+
+INSERT INTO stats (name, value) VALUES ('mbid.onlypuid', (
+    select count(distinct r.gid) from musicbrainz.recording r join musicbrainz.recording_puid rp on rp.recording=r.id left join track_mbid tm on tm.mbid=r.gid where tm.mbid is null
+));
+
+INSERT INTO stats (name, value) VALUES ('mbid.both', (
+    select count(distinct r.gid) from musicbrainz.recording r join musicbrainz.recording_puid rp on rp.recording=r.id join track_mbid tm on tm.mbid=r.gid
+));
+
 DELETE FROM stats_top_accounts;
 INSERT INTO stats_top_accounts (account_id, count)
 	SELECT account_id, count(*) FROM (
