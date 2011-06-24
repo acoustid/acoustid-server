@@ -82,7 +82,7 @@ class InvalidUUIDError(WebServiceError):
 class InvalidDurationError(WebServiceError):
 
     def __init__(self, name):
-        message = 'parameter "%s" must be a positive integer'
+        message = 'parameter "%s" must be a positive integer' % (name,)
         WebServiceError.__init__(self, ERROR_INVALID_DURATION, message)
         self.parameter = name
 
@@ -90,7 +90,7 @@ class InvalidDurationError(WebServiceError):
 class InvalidBitrateError(WebServiceError):
 
     def __init__(self, name):
-        message = 'parameter "%s" must be a positive integer'
+        message = 'parameter "%s" must be a positive integer' % (name,)
         WebServiceError.__init__(self, ERROR_INVALID_BITRATE, message)
         self.parameter = name
 
