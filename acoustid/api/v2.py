@@ -216,7 +216,7 @@ class SubmitHandlerParams(APIHandlerParams):
         p['fingerprint'] = decode_fingerprint(fingerprint_string)
         if not p['fingerprint']:
             raise errors.InvalidFingerprintError()
-        p['bitrate'] = values.get('bitrate' + suffix, type=int)
+        p['bitrate'] = values.get('bitrate' + suffix, type=int) or None
         if p['bitrate'] is not None and p['bitrate'] <= 0:
             raise errors.InvalidBitrateError('bitrate' + suffix)
         p['track'] = values.get('track' + suffix)
@@ -233,10 +233,15 @@ class SubmitHandlerParams(APIHandlerParams):
         self._parse_client(values, conn)
         self._parse_user(values, conn)
         self.submissions = []
-        for suffix in iter_args_suffixes(values, 'fingerprint'):
-            self._parse_submission(values, suffix)
-        if not self.submissions:
+        suffixes = list(iter_args_suffixes(values, 'fingerprint'))
+        if not suffixes:
             raise errors.MissingParameterError('fingerprint')
+        for i, suffix in enumerate(suffixes):
+            try:
+                self._parse_submission(values, suffix)
+            except errors.WebServiceError:
+                if not self.submissions and i + 1 == len(suffixes):
+                    raise
 
 
 class SubmitHandler(APIHandler):
