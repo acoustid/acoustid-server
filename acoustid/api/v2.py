@@ -121,10 +121,10 @@ class LookupHandler(APIHandler):
             track_meta_map = lookup_metadata(self.conn, all_mbids)
         for track_id, mbids in track_mbid_map.iteritems():
             result = result_map[track_id]
-            result[self.recordings_name] = tracks = []
+            result[self.recordings_name] = recordings = []
             for mbid in mbids:
                 recording = {}
-                tracks.append(recording)
+                recordings.append(recording)
                 recording['id'] = str(mbid)
                 if meta == 1:
                     continue
