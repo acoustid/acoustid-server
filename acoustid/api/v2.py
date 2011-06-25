@@ -222,9 +222,9 @@ class SubmitHandlerParams(APIHandlerParams):
         p['track'] = values.get('track' + suffix)
         p['artist'] = values.get('artist' + suffix)
         p['album'] = values.get('album' + suffix)
-        p['album_artist'] = values.get('album_artist' + suffix)
-        p['track_no'] = values.get('track_no' + suffix, type=int)
-        p['disc_no'] = values.get('disc_no' + suffix, type=int)
+        p['album_artist'] = values.get('albumartist' + suffix)
+        p['track_no'] = values.get('trackno' + suffix, type=int)
+        p['disc_no'] = values.get('discno' + suffix, type=int)
         p['year'] = values.get('year' + suffix, type=int)
         self.submissions.append(p)
 

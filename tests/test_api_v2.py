@@ -435,9 +435,9 @@ def test_submit_handler_with_meta(conn):
         'track': 'Voodoo People',
         'artist': 'The Prodigy',
         'album': 'Music For The Jitled People',
-        'album_artist': 'Prodigy',
-        'track_no': '2',
-        'disc_no': '3',
+        'albumartist': 'Prodigy',
+        'trackno': '2',
+        'discno': '3',
         'year': '2030'
     }
     builder = EnvironBuilder(method='POST', data=values)
