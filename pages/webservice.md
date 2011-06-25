@@ -138,6 +138,10 @@ submission will be later processed by a background job and imported into the mai
 database, making it available the lookup method. Multiple fingerprints can be submitted
 in one call.
 
+While you can submit a fingerprint without any metadata, it is not very useful
+to do so. If the file has embedded MusicBrainz tags, please send the MusicBrainz
+track ID. Otherwise you can send the PUID or textual metadata.
+
 #### URL
 
     http://api.acoustid.org/v2/submit
@@ -195,17 +199,57 @@ in one call.
 	</tr>
 	<tr>
 		<td>mbid.#</td>
-		<td>no<sup>*</sup></td>
-		<td>38035858-f990-4fbb-b3b2-f2f8b958eeba</td>
+		<td>no</td>
+		<td>4e0d8649-1f89-44f3-91af-4c0dbee81f28</td>
 		<td>corresponding MusicBrainz track ID</td>
 	</tr>
 	<tr>
 		<td>puid.#</td>
-		<td>no<sup>*</sup></td>
-		<td>a569da93-0142-e730-7219-c4bdb1d41f2f	</td>
+		<td>no</td>
+		<td>4c986c91-40e5-d2b2-531e-e77ad4309691</td>
 		<td>corresponding PUID</td>
 	</tr>
+	<tr>
+		<td>artist.#</td>
+		<td>no</td>
+		<td>High Hopes</td>
+		<td>track title</td>
+	</tr>
+	<tr>
+		<td>artist.#</td>
+		<td>no</td>
+		<td>Pink Floyd</td>
+		<td>track artist</td>
+	</tr>
+	<tr>
+		<td>album.#</td>
+		<td>no</td>
+		<td>The Division Bell</td>
+		<td>album title</td>
+	</tr>
+	<tr>
+		<td>albumartist.#</td>
+		<td>no</td>
+		<td>Pink Floyd</td>
+		<td>album artist</td>
+	</tr>
+	<tr>
+		<td>year.#</td>
+		<td>no</td>
+		<td>1994</td>
+		<td>album release year</td>
+	</tr>
+	<tr>
+		<td>trackno.#</td>
+		<td>no</td>
+		<td>11</td>
+		<td>track number</td>
+	</tr>
+	<tr>
+		<td>discno.#</td>
+		<td>no</td>
+		<td>1</td>
+		<td>disc number</td>
+	</tr>
 </table>
-
-<sup>*</sup> at least one PUID or MBID must be included
 
