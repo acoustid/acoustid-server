@@ -52,8 +52,8 @@ CREATE TABLE fingerprint (
     track_id int NOT NULL,
     meta_id int,
 	submission_id int,
-	hash_full bytea NOT NULL,
-	hash_query bytea NOT NULL
+	hash_full bytea,
+	hash_query bytea
 );
 
 CREATE TABLE track (

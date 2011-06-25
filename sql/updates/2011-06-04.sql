@@ -15,8 +15,8 @@ CREATE INDEX fingerprint_idx_fingerprint ON fingerprint
 
 ALTER TABLE fingerprint DROP COLUMN source_id;
 ALTER TABLE fingerprint ADD COLUMN submission_id int;
-ALTER TABLE fingerprint ADD COLUMN hash_full bytea NOT NULL;
-ALTER TABLE fingerprint ADD COLUMN hash_query bytea NOT NULL;
+ALTER TABLE fingerprint ADD COLUMN hash_full bytea;
+ALTER TABLE fingerprint ADD COLUMN hash_query bytea;
 ALTER TABLE track_mbid ADD COLUMN submission_id int;
 
 CREATE INDEX fingerprint_idx_hash_query ON fingerprint (hash_query);
