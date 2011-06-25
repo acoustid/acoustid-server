@@ -49,6 +49,7 @@ CREATE TABLE fingerprint (
     bitrate smallint CHECK (bitrate > 0),
     format_id int,
     created timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	source_id int NOT NULL,
     track_id int NOT NULL,
     meta_id int,
 	submission_id int,

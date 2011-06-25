@@ -69,6 +69,7 @@ def import_submission(conn, submission):
             'fingerprint': submission['fingerprint'],
             'length': submission['length'],
             'bitrate': submission['bitrate'],
+            'source_id': submission['source_id'],
             'submission_id': submission['id'],
             'format_id': submission['format_id'],
             'meta_id': submission['meta_id'],

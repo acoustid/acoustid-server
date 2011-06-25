@@ -10,6 +10,10 @@ ALTER TABLE source ADD CONSTRAINT source_fk_account_id
     FOREIGN KEY (account_id)
     REFERENCES account (id);
 
+ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_source_id
+    FOREIGN KEY (source_id)
+    REFERENCES source (id);
+
 ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_submission_id
     FOREIGN KEY (submission_id)
     REFERENCES submission (id);

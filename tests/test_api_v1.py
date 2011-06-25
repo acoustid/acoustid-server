@@ -93,8 +93,8 @@ def test_lookup_handler(conn):
     assert_equals('200 OK', resp.status)
     # one exact match
     prepare_database(conn, """
-INSERT INTO fingerprint (length, fingerprint, track_id)
-    VALUES (%s, %s, 1);
+INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
+    VALUES (%s, %s, 1, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))

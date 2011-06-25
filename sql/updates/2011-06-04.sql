@@ -13,7 +13,6 @@ $$ LANGUAGE 'SQL' IMMUTABLE STRICT;
 CREATE INDEX fingerprint_idx_fingerprint ON fingerprint
     USING gin (extract_fp_query(fingerprint) gin__int_ops);
 
-ALTER TABLE fingerprint DROP COLUMN source_id;
 ALTER TABLE fingerprint ADD COLUMN submission_id int;
 ALTER TABLE fingerprint ADD COLUMN hash_full bytea;
 ALTER TABLE fingerprint ADD COLUMN hash_query bytea;

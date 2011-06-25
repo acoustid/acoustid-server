@@ -58,6 +58,7 @@ def insert_fingerprint(conn, data):
             'fingerprint': data['fingerprint'],
             'length': data['length'],
             'bitrate': data.get('bitrate'),
+            'source_id': data.get('source_id'),
             'submission_id': data.get('submission_id'),
             'format_id': data.get('format_id'),
             'track_id': data['track_id'],
