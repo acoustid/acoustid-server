@@ -62,6 +62,7 @@ def insert_fingerprint(conn, data):
             'submission_id': data.get('submission_id'),
             'format_id': data.get('format_id'),
             'track_id': data['track_id'],
+            'meta_id': data.get('meta_id'),
         })
         id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted fingerprint %r with data %r", id, data)
