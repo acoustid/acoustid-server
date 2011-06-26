@@ -21,23 +21,21 @@ and help building the Acoustid database. Thank you!
 
 ### Download
 
-Latest release &mdash; 0.1 (Nov 20, 2010)
+Latest release &mdash; 0.2 (Jun 26, 2011)
 
  * [Source code][src]
  * Packages
      * [Windows][win]
-     * [Mac OS X][osx] (thanks to [Aleksandar Topuzović][osxthread])
+     * [Mac OS X][osx]
      * [Arch Linux](http://aur.archlinux.org/packages.php?ID=46359)
      * [Debian](http://packages.debian.org/acoustid-fingerprinter)
      * [Gentoo](http://proaudio.tuxfamily.org/wiki/index.php?title=Usage) (Pro-Audio Gentoo overlay)
-     * [Ubuntu][ppa] ([daily builds][ppad])
+     * [Ubuntu][ppa]
 
-[src]: http://launchpad.net/acoustid-fingerprinter/trunk/0.1/+download/acoustid-fingerprinter-0.1.tar.gz
-[win]: http://launchpad.net/acoustid-fingerprinter/trunk/0.1/+download/acoustid-fingerprinter-0.1-win32-2.zip
-[osx]: http://dl.dropbox.com/u/3759035/acousticid/acoustid-fingerprinter.app.zip
-[osxthread]: http://groups.google.com/group/acoustid/browse_thread/thread/be087459ee9a4cea
+[src]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.2.tar.gz
+[win]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.2-win32.zip
+[osx]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.2-mac.dmg
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
-[ppad]: https://launchpad.net/~luks/+archive/acoustid-daily
 
 ### Development
 
