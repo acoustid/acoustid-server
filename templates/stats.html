@@ -32,6 +32,23 @@
 
 <div id="graph-fp"></div>
 
+<p><b>MusicBrainz database coverage compared to PUIDs</b></p>
+
+<table class="listing">
+    <tr>
+        <td>MBIDs identifiable by both PUIDs and Acoustid</td>
+        <td class="r">{{ basic.mbids_both }}</td>
+    </tr>
+    <tr>
+        <td>MBIDs identifiable only by PUIDs</td>
+        <td class="r">{{ basic.mbids_onlypuid }}</td>
+    </tr>
+    <tr>
+        <td>MBIDs identifiable only by Acoustid</td>
+        <td class="r">{{ basic.mbids_onlyacoustid }}</td>
+    </tr>
+</table>
+
 <p><b>Tracks per the number of linked MBIDs</b></p>
 
 <table class="listing">
@@ -64,23 +81,6 @@
         <td class="r">{{ t.percent }} %</td>
     </tr>
     {% endfor %}
-</table>
-
-<p><b>MusicBrainz database coverage compared to PUIDs</b></p>
-
-<table class="listing">
-    <tr>
-        <td>MBIDs identifiable by both PUIDs and Acoustid</td>
-        <td class="r">{{ basic.mbids_both }}</td>
-    </tr>
-    <tr>
-        <td>MBIDs identifiable only by PUIDs</td>
-        <td class="r">{{ basic.mbids_onlypuid }}</td>
-    </tr>
-    <tr>
-        <td>MBIDs identifiable only by Acoustid</td>
-        <td class="r">{{ basic.mbids_onlyacoustid }}</td>
-    </tr>
 </table>
 
 <p><b>Top contributors in last two weeks</b></p>
