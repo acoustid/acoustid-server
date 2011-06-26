@@ -131,6 +131,12 @@ mb_recording = Table('s_recording', metadata,
     schema='musicbrainz',
 )
 
+mb_recording_gid_redirect = Table('recording_gid_redirect', metadata,
+    Column('gid', String, primary_key=True),
+    Column('new_id', Integer, ForeignKey('musicbrainz.s_recording.id')),
+    schema='musicbrainz',
+)
+
 mb_track = Table('s_track', metadata,
     Column('id', Integer, primary_key=True),
     Column('position', Integer),

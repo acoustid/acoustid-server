@@ -5,7 +5,7 @@ import logging
 from sqlalchemy import sql
 from acoustid import tables as schema
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint
-from acoustid.data.musicbrainz import find_puid_mbids
+from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
 from acoustid.data.track import insert_track, insert_mbid, merge_tracks
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def import_submission(conn, submission):
     with conn.begin():
         mbids = []
         if submission['mbid']:
-            mbids.append(submission['mbid'])
+            mbids.append(resolve_mbid_redirect(submission['mbid']))
         if submission['puid']:
             min_duration = submission['length'] - 15
             max_duration = submission['length'] + 15
