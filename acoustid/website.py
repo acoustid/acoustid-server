@@ -357,6 +357,9 @@ class StatsHandler(WebSiteHandler):
             'tracks': stats.get('track.all', 0),
             'mbids': stats.get('track_mbid.unique', 0),
             'contributors': stats.get('account.active', 0),
+            'mbids_both': stats.get('mbid.both', 0),
+            'mbids_onlypuid': stats.get('mbid.onlypuid', 0),
+            'mbids_onlyacoustid': stats.get('mbid.onlyacoustid', 0),
         }
         track_mbid = self._get_pie_chart(stats, 'track.%dmbids')
         mbid_track = self._get_pie_chart(stats, 'mbid.%dtracks')
