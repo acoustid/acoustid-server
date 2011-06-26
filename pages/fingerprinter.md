@@ -8,12 +8,10 @@ Title: Fingerprinter
 
 Acoustid fingerprinter is a cross-platform GUI application that uses
 [Chromaprint][chp] to submit audio fingerprints from your music collection
-to the Acoustid database. Only files that have MusicBrainz IDs embedded in
-tags are submitted.
-
-If you use a MusicBrainz tagger such us [Picard][picard] or [Jaikoz][jaikoz]
-to tag your music files, please run the fingerprinter on your music collection
-and help building the Acoustid database. Thank you!
+to the Acoustid database. Only tagged audio files are submitted. Files
+tagged by MusicBrainz applications such as [Picard][picard] or [Jaikoz][jaikoz]
+are preferred, but it will submit fingerprints for any files that have tags
+such as track title, artist name, album name, etc.
 
 [chp]: /chromaprint
 [picard]: http://musicbrainz.org/doc/Picard

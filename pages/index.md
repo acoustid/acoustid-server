@@ -5,9 +5,10 @@ free database of audio fingerprints with mapping to the [MusicBrainz][5]
 metadata database and provide a [web service][6] for audio file
 identification using this database.
 
-The content of the database is all submitted by users. If you have a
-MusicBrainz-tagged music collection, you can help by downloading our
-[submission tool][4] and letting it to analyze your audio files.
+The content of the database is all submitted by users. You can contribute
+by downloading our [submission tool][4] and letting it to analyze your
+music collection. It will submit fingerprints along with some metadata
+necessary to identify the songs to the Acoustid database.
 
 All software components are open source, so if you are a developer
 interested in the project, you can download the source code for the
