@@ -112,6 +112,8 @@ def cluster_track_names(names):
         if score > threshold:
             top_words.add(token)
     for i, tokens in enumerate(tokenized_names):
+        if not tokens:
+            continue
         score = 1.0 * sum([float(stats[t]) / max_score for t in tokens if t in top_words]) / len(tokens)
         if score > 0.8:
             yield i
