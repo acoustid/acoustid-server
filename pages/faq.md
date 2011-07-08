@@ -18,7 +18,9 @@ helping developing the software or just spreading the word.
 
 No, it can't. The service has been designed for identifying full audio files.
 We would like to eventually support also this use case, but it's not a priority
-at the moment.
+at the moment. Note that even when this will be implemented, it will be still
+intended for matching the original audio (e.g. for the purpose of tracklisting
+a long audio stream), not audio with background noise recorded on a phone.
 
 ### Why do I need to log in to submit fingerprints?
 
