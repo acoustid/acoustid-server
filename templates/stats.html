@@ -145,10 +145,10 @@ $(document).ready(function() {
 			},
 		},
 		series: [
-			{{ data_series('Submissions', daily.submissions, false) }},
+			{{ data_series('Submissions', daily.submissions) }},
 			{{ data_series('Fingerprints', daily.fingerprints, false) }},
 			{{ data_series('Tracks', daily.tracks, false) }},
-			{{ data_series('MBIDs', daily.mbids) }}
+			{{ data_series('MBIDs', daily.mbids, false) }}
 		]
 	});
 });
