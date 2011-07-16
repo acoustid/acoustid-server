@@ -57,6 +57,10 @@ CREATE TABLE fingerprint (
 	hash_query bytea
 );
 
+CREATE TABLE fingerprint_index_queue (
+    fingerprint_id int NOT NULL
+);
+
 CREATE TABLE track (
     id serial NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp
