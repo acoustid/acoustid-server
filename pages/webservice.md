@@ -54,7 +54,7 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 		<td>duration</td>
 		<td>yes</td>
 		<td>641</td>
-		<td>duration of the audio file in seconds</td>
+		<td>duration of the whole audio file in seconds</td>
 	</tr>
 	<tr>
 		<td>fingerprint</td>
@@ -177,7 +177,7 @@ track ID. Otherwise you can send the PUID or textual metadata.
 		<td>duration.#</td>
 		<td>yes</td>
 		<td>641</td>
-		<td>duration of the audio file in seconds</td>
+		<td>duration of the whole audio file in seconds</td>
 	</tr>
 	<tr>
 		<td>fingerprint.#</td>
