@@ -42,7 +42,7 @@ def import_submission(conn, submission):
     with conn.begin():
         mbids = []
         if submission['mbid']:
-            mbids.append(resolve_mbid_redirect(submission['mbid']))
+            mbids.append(resolve_mbid_redirect(conn, submission['mbid']))
         if submission['puid']:
             min_duration = submission['length'] - 15
             max_duration = submission['length'] + 15

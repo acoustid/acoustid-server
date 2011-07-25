@@ -61,8 +61,8 @@ def test_insert_track(conn):
 @with_database
 def test_merge_tracks(conn):
     prepare_database(conn, """
-INSERT INTO fingerprint (fingerprint, length, track_id)
-    VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 2);
+INSERT INTO fingerprint (fingerprint, length, track_id, source_id)
+    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1);
 INSERT INTO track_mbid (track_id, mbid) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3');
 INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3');
 INSERT INTO track_mbid (track_id, mbid) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3');
@@ -88,9 +88,9 @@ INSERT INTO track_mbid (track_id, mbid) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025
 @with_database
 def test_track_fingerprint_matrix(conn):
     prepare_database(conn, """
-INSERT INTO fingerprint (fingerprint, length, track_id)
-    VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 1),
-           (%(fp3)s, %(len3)s, 1);
+INSERT INTO fingerprint (fingerprint, length, track_id, source_id)
+    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 1, 1),
+           (%(fp3)s, %(len3)s, 1, 1);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH,
               fp3=TEST_1C_FP_RAW, len3=TEST_1C_LENGTH))
