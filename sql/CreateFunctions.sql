@@ -6,7 +6,7 @@ $$ LANGUAGE 'SQL' IMMUTABLE STRICT;
 CREATE OR REPLACE FUNCTION extract_fp_query(int[]) RETURNS int[]
 AS $$
     SELECT uniq(sort(subarray($1 - 627964279,
-		greatest(0, least(icount($1 - 627964279) - 120, 80)), 80)));
+		greatest(0, least(icount($1 - 627964279) - 120, 80)), 120)));
 $$ LANGUAGE 'SQL' IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION update_account_stats() RETURNS void
