@@ -3,16 +3,25 @@
 #include "postgres.h"
 #include "fmgr.h"
 #include "utils/array.h"
+#include "catalog/pg_type.h"
 #include "popcount.h"
 
 /* fingerprint matcher settings */
 #define ACOUSTID_MAX_BIT_ERROR 2
 #define ACOUSTID_MAX_ALIGN_OFFSET 120
+#define ACOUSTID_QUERY_START 80
+#define ACOUSTID_QUERY_LENGTH 120
+#define ACOUSTID_QUERY_BITS 28
+#define ACOUSTID_QUERY_MASK (((1<<ACOUSTID_QUERY_BITS)-1)<<(32-ACOUSTID_QUERY_BITS))
+#define ACOUSTID_QUERY_STRIP(x) ((x) & ACOUSTID_QUERY_MASK)
 
 PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(acoustid_compare);
 Datum       acoustid_compare(PG_FUNCTION_ARGS);
+
+PG_FUNCTION_INFO_V1(acoustid_extract_query);
+Datum       acoustid_extract_query(PG_FUNCTION_ARGS);
 
 /* dimension of array */
 #define NDIM 1
@@ -91,5 +100,66 @@ acoustid_compare(PG_FUNCTION_ARGS)
 		ARRPTR(b), ARRNELEMS(b));
 
 	PG_RETURN_FLOAT4(result);
+}
+
+static ArrayType *
+new_intArrayType(int num)
+{
+	ArrayType  *r;
+	int nbytes = ARR_OVERHEAD_NONULLS(1) + sizeof(int) * num;
+
+	r = (ArrayType *) palloc0(nbytes);
+
+	SET_VARSIZE(r, nbytes);
+	ARR_NDIM(r) = 1;
+	r->dataoffset = 0;          /* marker for no null bitmap */
+	ARR_ELEMTYPE(r) = INT4OID;
+	ARR_DIMS(r)[0] = num;
+	ARR_LBOUND(r)[0] = 1;
+
+	return r;
+}
+
+Datum
+acoustid_extract_query(PG_FUNCTION_ARGS)
+{
+	ArrayType *a = PG_GETARG_ARRAYTYPE_P(0), *q;
+	int4 *orig, *query;
+	int i, j, size, cleansize, querysize;
+
+	CHECKARRVALID(a);
+	size = ARRNELEMS(a);
+	orig = ARRPTR(a);
+
+	cleansize = 0;
+	for (i = 0; i < size; i++) {
+		if (orig[i] != 627964279) {
+			cleansize++;
+		}
+	}
+
+	if (cleansize <= 0) {
+		PG_RETURN_ARRAYTYPE_P(new_intArrayType(0));
+	}
+
+	q = new_intArrayType(120);
+	query = ARRPTR(q);
+	querysize = 0;
+	for (i = Max(0, Min(cleansize - ACOUSTID_QUERY_LENGTH, ACOUSTID_QUERY_START)); i < size && querysize < ACOUSTID_QUERY_LENGTH; i++) {
+		int4 x = ACOUSTID_QUERY_STRIP(orig[i]);
+		if (orig[i] == 627964279) {
+			goto next; // silence
+		}
+		for (j = 0; j < querysize; j++) { // XXX O(N^2) dupe detection, try if O(N*logN) sorting works better on the tiny array
+			if (query[j] == x) {
+				goto next; // duplicate
+			}
+		}
+		query[querysize++] = x;
+	next: ;
+	}
+	ARR_DIMS(q)[0] = querysize;
+
+	PG_RETURN_ARRAYTYPE_P(q);
 }
 
