@@ -17,6 +17,7 @@ TABLES = [
     ("fingerprint", None),
     ("track", None),
     ("track_mbid", None),
+    ("track_puid", None),
     #("submission", None),
     ("stats", None),
 ]
