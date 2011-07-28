@@ -116,16 +116,37 @@ def insert_track(conn):
 
 
 def insert_mbid(conn, track_id, mbid, submission_id=None):
-    query = sql.select([1], sql.and_(
+    cond = sql.and_(
         schema.track_mbid.c.track_id == track_id,
-        schema.track_mbid.c.mbid == mbid), schema.track_mbid)
+        schema.track_mbid.c.mbid == mbid)
+    query = sql.select([1], cond, schema.track_mbid)
     if conn.execute(query).scalar():
+        update_stmt = schema.track_mbid.update().where(cond)
+        conn.execute(update_stmt.values(submission_count=sql.text('submission_count+1')))
         return False
     insert_stmt = schema.track_mbid.insert().values({
         'track_id': track_id, 'mbid': mbid,
-        'submission_id': submission_id})
+        'submission_id': submission_id,
+        'submission_count': 1})
     conn.execute(insert_stmt)
     logger.debug("Added MBID %s to track %d", mbid, track_id)
+    return True
+
+
+def insert_puid(conn, track_id, puid):
+    cond = sql.and_(
+        schema.track_puid.c.track_id == track_id,
+        schema.track_puid.c.puid == puid)
+    query = sql.select([1], cond, schema.track_puid)
+    if conn.execute(query).scalar():
+        update_stmt = schema.track_puid.update().where(cond)
+        conn.execute(update_stmt.values(submission_count=sql.text('submission_count+1')))
+        return False
+    insert_stmt = schema.track_puid.insert().values({
+        'track_id': track_id, 'puid': puid,
+        'submission_count': 1})
+    conn.execute(insert_stmt)
+    logger.debug("Added PUID %s to track %d", puid, track_id)
     return True
 
 

@@ -34,6 +34,10 @@ ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_fk_submission_id
     FOREIGN KEY (submission_id)
     REFERENCES submission (id);
 
+ALTER TABLE track_puid ADD CONSTRAINT track_puid_fk_track_id
+    FOREIGN KEY (track_id)
+    REFERENCES track (id);
+
 ALTER TABLE submission ADD CONSTRAINT submission_fk_source_id
     FOREIGN KEY (source_id)
     REFERENCES source (id);

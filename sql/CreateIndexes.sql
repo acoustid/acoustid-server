@@ -18,6 +18,7 @@ CREATE INDEX fingerprint_idx_hash_query ON fingerprint (hash_query);
 CREATE INDEX fingerprint_idx_hash_full ON fingerprint (hash_full);
 
 CREATE INDEX track_mbid_idx_mbid ON track_mbid (mbid);
+CREATE INDEX track_puid_idx_puid ON track_puid (puid);
 
 CREATE INDEX stats_idx_date ON stats (date);
 CREATE INDEX stats_idx_name_date ON stats (name, date);

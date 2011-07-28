@@ -100,6 +100,14 @@ track_mbid = Table('track_mbid', metadata,
     Column('mbid', String, primary_key=True),
     Column('created', DateTime),
     Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('submission_count', Integer),
+)
+
+track_puid = Table('track_puid', metadata,
+    Column('track_id', Integer, ForeignKey('track.id'), primary_key=True),
+    Column('puid', String, primary_key=True),
+    Column('created', DateTime),
+    Column('submission_count', Integer),
 )
 
 mb_artist = Table('s_artist', metadata,

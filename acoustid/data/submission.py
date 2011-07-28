@@ -6,7 +6,7 @@ from sqlalchemy import sql
 from acoustid import tables as schema
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
-from acoustid.data.track import insert_track, insert_mbid, merge_tracks
+from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +94,9 @@ def import_submission(conn, submission):
             fingerprint['id'] = insert_fingerprint(conn, fingerprint)
             logger.info('Added new fingerprint %d', fingerprint['id'])
         for mbid in mbids:
-            if insert_mbid(conn, fingerprint['track_id'], mbid):
-                logger.info('Added MBID %s to track %d', mbid, fingerprint['track_id'])
+            insert_mbid(conn, fingerprint['track_id'], mbid)
+        if submission['puid']:
+            insert_puid(conn, fingerprint['track_id'], submission['puid'])
         update_stmt = schema.submission.update().where(
             schema.submission.c.id == submission['id'])
         conn.execute(update_stmt.values(handled=True, fingerprint_id=fingerprint['id']))
