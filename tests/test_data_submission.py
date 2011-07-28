@@ -33,11 +33,11 @@ def test_insert_submission(conn):
     })
     assert_equals(1, id)
     rows = conn.execute("""
-        SELECT fingerprint, length, bitrate, source_id, format_id
+        SELECT fingerprint, length, bitrate, format_id
         FROM submission WHERE id=%s
     """, (id,)).fetchall()
     expected_rows = [
-        ([1,2,3,4,5,6], 123, 192, 1, 1),
+        ([1,2,3,4,5,6], 123, 192, 1),
     ]
     assert_equals(expected_rows, rows)
 
@@ -128,8 +128,8 @@ def test_import_submission(conn):
 @with_database
 def test_import_submission_reuse_fingerprint_97(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id)
+        VALUES (%(fp)s, %(len)s, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_1B_FP_RAW,
@@ -149,8 +149,8 @@ def test_import_submission_reuse_fingerprint_97(conn):
 @with_database
 def test_import_submission_reuse_fingerprint_100(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id)
+        VALUES (%(fp)s, %(len)s, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_1A_FP_RAW,
@@ -170,8 +170,8 @@ def test_import_submission_reuse_fingerprint_100(conn):
 @with_database
 def test_import_submission_reuse_track_93(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id)
+        VALUES (%(fp)s, %(len)s, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_1C_FP_RAW,
@@ -191,8 +191,8 @@ def test_import_submission_reuse_track_93(conn):
 @with_database
 def test_import_submission_new_track_55(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id)
+        VALUES (%(fp)s, %(len)s, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_1D_FP_RAW,
@@ -212,8 +212,8 @@ def test_import_submission_new_track_55(conn):
 @with_database
 def test_import_submission_new_track_different(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id)
+        VALUES (%(fp)s, %(len)s, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_2_FP_RAW,
@@ -233,8 +233,8 @@ def test_import_submission_new_track_different(conn):
 @with_database
 def test_import_submission_merge_existing_tracks(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, source_id, track_id)
-        VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 1, 2);
+    INSERT INTO fingerprint (fingerprint, length, track_id)
+        VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 2);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH))
     id = insert_submission(conn, {
@@ -255,7 +255,7 @@ def test_import_submission_merge_existing_tracks(conn):
     assert_equals(2, fingerprint['track_id'])
     query = tables.track.select(tables.track.c.id == 1)
     track = conn.execute(query).fetchone()
-    assert_equals(None, track)
+    assert_equals(2, track['new_id'])
 
 
 @with_database

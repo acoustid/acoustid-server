@@ -23,9 +23,9 @@ def insert_submission(conn, data):
             'fingerprint': data['fingerprint'],
             'length': data['length'],
             'bitrate': data.get('bitrate'),
-            'source_id': data['source_id'],
             'mbid': data.get('mbid'),
             'puid': data.get('puid'),
+            'source_id': data.get('source_id'),
             'format_id': data.get('format_id'),
             'meta_id': data.get('meta_id'),
         })
@@ -65,7 +65,6 @@ def import_submission(conn, submission):
             'fingerprint': submission['fingerprint'],
             'length': submission['length'],
             'bitrate': submission['bitrate'],
-            'source_id': submission['source_id'],
             'format_id': submission['format_id'],
             'meta_id': submission['meta_id'],
         }

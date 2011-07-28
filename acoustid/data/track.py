@@ -100,9 +100,10 @@ def merge_tracks(conn, target_id, source_ids):
         delete_stmt = schema.track_mbid.delete().where(
             schema.track_mbid.c.track_id.in_(source_ids))
         conn.execute(delete_stmt)
-        delete_track_stmt = schema.track.delete().where(
-            schema.track.c.id.in_(source_ids))
-        conn.execute(delete_track_stmt)
+        update_stmt = schema.track.update().where(
+            sql.or_(schema.track.c.id.in_(source_ids),
+                    schema.track.c.new_id.in_(source_ids)))
+        conn.execute(update_stmt.values(new_id=target_id))
 
 
 def insert_track(conn):

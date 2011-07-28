@@ -26,6 +26,10 @@ ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_track_id
     FOREIGN KEY (track_id)
     REFERENCES track (id);
 
+ALTER TABLE track ADD CONSTRAINT track_fk_new_id
+    FOREIGN KEY (new_id)
+    REFERENCES track (id);
+
 ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_fk_track_id
     FOREIGN KEY (track_id)
     REFERENCES track (id);

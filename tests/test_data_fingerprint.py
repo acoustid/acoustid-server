@@ -18,11 +18,11 @@ def test_insert_fingerprint(conn):
     })
     assert_equals(1, id)
     rows = conn.execute("""
-        SELECT fingerprint, length, bitrate, source_id, format_id, track_id
+        SELECT fingerprint, length, bitrate, format_id, track_id
         FROM fingerprint WHERE id=%s
     """, (id,)).fetchall()
     expected_rows = [
-        ([1,2,3,4,5,6], 123, 192, 1, 1, 2),
+        ([1,2,3,4,5,6], 123, 192, 1, 2),
     ]
     assert_equals(expected_rows, rows)
 
