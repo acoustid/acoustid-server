@@ -61,7 +61,6 @@ def test_import_submission(conn):
     fingerprint = import_submission(conn, submission)
     assert_equals(1, fingerprint['id'])
     assert_equals(5, fingerprint['track_id'])
-    assert_equals(id, fingerprint['submission_id'])
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_true(submission['handled'])

@@ -7,6 +7,7 @@ ALTER TABLE submission ADD CONSTRAINT submission_fk_fingerprint_id
 ALTER TABLE fingerprint ADD submission_count int;
 ALTER TABLE fingerprint DROP COLUMN submission_id;
 ALTER TABLE track_mbid ADD submission_count int ;
+ALTER TABLE track_mbid DROP COLUMN submission_id;
 
 CREATE TABLE track_puid (
     track_id int NOT NULL,

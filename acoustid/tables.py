@@ -99,7 +99,6 @@ track_mbid = Table('track_mbid', metadata,
     Column('track_id', Integer, ForeignKey('track.id'), primary_key=True),
     Column('mbid', String, primary_key=True),
     Column('created', DateTime),
-    Column('submission_id', Integer, ForeignKey('submission.id')),
     Column('submission_count', Integer),
 )
 
