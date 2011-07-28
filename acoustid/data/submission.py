@@ -82,8 +82,9 @@ def import_submission(conn, submission):
                         m['id'], m['track_id'], m['score'] * 100)
                     all_track_ids.add(m['track_id'])
             if len(all_track_ids) > 1:
-                all_track_ids.remove(match['track_id'])
-                merge_tracks(conn, match['track_id'], list(all_track_ids))
+                fingerprint['track_id'] = min(all_track_ids)
+                all_track_ids.remove(fingerprint['track_id'])
+                merge_tracks(conn, fingerprint['track_id'], list(all_track_ids))
         if not fingerprint['track_id']:
             fingerprint['track_id'] = insert_track(conn)
             logger.info('Added new track %d', fingerprint['track_id'])

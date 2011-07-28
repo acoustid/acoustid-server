@@ -249,13 +249,16 @@ def test_import_submission_merge_existing_tracks(conn):
     assert_false(submission['handled'])
     fingerprint = import_submission(conn, submission)
     assert_equals(3, fingerprint['id'])
-    assert_equals(2, fingerprint['track_id'])
+    assert_equals(1, fingerprint['track_id'])
     query = tables.fingerprint.select(tables.fingerprint.c.id == 1)
     fingerprint = conn.execute(query).fetchone()
-    assert_equals(2, fingerprint['track_id'])
+    assert_equals(1, fingerprint['track_id'])
     query = tables.track.select(tables.track.c.id == 1)
     track = conn.execute(query).fetchone()
-    assert_equals(2, track['new_id'])
+    assert_equals(None, track['new_id'])
+    query = tables.track.select(tables.track.c.id == 2)
+    track = conn.execute(query).fetchone()
+    assert_equals(1, track['new_id'])
 
 
 @with_database
