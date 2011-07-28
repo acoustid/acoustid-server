@@ -115,7 +115,7 @@ def insert_track(conn):
     return id
 
 
-def insert_mbid(conn, track_id, mbid, submission_id=None):
+def insert_mbid(conn, track_id, mbid):
     cond = sql.and_(
         schema.track_mbid.c.track_id == track_id,
         schema.track_mbid.c.mbid == mbid)
@@ -126,7 +126,6 @@ def insert_mbid(conn, track_id, mbid, submission_id=None):
         return False
     insert_stmt = schema.track_mbid.insert().values({
         'track_id': track_id, 'mbid': mbid,
-        'submission_id': submission_id,
         'submission_count': 1})
     conn.execute(insert_stmt)
     logger.debug("Added MBID %s to track %d", mbid, track_id)

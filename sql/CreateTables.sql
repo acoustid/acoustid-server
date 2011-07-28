@@ -71,7 +71,6 @@ CREATE TABLE track_mbid (
     track_id int NOT NULL,
     mbid uuid NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,
-    submission_id int,
     submission_count int NOT NULL
 );
 
