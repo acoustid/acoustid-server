@@ -19,8 +19,24 @@ from tests import (
 )
 from acoustid.data.track import (
     merge_missing_mbids, insert_track, merge_tracks,
+    merge_mbids,
     get_track_fingerprint_matrix,
 )
+
+
+@with_database
+def test_merge_mbids(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid;
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11);
+""")
+    merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
+    rows = conn.execute("SELECT track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20),
+    ]
+    assert_equals(expected_rows, rows)
 
 
 @with_database

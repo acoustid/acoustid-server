@@ -23,3 +23,12 @@ CREATE INDEX track_puid_idx_puid ON track_puid (puid);
 ALTER TABLE track ADD new_id int;
 ALTER TABLE track ADD CONSTRAINT track_fk_new_id FOREIGN KEY (new_id) REFERENCES track (id);
 
+ALTER TABLE track_mbid ADD id serial NOT NULL;
+ALTER TABLE track_puid ADD id serial NOT NULL;
+ALTER TABLE track_mbid DROP CONSTRAINT track_mbid_pkey;
+ALTER TABLE track_puid DROP CONSTRAINT track_puid_pkey;
+ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_pkey PRIMARY KEY (id);
+ALTER TABLE track_puid ADD CONSTRAINT track_puid_pkey PRIMARY KEY (id);
+CREATE INDEX track_mbid_idx_uniq ON track_mbid (track_id, mbid);
+CREATE INDEX track_puid_idx_uniq ON track_puid (track_id, puid);
+

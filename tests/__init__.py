@@ -49,6 +49,8 @@ SEQUENCES = [
     ('source', 'id'),
     ('submission', 'id'),
     ('track', 'id'),
+    ('track_mbid', 'id'),
+    ('track_puid', 'id'),
     ('fingerprint', 'id'),
     ('meta', 'id'),
 ]

@@ -67,6 +67,7 @@ CREATE TABLE track (
 );
 
 CREATE TABLE track_mbid (
+    id serial NOT NULL,
     track_id int NOT NULL,
     mbid uuid NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,
@@ -74,6 +75,7 @@ CREATE TABLE track_mbid (
 );
 
 CREATE TABLE track_puid (
+    id serial NOT NULL,
     track_id int NOT NULL,
     puid uuid NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,

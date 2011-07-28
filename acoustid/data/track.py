@@ -42,19 +42,28 @@ def merge_mbids(conn, target_mbid, source_mbids):
     logger.info("Merging MBIDs %s into %s", ', '.join(source_mbids), target_mbid)
     with conn.begin():
         query = sql.select(
-            [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
-            schema.track_mbid.c.mbid.in_(source_mbids + [target_mbid]))
+            [
+                sql.func.min(schema.track_mbid.c.id).label('id'),
+                sql.func.array_agg(schema.track_mbid.c.id).label('all_ids'),
+                schema.track_mbid.c.track_id,
+                sql.func.sum(schema.track_mbid.c.submission_count).label('count'),
+            ],
+            schema.track_mbid.c.mbid.in_(source_mbids + [target_mbid]),
+            group_by=schema.track_mbid.c.track_id)
         rows = conn.execute(query).fetchall()
-        source_track_ids = set([r[0] for r in rows if r[1] != target_mbid])
-        target_track_ids = set([r[0] for r in rows if r[1] == target_mbid])
-        missing_track_ids = source_track_ids - target_track_ids
-        if missing_track_ids:
-            conn.execute(schema.track_mbid.insert(),
-                [{'track_id': track_id, 'mbid': target_mbid}
-                    for track_id in missing_track_ids])
-        delete_stmt = schema.track_mbid.delete().where(
-            schema.track_mbid.c.mbid.in_(source_mbids))
-        conn.execute(delete_stmt)
+        to_delete = set()
+        to_update = []
+        for row in rows:
+            to_update.append((row['id'], row['count']))
+            to_delete.update(row['all_ids'])
+            to_delete.remove(row['id'])
+        if to_delete:
+            delete_stmt = schema.track_mbid.delete().where(
+                schema.track_mbid.c.id.in_(to_delete))
+            conn.execute(delete_stmt)
+        for id, count in to_update:
+            update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == id)
+            conn.execute(update_stmt.values(submission_count=count, mbid=target_mbid))
 
 
 def merge_missing_mbids(conn):

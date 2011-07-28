@@ -96,15 +96,17 @@ fingerprint = Table('fingerprint', metadata,
 )
 
 track_mbid = Table('track_mbid', metadata,
-    Column('track_id', Integer, ForeignKey('track.id'), primary_key=True),
-    Column('mbid', String, primary_key=True),
+    Column('id', Integer, primary_key=True),
+    Column('track_id', Integer, ForeignKey('track.id')),
+    Column('mbid', String),
     Column('created', DateTime),
     Column('submission_count', Integer),
 )
 
 track_puid = Table('track_puid', metadata,
-    Column('track_id', Integer, ForeignKey('track.id'), primary_key=True),
-    Column('puid', String, primary_key=True),
+    Column('id', Integer, primary_key=True),
+    Column('track_id', Integer, ForeignKey('track.id')),
+    Column('puid', String),
     Column('created', DateTime),
     Column('submission_count', Integer),
 )
