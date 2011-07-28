@@ -63,8 +63,16 @@ def insert_fingerprint(conn, data):
             'format_id': data.get('format_id'),
             'track_id': data['track_id'],
             'meta_id': data.get('meta_id'),
+            'submission_count': 1,
         })
         id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted fingerprint %r with data %r", id, data)
     return id
+
+
+def inc_fingerprint_submission_count(conn, id):
+    update_stmt = schema.fingerprint.update().where(schema.fingerprint.c.id == id)
+    conn.execute(update_stmt.values(submission_count=sql.text('submission_count+1')))
+    return True
+
 

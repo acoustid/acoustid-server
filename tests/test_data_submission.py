@@ -72,6 +72,9 @@ def test_import_submission(conn):
     query = tables.track_puid.select(tables.track_puid.c.track_id == fingerprint['track_id'])
     track_puid = conn.execute(query).fetchone()
     assert_equals(1, track_puid['submission_count'])
+    query = tables.fingerprint.select(tables.fingerprint.c.id == fingerprint['id'])
+    fingerprint = conn.execute(query).fetchone()
+    assert_equals(1, fingerprint['submission_count'])
     # second submission
     id = insert_submission(conn, {
         'fingerprint': TEST_2_FP_RAW,
@@ -118,6 +121,9 @@ def test_import_submission(conn):
     query = tables.track_puid.select(tables.track_puid.c.track_id == fingerprint['track_id'])
     track_puid = conn.execute(query).fetchone()
     assert_equals(2, track_puid['submission_count'])
+    query = tables.fingerprint.select(tables.fingerprint.c.id == fingerprint['id'])
+    fingerprint = conn.execute(query).fetchone()
+    assert_equals(2, fingerprint['submission_count'])
 
 
 @with_database

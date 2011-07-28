@@ -4,10 +4,9 @@
 import logging
 from sqlalchemy import sql
 from acoustid import tables as schema
-from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint
+from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
 from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks
-
 logger = logging.getLogger(__name__)
 
 TRACK_MERGE_TRESHOLD = 0.7
@@ -93,6 +92,8 @@ def import_submission(conn, submission):
         if not fingerprint['id']:
             fingerprint['id'] = insert_fingerprint(conn, fingerprint)
             logger.info('Added new fingerprint %d', fingerprint['id'])
+        else:
+            inc_fingerprint_submission_count(conn, fingerprint['id'])
         for mbid in mbids:
             insert_mbid(conn, fingerprint['track_id'], mbid)
         if submission['puid']:

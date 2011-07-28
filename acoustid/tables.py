@@ -93,6 +93,7 @@ fingerprint = Table('fingerprint', metadata,
     Column('track_id', Integer, ForeignKey('track.id')),
     Column('submission_id', Integer, ForeignKey('submission.id')),
     Column('meta_id', Integer, ForeignKey('meta.id')),
+    Column('submission_count', Integer),
 )
 
 track_mbid = Table('track_mbid', metadata,

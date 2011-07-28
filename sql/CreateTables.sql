@@ -54,7 +54,8 @@ CREATE TABLE fingerprint (
     meta_id int,
     submission_id int,
     hash_full bytea,
-    hash_query bytea
+    hash_query bytea,
+    submission_count int NOT NULL
 );
 
 CREATE TABLE fingerprint_index_queue (
