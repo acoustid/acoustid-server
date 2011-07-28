@@ -57,6 +57,7 @@ def test_import_submission(conn):
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_false(submission['handled'])
+    assert_equals(None, submission['fingerprint_id'])
     fingerprint = import_submission(conn, submission)
     assert_equals(1, fingerprint['id'])
     assert_equals(5, fingerprint['track_id'])
@@ -64,6 +65,7 @@ def test_import_submission(conn):
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_true(submission['handled'])
+    assert_equals(1, submission['fingerprint_id'])
     # second submission
     id = insert_submission(conn, {
         'fingerprint': TEST_2_FP_RAW,
@@ -75,12 +77,14 @@ def test_import_submission(conn):
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_false(submission['handled'])
+    assert_equals(None, submission['fingerprint_id'])
     fingerprint = import_submission(conn, submission)
     assert_equals(2, fingerprint['id'])
     assert_equals(6, fingerprint['track_id'])
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_true(submission['handled'])
+    assert_equals(2, submission['fingerprint_id'])
     # third submission (same as the first one)
     id = insert_submission(conn, {
         'fingerprint': TEST_1_FP_RAW,
@@ -94,12 +98,14 @@ def test_import_submission(conn):
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_false(submission['handled'])
+    assert_equals(None, submission['fingerprint_id'])
     fingerprint = import_submission(conn, submission)
     assert_equals(1, fingerprint['id'])
     assert_equals(5, fingerprint['track_id'])
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_true(submission['handled'])
+    assert_equals(1, submission['fingerprint_id'])
 
 
 @with_database

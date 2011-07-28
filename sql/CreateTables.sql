@@ -82,9 +82,10 @@ CREATE TABLE submission (
     created timestamp with time zone NOT NULL DEFAULT current_timestamp,
     source_id int NOT NULL,
     mbid uuid,
-    handled boolean DEFAULT false,
     puid uuid,
     meta_id int
+    handled boolean DEFAULT false,
+    fingerprint_id int
 );
 
 CREATE TABLE stats (
