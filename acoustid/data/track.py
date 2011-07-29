@@ -85,30 +85,42 @@ def merge_missing_mbids(conn):
         merge_mbids(conn, new_mbid, old_mbids)
 
 
+def _merge_tracks_gids(conn, tab, col, target_id, source_ids):
+    query = sql.select(
+        [
+            sql.func.min(tab.c.id).label('id'),
+            sql.func.array_agg(tab.c.id).label('all_ids'),
+            sql.func.sum(tab.c.submission_count).label('count'),
+        ],
+        tab.c.id.in_(source_ids + [target_id]),
+        group_by=col)
+    rows = conn.execute(query).fetchall()
+    to_delete = set()
+    to_update = []
+    for row in rows:
+        to_update.append((row['id'], row['count']))
+        to_delete.update(row['all_ids'])
+        to_delete.remove(row['id'])
+    if to_delete:
+        delete_stmt = tab.delete().where(tab.c.id.in_(to_delete))
+        conn.execute(delete_stmt)
+    for id, count in to_update:
+        update_stmt = tab.update().where(tab.c.id == id)
+        conn.execute(update_stmt.values(submission_count=count, track_id=target_id))
+
+
 def merge_tracks(conn, target_id, source_ids):
     """
     Merge the specified tracks.
     """
     logger.info("Merging tracks %s into %s", ', '.join(map(str, source_ids)), target_id)
     with conn.begin():
-        query = sql.select(
-            [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
-            schema.track_mbid.c.track_id.in_(source_ids + [target_id]))
-        rows = conn.execute(query).fetchall()
-        source_track_mbids = set([r[1] for r in rows if r[0] != target_id])
-        target_track_mbids = set([r[1] for r in rows if r[0] == target_id])
-        missing_track_mbids = source_track_mbids - target_track_mbids
-        if missing_track_mbids:
-            conn.execute(schema.track_mbid.insert(),
-                [{'track_id': target_id, 'mbid': mbid}
-                    for mbid in missing_track_mbids])
+        _merge_tracks_gids(conn, schema.track_mbid, schema.track_mbid.c.mbid, target_id, source_ids)
+        _merge_tracks_gids(conn, schema.track_puid, schema.track_puid.c.puid, target_id, source_ids)
         # XXX don't move duplicate fingerprints
         update_stmt = schema.fingerprint.update().where(
             schema.fingerprint.c.track_id.in_(source_ids))
         conn.execute(update_stmt.values(track_id=target_id))
-        delete_stmt = schema.track_mbid.delete().where(
-            schema.track_mbid.c.track_id.in_(source_ids))
-        conn.execute(delete_stmt)
         update_stmt = schema.track.update().where(
             sql.or_(schema.track.c.id.in_(source_ids),
                     schema.track.c.new_id.in_(source_ids)))

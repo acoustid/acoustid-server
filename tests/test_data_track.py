@@ -79,22 +79,35 @@ def test_merge_tracks(conn):
     prepare_database(conn, """
 INSERT INTO fingerprint (fingerprint, length, track_id)
     VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 2);
-INSERT INTO track_mbid (track_id, mbid) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f3');
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 10);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 15);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3', 50);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f3', 25);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f3', 30);
+INSERT INTO track_puid (track_id, puid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f4', 10);
+INSERT INTO track_puid (track_id, puid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f4', 15);
+INSERT INTO track_puid (track_id, puid, submission_count) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f4', 50);
+INSERT INTO track_puid (track_id, puid, submission_count) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f4', 25);
+INSERT INTO track_puid (track_id, puid, submission_count) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f4', 30);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH))
     merge_tracks(conn, 3, [1, 2, 4])
     rows = conn.execute("SELECT id, track_id FROM fingerprint ORDER BY id").fetchall()
     assert_true([(1, 3), (2, 3)], rows)
-    rows = conn.execute("SELECT track_id, mbid FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    rows = conn.execute("SELECT track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected = [
-        (3, '5d0290a6-4dad-11e0-a47a-0025225356f3'),
-        (3, '97edb73c-4dac-11e0-9096-0025225356f3'),
-        (3, 'b81f83ee-4da4-11e0-9ed8-0025225356f3'),
-        (3, 'd575d506-4da4-11e0-b951-0025225356f3')
+        (3, '5d0290a6-4dad-11e0-a47a-0025225356f3', 30),
+        (3, '97edb73c-4dac-11e0-9096-0025225356f3', 35),
+        (3, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 0),
+        (3, 'd575d506-4da4-11e0-b951-0025225356f3', 65)
+    ]
+    assert_true(expected, rows)
+    rows = conn.execute("SELECT track_id, puid, submission_count FROM track_puid ORDER BY track_id, puid").fetchall()
+    expected = [
+        (3, '5d0290a6-4dad-11e0-a47a-0025225356f4', 30),
+        (3, '97edb73c-4dac-11e0-9096-0025225356f4', 35),
+        (3, 'b81f83ee-4da4-11e0-9ed8-0025225356f4', 0),
+        (3, 'd575d506-4da4-11e0-b951-0025225356f4', 65)
     ]
     assert_true(expected, rows)
     rows = conn.execute("SELECT id FROM track ORDER BY id").fetchall()
