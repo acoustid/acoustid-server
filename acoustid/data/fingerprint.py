@@ -49,7 +49,7 @@ def lookup_fingerprint(conn, fp, length, good_enough_score, min_score, fast=Fals
     return matched
 
 
-def insert_fingerprint(conn, data):
+def insert_fingerprint(conn, data, submission_id=None, source_id=None):
     """
     Insert a new fingerprint into the database
     """
@@ -64,6 +64,13 @@ def insert_fingerprint(conn, data):
             'submission_count': 1,
         })
         id = conn.execute(insert_stmt).inserted_primary_key[0]
+        if submission_id and source_id:
+            insert_stmt = schema.fingerprint_source.insert().values({
+                'fingerprint_id': id,
+                'submission_id': submission_id,
+                'source_id': source_id,
+            })
+            conn.execute(insert_stmt)
     logger.debug("Inserted fingerprint %r with data %r", id, data)
     return id
 

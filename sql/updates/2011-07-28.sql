@@ -77,3 +77,26 @@ ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_fk_source_id
 
 ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_pkey PRIMARY KEY (id);
 
+
+CREATE TABLE fingerprint_source (
+    id serial NOT NULL,
+    fingerprint_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+ALTER TABLE fingerprint_source ADD CONSTRAINT fingerprint_source_fk_fingerprint_id
+    FOREIGN KEY (fingerprint_id)
+    REFERENCES fingerprint (id);
+
+ALTER TABLE fingerprint_source ADD CONSTRAINT fingerprint_source_fk_submission_id
+    FOREIGN KEY (submission_id)
+    REFERENCES submission (id);
+
+ALTER TABLE fingerprint_source ADD CONSTRAINT fingerprint_source_fk_source_id
+    FOREIGN KEY (source_id)
+    REFERENCES source (id);
+
+ALTER TABLE fingerprint_source ADD CONSTRAINT fingerprint_source_pkey PRIMARY KEY (id);
+

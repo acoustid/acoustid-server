@@ -56,6 +56,14 @@ CREATE TABLE fingerprint (
     submission_count int NOT NULL
 );
 
+CREATE TABLE fingerprint_source (
+    id serial NOT NULL,
+    fingerprint_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
 CREATE TABLE fingerprint_index_queue (
     fingerprint_id int NOT NULL
 );
@@ -108,9 +116,8 @@ CREATE TABLE submission (
     source_id int NOT NULL,
     mbid uuid,
     puid uuid,
-    meta_id int
-    handled boolean DEFAULT false,
-    fingerprint_id int
+    meta_id int,
+    handled boolean DEFAULT false
 );
 
 CREATE TABLE stats (
