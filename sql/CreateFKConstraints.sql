@@ -34,13 +34,33 @@ ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_fk_track_id
     FOREIGN KEY (track_id)
     REFERENCES track (id);
 
-ALTER TABLE track_mbid ADD CONSTRAINT track_mbid_fk_submission_id
+ALTER TABLE track_mbid_source ADD CONSTRAINT track_mbid_source_fk_track_mbid_id
+    FOREIGN KEY (track_mbid_id)
+    REFERENCES track_mbid (id);
+
+ALTER TABLE track_mbid_source ADD CONSTRAINT track_mbid_source_fk_submission_id
     FOREIGN KEY (submission_id)
     REFERENCES submission (id);
+
+ALTER TABLE track_mbid_source ADD CONSTRAINT track_mbid_source_fk_source_id
+    FOREIGN KEY (source_id)
+    REFERENCES source (id);
 
 ALTER TABLE track_puid ADD CONSTRAINT track_puid_fk_track_id
     FOREIGN KEY (track_id)
     REFERENCES track (id);
+
+ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_fk_track_puid_id
+    FOREIGN KEY (track_puid_id)
+    REFERENCES track_puid (id);
+
+ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_fk_submission_id
+    FOREIGN KEY (submission_id)
+    REFERENCES submission (id);
+
+ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_fk_source_id
+    FOREIGN KEY (source_id)
+    REFERENCES source (id);
 
 ALTER TABLE submission ADD CONSTRAINT submission_fk_source_id
     FOREIGN KEY (source_id)

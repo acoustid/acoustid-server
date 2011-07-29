@@ -74,12 +74,28 @@ CREATE TABLE track_mbid (
     submission_count int NOT NULL
 );
 
+CREATE TABLE track_mbid_source (
+    id serial NOT NULL,
+    track_mbid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
 CREATE TABLE track_puid (
     id serial NOT NULL,
     track_id int NOT NULL,
     puid uuid NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,
     submission_count int NOT NULL
+);
+
+CREATE TABLE track_puid_source (
+    id serial NOT NULL,
+    track_puid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
 );
 
 CREATE TABLE submission (

@@ -85,7 +85,11 @@ def merge_missing_mbids(conn):
         merge_mbids(conn, new_mbid, old_mbids)
 
 
-def _merge_tracks_gids(conn, tab, col, target_id, source_ids):
+def _merge_tracks_gids(conn, name, target_id, source_ids):
+    tab = schema.metadata.tables['track_%s' % name]
+    col = tab.columns[name]
+    tab_src = schema.metadata.tables['track_%s_source' % name]
+    col_src = tab_src.columns['track_%s_id' % name]
     query = sql.select(
         [
             sql.func.min(tab.c.id).label('id'),
@@ -98,9 +102,13 @@ def _merge_tracks_gids(conn, tab, col, target_id, source_ids):
     to_delete = set()
     to_update = []
     for row in rows:
+        other_ids = set(row['all_ids'])
+        other_ids.remove(row['id'])
         to_update.append((row['id'], row['count']))
-        to_delete.update(row['all_ids'])
-        to_delete.remove(row['id'])
+        to_delete.update(other_ids)
+        if other_ids:
+            update_stmt = tab_src.update().where(col_src.in_(other_ids))
+            conn.execute(update_stmt.values({col_src: row['id']}))
     if to_delete:
         delete_stmt = tab.delete().where(tab.c.id.in_(to_delete))
         conn.execute(delete_stmt)
@@ -115,8 +123,8 @@ def merge_tracks(conn, target_id, source_ids):
     """
     logger.info("Merging tracks %s into %s", ', '.join(map(str, source_ids)), target_id)
     with conn.begin():
-        _merge_tracks_gids(conn, schema.track_mbid, schema.track_mbid.c.mbid, target_id, source_ids)
-        _merge_tracks_gids(conn, schema.track_puid, schema.track_puid.c.puid, target_id, source_ids)
+        _merge_tracks_gids(conn, 'mbid', target_id, source_ids)
+        _merge_tracks_gids(conn, 'puid', target_id, source_ids)
         # XXX don't move duplicate fingerprints
         update_stmt = schema.fingerprint.update().where(
             schema.fingerprint.c.track_id.in_(source_ids))
@@ -137,38 +145,36 @@ def insert_track(conn):
     return id
 
 
-def insert_mbid(conn, track_id, mbid):
-    cond = sql.and_(
-        schema.track_mbid.c.track_id == track_id,
-        schema.track_mbid.c.mbid == mbid)
-    query = sql.select([1], cond, schema.track_mbid)
-    if conn.execute(query).scalar():
-        update_stmt = schema.track_mbid.update().where(cond)
+def _insert_gid(conn, tab, tab_src, col, name, track_id, gid, submission_id=None, source_id=None):
+    cond = sql.and_(tab.c.track_id == track_id, col == gid)
+    query = sql.select([tab.c.id], cond)
+    id = conn.execute(query).scalar()
+    if id is not None:
+        update_stmt = tab.update().where(cond)
         conn.execute(update_stmt.values(submission_count=sql.text('submission_count+1')))
-        return False
-    insert_stmt = schema.track_mbid.insert().values({
-        'track_id': track_id, 'mbid': mbid,
-        'submission_count': 1})
+    else:
+        insert_stmt = tab.insert().values({
+            'track_id': track_id, name: gid,
+            'submission_count': 1})
+        id = conn.execute(insert_stmt).inserted_primary_key[0]
+        logger.debug("Added %s %s to track %d", name.upper(), gid, track_id)
+    insert_stmt = tab_src.insert().values({
+        'track_%s_id' % name: id,
+        'submission_id': submission_id,
+        'source_id': source_id,
+    })
     conn.execute(insert_stmt)
-    logger.debug("Added MBID %s to track %d", mbid, track_id)
     return True
 
 
-def insert_puid(conn, track_id, puid):
-    cond = sql.and_(
-        schema.track_puid.c.track_id == track_id,
-        schema.track_puid.c.puid == puid)
-    query = sql.select([1], cond, schema.track_puid)
-    if conn.execute(query).scalar():
-        update_stmt = schema.track_puid.update().where(cond)
-        conn.execute(update_stmt.values(submission_count=sql.text('submission_count+1')))
-        return False
-    insert_stmt = schema.track_puid.insert().values({
-        'track_id': track_id, 'puid': puid,
-        'submission_count': 1})
-    conn.execute(insert_stmt)
-    logger.debug("Added PUID %s to track %d", puid, track_id)
-    return True
+def insert_mbid(conn, track_id, mbid, submission_id=None, source_id=None):
+    return _insert_gid(conn, schema.track_mbid, schema.track_mbid_source,
+        schema.track_mbid.c.mbid, 'mbid', track_id, mbid, submission_id, source_id)
+
+
+def insert_puid(conn, track_id, puid, submission_id=None, source_id=None):
+    return _insert_gid(conn, schema.track_puid, schema.track_puid_source,
+        schema.track_puid.c.puid, 'puid', track_id, puid, submission_id, source_id)
 
 
 def get_track_fingerprint_matrix(conn, track_id):

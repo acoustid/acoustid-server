@@ -103,12 +103,26 @@ track_mbid = Table('track_mbid', metadata,
     Column('submission_count', Integer),
 )
 
+track_mbid_source = Table('track_mbid_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
+    Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
+)
+
 track_puid = Table('track_puid', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_id', Integer, ForeignKey('track.id')),
     Column('puid', String),
     Column('created', DateTime),
     Column('submission_count', Integer),
+)
+
+track_puid_source = Table('track_puid_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_puid_id', Integer, ForeignKey('track_puid.id')),
+    Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
 )
 
 mb_artist = Table('s_artist', metadata,

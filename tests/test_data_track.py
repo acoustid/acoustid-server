@@ -27,7 +27,7 @@ from acoustid.data.track import (
 @with_database
 def test_merge_mbids(conn):
     prepare_database(conn, """
-TRUNCATE track_mbid;
+TRUNCATE track_mbid CASCADE;
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11);
 """)
@@ -42,7 +42,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
 @with_database
 def test_merge_missing_mbids(conn):
     prepare_database(conn, """
-TRUNCATE track_mbid;
+TRUNCATE track_mbid CASCADE;
 INSERT INTO track_mbid (track_id, mbid) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3');
 INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3');
 INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3');

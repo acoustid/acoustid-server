@@ -94,9 +94,9 @@ def import_submission(conn, submission):
         else:
             inc_fingerprint_submission_count(conn, fingerprint['id'])
         for mbid in mbids:
-            insert_mbid(conn, fingerprint['track_id'], mbid)
+            insert_mbid(conn, fingerprint['track_id'], mbid, submission['id'], submission['source_id'])
         if submission['puid']:
-            insert_puid(conn, fingerprint['track_id'], submission['puid'])
+            insert_puid(conn, fingerprint['track_id'], submission['puid'], submission['id'], submission['source_id'])
         update_stmt = schema.submission.update().where(
             schema.submission.c.id == submission['id'])
         conn.execute(update_stmt.values(handled=True, fingerprint_id=fingerprint['id']))

@@ -32,3 +32,48 @@ ALTER TABLE track_puid ADD CONSTRAINT track_puid_pkey PRIMARY KEY (id);
 CREATE INDEX track_mbid_idx_uniq ON track_mbid (track_id, mbid);
 CREATE INDEX track_puid_idx_uniq ON track_puid (track_id, puid);
 
+CREATE TABLE track_mbid_source (
+    id serial NOT NULL,
+    track_mbid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+ALTER TABLE track_mbid_source ADD CONSTRAINT track_mbid_source_fk_track_mbid_id
+    FOREIGN KEY (track_mbid_id)
+    REFERENCES track_mbid (id);
+
+ALTER TABLE track_mbid_source ADD CONSTRAINT track_mbid_source_fk_submission_id
+    FOREIGN KEY (submission_id)
+    REFERENCES submission (id);
+
+ALTER TABLE track_mbid_source ADD CONSTRAINT track_mbid_source_fk_source_id
+    FOREIGN KEY (source_id)
+    REFERENCES source (id);
+
+ALTER TABLE track_mbid_source ADD CONSTRAINT track_mbid_source_pkey PRIMARY KEY (id);
+
+
+CREATE TABLE track_puid_source (
+    id serial NOT NULL,
+    track_puid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_fk_track_puid_id
+    FOREIGN KEY (track_puid_id)
+    REFERENCES track_puid (id);
+
+ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_fk_submission_id
+    FOREIGN KEY (submission_id)
+    REFERENCES submission (id);
+
+ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_fk_source_id
+    FOREIGN KEY (source_id)
+    REFERENCES source (id);
+
+ALTER TABLE track_puid_source ADD CONSTRAINT track_puid_source_pkey PRIMARY KEY (id);
+
