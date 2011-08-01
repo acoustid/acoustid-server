@@ -29,9 +29,12 @@ INSERT INTO stats (name, value) VALUES ('track_mbid.all', (
     SELECT count(*) FROM track_mbid
 ));
 
-INSERT INTO stats (name, value) VALUES ('track_mbid.unique', (
-    SELECT count(DISTINCT mbid) FROM track_mbid
+INSERT INTO stats (name, value) VALUES ('track_puid.all', (
+    SELECT count(*) FROM track_mbid
 ));
+
+INSERT INTO stats (name, value) VALUES ('mbid.all', (SELECT count(DISTINCT mbid) FROM track_mbid));
+INSERT INTO stats (name, value) VALUES ('puid.all', (SELECT count(DISTINCT puid) FROM track_puid));
 
 INSERT INTO stats (name, value) VALUES ('track.all', (
     SELECT count(*) FROM track
