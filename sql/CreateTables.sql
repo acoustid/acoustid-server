@@ -70,8 +70,8 @@ CREATE TABLE fingerprint_index_queue (
 
 CREATE TABLE track (
     id serial NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
-    new_id int,
+    created timestamp with time zone DEFAULT current_timestamp,
+    new_id int
 );
 
 CREATE TABLE track_mbid (
