@@ -57,7 +57,6 @@ submission = Table('submission', metadata,
     Column('created', DateTime),
     Column('handled', Boolean),
     Column('meta_id', Integer, ForeignKey('meta.id')),
-    Column('fingerprint_id', Integer, ForeignKey('fingerprint.id')),
 )
 
 stats = Table('stats', metadata,

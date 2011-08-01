@@ -99,7 +99,7 @@ def import_submission(conn, submission):
             insert_puid(conn, fingerprint['track_id'], submission['puid'], submission['id'], submission['source_id'])
         update_stmt = schema.submission.update().where(
             schema.submission.c.id == submission['id'])
-        conn.execute(update_stmt.values(handled=True, fingerprint_id=fingerprint['id']))
+        conn.execute(update_stmt.values(handled=True))
         return fingerprint
 
 
