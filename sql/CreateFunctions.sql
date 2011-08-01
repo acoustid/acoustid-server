@@ -39,7 +39,7 @@ CREATE OR REPLACE FUNCTION tr_ins_fingerprint() RETURNS trigger
 AS $$
 BEGIN
 	NEW.hash_full = fp_hash(NEW.fingerprint);
-	NEW.hash_query = fp_hash(extract_fp_query(NEW.fingerprint));
+	NEW.hash_query = fp_hash(acoustid_extract_query(NEW.fingerprint));
 	RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
