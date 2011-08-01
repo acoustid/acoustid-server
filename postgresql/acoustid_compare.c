@@ -20,6 +20,9 @@ PG_MODULE_MAGIC;
 PG_FUNCTION_INFO_V1(acoustid_compare);
 Datum       acoustid_compare(PG_FUNCTION_ARGS);
 
+PG_FUNCTION_INFO_V1(acoustid_compare2);
+Datum       acoustid_compare2(PG_FUNCTION_ARGS);
+
 PG_FUNCTION_INFO_V1(acoustid_extract_query);
 Datum       acoustid_extract_query(PG_FUNCTION_ARGS);
 
@@ -47,7 +50,29 @@ Datum       acoustid_extract_query(PG_FUNCTION_ARGS);
 
 #define ARRISVOID(x)  ((x) == NULL || ARRNELEMS(x) == 0)
 
+/* From http://en.wikipedia.org/wiki/Hamming_weight */
+
+const uint64_t m1  = 0x5555555555555555; /* binary: 0101... */
+const uint64_t m2  = 0x3333333333333333; /* binary: 00110011.. */
+const uint64_t m4  = 0x0f0f0f0f0f0f0f0f; /* binary:  4 zeros,  4 ones ... */
+const uint64_t m8  = 0x00ff00ff00ff00ff; /* binary:  8 zeros,  8 ones ... */
+const uint64_t m16 = 0x0000ffff0000ffff; /* binary: 16 zeros, 16 ones ... */
+const uint64_t m32 = 0x00000000ffffffff; /* binary: 32 zeros, 32 ones */
+const uint64_t hff = 0xffffffffffffffff; /* binary: all ones */
+const uint64_t h01 = 0x0101010101010101; /* the sum of 256 to the power of 0,1,2,3... */
+
+inline static int
+popcount_3(uint64_t x)
+{
+	x -= (x >> 1) & m1;             /* put count of each 2 bits into those 2 bits */
+	x = (x & m2) + ((x >> 2) & m2); /* put count of each 4 bits into those 4 bits */
+	x = (x + (x >> 4)) & m4;        /* put count of each 8 bits into those 8 bits */
+	return (x * h01) >> 56;         /* returns left 8 bits of x + (x<<8) + (x<<16) + (x<<24) + ...  */
+}
+
 #define BITCOUNT(x)  popcount_lookup8(x)
+#define BITCOUNT64(x)  popcount_3(x)
+
 
 static float4
 match_fingerprints(int4 *a, int asize, int4 *b, int bsize)
@@ -81,6 +106,65 @@ match_fingerprints(int4 *a, int asize, int4 *b, int bsize)
 	return (float4)topcount / Min(asize, bsize);
 }
 
+static float4
+match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
+{
+	int i, topcount, topoffset, size, biterror;
+	int numcounts = asize + bsize + 1;
+	int *counts = palloc0(sizeof(int) * numcounts);
+	uint16_t *aoffsets = palloc0(sizeof(uint16_t) * 0xFFFF), *boffsets = palloc0(sizeof(uint16_t) * 0xFFFF);
+	uint64_t *adata, *bdata;
+
+	#define MATCH_MASK(x) ((uint32_t)(x) >> 16)
+
+	for (i = 0; i < asize; i++) {
+		aoffsets[MATCH_MASK(a[i])] = i;
+	}
+	for (i = 0; i < bsize; i++) {
+		boffsets[MATCH_MASK(b[i])] = i;
+	}
+
+	topcount = 0;
+	topoffset = 0;
+	for (i = 0; i < 0xFFFF; i++) {
+		if (aoffsets[i] && boffsets[i]) {
+			int offset = bsize + aoffsets[i] - boffsets[i];
+			counts[offset]++;
+			if (counts[offset] > topcount) {
+				topcount = counts[offset];
+				topoffset = offset;
+			}
+		}
+	}
+
+	topoffset -= bsize;
+	pfree(boffsets);
+	pfree(aoffsets);
+	pfree(counts);
+
+	if (topoffset < 0) {
+		b -= topoffset;
+		bsize = Max(0, bsize + topoffset);
+	}
+	else {
+		a += topoffset;
+		asize = Max(0, asize - topoffset);
+	}
+
+	size = Min(asize, bsize) / 2;
+	if (!size) {
+		return 0.0;
+	}
+
+	adata = (uint64_t *)a;
+	bdata = (uint64_t *)b;
+	biterror = 0;
+	for (i = 0; i < size; i++, adata++, bdata++) {
+		biterror += BITCOUNT64(*adata ^ *bdata);
+	}
+	return 1.0 - 2.0 * (float4)biterror / (64 * size);
+}
+
 /* PostgreSQL functions */
 
 Datum
@@ -96,6 +180,25 @@ acoustid_compare(PG_FUNCTION_ARGS)
 		PG_RETURN_FLOAT4(0.0f);
 
 	result = match_fingerprints(
+		ARRPTR(a), ARRNELEMS(a),
+		ARRPTR(b), ARRNELEMS(b));
+
+	PG_RETURN_FLOAT4(result);
+}
+
+Datum
+acoustid_compare2(PG_FUNCTION_ARGS)
+{
+	ArrayType *a = PG_GETARG_ARRAYTYPE_P(0);
+	ArrayType *b = PG_GETARG_ARRAYTYPE_P(1);
+	float4 result;
+
+	CHECKARRVALID(a);
+	CHECKARRVALID(b);
+	if (ARRISVOID(a) || ARRISVOID(b))
+		PG_RETURN_FLOAT4(0.0f);
+
+	result = match_fingerprints2(
 		ARRPTR(a), ARRNELEMS(a),
 		ARRPTR(b), ARRNELEMS(b));
 
