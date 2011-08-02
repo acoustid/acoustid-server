@@ -60,7 +60,6 @@ def insert_fingerprint(conn, data, submission_id=None, source_id=None):
             'bitrate': data.get('bitrate'),
             'format_id': data.get('format_id'),
             'track_id': data['track_id'],
-            'meta_id': data.get('meta_id'),
             'submission_count': 1,
         })
         id = conn.execute(insert_stmt).inserted_primary_key[0]

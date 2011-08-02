@@ -90,7 +90,6 @@ fingerprint = Table('fingerprint', metadata,
     Column('bitrate', Integer),
     Column('format_id', Integer, ForeignKey('format.id')),
     Column('track_id', Integer, ForeignKey('track.id')),
-    Column('meta_id', Integer, ForeignKey('meta.id')),
     Column('submission_count', Integer),
 )
 
@@ -127,6 +126,21 @@ track_puid = Table('track_puid', metadata,
 track_puid_source = Table('track_puid_source', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_puid_id', Integer, ForeignKey('track_puid.id')),
+    Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
+)
+
+track_meta = Table('track_meta', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_id', Integer, ForeignKey('track.id')),
+    Column('meta_id', Integer, ForeignKey('track.id')),
+    Column('created', DateTime),
+    Column('submission_count', Integer),
+)
+
+track_meta_source = Table('track_meta_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_meta_id', Integer, ForeignKey('track_meta.id')),
     Column('submission_id', Integer, ForeignKey('submission.id')),
     Column('source_id', Integer, ForeignKey('source.id')),
 )

@@ -6,7 +6,7 @@ from sqlalchemy import sql
 from acoustid import tables as schema
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
-from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks
+from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta
 logger = logging.getLogger(__name__)
 
 TRACK_MERGE_TRESHOLD = 0.7
@@ -66,7 +66,6 @@ def import_submission(conn, submission):
             'length': submission['length'],
             'bitrate': submission['bitrate'],
             'format_id': submission['format_id'],
-            'meta_id': submission['meta_id'],
         }
         if matches:
             match = matches[0]
@@ -97,6 +96,8 @@ def import_submission(conn, submission):
             insert_mbid(conn, fingerprint['track_id'], mbid, submission['id'], submission['source_id'])
         if submission['puid']:
             insert_puid(conn, fingerprint['track_id'], submission['puid'], submission['id'], submission['source_id'])
+        if submission['meta_id']:
+            insert_track_meta(conn, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])
         update_stmt = schema.submission.update().where(
             schema.submission.c.id == submission['id'])
         conn.execute(update_stmt.values(handled=True))

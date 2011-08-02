@@ -85,9 +85,10 @@ def merge_missing_mbids(conn):
         merge_mbids(conn, new_mbid, old_mbids)
 
 
-def _merge_tracks_gids(conn, name, target_id, source_ids):
+def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
+    name = name_with_id.replace('_id', '')
     tab = schema.metadata.tables['track_%s' % name]
-    col = tab.columns[name]
+    col = tab.columns[name_with_id]
     tab_src = schema.metadata.tables['track_%s_source' % name]
     col_src = tab_src.columns['track_%s_id' % name]
     query = sql.select(
@@ -125,6 +126,7 @@ def merge_tracks(conn, target_id, source_ids):
     with conn.begin():
         _merge_tracks_gids(conn, 'mbid', target_id, source_ids)
         _merge_tracks_gids(conn, 'puid', target_id, source_ids)
+        _merge_tracks_gids(conn, 'meta_id', target_id, source_ids)
         # XXX don't move duplicate fingerprints
         update_stmt = schema.fingerprint.update().where(
             schema.fingerprint.c.track_id.in_(source_ids))
@@ -159,7 +161,7 @@ def _insert_gid(conn, tab, tab_src, col, name, track_id, gid, submission_id=None
         id = conn.execute(insert_stmt).inserted_primary_key[0]
         logger.debug("Added %s %s to track %d", name.upper(), gid, track_id)
     insert_stmt = tab_src.insert().values({
-        'track_%s_id' % name: id,
+        'track_%s_id' % name.replace('_id', ''): id,
         'submission_id': submission_id,
         'source_id': source_id,
     })
@@ -175,6 +177,11 @@ def insert_mbid(conn, track_id, mbid, submission_id=None, source_id=None):
 def insert_puid(conn, track_id, puid, submission_id=None, source_id=None):
     return _insert_gid(conn, schema.track_puid, schema.track_puid_source,
         schema.track_puid.c.puid, 'puid', track_id, puid, submission_id, source_id)
+
+
+def insert_track_meta(conn, track_id, meta_id, submission_id=None, source_id=None):
+    return _insert_gid(conn, schema.track_meta, schema.track_meta_source,
+        schema.track_meta.c.meta_id, 'meta_id', track_id, meta_id, submission_id, source_id)
 
 
 def get_track_fingerprint_matrix(conn, track_id):

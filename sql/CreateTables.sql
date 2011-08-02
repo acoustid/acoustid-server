@@ -50,7 +50,6 @@ CREATE TABLE fingerprint (
     format_id int,
     created timestamp with time zone NOT NULL DEFAULT current_timestamp,
     track_id int NOT NULL,
-    meta_id int,
     hash_full bytea,
     hash_query bytea,
     submission_count int NOT NULL
@@ -101,6 +100,22 @@ CREATE TABLE track_puid (
 CREATE TABLE track_puid_source (
     id serial NOT NULL,
     track_puid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+CREATE TABLE track_meta (
+    id serial NOT NULL,
+    track_id int NOT NULL,
+    meta_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp,
+    submission_count int NOT NULL
+);
+
+CREATE TABLE track_meta_source (
+    id serial NOT NULL,
+    track_meta_id int NOT NULL,
     submission_id int NOT NULL,
     source_id int NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp
