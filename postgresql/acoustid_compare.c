@@ -162,7 +162,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
 	for (i = 0; i < size; i++, adata++, bdata++) {
 		biterror += BITCOUNT64(*adata ^ *bdata);
 	}
-	return 1.0 - 2.0 * (float4)biterror / (64 * size);
+	return Max(0.0, 1.0 - 2.0 * (float4)biterror / (64 * size));
 }
 
 /* PostgreSQL functions */
