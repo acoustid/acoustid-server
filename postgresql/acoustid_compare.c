@@ -109,7 +109,7 @@ match_fingerprints(int4 *a, int asize, int4 *b, int bsize)
 static float4
 match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
 {
-	int i, topcount, topoffset, size, biterror;
+	int i, topcount, topoffset, size, biterror, minsize;
 	int numcounts = asize + bsize + 1;
 	unsigned short *counts = palloc0(sizeof(unsigned short) * numcounts);
 	uint16_t *aoffsets = palloc0(sizeof(uint16_t) * 0xFFFF), *boffsets = palloc0(sizeof(uint16_t) * 0xFFFF);
@@ -142,6 +142,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
 	pfree(aoffsets);
 	pfree(counts);
 
+	minsize = Min(asize, bsize);
 	if (topoffset < 0) {
 		b -= topoffset;
 		bsize = Max(0, bsize + topoffset);
@@ -162,7 +163,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
 	for (i = 0; i < size; i++, adata++, bdata++) {
 		biterror += BITCOUNT64(*adata ^ *bdata);
 	}
-	return Max(0.0, 1.0 - 2.0 * (float4)biterror / (64 * size));
+	return (size * 2.0 / minsize) * (1.0 - 2.0 * (float4)biterror / (64 * size));
 }
 
 /* PostgreSQL functions */
