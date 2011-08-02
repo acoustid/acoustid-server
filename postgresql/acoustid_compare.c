@@ -111,7 +111,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
 {
 	int i, topcount, topoffset, size, biterror;
 	int numcounts = asize + bsize + 1;
-	int *counts = palloc0(sizeof(int) * numcounts);
+	unsigned short *counts = palloc0(sizeof(unsigned short) * numcounts);
 	uint16_t *aoffsets = palloc0(sizeof(uint16_t) * 0xFFFF), *boffsets = palloc0(sizeof(uint16_t) * 0xFFFF);
 	uint64_t *adata, *bdata;
 
