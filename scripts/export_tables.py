@@ -16,13 +16,19 @@ TABLES = [
     ("account_stats_control", None),
     ("application", "SELECT id, 'app' || id::text, '', 'apikey' || id::text, created, active, account_id FROM application"),
     ("fingerprint", None),
+    ("fingerprint_source", None),
     ("format", None),
     ("meta", None),
     ("source", None),
     ("stats", None),
     ("stats_top_accounts", None),
-    ("track", None),
     ("track_mbid", None),
+    ("track_mbid_source", None),
+    ("track_meta", None),
+    ("track_meta_source", None),
+    ("track", None),
+    ("track_puid", None),
+    ("track_puid_source", None),
 ]
 
 def export_tables(cursor):
