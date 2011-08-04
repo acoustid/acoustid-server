@@ -184,24 +184,20 @@ def insert_track_meta(conn, track_id, meta_id, submission_id=None, source_id=Non
         schema.track_meta.c.meta_id, 'meta_id', track_id, meta_id, submission_id, source_id)
 
 
-def get_track_fingerprint_matrix(conn, track_id):
-    query = """
-        SELECT
-            f1.id AS fp1_id,
-            f2.id AS fp2_id,
-            CASE WHEN f1.id = f2.id
-                THEN 1.0
-                ELSE acoustid_compare(f1.fingerprint, f2.fingerprint)
-            END AS score
-        FROM fingerprint f1
-        JOIN fingerprint f2 ON f1.id <= f2.id AND f2.track_id = f1.track_id
-        WHERE f1.track_id = %s
-        ORDER BY f1.id, f2.id
-    """
-    rows = conn.execute(query, (track_id,))
+def calculate_fingerprint_similarity_matrix(conn, track_ids):
+    fp1 = schema.fingerprint.alias('fp1')
+    fp2 = schema.fingerprint.alias('fp2')
+    src = fp1.join(fp2, fp1.c.id < fp2.c.id)
+    cond = sql.and_(fp1.c.track_id.in_(track_ids), fp2.c.track_id.in_(track_ids))
+    query = sql.select([
+        fp1.c.id, fp2.c.id,
+        sql.func.acoustid_compare2(fp1.c.fingerprint, fp2.c.fingerprint),
+    ], cond, from_obj=src).order_by(fp1.c.id, fp2.c.id)
     result = {}
-    for fp1_id, fp2_id, score in rows:
+    for fp1_id, fp2_id, score in conn.execute(query):
         result.setdefault(fp1_id, {})[fp2_id] = score
         result.setdefault(fp2_id, {})[fp1_id] = score
+        result.setdefault(fp1_id, {})[fp1_id] = 1.0
+        result.setdefault(fp2_id, {})[fp2_id] = 1.0
     return result
 

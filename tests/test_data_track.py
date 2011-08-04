@@ -20,7 +20,7 @@ from tests import (
 from acoustid.data.track import (
     merge_missing_mbids, insert_track, merge_tracks,
     merge_mbids,
-    get_track_fingerprint_matrix,
+    calculate_fingerprint_similarity_matrix,
 )
 
 
@@ -123,12 +123,12 @@ INSERT INTO fingerprint (fingerprint, length, track_id)
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH,
               fp3=TEST_1C_FP_RAW, len3=TEST_1C_LENGTH))
-    matrix = get_track_fingerprint_matrix(conn, 1)
+    matrix = calculate_fingerprint_similarity_matrix(conn, [1])
     assert_equal([1, 2, 3], matrix.keys())
-    assert_almost_equal(0.991228, matrix[1][2])
-    assert_almost_equal(0.938596, matrix[1][3])
-    assert_almost_equal(0.991228, matrix[2][1])
-    assert_almost_equal(0.94152, matrix[2][3])
-    assert_almost_equal(0.938596, matrix[3][1])
-    assert_almost_equal(0.94152, matrix[3][2])
+    assert_almost_equal(0.973319, matrix[1][2])
+    assert_almost_equal(0.94152, matrix[1][3])
+    assert_almost_equal(0.973319, matrix[2][1])
+    assert_almost_equal(0.938414, matrix[2][3])
+    assert_almost_equal(0.94152, matrix[3][1])
+    assert_almost_equal(0.938414, matrix[3][2])
 
