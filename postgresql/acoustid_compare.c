@@ -15,6 +15,10 @@
 #define ACOUSTID_QUERY_MASK (((1<<ACOUSTID_QUERY_BITS)-1)<<(32-ACOUSTID_QUERY_BITS))
 #define ACOUSTID_QUERY_STRIP(x) ((x) & ACOUSTID_QUERY_MASK)
 
+#define MATCH_BITS 14
+#define MATCH_MASK ((1 << MATCH_BITS) - 1)
+#define MATCH_STRIP(x) ((uint32_t)(x) >> (32 - MATCH_BITS))
+
 PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(acoustid_compare);
@@ -112,21 +116,19 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 	int i, topcount, topoffset, size, biterror, minsize;
 	int numcounts = asize + bsize + 1;
 	unsigned short *counts = palloc0(sizeof(unsigned short) * numcounts);
-	uint16_t *aoffsets = palloc0(sizeof(uint16_t) * 0xFFFF), *boffsets = palloc0(sizeof(uint16_t) * 0xFFFF);
+	uint16_t *aoffsets = palloc0(sizeof(uint16_t) * MATCH_MASK), *boffsets = palloc0(sizeof(uint16_t) * MATCH_MASK);
 	uint64_t *adata, *bdata;
 
-	#define MATCH_MASK(x) ((uint32_t)(x) >> 16)
-
 	for (i = 0; i < asize; i++) {
-		aoffsets[MATCH_MASK(a[i])] = i;
+		aoffsets[MATCH_STRIP(a[i])] = i;
 	}
 	for (i = 0; i < bsize; i++) {
-		boffsets[MATCH_MASK(b[i])] = i;
+		boffsets[MATCH_STRIP(b[i])] = i;
 	}
 
 	topcount = 0;
 	topoffset = 0;
-	for (i = 0; i < 0xFFFF; i++) {
+	for (i = 0; i < MATCH_MASK; i++) {
 		if (aoffsets[i] && boffsets[i]) {
 			int offset = aoffsets[i] - boffsets[i];
 			if (maxoffset == 0 || (-maxoffset <= offset && offset <= maxoffset)) {
