@@ -107,7 +107,7 @@ match_fingerprints(int4 *a, int asize, int4 *b, int bsize)
 }
 
 static float4
-match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
+match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 {
 	int i, topcount, topoffset, size, biterror, minsize;
 	int numcounts = asize + bsize + 1;
@@ -128,11 +128,14 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
 	topoffset = 0;
 	for (i = 0; i < 0xFFFF; i++) {
 		if (aoffsets[i] && boffsets[i]) {
-			int offset = bsize + aoffsets[i] - boffsets[i];
-			counts[offset]++;
-			if (counts[offset] > topcount) {
-				topcount = counts[offset];
-				topoffset = offset;
+			int offset = aoffsets[i] - boffsets[i];
+			if (maxoffset == 0 || (-maxoffset <= offset && offset <= maxoffset)) {
+				offset += bsize;
+				counts[offset]++;
+				if (counts[offset] > topcount) {
+					topcount = counts[offset];
+					topoffset = offset;
+				}
 			}
 		}
 	}
@@ -142,7 +145,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
 	pfree(aoffsets);
 	pfree(counts);
 
-	minsize = Min(asize, bsize);
+	minsize = Min(asize, bsize) & ~1;
 	if (topoffset < 0) {
 		b -= topoffset;
 		bsize = Max(0, bsize + topoffset);
@@ -157,6 +160,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize)
 		return 0.0;
 	}
 
+	ereport(DEBUG5, (errmsg("offset %d, offset score %d, size %d", topoffset, topcount, size * 2)));
 	adata = (uint64_t *)a;
 	bdata = (uint64_t *)b;
 	biterror = 0;
@@ -192,6 +196,7 @@ acoustid_compare2(PG_FUNCTION_ARGS)
 {
 	ArrayType *a = PG_GETARG_ARRAYTYPE_P(0);
 	ArrayType *b = PG_GETARG_ARRAYTYPE_P(1);
+	int maxoffset = PG_GETARG_INT32(2);
 	float4 result;
 
 	CHECKARRVALID(a);
@@ -201,7 +206,8 @@ acoustid_compare2(PG_FUNCTION_ARGS)
 
 	result = match_fingerprints2(
 		ARRPTR(a), ARRNELEMS(a),
-		ARRPTR(b), ARRNELEMS(b));
+		ARRPTR(b), ARRNELEMS(b),
+		maxoffset);
 
 	PG_RETURN_FLOAT4(result);
 }
