@@ -6,7 +6,7 @@ from sqlalchemy import sql
 from acoustid import tables as schema
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
-from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta
+from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track
 logger = logging.getLogger(__name__)
 
 TRACK_MERGE_TRESHOLD = 0.7
@@ -71,19 +71,20 @@ def import_submission(conn, submission):
             match = matches[0]
             logger.debug("Matches %d results, the top result %s with track %d is %d%% similar",
                 len(matches), match['id'], match['track_id'], match['score'] * 100)
-            fingerprint['track_id'] = match['track_id']
             if match['score'] > FINGERPRINT_MERGE_TRESHOLD:
                 fingerprint['id'] = match['id']
-            all_track_ids = set([match['track_id']])
-            for m in matches:
-                if m['track_id'] not in all_track_ids:
-                    logger.debug("Fingerprint %d with track %d is %d%% similar",
-                        m['id'], m['track_id'], m['score'] * 100)
-                    all_track_ids.add(m['track_id'])
-            if len(all_track_ids) > 1:
-                fingerprint['track_id'] = min(all_track_ids)
-                all_track_ids.remove(fingerprint['track_id'])
-                merge_tracks(conn, fingerprint['track_id'], list(all_track_ids))
+            if can_add_fp_to_track(conn, match['track_id'], submission['fingerprint']):
+                fingerprint['track_id'] = match['track_id']
+                all_track_ids = set([match['track_id']])
+                for m in matches:
+                    if m['track_id'] not in all_track_ids:
+                        logger.debug("Fingerprint %d with track %d is %d%% similar",
+                            m['id'], m['track_id'], m['score'] * 100)
+                        all_track_ids.add(m['track_id'])
+                if len(all_track_ids) > 1 and fingerprint['track_id'] == match['track_id']:
+                    fingerprint['track_id'] = min(all_track_ids)
+                    all_track_ids.remove(fingerprint['track_id'])
+                    merge_tracks(conn, fingerprint['track_id'], list(all_track_ids))
         if not fingerprint['track_id']:
             fingerprint['track_id'] = insert_track(conn)
             logger.info('Added new track %d', fingerprint['track_id'])

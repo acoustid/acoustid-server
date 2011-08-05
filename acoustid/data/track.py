@@ -201,3 +201,39 @@ def calculate_fingerprint_similarity_matrix(conn, track_ids):
         result.setdefault(fp2_id, {})[fp2_id] = 1.0
     return result
 
+
+def can_merge_tracks(conn, track_ids):
+    fp1 = schema.fingerprint.alias('fp1')
+    fp2 = schema.fingerprint.alias('fp2')
+    join_cond = sql.and_(fp1.c.id < fp2.c.id, fp1.c.track_id < fp2.c.track_id)
+    src = fp1.join(fp2, join_cond)
+    cond = sql.and_(fp1.c.track_id.in_(track_ids), fp2.c.track_id.in_(track_ids))
+    query = sql.select([
+        fp1.c.track_id, fp2.c.track_id,
+        sql.func.min(sql.func.acoustid_compare2(fp1.c.fingerprint, fp2.c.fingerprint)),
+    ], cond, from_obj=src).group_by(fp1.c.track_id, fp2.c.track_id).order_by(fp1.c.track_id, fp2.c.track_id)
+    rows = conn.execute(query)
+    merges = {}
+    for fp1_id, fp2_id, score in rows:
+        if score < 0.3:
+            continue
+        group = fp1_id
+        if group in merges:
+            group = merges[group]
+        merges[fp2_id] = group
+    result = []
+    for group in set(merges.values()):
+        result.append(set([group] + [i for i in merges if merges[i] == group]))
+    return result
+
+
+def can_add_fp_to_track(conn, track_id, fingerprint):
+    cond = schema.fingerprint.c.track_id == track_id
+    query = sql.select([
+        sql.func.min(sql.func.acoustid_compare2(schema.fingerprint.c.fingerprint, fingerprint)),
+    ], cond, from_obj=schema.fingerprint)
+    score = conn.execute(query).scalar()
+    if score < 0.3:
+        return False
+    return True
+

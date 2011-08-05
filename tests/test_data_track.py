@@ -21,6 +21,8 @@ from acoustid.data.track import (
     merge_missing_mbids, insert_track, merge_tracks,
     merge_mbids,
     calculate_fingerprint_similarity_matrix,
+    can_merge_tracks,
+    can_add_fp_to_track,
 )
 
 
@@ -131,4 +133,29 @@ INSERT INTO fingerprint (fingerprint, length, track_id)
     assert_almost_equal(0.938414, matrix[2][3])
     assert_almost_equal(0.94152, matrix[3][1])
     assert_almost_equal(0.938414, matrix[3][2])
+
+
+@with_database
+def test_can_merge_tracks(conn):
+    prepare_database(conn, """
+INSERT INTO fingerprint (fingerprint, length, track_id)
+    VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 2),
+           (%(fp3)s, %(len3)s, 3);
+    """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
+              fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH,
+              fp3=TEST_2_FP_RAW, len3=TEST_2_LENGTH))
+    groups = can_merge_tracks(conn, [1, 2, 3])
+    assert_equal([set([1, 2])], groups)
+
+
+@with_database
+def test_can_add_fp_to_track(conn):
+    prepare_database(conn, """
+INSERT INTO fingerprint (fingerprint, length, track_id)
+    VALUES (%(fp1)s, %(len1)s, 1);
+    """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH))
+    res = can_add_fp_to_track(conn, 1, TEST_2_FP_RAW)
+    assert_equal(False, res)
+    res = can_add_fp_to_track(conn, 1, TEST_1B_FP_RAW)
+    assert_equal(True, res)
 
