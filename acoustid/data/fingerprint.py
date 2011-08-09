@@ -15,7 +15,7 @@ MAX_LENGTH_DIFF = 7
 PARTS = ((1, 20), (21, 100))
 PART_SEARCH_SQL = """
 SELECT id, track_id, score FROM (
-    SELECT id, track_id, acoustid_compare(fingerprint, query) AS score
+    SELECT id, track_id, acoustid_compare2(fingerprint, query) AS score
     FROM fingerprint, (SELECT %(fp)s::int4[] AS query) q
     WHERE
         length BETWEEN %(length)s - %(max_length_diff)s AND %(length)s + %(max_length_diff)s AND
