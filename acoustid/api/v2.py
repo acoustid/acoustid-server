@@ -131,6 +131,8 @@ class LookupHandler(APIHandler):
                 tracks_meta = track_meta_map.get(mbid)
                 if tracks_meta is None:
                     continue
+                if 'recording_length' in track_meta:
+                    recording['duration'] = track_meta['recording_length']
                 tracks = []
                 for track_meta in tracks_meta:
                     medium = {

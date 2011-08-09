@@ -45,6 +45,7 @@ def lookup_metadata(conn, mbids):
     condition = schema.mb_recording.c.gid.in_(mbids)
     columns = [
         schema.mb_recording.c.gid,
+        schema.mb_recording.c.length.label('recording_length'),
         schema.mb_track.c.name,
         schema.mb_track.c.length,
         schema.mb_track.c.artist_credit.label('_artist_credit_id'),
