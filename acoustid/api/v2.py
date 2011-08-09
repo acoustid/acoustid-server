@@ -133,6 +133,8 @@ class LookupHandler(APIHandler):
                     continue
                 tracks = []
                 for track_meta in tracks_meta:
+                    if 'recording_length' in track_meta and 'duration' not in recording:
+                        recording['duration'] = track_meta['recording_length']
                     medium = {
                         'track_count': track_meta['total_tracks'],
                         'position': track_meta['disc_num'],
