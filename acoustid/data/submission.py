@@ -3,15 +3,11 @@
 
 import logging
 from sqlalchemy import sql
-from acoustid import tables as schema
+from acoustid import tables as schema, const
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
 from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track, can_merge_tracks
 logger = logging.getLogger(__name__)
-
-TRACK_MERGE_TRESHOLD = 0.7
-FINGERPRINT_MERGE_TRESHOLD = 0.95
-FINGERPRINT_MIN_UNIQUE_ITEMS = 30
 
 
 def insert_submission(conn, data):
@@ -49,7 +45,7 @@ def import_submission(conn, submission):
         logger.info("Importing submission %d with MBIDs %s",
             submission['id'], ', '.join(mbids))
         num_unique_items = len(set(submission['fingerprint']))
-        if num_unique_items < FINGERPRINT_MIN_UNIQUE_ITEMS:
+        if num_unique_items < const.FINGERPRINT_MIN_UNIQUE_ITEMS:
             logger.info("Skipping, has only %d unique items", num_unique_items)
             return
         num_query_items = conn.execute("SELECT icount(acoustid_extract_query(%(fp)s))", dict(fp=submission['fingerprint']))
@@ -58,7 +54,8 @@ def import_submission(conn, submission):
             return
         matches = lookup_fingerprint(conn,
             submission['fingerprint'], submission['length'],
-            FINGERPRINT_MERGE_TRESHOLD, TRACK_MERGE_TRESHOLD, fast=True)
+            const.FINGERPRINT_MERGE_THRESHOLD,
+            const.TRACK_MERGE_THRESHOLD, fast=True)
         fingerprint = {
             'id': None,
             'track_id': None,
@@ -71,7 +68,7 @@ def import_submission(conn, submission):
             match = matches[0]
             logger.debug("Matches %d results, the top result %s with track %d is %d%% similar",
                 len(matches), match['id'], match['track_id'], match['score'] * 100)
-            if match['score'] > FINGERPRINT_MERGE_TRESHOLD:
+            if match['score'] > const.FINGERPRINT_MERGE_THRESHOLD:
                 fingerprint['id'] = match['id']
             if can_add_fp_to_track(conn, match['track_id'], submission['fingerprint']):
                 fingerprint['track_id'] = match['track_id']

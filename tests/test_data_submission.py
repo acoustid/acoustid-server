@@ -17,7 +17,7 @@ from tests import (
     TEST_2_FP_RAW,
     TEST_2_LENGTH,
 )
-from acoustid import tables
+from acoustid import tables, const
 from acoustid.data.meta import insert_meta
 from acoustid.data.submission import insert_submission, import_submission, import_queued_submissions
 
@@ -183,7 +183,7 @@ def test_import_submission_reuse_track_93(conn):
 
 
 @with_database
-def test_import_submission_new_track_55(conn):
+def test_import_submission_new_track(conn):
     prepare_database(conn, """
     INSERT INTO fingerprint (fingerprint, length, track_id)
         VALUES (%(fp)s, %(len)s, 1);
@@ -198,7 +198,12 @@ def test_import_submission_new_track_55(conn):
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_false(submission['handled'])
-    fingerprint = import_submission(conn, submission)
+    try:
+        old_threshold = const.TRACK_MERGE_THRESHOLD
+        const.TRACK_MERGE_THRESHOLD = 0.9
+        fingerprint = import_submission(conn, submission)
+    finally:
+        const.TRACK_MERGE_THRESHOLD = old_threshold
     assert_equals(2, fingerprint['id'])
     assert_equals(5, fingerprint['track_id'])
 

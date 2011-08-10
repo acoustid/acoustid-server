@@ -3,7 +3,7 @@
 
 import logging
 from sqlalchemy import sql
-from acoustid import tables as schema
+from acoustid import tables as schema, const
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,7 @@ def can_merge_tracks(conn, track_ids):
     rows = conn.execute(query)
     merges = {}
     for fp1_id, fp2_id, score in rows:
-        if score < 0.3:
+        if score < const.TRACK_GROUP_MERGE_THRESHOLD:
             continue
         group = fp1_id
         if group in merges:
@@ -233,7 +233,7 @@ def can_add_fp_to_track(conn, track_id, fingerprint):
         sql.func.min(sql.func.acoustid_compare2(schema.fingerprint.c.fingerprint, fingerprint)),
     ], cond, from_obj=schema.fingerprint)
     score = conn.execute(query).scalar()
-    if score < 0.3:
+    if score < const.TRACK_GROUP_MERGE_THRESHOLD:
         return False
     return True
 
