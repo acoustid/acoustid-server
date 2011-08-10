@@ -55,7 +55,7 @@ def import_submission(conn, submission):
         matches = lookup_fingerprint(conn,
             submission['fingerprint'], submission['length'],
             const.FINGERPRINT_MERGE_THRESHOLD,
-            const.TRACK_MERGE_THRESHOLD, fast=True)
+            const.TRACK_MERGE_THRESHOLD, fast=True, max_offset=const.TRACK_MAX_OFFSET)
         fingerprint = {
             'id': None,
             'track_id': None,

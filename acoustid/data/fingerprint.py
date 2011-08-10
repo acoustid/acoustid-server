@@ -15,7 +15,7 @@ MAX_LENGTH_DIFF = 7
 PARTS = ((1, 20), (21, 100))
 PART_SEARCH_SQL = """
 SELECT id, track_id, score FROM (
-    SELECT id, track_id, acoustid_compare2(fingerprint, query) AS score
+    SELECT id, track_id, acoustid_compare2(fingerprint, query, %(max_offset)s) AS score
     FROM fingerprint, (SELECT %(fp)s::int4[] AS query) q
     WHERE
         length BETWEEN %(length)s - %(max_length_diff)s AND %(length)s + %(max_length_diff)s AND
@@ -31,14 +31,14 @@ def decode_fingerprint(fingerprint_string):
         return fingerprint
 
 
-def lookup_fingerprint(conn, fp, length, good_enough_score, min_score, fast=False):
+def lookup_fingerprint(conn, fp, length, good_enough_score, min_score, fast=False, max_offset=0):
     """Search for a fingerprint in the database"""
     matched = []
     best_score = 0.0
     for part_start, part_length in PARTS:
         params = dict(fp=fp, length=length, part_start=part_start,
             part_length=part_length, max_length_diff=MAX_LENGTH_DIFF,
-            min_score=min_score)
+            min_score=min_score, max_offset=max_offset)
         with closing(conn.execute(PART_SEARCH_SQL, params)) as result:
             for row in result:
                 matched.append(row)

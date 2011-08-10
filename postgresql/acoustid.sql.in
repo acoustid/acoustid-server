@@ -1,11 +1,6 @@
 -- Adjust this setting to control where the objects get created.
 SET search_path = public;
 
-CREATE OR REPLACE FUNCTION acoustid_compare(int4[], int4[]) RETURNS float4
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C VOLATILE STRICT -- marked as VOLATILE to avoid multiple calls, even though the results are immutable
-    COST 1000;
-
 CREATE OR REPLACE FUNCTION acoustid_compare2(int4[], int4[], int DEFAULT 0) RETURNS float4
     AS 'MODULE_PATHNAME'
     LANGUAGE C VOLATILE STRICT -- marked as VOLATILE to avoid multiple calls, even though the results are immutable
