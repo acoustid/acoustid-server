@@ -118,6 +118,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 	unsigned short *counts = palloc0(sizeof(unsigned short) * numcounts);
 	uint16_t *aoffsets = palloc0(sizeof(uint16_t) * MATCH_MASK), *boffsets = palloc0(sizeof(uint16_t) * MATCH_MASK);
 	uint64_t *adata, *bdata;
+	float4 score;
 
 	for (i = 0; i < asize; i++) {
 		aoffsets[MATCH_STRIP(a[i])] = i;
@@ -169,7 +170,11 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 	for (i = 0; i < size; i++, adata++, bdata++) {
 		biterror += BITCOUNT64(*adata ^ *bdata);
 	}
-	return (size * 2.0 / minsize) * (1.0 - 2.0 * (float4)biterror / (64 * size));
+	score = (size * 2.0 / minsize) * (1.0 - 2.0 * (float4)biterror / (64 * size));
+	if (size < 200) {
+		score *= pow(log(size) / log(200), 1.5);
+	}
+	return score;
 }
 
 /* PostgreSQL functions */
