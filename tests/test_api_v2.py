@@ -194,6 +194,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id)
                 "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
             }, {
                 "id": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
+                "duration": 123,
                 "tracks": [{
                     "title": "Track A",
                     "duration": 123,

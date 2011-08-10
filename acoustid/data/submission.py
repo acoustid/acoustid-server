@@ -6,7 +6,7 @@ from sqlalchemy import sql
 from acoustid import tables as schema
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
-from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track
+from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track, can_merge_tracks
 logger = logging.getLogger(__name__)
 
 TRACK_MERGE_TRESHOLD = 0.7
@@ -81,10 +81,13 @@ def import_submission(conn, submission):
                         logger.debug("Fingerprint %d with track %d is %d%% similar",
                             m['id'], m['track_id'], m['score'] * 100)
                         all_track_ids.add(m['track_id'])
-                if len(all_track_ids) > 1 and fingerprint['track_id'] == match['track_id']:
-                    fingerprint['track_id'] = min(all_track_ids)
-                    all_track_ids.remove(fingerprint['track_id'])
-                    merge_tracks(conn, fingerprint['track_id'], list(all_track_ids))
+                if len(all_track_ids) > 1:
+                    for group in can_merge_tracks(conn, all_track_ids):
+                        if match['track_id'] in group and len(group) > 1:
+                            fingerprint['track_id'] = min(group)
+                            group.remove(fingerprint['track_id'])
+                            merge_tracks(conn, fingerprint['track_id'], list(group))
+                            break
         if not fingerprint['track_id']:
             fingerprint['track_id'] = insert_track(conn)
             logger.info('Added new track %d', fingerprint['track_id'])
