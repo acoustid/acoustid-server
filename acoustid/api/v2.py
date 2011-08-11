@@ -12,9 +12,10 @@ from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
 from acoustid.data.meta import insert_meta
+from acoustid.data.foreignid import find_or_insert_foreignid
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
-from acoustid.utils import is_uuid
+from acoustid.utils import is_uuid, is_foreignid
 from acoustid.api import serialize_response, errors
 
 logger = logging.getLogger(__name__)
@@ -208,6 +209,9 @@ class SubmitHandlerParams(APIHandlerParams):
         p['puid'] = values.get('puid' + suffix)
         if p['puid'] and not is_uuid(p['puid']):
             raise errors.InvalidUUIDError('puid' + suffix)
+        p['foreignid'] = values.get('foreignid' + suffix)
+        if p['foreignid'] and not is_foreignid(p['foreignid']):
+            raise errors.InvalidForeignIDError('foreignid' + suffix)
         p['mbids'] = values.getlist('mbid' + suffix)
         if p['mbids'] and not all(map(is_uuid, p['mbids'])):
             raise errors.InvalidUUIDError('mbid' + suffix)
@@ -276,6 +280,8 @@ class SubmitHandler(APIHandler):
                     meta_values = dict((n, p[n] or None) for n in self.meta_fields)
                     if any(meta_values.itervalues()):
                         values['meta_id'] = insert_meta(self.conn, meta_values)
+                    if p['foreignid']:
+                        values['foreignid_id'] = find_or_insert_foreignid(self.conn, p['foreignid'])
                     insert_submission(self.conn, values)
         return {}
 

@@ -147,8 +147,8 @@ def test_lookup_handler(conn):
     assert_equals('200 OK', resp.status)
     # one exact match
     prepare_database(conn, """
-INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
-    VALUES (%s, %s, 1, 1);
+INSERT INTO fingerprint (length, fingerprint, track_id)
+    VALUES (%s, %s, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
@@ -194,6 +194,7 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
                 "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
             }, {
                 "id": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
+                "duration": 123,
                 "tracks": [{
                     "title": "Track A",
                     "duration": 123,
@@ -236,8 +237,8 @@ INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
     assert_equals('200 OK', resp.status)
     # duplicate fingerprint
     prepare_database(conn, """
-INSERT INTO fingerprint (length, fingerprint, source_id, track_id)
-    VALUES (%s, %s, 1, 1);
+INSERT INTO fingerprint (length, fingerprint, track_id)
+    VALUES (%s, %s, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
     builder = EnvironBuilder(method='POST', data=values)
@@ -281,6 +282,16 @@ def test_submit_handler_params(conn):
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key'})
     params = SubmitHandlerParams()
     assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    # wrong foreign id
+    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'foreignid': 'aaa',
+        'duration': str(TEST_1_LENGTH),
+        'fingerprint': TEST_1_FP,
+        'bitrate': '192',
+        'fileformat': 'MP3'
+    })
+    params = SubmitHandlerParams()
+    assert_raises(errors.InvalidForeignIDError, params.parse, values, conn)
     # wrong mbid
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': '4d814cb1-20ec-494f-996f-xxxxxxxxxxxx',
@@ -336,6 +347,7 @@ def test_submit_handler_params(conn):
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
         'puid': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
+        'foreignid': 'foo:123',
         'duration': str(TEST_1_LENGTH),
         'fingerprint': TEST_1_FP,
         'bitrate': '192',
@@ -346,6 +358,7 @@ def test_submit_handler_params(conn):
     assert_equals(1, len(params.submissions))
     assert_equals(['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'], params.submissions[0]['mbids'])
     assert_equals('4e823498-c77d-4bfb-b6cc-85b05c2783cf', params.submissions[0]['puid'])
+    assert_equals('foo:123', params.submissions[0]['foreignid'])
     assert_equals(TEST_1_LENGTH, params.submissions[0]['duration'])
     assert_equals(TEST_1_FP_RAW, params.submissions[0]['fingerprint'])
     assert_equals(192, params.submissions[0]['bitrate'])
@@ -464,6 +477,7 @@ def test_submit_handler_with_meta(conn):
     }
     assert_equals(expected, dict(row))
 
+
 @with_database
 def test_submit_handler_puid(conn):
     values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
@@ -484,4 +498,36 @@ def test_submit_handler_puid(conn):
     assert_equals(192, submission['bitrate'])
     assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
     assert_equals(TEST_1_LENGTH, submission['length'])
+
+
+@with_database
+def test_submit_handler_foreignid(conn):
+    values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
+        'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
+        'foreignid': 'foo:123', 'fileformat': 'FLAC'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = SubmitHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('application/json; charset=UTF-8', resp.content_type)
+    expected = {"status": "ok"}
+    assert_json_equals(expected, resp.data)
+    assert_equals('200 OK', resp.status)
+    query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
+    submission = conn.execute(query).fetchone()
+    assert_equals(None, submission['mbid'])
+    assert_equals(None, submission['puid'])
+    assert_equals(1, submission['foreignid_id'])
+    assert_equals(1, submission['format_id'])
+    assert_equals(192, submission['bitrate'])
+    assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
+    assert_equals(TEST_1_LENGTH, submission['length'])
+    query = tables.foreignid_vendor.select().order_by(tables.foreignid_vendor.c.id.desc()).limit(1)
+    row = conn.execute(query).fetchone()
+    assert_equals(1, row['id'])
+    assert_equals('foo', row['name'])
+    query = tables.foreignid.select().order_by(tables.foreignid.c.id.desc()).limit(1)
+    row = conn.execute(query).fetchone()
+    assert_equals(1, row['id'])
+    assert_equals(1, row['vendor_id'])
+    assert_equals('123', row['name'])
 

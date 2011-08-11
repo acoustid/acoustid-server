@@ -49,12 +49,18 @@ CREATE TABLE fingerprint (
     bitrate smallint CHECK (bitrate > 0),
     format_id int,
     created timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	source_id int NOT NULL,
     track_id int NOT NULL,
-    meta_id int,
-	submission_id int,
-	hash_full bytea,
-	hash_query bytea
+    hash_full bytea,
+    hash_query bytea,
+    submission_count int NOT NULL
+);
+
+CREATE TABLE fingerprint_source (
+    id serial NOT NULL,
+    fingerprint_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
 );
 
 CREATE TABLE fingerprint_index_queue (
@@ -63,14 +69,84 @@ CREATE TABLE fingerprint_index_queue (
 
 CREATE TABLE track (
     id serial NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
+    created timestamp with time zone DEFAULT current_timestamp,
+    new_id int,
+    gid uuid NOT NULL
 );
 
 CREATE TABLE track_mbid (
     track_id int NOT NULL,
     mbid uuid NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,
-	submission_id int
+    id serial NOT NULL,
+    submission_count int NOT NULL
+);
+
+CREATE TABLE track_mbid_source (
+    id serial NOT NULL,
+    track_mbid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+CREATE TABLE track_puid (
+    id serial NOT NULL,
+    track_id int NOT NULL,
+    puid uuid NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp,
+    submission_count int NOT NULL
+);
+
+CREATE TABLE track_puid_source (
+    id serial NOT NULL,
+    track_puid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+CREATE TABLE foreignid_vendor (
+    id serial NOT NULL,
+    name varchar NOT NULL
+);
+
+CREATE TABLE foreignid (
+    id serial NOT NULL,
+    vendor_id int NOT NULL,
+    name text(256) NOT NULL
+);
+
+CREATE TABLE track_foreignid (
+    id serial NOT NULL,
+    track_id int NOT NULL,
+    foreignid_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp,
+    submission_count int NOT NULL
+);
+
+CREATE TABLE track_foreignid_source (
+    id serial NOT NULL,
+    track_foreignid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+CREATE TABLE track_meta (
+    id serial NOT NULL,
+    track_id int NOT NULL,
+    meta_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp,
+    submission_count int NOT NULL
+);
+
+CREATE TABLE track_meta_source (
+    id serial NOT NULL,
+    track_meta_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
 );
 
 CREATE TABLE submission (
@@ -84,7 +160,8 @@ CREATE TABLE submission (
     mbid uuid,
     handled boolean DEFAULT false,
     puid uuid,
-    meta_id int
+    meta_id int,
+    foreignid_id int
 );
 
 CREATE TABLE stats (
@@ -96,8 +173,8 @@ CREATE TABLE stats (
 
 CREATE TABLE stats_top_accounts (
     id serial NOT NULL,
-	account_id int NOT NULL,
-	count int NOT NULL
+    account_id int NOT NULL,
+    count int NOT NULL
 );
 
 CREATE TABLE meta (

@@ -62,6 +62,7 @@ Create the PostgreSQL database:
 Install extensions into the newly created database:
 
  $ psql -U postgres acoustid <`pg_config --sharedir`/contrib/_int.sql
+ $ psql -U postgres acoustid <`pg_config --sharedir`/contrib/pgcrypto.sql
  $ psql -U postgres acoustid <`pg_config --sharedir`/contrib/acoustid.sql
 
 Create the database structure:
@@ -71,6 +72,22 @@ Create the database structure:
  $ ./run_psql.sh <sql/CreatePrimaryKeys.sql
  $ ./run_psql.sh <sql/CreateFKConstraints.sql
  $ ./run_psql.sh <sql/CreateIndexes.sql
+
+Setup a MusicBrainz slave database (without custom extensions):
+
+ $ cd /path/to/mbslave
+ $ cp mbslave.conf.default mbslave.conf
+ $ vim mbslave.conf
+ $ echo 'CREATE SCHEMA musicbrainz;' | ./mbslave-psql.py
+ $ sed 's/cube/text/i' sql/CreateTables.sql | ./mbslave-psql.py
+ $ ./mbslave-import.py mbdump.tar.bz2 mbdump-derived.tar.bz2
+ $ ./mbslave-psql.py <sql/CreatePrimaryKeys.sql
+ $ vim sql/CreateFunctions.sql # remove functions that mention "cube"
+ $ ./mbslave-psql.py <sql/CreateFunctions.sql
+ $ grep -vE '(collate|page_index|gist)' sql/CreateIndexes.sql | ./mbslave-psql.py
+ $ ./mbslave-psql.py <sql/CreateViews.sql
+ $ ./mbslave-psql.py <sql/CreateSimpleViews.sql
+ $ ./mbslave-sync.py
 
 TODO
 

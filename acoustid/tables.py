@@ -30,7 +30,9 @@ application = Table('application', metadata,
 
 track = Table('track', metadata,
     Column('id', Integer, primary_key=True),
+    Column('gid', String),
     Column('created', DateTime),
+    Column('new_id', Integer),
 )
 
 format = Table('format', metadata,
@@ -56,6 +58,7 @@ submission = Table('submission', metadata,
     Column('created', DateTime),
     Column('handled', Boolean),
     Column('meta_id', Integer, ForeignKey('meta.id')),
+    Column('foreignid_id', Integer, ForeignKey('foreignid.id')),
 )
 
 stats = Table('stats', metadata,
@@ -82,23 +85,92 @@ meta = Table('meta', metadata,
     Column('year', Integer),
 )
 
+foreignid_vendor = Table('foreignid_vendor', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String),
+)
+
+foreignid = Table('foreignid', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('vendor_id', Integer, ForeignKey('foreignid_vendor.id')),
+    Column('name', String),
+)
+
 fingerprint = Table('fingerprint', metadata,
     Column('id', Integer, primary_key=True),
     Column('fingerprint', ARRAY(Integer)),
     Column('length', Integer),
     Column('bitrate', Integer),
-    Column('source_id', Integer, ForeignKey('source.id')),
     Column('format_id', Integer, ForeignKey('format.id')),
     Column('track_id', Integer, ForeignKey('track.id')),
+    Column('submission_count', Integer),
+)
+
+fingerprint_source = Table('fingerprint_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('fingerprint_id', Integer, ForeignKey('fingerprint.id')),
     Column('submission_id', Integer, ForeignKey('submission.id')),
-    Column('meta_id', Integer, ForeignKey('meta.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
 )
 
 track_mbid = Table('track_mbid', metadata,
-    Column('track_id', Integer, ForeignKey('track.id'), primary_key=True),
-    Column('mbid', String, primary_key=True),
+    Column('id', Integer, primary_key=True),
+    Column('track_id', Integer, ForeignKey('track.id')),
+    Column('mbid', String),
     Column('created', DateTime),
+    Column('submission_count', Integer),
+)
+
+track_mbid_source = Table('track_mbid_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
     Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
+)
+
+track_puid = Table('track_puid', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_id', Integer, ForeignKey('track.id')),
+    Column('puid', String),
+    Column('created', DateTime),
+    Column('submission_count', Integer),
+)
+
+track_puid_source = Table('track_puid_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_puid_id', Integer, ForeignKey('track_puid.id')),
+    Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
+)
+
+track_meta = Table('track_meta', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_id', Integer, ForeignKey('track.id')),
+    Column('meta_id', Integer, ForeignKey('track.id')),
+    Column('created', DateTime),
+    Column('submission_count', Integer),
+)
+
+track_meta_source = Table('track_meta_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_meta_id', Integer, ForeignKey('track_meta.id')),
+    Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
+)
+
+track_foreignid = Table('track_foreignid', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_id', Integer, ForeignKey('track.id')),
+    Column('foreignid_id', Integer, ForeignKey('track.id')),
+    Column('created', DateTime),
+    Column('submission_count', Integer),
+)
+
+track_foreignid_source = Table('track_foreignid_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_foreignid_id', Integer, ForeignKey('track_foreignid.id')),
+    Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
 )
 
 mb_artist = Table('s_artist', metadata,
@@ -129,6 +201,12 @@ mb_recording = Table('s_recording', metadata,
     Column('name', String),
     Column('gid', String),
     Column('length', Integer),
+    schema='musicbrainz',
+)
+
+mb_recording_gid_redirect = Table('recording_gid_redirect', metadata,
+    Column('gid', String, primary_key=True),
+    Column('new_id', Integer, ForeignKey('musicbrainz.s_recording.id')),
     schema='musicbrainz',
 )
 

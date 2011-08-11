@@ -143,3 +143,13 @@ def find_puid_mbids(conn, puid, min_duration, max_duration):
     good_group = cluster_track_names(r['name'] + ' ' + r['artist'] for r in rows)
     return [rows[i]['gid'] for i in good_group]
 
+
+def resolve_mbid_redirect(conn, mbid):
+    src = schema.mb_recording
+    src = src.join(schema.mb_recording_gid_redirect, schema.mb_recording_gid_redirect.c.new_id == schema.mb_recording.c.id)
+    condition = schema.mb_recording_gid_redirect.c.gid == mbid
+    columns = [schema.mb_recording.c.gid]
+    query = sql.select(columns, condition, from_obj=src)
+    new_mbid = conn.execute(query).scalar()
+    return new_mbid or mbid
+

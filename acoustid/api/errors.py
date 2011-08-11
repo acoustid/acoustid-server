@@ -15,6 +15,7 @@ ERROR_INVALID_USER_APIKEY = 6
 ERROR_INVALID_UUID = 7
 ERROR_INVALID_DURATION = 8
 ERROR_INVALID_BITRATE = 9
+ERROR_INVALID_FOREIGNID = 10
 
 
 class WebServiceError(Exception):
@@ -76,6 +77,14 @@ class InvalidUUIDError(WebServiceError):
     def __init__(self, name):
         message = 'parameter "%s" is not a valid UUID' % (name,)
         WebServiceError.__init__(self, ERROR_INVALID_UUID, message)
+        self.parameter = name
+
+
+class InvalidForeignIDError(WebServiceError):
+
+    def __init__(self, name):
+        message = 'parameter "%s" is not a valid foreign ID, it must be in the format vendor:id' % (name,)
+        WebServiceError.__init__(self, ERROR_INVALID_FOREIGNID, message)
         self.parameter = name
 
 

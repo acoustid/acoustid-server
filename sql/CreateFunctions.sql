@@ -6,7 +6,7 @@ $$ LANGUAGE 'SQL' IMMUTABLE STRICT;
 CREATE OR REPLACE FUNCTION extract_fp_query(int[]) RETURNS int[]
 AS $$
     SELECT uniq(sort(subarray($1 - 627964279,
-		greatest(0, least(icount($1 - 627964279) - 120, 80)), 80)));
+		greatest(0, least(icount($1 - 627964279) - 120, 80)), 120)));
 $$ LANGUAGE 'SQL' IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION update_account_stats() RETURNS void
@@ -39,7 +39,7 @@ CREATE OR REPLACE FUNCTION tr_ins_fingerprint() RETURNS trigger
 AS $$
 BEGIN
 	NEW.hash_full = fp_hash(NEW.fingerprint);
-	NEW.hash_query = fp_hash(extract_fp_query(NEW.fingerprint));
+	NEW.hash_query = fp_hash(acoustid_extract_query(NEW.fingerprint));
 	RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

@@ -46,10 +46,21 @@ SEQUENCES = [
     ('account', 'id'),
     ('application', 'id'),
     ('format', 'id'),
+    ('foreignid', 'id'),
+    ('foreignid_vendor', 'id'),
     ('source', 'id'),
     ('submission', 'id'),
     ('track', 'id'),
+    ('track_mbid', 'id'),
+    ('track_mbid_source', 'id'),
+    ('track_puid', 'id'),
+    ('track_puid_source', 'id'),
+    ('track_meta', 'id'),
+    ('track_meta_source', 'id'),
+    ('track_foreignid', 'id'),
+    ('track_foreignid_source', 'id'),
     ('fingerprint', 'id'),
+    ('fingerprint_source', 'id'),
     ('meta', 'id'),
 ]
 
@@ -57,10 +68,19 @@ TABLES = [
     'account',
     'application',
     'format',
+    'foreignid',
+    'foreignid_vendor',
     'source',
     'stats',
     'track',
     'track_mbid',
+    'track_mbid_source',
+    'track_puid',
+    'track_puid_source',
+    'track_meta',
+    'track_meta_source',
+    'track_foreignid',
+    'track_foreignid_source',
     'meta',
     'musicbrainz.artist_credit_name',
     'musicbrainz.artist_credit',
@@ -88,7 +108,11 @@ INSERT INTO application (name, apikey, version, account_id) VALUES ('App 2', 'ap
 INSERT INTO format (name) VALUES ('FLAC');
 INSERT INTO source (account_id, application_id) VALUES (1, 1);
 INSERT INTO source (account_id, application_id) VALUES (2, 2);
-INSERT INTO track (id) VALUES (1), (2), (3), (4);
+INSERT INTO track (id, gid) VALUES
+    (1, 'eb31d1c3-950e-468b-9e36-e46fa75b1291'),
+    (2, '92732e4b-97c6-4250-b237-1636384d466f'),
+    (3, '30e66c45-f761-490a-b1bd-55763e8b59be'),
+    (4, '014e973b-368e-42bf-b619-84cab14c4af6');
 INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3');
 
 INSERT INTO musicbrainz.artist_name (id, name) VALUES
