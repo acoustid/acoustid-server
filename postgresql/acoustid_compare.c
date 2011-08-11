@@ -1,5 +1,6 @@
 /* acoustid_compare.c */
 
+#include <math.h>
 #include "postgres.h"
 #include "fmgr.h"
 #include "utils/array.h"
@@ -171,9 +172,6 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 		biterror += BITCOUNT64(*adata ^ *bdata);
 	}
 	score = (size * 2.0 / minsize) * (1.0 - 2.0 * (float4)biterror / (64 * size));
-	if (size < 200) {
-		score *= pow(log(size) / log(200), 1.5);
-	}
 	return score;
 }
 

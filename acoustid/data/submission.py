@@ -96,7 +96,7 @@ def import_submission(conn, submission):
             inc_fingerprint_submission_count(conn, fingerprint['id'])
         for mbid in mbids:
             insert_mbid(conn, fingerprint['track_id'], mbid, submission['id'], submission['source_id'])
-        if submission['puid']:
+        if submission['puid'] and submission['puid'] != '00000000-0000-0000-0000-000000000000':
             insert_puid(conn, fingerprint['track_id'], submission['puid'], submission['id'], submission['source_id'])
         if submission['meta_id']:
             insert_track_meta(conn, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])

@@ -70,7 +70,8 @@ def insert_fingerprint(conn, data, submission_id=None, source_id=None):
                 'source_id': source_id,
             })
             conn.execute(insert_stmt)
-    logger.debug("Inserted fingerprint %r with data %r", id, data)
+    #logger.debug("Inserted fingerprint %r with data %r", id, data)
+    logger.debug("Inserted fingerprint %r", id)
     return id
 
 
