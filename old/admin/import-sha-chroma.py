@@ -21,7 +21,7 @@ db = psycopg2.connect(**opts)
 
 USER_API_KEY = 'ye9Bbbfd'
 CLIENT_API_KEY = 'dGA3IKKS'
-API_URL = 'http://127.0.0.1:8080/ws/submit'
+API_URL = 'http://127.0.0.1:8080/ws/v2/submit'
 BATCH_SIZE = 50
 
 cursor = db.cursor()
@@ -44,9 +44,10 @@ for row in cursor:
         continue
     shas.add(row[4])
     params['puid.%d' % i] = row[0]
-    params['length.%d' % i] = row[1]
+    params['duration.%d' % i] = row[1]
     params['bitrate.%d' % i] = row[2]
     params['fingerprint.%d' % i] = row[3]
+    params['foreignid.%d' % i] = 'zvq-sha:%s' % (row[4],)
     i += 1
     if i == BATCH_SIZE:
         #print "Submitting", i

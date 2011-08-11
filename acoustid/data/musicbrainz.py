@@ -64,6 +64,7 @@ def lookup_metadata(conn, mbids):
         i += 1
         result = dict(row)
         result['length'] = (result['length'] or 0) / 1000
+        result['recording_length'] = (result['recording_length'] or 0) / 1000
         results.setdefault(row['gid'], []).append(result)
         artist_credit_ids.add(row['_artist_credit_id'])
     print i
