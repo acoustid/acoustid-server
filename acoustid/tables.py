@@ -57,6 +57,7 @@ submission = Table('submission', metadata,
     Column('created', DateTime),
     Column('handled', Boolean),
     Column('meta_id', Integer, ForeignKey('meta.id')),
+    Column('foreignid_id', Integer, ForeignKey('foreignid.id')),
 )
 
 stats = Table('stats', metadata,
@@ -81,6 +82,17 @@ meta = Table('meta', metadata,
     Column('track_no', Integer),
     Column('disc_no', Integer),
     Column('year', Integer),
+)
+
+foreignid_vendor = Table('foreignid_vendor', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String),
+)
+
+foreignid = Table('foreignid', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('vendor_id', Integer, ForeignKey('foreignid_vendor.id')),
+    Column('name', String),
 )
 
 fingerprint = Table('fingerprint', metadata,
@@ -141,6 +153,21 @@ track_meta = Table('track_meta', metadata,
 track_meta_source = Table('track_meta_source', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_meta_id', Integer, ForeignKey('track_meta.id')),
+    Column('submission_id', Integer, ForeignKey('submission.id')),
+    Column('source_id', Integer, ForeignKey('source.id')),
+)
+
+track_foreignid = Table('track_foreignid', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_id', Integer, ForeignKey('track.id')),
+    Column('foreignid_id', Integer, ForeignKey('track.id')),
+    Column('created', DateTime),
+    Column('submission_count', Integer),
+)
+
+track_foreignid_source = Table('track_foreignid_source', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_foreignid_id', Integer, ForeignKey('track_foreignid.id')),
     Column('submission_id', Integer, ForeignKey('submission.id')),
     Column('source_id', Integer, ForeignKey('source.id')),
 )

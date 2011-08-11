@@ -6,7 +6,7 @@ from sqlalchemy import sql
 from acoustid import tables as schema, const
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
-from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track, can_merge_tracks
+from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track, can_merge_tracks, insert_track_foreignid
 logger = logging.getLogger(__name__)
 
 
@@ -24,6 +24,7 @@ def insert_submission(conn, data):
             'source_id': data.get('source_id'),
             'format_id': data.get('format_id'),
             'meta_id': data.get('meta_id'),
+            'foreignid_id': data.get('foreignid_id'),
         })
         id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted submission %r with data %r", id, data)
@@ -99,6 +100,8 @@ def import_submission(conn, submission):
             insert_puid(conn, fingerprint['track_id'], submission['puid'], submission['id'], submission['source_id'])
         if submission['meta_id']:
             insert_track_meta(conn, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])
+        if submission['foreignid_id']:
+            insert_track_foreignid(conn, fingerprint['track_id'], submission['foreignid_id'], submission['id'], submission['source_id'])
         update_stmt = schema.submission.update().where(
             schema.submission.c.id == submission['id'])
         conn.execute(update_stmt.values(handled=True))

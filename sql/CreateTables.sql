@@ -105,6 +105,33 @@ CREATE TABLE track_puid_source (
     created timestamp with time zone DEFAULT current_timestamp
 );
 
+CREATE TABLE foreignid_vendor (
+    id serial NOT NULL,
+    name varchar NOT NULL
+);
+
+CREATE TABLE foreignid (
+    id serial NOT NULL,
+    vendor_id int NOT NULL,
+    name text(256) NOT NULL
+);
+
+CREATE TABLE track_foreignid (
+    id serial NOT NULL,
+    track_id int NOT NULL,
+    foreignid_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp,
+    submission_count int NOT NULL
+);
+
+CREATE TABLE track_foreignid_source (
+    id serial NOT NULL,
+    track_foreignid_id int NOT NULL,
+    submission_id int NOT NULL,
+    source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
 CREATE TABLE track_meta (
     id serial NOT NULL,
     track_id int NOT NULL,
@@ -132,7 +159,8 @@ CREATE TABLE submission (
     mbid uuid,
     handled boolean DEFAULT false,
     puid uuid,
-    meta_id int
+    meta_id int,
+    foreignid_id int
 );
 
 CREATE TABLE stats (

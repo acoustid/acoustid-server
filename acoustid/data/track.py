@@ -127,6 +127,7 @@ def merge_tracks(conn, target_id, source_ids):
         _merge_tracks_gids(conn, 'mbid', target_id, source_ids)
         _merge_tracks_gids(conn, 'puid', target_id, source_ids)
         _merge_tracks_gids(conn, 'meta_id', target_id, source_ids)
+        _merge_tracks_gids(conn, 'foreignid_id', target_id, source_ids)
         # XXX don't move duplicate fingerprints
         update_stmt = schema.fingerprint.update().where(
             schema.fingerprint.c.track_id.in_(source_ids))
@@ -177,6 +178,12 @@ def insert_mbid(conn, track_id, mbid, submission_id=None, source_id=None):
 def insert_puid(conn, track_id, puid, submission_id=None, source_id=None):
     return _insert_gid(conn, schema.track_puid, schema.track_puid_source,
         schema.track_puid.c.puid, 'puid', track_id, puid, submission_id, source_id)
+
+
+def insert_track_foreignid(conn, track_id, foreignid_id, submission_id=None, source_id=None):
+    return _insert_gid(conn, schema.track_foreignid, schema.track_foreignid_source,
+        schema.track_foreignid.c.foreignid_id, 'foreignid_id', track_id, foreignid_id,
+        submission_id, source_id)
 
 
 def insert_track_meta(conn, track_id, meta_id, submission_id=None, source_id=None):

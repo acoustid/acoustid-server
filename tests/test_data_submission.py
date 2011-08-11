@@ -43,6 +43,28 @@ def test_insert_submission(conn):
 
 
 @with_database
+def test_import_submission_with_foreignid(conn):
+    prepare_database(conn, """
+    INSERT INTO foreignid_vendor (id, name) VALUES (1, 'foo');
+    INSERT INTO foreignid (id, vendor_id, name) VALUES (1, 1, '123');
+    """)
+    id = insert_submission(conn, {
+        'fingerprint': TEST_1_FP_RAW,
+        'length': TEST_1_LENGTH,
+        'bitrate': 192,
+        'source_id': 1,
+        'format_id': 1,
+        'foreignid_id': 1,
+    })
+    query = tables.submission.select(tables.submission.c.id == id)
+    submission = conn.execute(query).fetchone()
+    fingerprint = import_submission(conn, submission)
+    query = tables.track_foreignid.select(tables.track_foreignid.c.track_id == fingerprint['track_id'])
+    track_foreignid = conn.execute(query).fetchone()
+    assert_equals(1, track_foreignid['submission_count'])
+
+
+@with_database
 def test_import_submission(conn):
     # first submission
     id = insert_submission(conn, {
