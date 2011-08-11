@@ -355,7 +355,7 @@ class StatsHandler(WebSiteHandler):
             'submissions': stats.get('submission.all', 0),
             'fingerprints': stats.get('fingerprint.all', 0),
             'tracks': stats.get('track.all', 0),
-            'mbids': stats.get('track_mbid.unique', 0),
+            'mbids': stats.get('mbid.all', 0),
             'contributors': stats.get('account.active', 0),
             'mbids_both': stats.get('mbid.both', 0),
             'mbids_onlypuid': stats.get('mbid.onlypuid', 0),
@@ -366,12 +366,12 @@ class StatsHandler(WebSiteHandler):
         basic['tracks_with_mbid'] = basic['tracks'] - stats.get('track.0mbids', 0)
         basic['tracks_with_mbid_percent'] = percent(basic['tracks_with_mbid'], basic['tracks'])
         top_contributors = find_top_contributors(self.conn)
-        daily_raw = find_daily_stats(self.conn, ['submission.all', 'fingerprint.all', 'track.all', 'track_mbid.unique'])
+        daily_raw = find_daily_stats(self.conn, ['submission.all', 'fingerprint.all', 'track.all', 'mbid.all'])
         daily = {
             'submissions': daily_raw['submission.all'],
             'fingerprints': daily_raw['fingerprint.all'],
             'tracks': daily_raw['track.all'],
-            'mbids': daily_raw['track_mbid.unique'],
+            'mbids': daily_raw['mbid.all'],
         }
         return self.render_template('stats.html', title=title, basic=basic,
             track_mbid=track_mbid, mbid_track=mbid_track,
