@@ -69,6 +69,7 @@ CREATE TABLE fingerprint_index_queue (
 
 CREATE TABLE track (
     id serial NOT NULL,
+    gid uuid NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,
     new_id int
 );

@@ -30,6 +30,7 @@ application = Table('application', metadata,
 
 track = Table('track', metadata,
     Column('id', Integer, primary_key=True),
+    Column('gid', String),
     Column('created', DateTime),
     Column('new_id', Integer),
 )

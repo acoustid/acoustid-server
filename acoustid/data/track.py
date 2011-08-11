@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import uuid
 from sqlalchemy import sql
 from acoustid import tables as schema, const
 
@@ -142,7 +143,7 @@ def insert_track(conn):
     """
     Insert a new track into the database
     """
-    insert_stmt = schema.track.insert()
+    insert_stmt = schema.track.insert().values({'gid': str(uuid.uuid4())})
     id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted track %r", id)
     return id
