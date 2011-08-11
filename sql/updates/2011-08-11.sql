@@ -66,3 +66,14 @@ ALTER TABLE submission ADD CONSTRAINT submission_fk_foreignid_id
     FOREIGN KEY (foreignid_id)
     REFERENCES foreignid (id);
 
+
+CREATE UNIQUE INDEX foreignid_vendor_idx_name ON foreignid_vendor (name);
+CREATE UNIQUE INDEX foreignid_idx_vendor_name ON foreignid (vendor_id, name);
+
+CREATE INDEX track_meta_idx_meta_id ON track_meta (meta_id);
+CREATE INDEX track_meta_idx_uniq ON track_meta (track_id, meta_id);
+
+CREATE INDEX track_foreignid_idx_foreignid_id ON track_foreignid (foreignid_id);
+CREATE INDEX track_foreignid_idx_uniq ON track_foreignid (track_id, foreignid_id);
+
+
