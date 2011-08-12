@@ -88,10 +88,8 @@ def import_submission(conn, submission):
                             break
         if not fingerprint['track_id']:
             fingerprint['track_id'] = insert_track(conn)
-            logger.info('Added new track %d', fingerprint['track_id'])
         if not fingerprint['id']:
             fingerprint['id'] = insert_fingerprint(conn, fingerprint, submission['id'], submission['source_id'])
-            logger.info('Added new fingerprint %d', fingerprint['id'])
         else:
             inc_fingerprint_submission_count(conn, fingerprint['id'])
         for mbid in mbids:
