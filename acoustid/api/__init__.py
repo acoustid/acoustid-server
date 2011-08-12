@@ -42,14 +42,19 @@ def serialize_xml(data, **kwargs):
     return Response(res, content_type='text/xml; charset=UTF-8', **kwargs)
 
 
-def serialize_json(data, **kwargs):
+def serialize_json(data, callback=None, **kwargs):
     res = json.dumps(data)
+    if callback:
+        res = '%s(%s)' % (callback, res)
     return Response(res, content_type='application/json; charset=UTF-8', **kwargs)
 
 
 def serialize_response(data, format, **kwargs):
     if format == 'json':
         return serialize_json(data, **kwargs)
+    elif format.startswith('jsonp:'):
+        func = format.split(':', 1)[1]
+        return serialize_json(data, callback=func, **kwargs)
     else:
         return serialize_xml(data, **kwargs)
 

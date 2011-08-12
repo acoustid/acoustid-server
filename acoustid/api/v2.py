@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import re
 import logging
 from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_FORMAT = 'json'
-FORMATS = set(['xml', 'json'])
+FORMATS = set(['xml', 'json', 'jsonp'])
 
 
 class APIHandlerParams(object):
@@ -40,6 +41,11 @@ class APIHandlerParams(object):
         if self.format not in FORMATS:
             self.format = DEFAULT_FORMAT # used for the error response
             raise errors.UnknownFormatError(self.format)
+        if self.format == 'jsonp':
+            callback = values.get('jsoncallback', 'jsonAcoustidApi')
+            if not re.match('^[$A-Za-z_][0-9A-Za-z_]*(\.[$A-Za-z_][0-9A-Za-z_]*)*$', callback):
+                callback = 'jsonAcoustidApi'
+            self.format = '%s:%s' % (self.format, callback)
 
     def parse(self, values, conn):
         self._parse_format(values)

@@ -49,6 +49,22 @@ def test_error():
 
 
 @with_database
+def test_api_handler_params_jsonp(conn):
+    values = MultiDict({'client': 'app1key', 'format': 'jsonp'})
+    params = LookupHandlerParams()
+    params.parse(values, conn)
+    assert_equals('jsonp:jsonAcoustidApi', params.format)
+    values = MultiDict({'client': 'app1key', 'format': 'jsonp', 'jsoncallback': '$foo'})
+    params = LookupHandlerParams()
+    params.parse(values, conn)
+    assert_equals('jsonp:$foo', params.format)
+    values = MultiDict({'client': 'app1key', 'format': 'jsonp', 'jsoncallback': '///'})
+    params = LookupHandlerParams()
+    params.parse(values, conn)
+    assert_equals('jsonp:jsonAcoustidApi', params.format)
+
+
+@with_database
 def test_lookup_handler_params(conn):
     # invalid format
     values = MultiDict({'format': 'xls'})

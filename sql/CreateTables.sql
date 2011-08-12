@@ -91,10 +91,10 @@ CREATE TABLE track_mbid_source (
 );
 
 CREATE TABLE track_puid (
-    id serial NOT NULL,
     track_id int NOT NULL,
     puid uuid NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,
+    id serial NOT NULL,
     submission_count int NOT NULL
 );
 
