@@ -53,8 +53,14 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 	<tr>
 		<td>format</td>
 		<td>no</td>
-		<td>json, xml</td>
+		<td>json, jsonp, xml</td>
 		<td>response format</td>
+	</tr>
+	<tr>
+		<td>jsoncallback</td>
+		<td>no</td>
+		<td>jsonAcoustidApi</td>
+		<td>JSONP callback, only applicable if you select the jsonp format</td>
 	</tr>
 	<tr>
 		<td>client</td>
