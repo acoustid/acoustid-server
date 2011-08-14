@@ -13,6 +13,7 @@ from acoustid import api, website, handlers
 from acoustid.script import Script
 import api.v1
 import api.v2
+import api.v2.misc
 
 
 api_url_rules = [
@@ -22,7 +23,8 @@ api_url_rules = [
         Submount('/v2', [
             Rule('/lookup', endpoint=api.v2.LookupHandler),
             Rule('/submit', endpoint=api.v2.SubmitHandler),
-        ])
+            Rule('/track/list_by_mbid', endpoint=api.v2.misc.TrackListByMBIDHandler),
+        ]),
     ])
 ]
 
@@ -41,7 +43,8 @@ website_url_rules = [
     Rule('/new-application', endpoint=website.NewApplicationHandler),
     Rule('/stats', endpoint=website.StatsHandler),
     Rule('/contributors', endpoint=website.ContributorsHandler),
-    Rule('/track/<int:id>', endpoint=website.TrackHandler),
+    Rule('/track/<string:id>', endpoint=website.TrackHandler),
+    Rule('/fingerprint/<int:id>', endpoint=website.FingerprintHandler),
     Rule('/mbid/<string:mbid>', endpoint=website.MBIDHandler),
     Rule('/<path:page>', endpoint=website.PageHandler),
 ]

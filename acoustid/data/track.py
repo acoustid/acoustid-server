@@ -9,6 +9,20 @@ from acoustid import tables as schema, const
 logger = logging.getLogger(__name__)
 
 
+def resolve_track_gid(conn, gid):
+    query = sql.select([schema.track.c.id, schema.track.c.new_id],
+        schema.track.c.gid == gid)
+    row = conn.execute(query).first()
+    if row is None:
+        return None
+    track_id, new_track_id = row
+    if new_track_id is None:
+        return track_id
+    query = sql.select([schema.track.c.id],
+        schema.track.c.id == new_track_id)
+    return conn.execute(query).scalar()
+
+
 def lookup_mbids(conn, track_ids):
     """
     Lookup MBIDs for the specified Acoustid track IDs.
