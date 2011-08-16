@@ -35,6 +35,17 @@ Latest release &mdash; 0.4 (Aug 6, 2011)
 [osx]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.4-mac.dmg
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
 
+### Alternatives
+
+There are other applications that can submit fingerprints to the Acoustid database.
+You can use them instead of the Acoustid fingerprinter to contribute:
+
+ * [Jaikoz][jaikoz]
+ * [Quod Libet][ql] with this [plugin][qlp]
+
+[ql]: http://code.google.com/p/quodlibet/
+[qlp]: http://code.google.com/p/quodlibet/source/browse/plugins/songsmenu/fingerprint.py
+
 ### Development
 
 You can dowload the development version of the source code from [GitHub][gh].
