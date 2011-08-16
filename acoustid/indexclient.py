@@ -4,7 +4,10 @@
 import socket
 import select
 import time
-from collections import namedtuple
+import logging
+from collections import namedtuple, deque
+
+logger = logging.getLogger(__name__)
 
 CRLF = '\r\n'
 
@@ -17,19 +20,29 @@ Result = namedtuple('Result', ['id', 'score'])
 
 
 class IndexClientError(Exception):
+    """Base class for all errors."""
     pass
 
 
 class IndexClient(object):
 
-    def __init__(self, host, port=6000, timeout=10):
+    def __init__(self, host='127.0.0.1', port=6080, timeout=10):
         self.host = host
         self.port = port
         self.timeout = timeout
+        self.in_transaction = False
+        self.created = time.time()
+        self.sock = None
         self._buffer = ''
         self._connect()
 
+    def __del__(self):
+        if self.sock is not None:
+            logging.warn('Deleted without being explicitly closed')
+            self.close()
+
     def _connect(self):
+        logger.info("Connecting index server at %s:%s", (self.host, self.port))
         self.sock = socket.create_connection((self.host, self.port))
         self.sock.setblocking(0)
 
@@ -71,11 +84,84 @@ class IndexClient(object):
         return matches
 
     def begin(self):
-        return self._request('begin')
+        if self.in_transaction:
+            raise IndexClientError('called begin() while in transaction')
+        self._request('begin')
+        self.in_transaction = True
 
     def commit(self):
-        return self._request('commit')
+        if self.in_transaction:
+            raise IndexClientError('called commit() without a transaction')
+        self._request('commit')
+        self.in_transaction = False
+
+    def rollback(self):
+        if self.in_transaction:
+            raise IndexClientError('called rollback() without a transaction')
+        self._request('rollback')
+        self.in_transaction = False
 
     def insert(self, id, fingerprint):
         return self._request('insert %d %s' % (id, encode_fp(fingerprint)))
+
+    def close(self):
+        try:
+            if self.in_transaction:
+                self.rollback()
+            self._request('quit')
+            self.sock.close()
+        except StandardError:
+            logger.exception("Error while closing connection %s", (self,))
+        self.sock = None
+
+
+class IndexClientWrapper(object):
+
+    def __init__(self, pool=None, client=None)
+        self._pool = pool
+        self._client = None
+        self.ping = self._client.ping
+        self.search = self._client.search
+        self.begin = self._client.begin
+        self.commit = self._client.commit
+        self.rollback = self._client.rollback
+        self.insert = self._client.insert
+
+    def close(self):
+        if self._client.in_transaction:
+            self._client.rollback()
+        self._pool.release(self._client)
+
+
+class IndexClientPool(object):
+
+    def __init__(self, max_idle_clients=5, recycle=-1, **kwargs):
+        self.max_idle_clients = max_idle_clients
+        self.recycle = recycle
+        self.clients = deque()
+        self.args = kwargs
+
+    def _release(self, client):
+        if len(self.clients) >= self.max_idle_clients:
+            logger.info("Too many idle connections, closing %s", (client,))
+            client.close()
+        elif self.recycle > 0 and client.created + self.recycle < time.time():
+            logger.info("Recycling connection %s after %d seconds", (client, self.recycle))
+            client.close()
+        else:
+            logger.info("Checking in connection %s", (client,))
+            self.clients.append(client)
+
+    def connect(self):
+        client = None
+        if self.clients:
+            client = self.clients.popleft()
+            try:
+                client.ping()
+            except IndexClientError:
+                client.close()
+                client = None
+        if client is None:
+            client = IndexClient(**self.args)
+        return IndexClientWrapper(self, client)
 
