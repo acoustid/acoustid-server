@@ -24,6 +24,7 @@ api_url_rules = [
             Rule('/lookup', endpoint=api.v2.LookupHandler),
             Rule('/submit', endpoint=api.v2.SubmitHandler),
             Rule('/track/list_by_mbid', endpoint=api.v2.misc.TrackListByMBIDHandler),
+            Rule('/track/list_by_puid', endpoint=api.v2.misc.TrackListByPUIDHandler),
         ]),
     ])
 ]
