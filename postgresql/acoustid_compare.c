@@ -20,6 +20,10 @@
 #define MATCH_MASK ((1 << MATCH_BITS) - 1)
 #define MATCH_STRIP(x) ((uint32_t)(x) >> (32 - MATCH_BITS))
 
+#define UNIQ_BITS 16
+#define UNIQ_MASK ((1 << MATCH_BITS) - 1)
+#define UNIQ_STRIP(x) ((uint32_t)(x) >> (32 - MATCH_BITS))
+
 PG_MODULE_MAGIC;
 
 PG_FUNCTION_INFO_V1(acoustid_compare);
@@ -57,14 +61,14 @@ Datum       acoustid_extract_query(PG_FUNCTION_ARGS);
 
 /* From http://en.wikipedia.org/wiki/Hamming_weight */
 
-const uint64_t m1  = 0x5555555555555555; /* binary: 0101... */
-const uint64_t m2  = 0x3333333333333333; /* binary: 00110011.. */
-const uint64_t m4  = 0x0f0f0f0f0f0f0f0f; /* binary:  4 zeros,  4 ones ... */
-const uint64_t m8  = 0x00ff00ff00ff00ff; /* binary:  8 zeros,  8 ones ... */
-const uint64_t m16 = 0x0000ffff0000ffff; /* binary: 16 zeros, 16 ones ... */
-const uint64_t m32 = 0x00000000ffffffff; /* binary: 32 zeros, 32 ones */
-const uint64_t hff = 0xffffffffffffffff; /* binary: all ones */
-const uint64_t h01 = 0x0101010101010101; /* the sum of 256 to the power of 0,1,2,3... */
+const uint64_t m1  = 0x5555555555555555ULL; /* binary: 0101... */
+const uint64_t m2  = 0x3333333333333333ULL; /* binary: 00110011.. */
+const uint64_t m4  = 0x0f0f0f0f0f0f0f0fULL; /* binary:  4 zeros,  4 ones ... */
+const uint64_t m8  = 0x00ff00ff00ff00ffULL; /* binary:  8 zeros,  8 ones ... */
+const uint64_t m16 = 0x0000ffff0000ffffULL; /* binary: 16 zeros, 16 ones ... */
+const uint64_t m32 = 0x00000000ffffffffULL; /* binary: 32 zeros, 32 ones */
+const uint64_t hff = 0xffffffffffffffffULL; /* binary: all ones */
+const uint64_t h01 = 0x0101010101010101ULL; /* the sum of 256 to the power of 0,1,2,3... */
 
 inline static int
 popcount_3(uint64_t x)
@@ -114,12 +118,17 @@ match_fingerprints(int4 *a, int asize, int4 *b, int bsize)
 static float4
 match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 {
-	int i, topcount, topoffset, size, biterror, minsize;
+	int i, topcount, topoffset, size, biterror, minsize, auniq = 0, buniq = 0;
 	int numcounts = asize + bsize + 1;
 	unsigned short *counts = palloc0(sizeof(unsigned short) * numcounts);
-	uint16_t *aoffsets = palloc0(sizeof(uint16_t) * MATCH_MASK), *boffsets = palloc0(sizeof(uint16_t) * MATCH_MASK);
+	uint8_t *seen;
+	uint16_t *aoffsets, *boffsets;
 	uint64_t *adata, *bdata;
-	float4 score;
+	float4 score, diversity;
+
+	aoffsets = palloc0(sizeof(uint16_t) * MATCH_MASK * 2);
+	boffsets = aoffsets + MATCH_MASK;
+	seen = (uint8_t *)aoffsets;
 
 	for (i = 0; i < asize; i++) {
 		aoffsets[MATCH_STRIP(a[i])] = i;
@@ -145,9 +154,6 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 	}
 
 	topoffset -= bsize;
-	pfree(boffsets);
-	pfree(aoffsets);
-	pfree(counts);
 
 	minsize = Min(asize, bsize) & ~1;
 	if (topoffset < 0) {
@@ -162,15 +168,38 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 	size = Min(asize, bsize) / 2;
 	if (!size) {
 		ereport(DEBUG4, (errmsg("acoustid_compare2: empty matching subfingerprint")));
-		return 0.0;
+		score = 0.0;
+		goto exit;
 	}
 
 	ereport(DEBUG5, (errmsg("acoustid_compare2: offset %d, offset score %d, size %d", topoffset, topcount, size * 2)));
 
 	if (topcount < size * 0.04) {
 		ereport(DEBUG4, (errmsg("acoustid_compare2: top offset score is below 2%% of the size")));
-		return 0.0;
+		score = 0.0;
+		goto exit;
 	}
+
+	memset(seen, 0, UNIQ_MASK);
+	for (i = 0; i < asize; i++) {
+		int key = UNIQ_STRIP(a[i]);
+		if (!seen[key]) {
+			auniq++;
+			seen[key] = 1;
+		}
+	}
+
+	memset(seen, 0, UNIQ_MASK);
+	for (i = 0; i < bsize; i++) {
+		int key = UNIQ_STRIP(b[i]);
+		if (!seen[key]) {
+			buniq++;
+			seen[key] = 1;
+		}
+	}
+
+	diversity = 0.5 * (Min(1.0, (float)auniq / asize + 0.5) +
+	                   Min(1.0, (float)buniq / bsize + 0.5));
 
 	adata = (uint64_t *)a;
 	bdata = (uint64_t *)b;
@@ -179,6 +208,12 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 		biterror += BITCOUNT64(*adata ^ *bdata);
 	}
 	score = (size * 2.0 / minsize) * (1.0 - 2.0 * (float4)biterror / (64 * size));
+	if (diversity < 1.0) {
+		score = pow(score, 2.0 - diversity);
+	}
+exit:
+	pfree(aoffsets);
+	pfree(counts);
 	return score;
 }
 
