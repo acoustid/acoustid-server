@@ -232,12 +232,15 @@ def can_merge_tracks(conn, track_ids):
     cond = sql.and_(fp1.c.track_id.in_(track_ids), fp2.c.track_id.in_(track_ids))
     query = sql.select([
         fp1.c.track_id, fp2.c.track_id,
+        sql.func.max(sql.func.abs(fp1.c.length - fp2.c.length)),
         sql.func.min(sql.func.acoustid_compare2(fp1.c.fingerprint, fp2.c.fingerprint, const.TRACK_MAX_OFFSET)),
     ], cond, from_obj=src).group_by(fp1.c.track_id, fp2.c.track_id).order_by(fp1.c.track_id, fp2.c.track_id)
     rows = conn.execute(query)
     merges = {}
-    for fp1_id, fp2_id, score in rows:
+    for fp1_id, fp2_id, length_diff, score in rows:
         if score < const.TRACK_GROUP_MERGE_THRESHOLD:
+            continue
+        if length_diff > const.FINGERPRINT_MAX_LENGTH_DIFF:
             continue
         group = fp1_id
         if group in merges:
@@ -249,13 +252,16 @@ def can_merge_tracks(conn, track_ids):
     return result
 
 
-def can_add_fp_to_track(conn, track_id, fingerprint):
+def can_add_fp_to_track(conn, track_id, fingerprint, length):
     cond = schema.fingerprint.c.track_id == track_id
     query = sql.select([
-        sql.func.min(sql.func.acoustid_compare2(schema.fingerprint.c.fingerprint, fingerprint, const.TRACK_MAX_OFFSET)),
+        sql.func.acoustid_compare2(schema.fingerprint.c.fingerprint, fingerprint, const.TRACK_MAX_OFFSET),
+        schema.fingerprint.c.length,
     ], cond, from_obj=schema.fingerprint)
-    score = conn.execute(query).scalar()
-    if score < const.TRACK_GROUP_MERGE_THRESHOLD:
-        return False
+    for fp_score, fp_length in conn.execute(query):
+        if fp_score < const.TRACK_GROUP_MERGE_THRESHOLD:
+            return False
+        if abs(fp_length - length) > const.FINGERPRINT_MAX_LENGTH_DIFF:
+            return False
     return True
 
