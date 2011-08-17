@@ -213,7 +213,7 @@ def calculate_fingerprint_similarity_matrix(conn, track_ids):
     cond = sql.and_(fp1.c.track_id.in_(track_ids), fp2.c.track_id.in_(track_ids))
     query = sql.select([
         fp1.c.id, fp2.c.id,
-        sql.func.acoustid_compare2(fp1.c.fingerprint, fp2.c.fingerprint),
+        sql.func.acoustid_compare2(fp1.c.fingerprint, fp2.c.fingerprint, const.TRACK_MAX_OFFSET),
     ], cond, from_obj=src).order_by(fp1.c.id, fp2.c.id)
     result = {}
     for fp1_id, fp2_id, score in conn.execute(query):
