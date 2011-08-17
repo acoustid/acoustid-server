@@ -161,10 +161,17 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 
 	size = Min(asize, bsize) / 2;
 	if (!size) {
+		ereport(DEBUG4, (errmsg("acoustid_compare2: empty matching subfingerprint")));
 		return 0.0;
 	}
 
-	ereport(DEBUG5, (errmsg("offset %d, offset score %d, size %d", topoffset, topcount, size * 2)));
+	ereport(DEBUG5, (errmsg("acoustid_compare2: offset %d, offset score %d, size %d", topoffset, topcount, size * 2)));
+
+	if (topcount < size * 0.04) {
+		ereport(DEBUG4, (errmsg("acoustid_compare2: top offset score is below 2%% of the size")));
+		return 0.0;
+	}
+
 	adata = (uint64_t *)a;
 	bdata = (uint64_t *)b;
 	biterror = 0;
