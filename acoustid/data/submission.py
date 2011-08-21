@@ -36,6 +36,9 @@ def import_submission(conn, submission):
     Import the given submission into the main fingerprint database
     """
     with conn.begin():
+        update_stmt = schema.submission.update().where(
+            schema.submission.c.id == submission['id'])
+        conn.execute(update_stmt.values(handled=True))
         mbids = []
         if submission['mbid']:
             mbids.append(resolve_mbid_redirect(conn, submission['mbid']))
@@ -100,9 +103,6 @@ def import_submission(conn, submission):
             insert_track_meta(conn, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])
         if submission['foreignid_id']:
             insert_track_foreignid(conn, fingerprint['track_id'], submission['foreignid_id'], submission['id'], submission['source_id'])
-        update_stmt = schema.submission.update().where(
-            schema.submission.c.id == submission['id'])
-        conn.execute(update_stmt.values(handled=True))
         return fingerprint
 
 
