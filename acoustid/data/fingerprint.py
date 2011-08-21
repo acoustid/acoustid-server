@@ -74,9 +74,15 @@ def insert_fingerprint(conn, data, submission_id=None, source_id=None):
     return id
 
 
-def inc_fingerprint_submission_count(conn, id):
+def inc_fingerprint_submission_count(conn, id, submission_id=None, source_id=None):
     update_stmt = schema.fingerprint.update().where(schema.fingerprint.c.id == id)
     conn.execute(update_stmt.values(submission_count=sql.text('submission_count+1')))
+    if submission_id and source_id:
+        insert_stmt = schema.fingerprint_source.insert().values({
+            'fingerprint_id': id,
+            'submission_id': submission_id,
+            'source_id': source_id,
+        })
+        conn.execute(insert_stmt)
     return True
-
 

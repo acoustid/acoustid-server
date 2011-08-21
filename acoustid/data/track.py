@@ -120,7 +120,7 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
             sql.func.array_agg(tab.c.id).label('all_ids'),
             sql.func.sum(tab.c.submission_count).label('count'),
         ],
-        tab.c.id.in_(source_ids + [target_id]),
+        tab.c.track_id.in_(source_ids + [target_id]),
         group_by=col)
     rows = conn.execute(query).fetchall()
     to_delete = set()
