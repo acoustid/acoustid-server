@@ -135,6 +135,3 @@ ALTER TABLE submission ADD CONSTRAINT submission_fk_foreignid_id
     FOREIGN KEY (foreignid_id)
     REFERENCES foreignid (id);
 
-ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_meta_id
-    FOREIGN KEY (meta_id) REFERENCES meta (id);
-

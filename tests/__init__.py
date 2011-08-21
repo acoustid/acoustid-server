@@ -113,7 +113,7 @@ INSERT INTO track (id, gid) VALUES
     (2, '92732e4b-97c6-4250-b237-1636384d466f'),
     (3, '30e66c45-f761-490a-b1bd-55763e8b59be'),
     (4, '014e973b-368e-42bf-b619-84cab14c4af6');
-INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3');
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 1);
 
 INSERT INTO musicbrainz.artist_name (id, name) VALUES
     (1, 'Artist A');

@@ -114,7 +114,7 @@ CREATE TABLE foreignid_vendor (
 CREATE TABLE foreignid (
     id serial NOT NULL,
     vendor_id int NOT NULL,
-    name text(256) NOT NULL
+    name text NOT NULL
 );
 
 CREATE TABLE track_foreignid (
