@@ -28,11 +28,13 @@ def lookup_tracks(conn, mbids):
     if not mbids:
         return {}
     query = sql.select(
-        [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
-        schema.track_mbid.c.mbid.in_(mbids)).order_by(schema.track_mbid.c.track_id)
+        [schema.track_mbid.c.track_id, schema.track.c.gid, schema.track_mbid.c.mbid],
+        schema.track_mbid.c.mbid.in_(mbids),
+        from_obj=schema.track_mbid.join(schema.track, schema.track_mbid.c.track_id == schema.track.c.id)). \
+        order_by(schema.track_mbid.c.track_id)
     results = {}
-    for track_id, mbid in conn.execute(query):
-        results.setdefault(mbid, []).append(track_id)
+    for track_id, track_gid, mbid in conn.execute(query):
+        results.setdefault(mbid, []).append({'id': track_id, 'gid': track_gid})
     return results
 
 
