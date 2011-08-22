@@ -116,14 +116,14 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
     if name == 'mbid':
         tab_chg = schema.metadata.tables['track_%s_change' % name]
         col_chg = tab_chg.columns['track_%s_id' % name]
-    query = sql.select(
-        [
-            sql.func.min(tab.c.id).label('id'),
-            sql.func.array_agg(tab.c.id).label('all_ids'),
-            sql.func.sum(tab.c.submission_count).label('count'),
-        ],
-        tab.c.track_id.in_(source_ids + [target_id]),
-        group_by=col)
+    columns = [
+        sql.func.min(tab.c.id).label('id'),
+        sql.func.array_agg(tab.c.id).label('all_ids'),
+        sql.func.sum(tab.c.submission_count).label('count'),
+    ]
+    if name == 'mbid':
+        columns.append(sql.func.every(schema.track_mbid.c.disabled).label('all_disabled'))
+    query = sql.select(columns, tab.c.track_id.in_(source_ids + [target_id]), group_by=col)
     rows = conn.execute(query).fetchall()
     to_delete = set()
     for row in rows:
@@ -131,7 +131,10 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
         old_ids.remove(row['id'])
         to_delete.update(old_ids)
         update_stmt = tab.update().where(tab.c.id == row['id'])
-        conn.execute(update_stmt.values(submission_count=row['count'], track_id=target_id))
+        if name == 'mbid':
+            conn.execute(update_stmt.values(submission_count=row['count'], track_id=target_id, disabled=row['all_disabled']))
+        else:
+            conn.execute(update_stmt.values(submission_count=row['count'], track_id=target_id))
         if old_ids:
             update_stmt = tab_src.update().where(col_src.in_(old_ids))
             conn.execute(update_stmt.values({col_src: row['id']}))

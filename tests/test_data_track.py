@@ -187,6 +187,51 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (5, 1);
 
 
 @with_database
+def test_merge_tracks_disabled_target(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11);
+""")
+    merge_tracks(conn, 1, [2])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+    ]
+    assert_equals(expected_rows, rows)
+
+
+@with_database
+def test_merge_tracks_disabled_source(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11, true);
+""")
+    merge_tracks(conn, 1, [2])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+    ]
+    assert_equals(expected_rows, rows)
+
+
+@with_database
+def test_merge_tracks_disabled_both(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11, true);
+""")
+    merge_tracks(conn, 1, [2])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, True),
+    ]
+    assert_equals(expected_rows, rows)
+
+
+@with_database
 def test_can_merge_tracks(conn):
     prepare_database(conn, """
 INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
