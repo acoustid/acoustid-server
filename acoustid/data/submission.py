@@ -111,7 +111,7 @@ def import_queued_submissions(conn, limit=50):
     """
     Import the given submission into the main fingerprint database
     """
-    query = schema.submission.select(sql.and_(schema.submission.c.mbid != None, schema.submission.c.handled == False)).limit(limit)
+    query = schema.submission.select(schema.submission.c.handled == False).limit(limit)
     count = 0
     for submission in conn.execute(query):
         import_submission(conn, submission)
