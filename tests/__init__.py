@@ -5,6 +5,7 @@ import os
 import json
 import pprint
 import difflib
+import logging
 import sqlalchemy
 import sqlalchemy.pool
 from contextlib import closing
@@ -190,6 +191,8 @@ def setup():
     global config, engine
     config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid-test.conf'
     config = Config(config_path)
+    for logger_name, level in sorted(config.logging.levels.items()):
+        logging.getLogger(logger_name).setLevel(level)
     engine = sqlalchemy.create_engine(config.database.create_url(),
         poolclass=sqlalchemy.pool.AssertionPool)
     if not os.environ.get('SKIP_DB_SETUP'):

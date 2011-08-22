@@ -113,6 +113,9 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
     col = tab.columns[name_with_id]
     tab_src = schema.metadata.tables['track_%s_source' % name]
     col_src = tab_src.columns['track_%s_id' % name]
+    if name == 'mbid':
+        tab_chg = schema.metadata.tables['track_%s_change' % name]
+        col_chg = tab_chg.columns['track_%s_id' % name]
     query = sql.select(
         [
             sql.func.min(tab.c.id).label('id'),
@@ -123,21 +126,21 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
         group_by=col)
     rows = conn.execute(query).fetchall()
     to_delete = set()
-    to_update = []
     for row in rows:
-        other_ids = set(row['all_ids'])
-        other_ids.remove(row['id'])
-        to_update.append((row['id'], row['count']))
-        to_delete.update(other_ids)
-        if other_ids:
-            update_stmt = tab_src.update().where(col_src.in_(other_ids))
+        old_ids = set(row['all_ids'])
+        old_ids.remove(row['id'])
+        to_delete.update(old_ids)
+        update_stmt = tab.update().where(tab.c.id == row['id'])
+        conn.execute(update_stmt.values(submission_count=row['count'], track_id=target_id))
+        if old_ids:
+            update_stmt = tab_src.update().where(col_src.in_(old_ids))
             conn.execute(update_stmt.values({col_src: row['id']}))
+            if name == 'mbid':
+                update_stmt = tab_chg.update().where(col_chg.in_(old_ids))
+                conn.execute(update_stmt.values({col_chg: row['id']}))
     if to_delete:
         delete_stmt = tab.delete().where(tab.c.id.in_(to_delete))
         conn.execute(delete_stmt)
-    for id, count in to_update:
-        update_stmt = tab.update().where(tab.c.id == id)
-        conn.execute(update_stmt.values(submission_count=count, track_id=target_id))
 
 
 def merge_tracks(conn, target_id, source_ids):
