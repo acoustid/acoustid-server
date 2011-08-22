@@ -37,6 +37,8 @@ INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '97e
 INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, 'd575d506-4da4-11e0-b951-0025225356f3', 11);
 INSERT INTO track_mbid_source (track_mbid_id, submission_id, source_id) VALUES (1, 1, 1);
 INSERT INTO track_mbid_source (track_mbid_id, submission_id, source_id) VALUES (2, 2, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (1, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (2, 1);
 """)
     merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
@@ -48,6 +50,12 @@ INSERT INTO track_mbid_source (track_mbid_id, submission_id, source_id) VALUES (
     expected_rows = [
         (1, 1, 1),
         (1, 2, 1),
+    ]
+    assert_equals(expected_rows, rows)
+    rows = conn.execute("SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id").fetchall()
+    expected_rows = [
+        (1, 1),
+        (1, 1),
     ]
     assert_equals(expected_rows, rows)
 
