@@ -35,11 +35,11 @@ class TrackListByMBIDHandler(APIHandler):
         tracks_map = {}
         for mbid, track_gid in self.conn.execute(query):
             tracks_map.setdefault(mbid, []).append({'id': track_gid})
-        if len(self.mbids) == 1:
-            response['tracks'] = tracks_map.get(self.mbids[0], [])
+        if len(params.mbids) == 1:
+            response['tracks'] = tracks_map.get(params.mbids[0], [])
         else:
             response['mbids'] = mbids = []
-            for mbid in self.mbids:
+            for mbid in params.mbids:
                 mbids.append({
                     'mbid': mbid,
                     'tracks': tracks_map.get(mbid, []),
