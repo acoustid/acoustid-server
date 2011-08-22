@@ -70,25 +70,22 @@ def merge_mbids(conn, target_mbid, source_mbids):
             group_by=schema.track_mbid.c.track_id)
         rows = conn.execute(query).fetchall()
         to_delete = set()
-        to_update = []
         for row in rows:
             old_ids = set(row['all_ids'])
             old_ids.remove(row['id'])
-            to_update.append((row['id'], row['count'], row['all_disabled'], old_ids))
             to_delete.update(old_ids)
+            update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == row['id'])
+            conn.execute(update_stmt.values(submission_count=row['count'],
+                mbid=target_mbid, disabled=row['all_disabled']))
+            if old_ids:
+                update_stmt = schema.track_mbid_source.update().where(schema.track_mbid_source.c.track_mbid_id.in_(old_ids))
+                conn.execute(update_stmt.values(track_mbid_id=row['id']))
+                update_stmt = schema.track_mbid_change.update().where(schema.track_mbid_change.c.track_mbid_id.in_(old_ids))
+                conn.execute(update_stmt.values(track_mbid_id=row['id']))
         if to_delete:
             delete_stmt = schema.track_mbid.delete().where(
                 schema.track_mbid.c.id.in_(to_delete))
             conn.execute(delete_stmt)
-        for id, count, disabled, old_ids in to_update:
-            update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == id)
-            conn.execute(update_stmt.values(submission_count=count,
-                mbid=target_mbid, disabled=disabled))
-            if old_ids:
-                update_stmt = schema.track_mbid_source.update().where(schema.track_mbid_source.c.track_mbid_id.in_(old_ids))
-                conn.execute(update_stmt.values(track_mbid_id=id))
-                update_stmt = schema.track_mbid_change.update().where(schema.track_mbid_change.c.track_mbid_id.in_(old_ids))
-                conn.execute(update_stmt.values(track_mbid_id=id))
 
 
 def merge_missing_mbids(conn):

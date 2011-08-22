@@ -16,11 +16,11 @@ class TrackListByMBIDHandlerParams(APIHandlerParams):
 
     def parse(self, values, conn):
         super(TrackListByMBIDHandlerParams, self).parse(values, conn)
-        self.mbid = values.get('mbid')
-        if not self.mbid:
+        self.mbids = values.getlist('mbid')
+        if not self.mbids:
             raise errors.MissingParameterError('mbid')
-        if not is_uuid(self.mbid):
-            raise errors.InvalidUUIDError('mbid')
+        if not all(map(is_uuid, self.mbids)):
+            raise errors.InvalidUUIDError('mbid' + suffix)
 
 
 class TrackListByMBIDHandler(APIHandler):
@@ -29,12 +29,21 @@ class TrackListByMBIDHandler(APIHandler):
 
     def _handle_internal(self, params):
         response = {}
-        response['tracks'] = tracks = []
-        query = sql.select([schema.track.c.gid],
-            schema.track_mbid.c.mbid == params.mbid,
+        query = sql.select([schema.track_mbid.c.mbid, schema.track.c.gid],
+            schema.track_mbid.c.mbid.in_(params.mbids),
             schema.track_mbid.join(schema.track))
-        for row in self.conn.execute(query):
-            tracks.append({'id': row['gid']})
+        tracks_map = {}
+        for mbid, track_gid in self.conn.execute(query):
+            tracks_map.setdefault(mbid, []).append({'id': track_gid})
+        if len(self.mbids) == 1:
+            response['tracks'] = tracks_map.get(self.mbids[0], [])
+        else:
+            response['mbids'] = mbids = []
+            for mbid in self.mbids:
+                mbids.append({
+                    'mbid': mbid,
+                    'tracks': tracks_map.get(mbid, []),
+                })
         return response
 
 
