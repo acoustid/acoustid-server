@@ -8,6 +8,8 @@ import urllib2
 from openid import oidutil, fetchers
 from openid.consumer import consumer as openid
 from openid.extensions import ax, sreg
+from sqlalchemy import sql
+from acoustid import tables as schema
 from werkzeug import redirect
 from werkzeug.exceptions import NotFound, abort, HTTPException
 from werkzeug.utils import cached_property
@@ -356,6 +358,7 @@ class StatsHandler(WebSiteHandler):
             'fingerprints': stats.get('fingerprint.all', 0),
             'tracks': stats.get('track.all', 0),
             'mbids': stats.get('mbid.all', 0),
+            'puids': stats.get('puid.all', 0),
             'contributors': stats.get('account.active', 0),
             'mbids_both': stats.get('mbid.both', 0),
             'mbids_onlypuid': stats.get('mbid.onlypuid', 0),
@@ -366,12 +369,13 @@ class StatsHandler(WebSiteHandler):
         basic['tracks_with_mbid'] = basic['tracks'] - stats.get('track.0mbids', 0)
         basic['tracks_with_mbid_percent'] = percent(basic['tracks_with_mbid'], basic['tracks'])
         top_contributors = find_top_contributors(self.conn)
-        daily_raw = find_daily_stats(self.conn, ['submission.all', 'fingerprint.all', 'track.all', 'mbid.all'])
+        daily_raw = find_daily_stats(self.conn, ['submission.all', 'fingerprint.all', 'track.all', 'mbid.all', 'puid.all'])
         daily = {
             'submissions': daily_raw['submission.all'],
             'fingerprints': daily_raw['fingerprint.all'],
             'tracks': daily_raw['track.all'],
             'mbids': daily_raw['mbid.all'],
+            'puids': daily_raw['puid.all'],
         }
         return self.render_template('stats.html', title=title, basic=basic,
             track_mbid=track_mbid, mbid_track=mbid_track,
@@ -390,37 +394,74 @@ class ContributorsHandler(WebSiteHandler):
 class TrackHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        from acoustid.data.track import get_track_fingerprint_matrix, lookup_mbids
+        from acoustid.data.track import lookup_mbids, resolve_track_gid
         from acoustid.data.musicbrainz import lookup_recording_metadata
+        from acoustid.utils import is_uuid
         track_id = self.url_args['id']
-        title = 'Track #%d' % (track_id,)
-        matrix = get_track_fingerprint_matrix(self.conn, track_id)
-        ids = sorted(matrix.keys())
-        if not ids:
-            title = 'Incorrect Track'
-            return self.render_template('track-not-found.html', title=title,
-                track_id=track_id)
-        fingerprints = [{'id': id, 'i': i + 1} for i, id in enumerate(ids)]
-        color1 = (172, 0, 0)
-        color2 = (255, 255, 255)
-        for id1 in ids:
-            for id2 in ids:
-                sim = matrix[id1][id2]
-                color = [color1[i] + (color2[i] - color1[i]) * sim for i in range(3)]
-                matrix[id1][id2] = {
-                    'value': sim,
-                    'color': '#%02x%02x%02x' % tuple(color),
-                }
-        mbids = lookup_mbids(self.conn, [track_id])[track_id]
-        metadata = lookup_recording_metadata(self.conn, mbids)
+        if is_uuid(track_id):
+            track_id = resolve_track_gid(self.conn, track_id)
+        else:
+            track_id = int(track_id)
+        title = 'Track #%s' % (track_id,)
+        #matrix = get_track_fingerprint_matrix(self.conn, track_id)
+        #ids = sorted(matrix.keys())
+        #if not ids:
+        #    title = 'Incorrect Track'
+        #    return self.render_template('track-not-found.html', title=title,
+        #        track_id=track_id)
+        #fingerprints = [{'id': id, 'i': i + 1} for i, id in enumerate(ids)]
+        #color1 = (172, 0, 0)
+        #color2 = (255, 255, 255)
+        #for id1 in ids:
+        #    for id2 in ids:
+        #        sim = matrix[id1][id2]
+        #        color = [color1[i] + (color2[i] - color1[i]) * sim for i in range(3)]
+        #        matrix[id1][id2] = {
+        #            'value': sim,
+        #            'color': '#%02x%02x%02x' % tuple(color),
+        #        }
+        query = sql.select(
+            [schema.fingerprint.c.id,
+             schema.fingerprint.c.length,
+             schema.fingerprint.c.submission_count],
+            schema.fingerprint.c.track_id == track_id)
+        fingerprints = self.conn.execute(query).fetchall()
+        query = sql.select(
+            [schema.track_puid.c.puid,
+             schema.track_puid.c.submission_count],
+            schema.track_puid.c.track_id == track_id)
+        puids = list(self.conn.execute(query).fetchall())
+        query = sql.select(
+            [schema.track_mbid.c.mbid,
+             schema.track_mbid.c.submission_count],
+            schema.track_mbid.c.track_id == track_id)
+        mbids = self.conn.execute(query).fetchall()
+        metadata = lookup_recording_metadata(self.conn, [r['mbid'] for r in mbids])
         recordings = []
         for mbid in mbids:
-            recording = metadata.get(mbid, {})
-            recording['mbid'] = mbid
+            recording = metadata.get(mbid['mbid'], {})
+            recording['mbid'] = mbid['mbid']
+            recording['submission_count'] = mbid['submission_count']
             recordings.append(recording)
         recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
         return self.render_template('track.html', title=title,
-            matrix=matrix, fingerprints=fingerprints, recordings=recordings)
+            fingerprints=fingerprints, recordings=recordings, puids=puids)
+
+
+class FingerprintHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        fingerprint_id = int(self.url_args['id'])
+        title = 'Fingerprint #%s' % (fingerprint_id,)
+        query = sql.select(
+            [schema.fingerprint.c.id,
+             schema.fingerprint.c.length,
+             schema.fingerprint.c.fingerprint,
+             schema.fingerprint.c.submission_count],
+            schema.fingerprint.c.id == fingerprint_id)
+        fingerprint = self.conn.execute(query).first()
+        return self.render_template('fingerprint.html', title=title,
+            fingerprint=fingerprint)
 
 
 

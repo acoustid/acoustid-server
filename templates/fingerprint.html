@@ -1,0 +1,35 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>{{ title }}</h2>
+
+<canvas style="border: solid 2px #C5C5C5;" id="fp-img" width="32" height="0"></canvas>
+
+<script type="text/javascript">
+var fp = {{ fingerprint.fingerprint }};
+var canvas = document.getElementById('fp-img');
+canvas.height = fp.length;
+var ctx = canvas.getContext('2d');
+var pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+var idx = 0;
+for (var i = 0; i < fp.length; i++) {
+    for (var j = 0; j < 32; j++) {
+        if (fp[i] & (1 << j)) {
+            pixels.data[idx + 0] = 255;
+            pixels.data[idx + 1] = 255;
+            pixels.data[idx + 2] = 255;
+        }
+        else {
+            pixels.data[idx + 0] = 0;
+            pixels.data[idx + 1] = 0;
+            pixels.data[idx + 2] = 0;
+        }
+        pixels.data[idx + 3] = 255;
+        idx += 4;
+    }
+}
+ctx.putImageData(pixels, 0, 0);
+</script>
+
+{% endblock %}
+

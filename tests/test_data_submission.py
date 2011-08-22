@@ -144,8 +144,8 @@ def test_import_submission(conn):
 @with_database
 def test_import_submission_reuse_fingerprint_97(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, track_id)
-        VALUES (%(fp)s, %(len)s, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+        VALUES (%(fp)s, %(len)s, 1, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_1B_FP_RAW,
@@ -165,8 +165,8 @@ def test_import_submission_reuse_fingerprint_97(conn):
 @with_database
 def test_import_submission_reuse_fingerprint_100(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, track_id)
-        VALUES (%(fp)s, %(len)s, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+        VALUES (%(fp)s, %(len)s, 1, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_1A_FP_RAW,
@@ -186,8 +186,8 @@ def test_import_submission_reuse_fingerprint_100(conn):
 @with_database
 def test_import_submission_reuse_track_93(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, track_id)
-        VALUES (%(fp)s, %(len)s, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+        VALUES (%(fp)s, %(len)s, 1, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_1C_FP_RAW,
@@ -199,7 +199,12 @@ def test_import_submission_reuse_track_93(conn):
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_false(submission['handled'])
-    fingerprint = import_submission(conn, submission)
+    try:
+        old_threshold = const.FINGERPRINT_MERGE_THRESHOLD
+        const.FINGERPRINT_MERGE_THRESHOLD = 0.95
+        fingerprint = import_submission(conn, submission)
+    finally:
+        const.FINGERPRINT_MERGE_THRESHOLD = old_threshold
     assert_equals(2, fingerprint['id'])
     assert_equals(1, fingerprint['track_id'])
 
@@ -207,8 +212,8 @@ def test_import_submission_reuse_track_93(conn):
 @with_database
 def test_import_submission_new_track(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, track_id)
-        VALUES (%(fp)s, %(len)s, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+        VALUES (%(fp)s, %(len)s, 1, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_1D_FP_RAW,
@@ -233,8 +238,8 @@ def test_import_submission_new_track(conn):
 @with_database
 def test_import_submission_new_track_different(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, track_id)
-        VALUES (%(fp)s, %(len)s, 1);
+    INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+        VALUES (%(fp)s, %(len)s, 1, 1);
     """, dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH))
     id = insert_submission(conn, {
         'fingerprint': TEST_2_FP_RAW,
@@ -254,8 +259,8 @@ def test_import_submission_new_track_different(conn):
 @with_database
 def test_import_submission_merge_existing_tracks(conn):
     prepare_database(conn, """
-    INSERT INTO fingerprint (fingerprint, length, track_id)
-        VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 2);
+    INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+        VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH))
     id = insert_submission(conn, {
@@ -269,7 +274,7 @@ def test_import_submission_merge_existing_tracks(conn):
     submission = conn.execute(query).fetchone()
     assert_false(submission['handled'])
     fingerprint = import_submission(conn, submission)
-    assert_equals(3, fingerprint['id'])
+    assert_equals(1, fingerprint['id'])
     assert_equals(1, fingerprint['track_id'])
     query = tables.fingerprint.select(tables.fingerprint.c.id == 1)
     fingerprint = conn.execute(query).fetchone()

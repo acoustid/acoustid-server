@@ -163,8 +163,8 @@ def test_lookup_handler(conn):
     assert_equals('200 OK', resp.status)
     # one exact match
     prepare_database(conn, """
-INSERT INTO fingerprint (length, fingerprint, track_id)
-    VALUES (%s, %s, 1);
+INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
+    VALUES (%s, %s, 1, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
@@ -195,7 +195,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id)
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     # one exact match with MBIDs and metadata
-    prepare_database(conn, "INSERT INTO track_mbid (track_id, mbid) VALUES (1, '373e6728-35e3-4633-aab1-bf7092ec43d8')")
+    prepare_database(conn, "INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '373e6728-35e3-4633-aab1-bf7092ec43d8', 1)")
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '2'}
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(connect=provider(conn))
@@ -253,8 +253,8 @@ INSERT INTO fingerprint (length, fingerprint, track_id)
     assert_equals('200 OK', resp.status)
     # duplicate fingerprint
     prepare_database(conn, """
-INSERT INTO fingerprint (length, fingerprint, track_id)
-    VALUES (%s, %s, 1);
+INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
+    VALUES (%s, %s, 1, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
     builder = EnvironBuilder(method='POST', data=values)

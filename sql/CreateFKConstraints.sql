@@ -135,6 +135,6 @@ ALTER TABLE submission ADD CONSTRAINT submission_fk_foreignid_id
     FOREIGN KEY (foreignid_id)
     REFERENCES foreignid (id);
 
-ALTER TABLE fingerprint ADD CONSTRAINT fingerprint_fk_meta_id
-    FOREIGN KEY (meta_id) REFERENCES meta (id);
+ALTER TABLE track_mbid_change ADD CONSTRAINT track_mbid_change_fk_track_mbid_id FOREIGN KEY (track_mbid_id) REFERENCES track_mbid (id);
+ALTER TABLE track_mbid_change ADD CONSTRAINT track_mbid_change_fk_account_id FOREIGN KEY (account_id) REFERENCES account (id);
 

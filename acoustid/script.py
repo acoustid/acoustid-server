@@ -58,4 +58,5 @@ def run_script(func):
         raise
     else:
         logger.debug("Script finished %s successfuly", sys.argv[0])
+    script.engine.dispose()
 

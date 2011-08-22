@@ -5,13 +5,12 @@ import logging
 import chromaprint
 from contextlib import closing
 from sqlalchemy import sql
-from acoustid import tables as schema
+from acoustid import tables as schema, const
 
 logger = logging.getLogger(__name__)
 
 
 FINGERPRINT_VERSION = 1
-MAX_LENGTH_DIFF = 7
 PARTS = ((1, 20), (21, 100))
 PART_SEARCH_SQL = """
 SELECT id, track_id, score FROM (
@@ -37,7 +36,7 @@ def lookup_fingerprint(conn, fp, length, good_enough_score, min_score, fast=Fals
     best_score = 0.0
     for part_start, part_length in PARTS:
         params = dict(fp=fp, length=length, part_start=part_start,
-            part_length=part_length, max_length_diff=MAX_LENGTH_DIFF,
+            part_length=part_length, max_length_diff=const.FINGERPRINT_MAX_LENGTH_DIFF,
             min_score=min_score, max_offset=max_offset)
         with closing(conn.execute(PART_SEARCH_SQL, params)) as result:
             for row in result:
@@ -75,9 +74,15 @@ def insert_fingerprint(conn, data, submission_id=None, source_id=None):
     return id
 
 
-def inc_fingerprint_submission_count(conn, id):
+def inc_fingerprint_submission_count(conn, id, submission_id=None, source_id=None):
     update_stmt = schema.fingerprint.update().where(schema.fingerprint.c.id == id)
     conn.execute(update_stmt.values(submission_count=sql.text('submission_count+1')))
+    if submission_id and source_id:
+        insert_stmt = schema.fingerprint_source.insert().values({
+            'fingerprint_id': id,
+            'submission_id': submission_id,
+            'source_id': source_id,
+        })
+        conn.execute(insert_stmt)
     return True
-
 

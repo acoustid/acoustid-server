@@ -4,10 +4,11 @@
 <h2>{{ title }}</h2>
 
 <p>
-    This track has {{ fingerprints | length }} fingerprints(s) and is linked
+    This track has {{ fingerprints | length }} fingerprint(s) and is linked
     to {{ recordings | length }} MusicBrainz recording(s).
 </p>
 
+{#
 {% if fingerprints[1] %}
 
 <p>Similarity matrix of the track's fingerprints:</p>
@@ -30,18 +31,70 @@
 </table>
 
 {% endif %}
+#}
 
+{% macro format_length(secs) -%}
+{{ "%d:%02d" | format(secs / 60, secs % 60) }}
+{%- endmacro %}
+
+<p>Fingerprints:</p>
+
+<table class="listing">
+<tr>
+    <th>ID</th>
+    <th style="width:5em;">Length</th>
+    <th style="width:5em;">Sources</th>
+</tr>
+{% for fp in fingerprints %}
+<tr>
+    <td><a href="{{ base_url }}fingerprint/{{ fp.id }}">{{ fp.id }}</a></td>
+    <td>{{ format_length(fp.length) }}</td>
+    <td>{{ fp.submission_count }}</td>
+{% endfor %}
+</tr>
+</table>
+
+{% if recordings %}
 <p>Linked MusicBrainz recordings:</p>
 
-<ul>
+<table class="listing">
+<tr>
+    <th>Title</th>
+    <th>Artist</th>
+    <th style="width:5em;">Length</th>
+    <th style="width:5em;">Sources</th>
+</tr>
 {% for rec in recordings %}
+<tr>
     {% if rec.name %}
-    <li><a href="http://musicbrainz.org/track/{{ rec.mbid }}">{{ rec.name }}</a> by <a href="http://musicbrainz.org/artist/{{ rec.artist_id }}">{{ rec.artist_name }}</a></li>
+    <td><a href="http://musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a></td>
+    <td>{{ rec.artist_name }}</td>
+    <td>{{ format_length(rec.length) }}</td>
     {% else %}
-    <li><i><a href="http://musicbrainz.org/track/{{ rec.mbid }}">{{ rec.mbid }}</a></i></li>
+    <td colspan="3"><i><a href="http://musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.mbid }}</a></i></td>
     {% endif %}
+    <td>{{ rec.submission_count }}</td>
 {% endfor %}
-</ul>
+</tr>
+</table>
+{% endif %}
+
+{% if puids %}
+<p>Linked PUIDs:</p>
+
+<table class="listing">
+<tr>
+    <th>PUID</th>
+    <th style="width:5em;">Sources</th>
+</tr>
+{% for p in puids %}
+<tr>
+    <td><a href="http://musicbrainz.org/puid/{{ p.puid }}">{{ p.puid }}</a></td>
+    <td>{{ p.submission_count }}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
 
 {% endblock %}
 

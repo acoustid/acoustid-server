@@ -36,6 +36,9 @@ def import_submission(conn, submission):
     Import the given submission into the main fingerprint database
     """
     with conn.begin():
+        update_stmt = schema.submission.update().where(
+            schema.submission.c.id == submission['id'])
+        conn.execute(update_stmt.values(handled=True))
         mbids = []
         if submission['mbid']:
             mbids.append(resolve_mbid_redirect(conn, submission['mbid']))
@@ -67,31 +70,32 @@ def import_submission(conn, submission):
         }
         if matches:
             match = matches[0]
-            logger.debug("Matches %d results, the top result %s with track %d is %d%% similar",
-                len(matches), match['id'], match['track_id'], match['score'] * 100)
-            if match['score'] > const.FINGERPRINT_MERGE_THRESHOLD:
-                fingerprint['id'] = match['id']
-            if can_add_fp_to_track(conn, match['track_id'], submission['fingerprint']):
-                fingerprint['track_id'] = match['track_id']
-                all_track_ids = set([match['track_id']])
-                for m in matches:
-                    if m['track_id'] not in all_track_ids:
-                        logger.debug("Fingerprint %d with track %d is %d%% similar",
-                            m['id'], m['track_id'], m['score'] * 100)
-                        all_track_ids.add(m['track_id'])
-                if len(all_track_ids) > 1:
-                    for group in can_merge_tracks(conn, all_track_ids):
-                        if match['track_id'] in group and len(group) > 1:
-                            fingerprint['track_id'] = min(group)
-                            group.remove(fingerprint['track_id'])
-                            merge_tracks(conn, fingerprint['track_id'], list(group))
-                            break
+            all_track_ids = set()
+            possible_track_ids = set()
+            for m in matches:
+                if m['track_id'] in all_track_ids:
+                    continue
+                all_track_ids.add(m['track_id'])
+                logger.debug("Fingerprint %d with track %d is %d%% similar", m['id'], m['track_id'], m['score'] * 100)
+                if can_add_fp_to_track(conn, m['track_id'], submission['fingerprint'], submission['length']):
+                    possible_track_ids.add(m['track_id'])
+                    if not fingerprint['track_id']:
+                        fingerprint['track_id'] = m['track_id']
+                        if m['score'] > const.FINGERPRINT_MERGE_THRESHOLD:
+                            fingerprint['id'] = m['id']
+            if len(possible_track_ids) > 1:
+                for group in can_merge_tracks(conn, possible_track_ids):
+                    if fingerprint['track_id'] in group and len(group) > 1:
+                        fingerprint['track_id'] = min(group)
+                        group.remove(fingerprint['track_id'])
+                        merge_tracks(conn, fingerprint['track_id'], list(group))
+                        break
         if not fingerprint['track_id']:
             fingerprint['track_id'] = insert_track(conn)
         if not fingerprint['id']:
             fingerprint['id'] = insert_fingerprint(conn, fingerprint, submission['id'], submission['source_id'])
         else:
-            inc_fingerprint_submission_count(conn, fingerprint['id'])
+            inc_fingerprint_submission_count(conn, fingerprint['id'], submission['id'], submission['source_id'])
         for mbid in mbids:
             insert_mbid(conn, fingerprint['track_id'], mbid, submission['id'], submission['source_id'])
         if submission['puid'] and submission['puid'] != '00000000-0000-0000-0000-000000000000':
@@ -100,9 +104,6 @@ def import_submission(conn, submission):
             insert_track_meta(conn, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])
         if submission['foreignid_id']:
             insert_track_foreignid(conn, fingerprint['track_id'], submission['foreignid_id'], submission['id'], submission['source_id'])
-        update_stmt = schema.submission.update().where(
-            schema.submission.c.id == submission['id'])
-        conn.execute(update_stmt.values(handled=True))
         return fingerprint
 
 
@@ -110,7 +111,7 @@ def import_queued_submissions(conn, limit=50):
     """
     Import the given submission into the main fingerprint database
     """
-    query = schema.submission.select(schema.submission.c.handled == False).limit(limit)
+    query = schema.submission.select(sql.and_(schema.submission.c.mbid != None, schema.submission.c.handled == False)).limit(limit)
     count = 0
     for submission in conn.execute(query):
         import_submission(conn, submission)

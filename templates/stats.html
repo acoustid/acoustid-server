@@ -23,6 +23,10 @@
         <td class="r">{{ basic.mbids }}</td>
     </tr>
     <tr>
+        <td>PUIDs</td>
+        <td class="r">{{ basic.puids }}</td>
+    </tr>
+    <tr>
         <td>Contributors</td>
         <td class="r">{{ basic.contributors }}</td>
     </tr>
@@ -141,14 +145,15 @@ $(document).ready(function() {
 		},
 		plotOptions: {
 			line: {
-			lineWidth: 1
-			},
+				lineWidth: 1
+			}
 		},
 		series: [
 			{{ data_series('Submissions', daily.submissions) }},
 			{{ data_series('Fingerprints', daily.fingerprints, false) }},
 			{{ data_series('Tracks', daily.tracks, false) }},
-			{{ data_series('MBIDs', daily.mbids, false) }}
+			{{ data_series('MBIDs', daily.mbids, false) }},
+			{{ data_series('PUIDs', daily.puids, false) }}
 		]
 	});
 });
