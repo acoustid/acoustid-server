@@ -82,6 +82,8 @@ def merge_mbids(conn, target_mbid, source_mbids):
                 conn.execute(update_stmt.values(track_mbid_id=row['id']))
                 update_stmt = schema.track_mbid_change.update().where(schema.track_mbid_change.c.track_mbid_id.in_(old_ids))
                 conn.execute(update_stmt.values(track_mbid_id=row['id']))
+                update_stmt = schema.track_mbid_flag.update().where(schema.track_mbid_flag.c.track_mbid_id.in_(old_ids))
+                conn.execute(update_stmt.values(track_mbid_id=row['id']))
         if to_delete:
             delete_stmt = schema.track_mbid.delete().where(
                 schema.track_mbid.c.id.in_(to_delete))
@@ -116,6 +118,8 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
     if name == 'mbid':
         tab_chg = schema.metadata.tables['track_%s_change' % name]
         col_chg = tab_chg.columns['track_%s_id' % name]
+        tab_flag = schema.metadata.tables['track_%s_flag' % name]
+        col_flag = tab_flag.columns['track_%s_id' % name]
     columns = [
         sql.func.min(tab.c.id).label('id'),
         sql.func.array_agg(tab.c.id).label('all_ids'),
@@ -141,6 +145,8 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
             if name == 'mbid':
                 update_stmt = tab_chg.update().where(col_chg.in_(old_ids))
                 conn.execute(update_stmt.values({col_chg: row['id']}))
+                update_stmt = tab_flag.update().where(col_flag.in_(old_ids))
+                conn.execute(update_stmt.values({col_flag: row['id']}))
     if to_delete:
         delete_stmt = tab.delete().where(tab.c.id.in_(to_delete))
         conn.execute(delete_stmt)

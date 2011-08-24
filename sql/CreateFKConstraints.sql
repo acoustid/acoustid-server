@@ -138,3 +138,5 @@ ALTER TABLE submission ADD CONSTRAINT submission_fk_foreignid_id
 ALTER TABLE track_mbid_change ADD CONSTRAINT track_mbid_change_fk_track_mbid_id FOREIGN KEY (track_mbid_id) REFERENCES track_mbid (id);
 ALTER TABLE track_mbid_change ADD CONSTRAINT track_mbid_change_fk_account_id FOREIGN KEY (account_id) REFERENCES account (id);
 
+ALTER TABLE track_mbid_flag ADD CONSTRAINT track_mbid_flag_fk_track_mbid_id FOREIGN KEY (track_mbid_id) REFERENCES track_mbid (id);
+ALTER TABLE track_mbid_flag ADD CONSTRAINT track_mbid_flag_fk_account_id FOREIGN KEY (account_id) REFERENCES account (id);

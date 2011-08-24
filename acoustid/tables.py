@@ -135,6 +135,13 @@ track_mbid_change = Table('track_mbid_change', metadata,
     Column('account_id', Integer, ForeignKey('account.id')),
 )
 
+track_mbid_flag = Table('track_mbid_flag', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
+    Column('account_id', Integer, ForeignKey('account.id')),
+    Column('handled', Boolean),
+)
+
 track_puid = Table('track_puid', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_id', Integer, ForeignKey('track.id')),
