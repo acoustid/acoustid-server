@@ -168,10 +168,10 @@ class LookupHandler(APIHandler):
         response['results'] = results = []
         matches = lookup_fingerprint(self.conn, params.fingerprint, params.duration, 0.7, 0.3)
         result_map = {}
-        for fingerprint_id, track_id, score in matches:
+        for fingerprint_id, track_id, track_gid, score in matches:
             if track_id in result_map:
                 continue
-            result_map[track_id] = result = {'id': track_id, 'score': score}
+            result_map[track_id] = result = {'id': track_gid, 'score': score}
             results.append(result)
         if params.meta and result_map:
             self._inject_metadata(params.meta, result_map)
