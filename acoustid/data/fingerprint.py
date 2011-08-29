@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 FINGERPRINT_VERSION = 1
 PARTS = ((1, 20), (21, 100))
 PART_SEARCH_SQL = """
-SELECT id, track_id, score FROM (
+SELECT f.id, f.track_id, t.gid AS track_gid, score FROM (
     SELECT id, track_id, acoustid_compare2(fingerprint, query, %(max_offset)s) AS score
     FROM fingerprint, (SELECT %(fp)s::int4[] AS query) q
     WHERE
         length BETWEEN %(length)s - %(max_length_diff)s AND %(length)s + %(max_length_diff)s AND
         subarray(acoustid_extract_query(query), %(part_start)s, %(part_length)s) && acoustid_extract_query(fingerprint)
-) f WHERE score > %(min_score)s ORDER BY score DESC, id
+) f JOIN track t ON f.track_id=t.id WHERE f.score > %(min_score)s ORDER BY f.score DESC, f.id
 """
 
 

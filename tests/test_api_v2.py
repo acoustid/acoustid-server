@@ -172,7 +172,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     expected = {
         "status": "ok",
         "results": [{
-            "id": 1,
+            "id": 'eb31d1c3-950e-468b-9e36-e46fa75b1291',
             "score": 1.0,
         }],
     }
@@ -187,7 +187,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     expected = {
         "status": "ok",
         "results": [{
-            "id": 1,
+            "id": 'eb31d1c3-950e-468b-9e36-e46fa75b1291',
             "score": 1.0,
             "recordings": [{"id": "b81f83ee-4da4-11e0-9ed8-0025225356f3"}],
         }],
@@ -204,7 +204,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     expected = {
         "status": "ok",
         "results": [{
-            "id": 1,
+            "id": 'eb31d1c3-950e-468b-9e36-e46fa75b1291',
             "score": 1.0,
             "recordings": [{
                 "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
@@ -264,7 +264,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     expected = {
         "status": "ok",
         "results": [{
-            "id": 1,
+            "id": 'eb31d1c3-950e-468b-9e36-e46fa75b1291',
             "score": 1.0,
         }],
     }
