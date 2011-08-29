@@ -189,8 +189,6 @@ def _insert_gid(conn, tab, tab_src, col, name, track_id, gid, submission_id=None
     if id is not None:
         update_stmt = tab.update().where(cond)
         values = {'submission_count': sql.text('submission_count+1')}
-        if name == 'mbid':
-            values['disabled'] = False
         conn.execute(update_stmt.values(**values))
     else:
         insert_stmt = tab.insert().values({
