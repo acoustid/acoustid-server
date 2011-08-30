@@ -135,6 +135,13 @@ track_mbid_change = Table('track_mbid_change', metadata,
     Column('account_id', Integer, ForeignKey('account.id')),
 )
 
+track_mbid_flag = Table('track_mbid_flag', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
+    Column('account_id', Integer, ForeignKey('account.id')),
+    Column('handled', Boolean),
+)
+
 track_puid = Table('track_puid', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_id', Integer, ForeignKey('track.id')),
@@ -187,6 +194,19 @@ mb_artist = Table('s_artist', metadata,
     schema='musicbrainz',
 )
 
+mb_country = Table('country', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String),
+    Column('iso_code', String),
+    schema='musicbrainz',
+)
+
+mb_release_group_type = Table('release_group_type', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String),
+    schema='musicbrainz',
+)
+
 mb_artist_credit = Table('s_artist_credit', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
@@ -233,6 +253,20 @@ mb_release = Table('s_release', metadata,
     Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
     Column('name', String),
     Column('gid', String),
+    Column('date_year', Integer),
+    Column('date_month', Integer),
+    Column('date_day', Integer),
+    Column('country', Integer, ForeignKey('musicbrainz.country.id')),
+    Column('release_group', Integer, ForeignKey('musicbrainz.s_release_group.id')),
+    schema='musicbrainz',
+)
+
+mb_release_group = Table('s_release_group', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
+    Column('name', String),
+    Column('gid', String),
+    Column('type', Integer, ForeignKey('musicbrainz.release_group_type.id')),
     schema='musicbrainz',
 )
 

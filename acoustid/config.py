@@ -62,6 +62,19 @@ class DatabaseConfig(object):
             self.password = parser.get(section, 'password')
 
 
+class IndexConfig(object):
+
+    def __init__(self):
+        self.host = '127.0.0.1'
+        self.port = 6080
+
+    def read(self, parser, section):
+        if parser.has_option(section, 'host'):
+            self.host = parser.get(section, 'host')
+        if parser.has_option(section, 'port'):
+            self.port = parser.getint(section, 'port')
+
+
 class LoggingConfig(object):
 
     def __init__(self):
@@ -114,4 +127,6 @@ class Config(object):
         self.logging.read(parser, 'logging')
         self.website = WebSiteConfig()
         self.website.read(parser, 'website')
+        self.index = IndexConfig()
+        self.index.read(parser, 'index')
 

@@ -5,6 +5,7 @@ import os
 import json
 import pprint
 import difflib
+import logging
 import sqlalchemy
 import sqlalchemy.pool
 from contextlib import closing
@@ -53,6 +54,8 @@ SEQUENCES = [
     ('track', 'id'),
     ('track_mbid', 'id'),
     ('track_mbid_source', 'id'),
+    ('track_mbid_change', 'id'),
+    ('track_mbid_flag', 'id'),
     ('track_puid', 'id'),
     ('track_puid_source', 'id'),
     ('track_meta', 'id'),
@@ -75,6 +78,8 @@ TABLES = [
     'track',
     'track_mbid',
     'track_mbid_source',
+    'track_mbid_change',
+    'track_mbid_flag',
     'track_puid',
     'track_puid_source',
     'track_meta',
@@ -188,6 +193,8 @@ def setup():
     global config, engine
     config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid-test.conf'
     config = Config(config_path)
+    for logger_name, level in sorted(config.logging.levels.items()):
+        logging.getLogger(logger_name).setLevel(level)
     engine = sqlalchemy.create_engine(config.database.create_url(),
         poolclass=sqlalchemy.pool.AssertionPool)
     if not os.environ.get('SKIP_DB_SETUP'):

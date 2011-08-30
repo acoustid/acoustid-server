@@ -218,9 +218,9 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
                     "medium": {
                         "track_count": 2,
                         "position": 1,
-                        "format": "CD",
+                        "format": "DVD",
                         "release": {
-                            "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
+                            "id": "1d4d546f-e2ec-4553-8df7-9004298924d5",
                             "title": "Album A",
                         },
                     },
@@ -235,9 +235,9 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
                     "medium": {
                         "track_count": 2,
                         "position": 1,
-                        "format": "DVD",
+                        "format": "CD",
                         "release": {
-                            "id": "1d4d546f-e2ec-4553-8df7-9004298924d5",
+                            "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
                             "title": "Album A",
                         },
                     },

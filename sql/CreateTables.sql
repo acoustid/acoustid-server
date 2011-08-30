@@ -98,6 +98,14 @@ CREATE TABLE track_mbid_change (
     created timestamp with time zone DEFAULT current_timestamp
 );
 
+CREATE TABLE track_mbid_flag (
+    id serial NOT NULL,
+    track_mbid_id int NOT NULL,
+    account_id int NOT NULL,
+    handled boolean NOT NULL DEFAULT false,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
 CREATE TABLE track_puid (
     track_id int NOT NULL,
     puid uuid NOT NULL,
