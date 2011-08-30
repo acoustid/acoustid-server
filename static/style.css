@@ -219,3 +219,8 @@ table.matrix td {
     padding: 0.1em 0.3em;
 }
 
+.mbid-disabled td {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+

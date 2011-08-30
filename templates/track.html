@@ -63,9 +63,12 @@
     <th>Artist</th>
     <th style="width:5em;">Length</th>
     <th style="width:5em;">Sources</th>
+    {% if moderator %}
+    <th></th>
+    {% endif %}
 </tr>
 {% for rec in recordings %}
-<tr>
+<tr{% if rec.disabled %} class="mbid-disabled"{% endif %}>
     {% if rec.name %}
     <td><a href="http://musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a></td>
     <td>{{ rec.artist_name }}</td>
@@ -74,6 +77,16 @@
     <td colspan="3"><i><a href="http://musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.mbid }}</a></i></td>
     {% endif %}
     <td>{{ rec.submission_count }}</td>
+    {% if moderator %}
+    <td>
+    <form action="/edit/toggle-track-mbid" method="POST" style="display:inline">
+        <input type="hidden" name="state" value="{{0 if rec.disabled else 1}}" />
+        <input type="hidden" name="track_id" value="{{track.id}}" />
+        <input type="hidden" name="mbid" value="{{rec.mbid}}" />
+        <input type="submit" value="{{'Enable' if rec.disabled else 'Disable'}}" />
+    </form>
+    </td>
+    {% endif %}
 {% endfor %}
 </tr>
 </table>

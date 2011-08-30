@@ -133,6 +133,7 @@ track_mbid_change = Table('track_mbid_change', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
     Column('account_id', Integer, ForeignKey('account.id')),
+    Column('disabled', Boolean),
 )
 
 track_mbid_flag = Table('track_mbid_flag', metadata,
