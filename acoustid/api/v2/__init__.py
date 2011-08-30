@@ -349,6 +349,8 @@ class LookupHandler(APIHandler):
                                     for track in medium['tracks']:
                                         if track['title'] == recording.get('title'):
                                             del track['title']
+                        if 'artists' in release_group and release_group['artists'] == recording.get('artists'):
+                            del release_group['artists']
         elif 'releases' in meta or 'releaseids' in meta:
             self._inject_releases_internal(meta, metadata, el_recording, self.group_releases_by_recording)
             if 'compress' in meta:
