@@ -166,7 +166,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 	}
 
 	size = Min(asize, bsize) / 2;
-	if (!size) {
+	if (!size || !minsize) {
 		ereport(DEBUG4, (errmsg("acoustid_compare2: empty matching subfingerprint")));
 		score = 0.0;
 		goto exit;
@@ -208,6 +208,9 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 		biterror += BITCOUNT64(*adata ^ *bdata);
 	}
 	score = (size * 2.0 / minsize) * (1.0 - 2.0 * (float4)biterror / (64 * size));
+	if (score < 0.0) {
+		score = 0.0;
+	}
 	if (diversity < 1.0) {
 		score = pow(score, 2.0 - diversity);
 	}
