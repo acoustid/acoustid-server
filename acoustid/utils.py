@@ -14,6 +14,14 @@ def is_uuid(s):
     return bool(re.match(r'^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$', s))
 
 
+def is_int(s):
+    try:
+        int(s)
+    except ValueError:
+        return False
+    return True
+
+
 def is_foreignid(s):
     return bool(re.match(r'^[0-9a-z]+:.+$', s))
 

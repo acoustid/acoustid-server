@@ -9,7 +9,7 @@ from acoustid import tables as schema
 logger = logging.getLogger(__name__)
 
 
-def load_artists(conn, artist_credit_ids):
+def _load_artists(conn, artist_credit_ids):
     if not artist_credit_ids:
         return {}
     src = schema.mb_artist_credit_name
@@ -30,48 +30,66 @@ def load_artists(conn, artist_credit_ids):
     return result
 
 
-def lookup_metadata(conn, mbids):
-    """
-    Lookup MusicBrainz metadata for the specified MBIDs.
-    """
-    if not mbids:
-        return {}
+def lookup_metadata(conn, recording_ids, load_releases=False, load_release_groups=False, load_artists=False):
     src = schema.mb_recording
-    src = src.join(schema.mb_track, schema.mb_recording.c.id == schema.mb_track.c.recording)
-    src = src.join(schema.mb_tracklist, schema.mb_track.c.tracklist == schema.mb_tracklist.c.id)
-    src = src.join(schema.mb_medium, schema.mb_tracklist.c.id == schema.mb_medium.c.tracklist)
-    src = src.join(schema.mb_release, schema.mb_medium.c.release == schema.mb_release.c.id)
-    src = src.outerjoin(schema.mb_medium_format, schema.mb_medium.c.format == schema.mb_medium_format.c.id)
-    condition = schema.mb_recording.c.gid.in_(mbids)
     columns = [
-        schema.mb_recording.c.gid,
-        schema.mb_recording.c.length.label('recording_length'),
-        schema.mb_track.c.name,
-        schema.mb_track.c.length,
-        schema.mb_track.c.artist_credit.label('_artist_credit_id'),
-        schema.mb_track.c.position.label('track_num'),
-        schema.mb_medium.c.position.label('disc_num'),
-        schema.mb_tracklist.c.track_count.label('total_tracks'),
-        schema.mb_release.c.gid.label('release_id'),
-        schema.mb_release.c.name.label('release_name'),
-        schema.mb_medium_format.c.name.label('medium_format'),
+        schema.mb_recording.c.gid.label('recording_id'),
+        schema.mb_recording.c.artist_credit.label('recording_artist_credit'),
+        schema.mb_recording.c.name.label('recording_title'),
+        (schema.mb_recording.c.length / 1000).label('recording_duration'),
     ]
-    query = sql.select(columns, condition, from_obj=src).order_by(schema.mb_track.c.id, schema.mb_release.c.id)
+    if load_releases:
+        src = src.join(schema.mb_track, schema.mb_recording.c.id == schema.mb_track.c.recording)
+        src = src.join(schema.mb_tracklist, schema.mb_track.c.tracklist == schema.mb_tracklist.c.id)
+        src = src.join(schema.mb_medium, schema.mb_tracklist.c.id == schema.mb_medium.c.tracklist)
+        src = src.join(schema.mb_release, schema.mb_medium.c.release == schema.mb_release.c.id)
+        src = src.outerjoin(schema.mb_country, schema.mb_release.c.country == schema.mb_country.c.id)
+        src = src.outerjoin(schema.mb_medium_format, schema.mb_medium.c.format == schema.mb_medium_format.c.id)
+        columns.extend([
+            schema.mb_track.c.position.label('track_position'),
+            schema.mb_track.c.name.label('track_title'),
+            schema.mb_track.c.artist_credit.label('track_artist_credit'),
+            (schema.mb_track.c.length / 1000).label('track_duration'),
+            schema.mb_medium.c.position.label('medium_position'),
+            schema.mb_medium_format.c.name.label('medium_format'),
+            schema.mb_tracklist.c.track_count.label('medium_track_count'),
+            schema.mb_release.c.gid.label('release_id'),
+            schema.mb_release.c.name.label('release_title'),
+            schema.mb_release.c.artist_credit.label('release_artist_credit'),
+            schema.mb_release.c.date_year.label('release_date_year'),
+            schema.mb_release.c.date_month.label('release_date_month'),
+            schema.mb_release.c.date_day.label('release_date_day'),
+            schema.mb_country.c.iso_code.label('release_country'),
+        ])
+        if load_release_groups:
+            src = src.join(schema.mb_release_group, schema.mb_release.c.release_group == schema.mb_release_group.c.id)
+            src = src.outerjoin(schema.mb_release_group_type, schema.mb_release_group.c.type == schema.mb_release_group_type.c.id)
+            columns.extend([
+                schema.mb_release_group.c.gid.label('release_group_id'),
+                schema.mb_release_group.c.name.label('release_group_title'),
+                schema.mb_release_group.c.artist_credit.label('release_group_artist_credit'),
+                schema.mb_release_group_type.c.name.label('release_group_type'),
+            ])
+    condition = schema.mb_recording.c.gid.in_(recording_ids)
+    query = sql.select(columns, condition, from_obj=src)
+    results = []
     artist_credit_ids = set()
-    results = {}
-    i = 0
     for row in conn.execute(query):
-        i += 1
-        result = dict(row)
-        result['length'] = (result['length'] or 0) / 1000
-        result['recording_length'] = (result['recording_length'] or 0) / 1000
-        results.setdefault(row['gid'], []).append(result)
-        artist_credit_ids.add(row['_artist_credit_id'])
-    print i
-    artists = load_artists(conn, artist_credit_ids)
-    for tracks in results.itervalues():
-        for result in tracks:
-            result['artists'] = artists[result.pop('_artist_credit_id')]
+        results.append(dict(row))
+        artist_credit_ids.add(row['recording_artist_credit'])
+        if load_releases:
+            artist_credit_ids.add(row['release_artist_credit'])
+            artist_credit_ids.add(row['track_artist_credit'])
+            if load_release_groups:
+                artist_credit_ids.add(row['release_group_artist_credit'])
+    artists = _load_artists(conn, artist_credit_ids)
+    for row in results:
+        row['recording_artists'] = artists[row.pop('recording_artist_credit')]
+        if load_releases:
+            row['release_artists'] = artists[row.pop('release_artist_credit')]
+            row['track_artists'] = artists[row.pop('track_artist_credit')]
+            if load_release_groups:
+                row['release_group_artists'] = artists[row.pop('release_group_artist_credit')]
     return results
 
 
