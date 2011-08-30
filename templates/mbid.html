@@ -14,7 +14,7 @@
 
 <ul>
 {% for tr in tracks %}
-    <li><a href="{{ base_url }}track/{{ tr.id }}">#{{ tr.id }}</a></li>
+    <li><a href="{{ base_url }}track/{{ tr.gid }}">{{ tr.gid }}</a></li>
 {% endfor %}
 </ul>
 

@@ -24,19 +24,83 @@ from acoustid.data.track import (
     can_merge_tracks,
     can_add_fp_to_track,
 )
+from acoustid.data.submission import insert_submission
 
 
 @with_database
 def test_merge_mbids(conn):
+    insert_submission(conn, {'fingerprint': [1], 'length': 123, 'source_id': 1})
+    insert_submission(conn, {'fingerprint': [1], 'length': 123, 'source_id': 1})
     prepare_database(conn, """
 TRUNCATE track_mbid CASCADE;
-INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, 'd575d506-4da4-11e0-b951-0025225356f3', 11);
+INSERT INTO track_mbid_source (track_mbid_id, submission_id, source_id) VALUES (1, 1, 1);
+INSERT INTO track_mbid_source (track_mbid_id, submission_id, source_id) VALUES (2, 2, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (1, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (2, 1);
+""")
+    merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+    ]
+    assert_equals(expected_rows, rows)
+    rows = conn.execute("SELECT track_mbid_id, submission_id, source_id FROM track_mbid_source ORDER BY track_mbid_id, submission_id, source_id").fetchall()
+    expected_rows = [
+        (1, 1, 1),
+        (1, 2, 1),
+    ]
+    assert_equals(expected_rows, rows)
+    rows = conn.execute("SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id").fetchall()
+    expected_rows = [
+        (1, 1),
+        (1, 1),
+    ]
+    assert_equals(expected_rows, rows)
+
+
+@with_database
+def test_merge_mbids_disabled_target(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11);
 """)
     merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
-    rows = conn.execute("SELECT track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20),
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+    ]
+    assert_equals(expected_rows, rows)
+
+
+@with_database
+def test_merge_mbids_disabled_source(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11, true);
+""")
+    merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+    ]
+    assert_equals(expected_rows, rows)
+
+
+@with_database
+def test_merge_mbids_disabled_both(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11, true);
+""")
+    merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, True),
     ]
     assert_equals(expected_rows, rows)
 
@@ -45,12 +109,12 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
 def test_merge_missing_mbids(conn):
     prepare_database(conn, """
 TRUNCATE track_mbid CASCADE;
-INSERT INTO track_mbid (track_id, mbid) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f3');
-INSERT INTO track_mbid (track_id, mbid) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f3');
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 1);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 1);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 1);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3', 1);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f3', 1);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f3', 1);
 INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
     (1, 'd575d506-4da4-11e0-b951-0025225356f3'),
     (2, '5d0290a6-4dad-11e0-a47a-0025225356f3'),
@@ -79,68 +143,100 @@ def test_insert_track(conn):
 @with_database
 def test_merge_tracks(conn):
     prepare_database(conn, """
-INSERT INTO fingerprint (fingerprint, length, track_id)
-    VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 2);
-INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 10);
-INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 15);
-INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3', 50);
-INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f3', 25);
-INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f3', 30);
+TRUNCATE track_mbid CASCADE;
+INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '97edb73c-4dac-11e0-9096-0025225356f3', 10);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, 'd575d506-4da4-11e0-b951-0025225356f3', 15);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (3, 2, 'd575d506-4da4-11e0-b951-0025225356f3', 50);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (4, 3, '97edb73c-4dac-11e0-9096-0025225356f3', 25);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (5, 4, '5d0290a6-4dad-11e0-a47a-0025225356f3', 30);
 INSERT INTO track_puid (track_id, puid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f4', 10);
 INSERT INTO track_puid (track_id, puid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f4', 15);
 INSERT INTO track_puid (track_id, puid, submission_count) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f4', 50);
 INSERT INTO track_puid (track_id, puid, submission_count) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f4', 25);
 INSERT INTO track_puid (track_id, puid, submission_count) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f4', 30);
+INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (2, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (3, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (4, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (5, 1);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH))
     merge_tracks(conn, 3, [1, 2, 4])
     rows = conn.execute("SELECT id, track_id FROM fingerprint ORDER BY id").fetchall()
-    assert_true([(1, 3), (2, 3)], rows)
-    rows = conn.execute("SELECT track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    assert_equals([(1, 3), (2, 3)], rows)
+    rows = conn.execute("SELECT id, track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected = [
-        (3, '5d0290a6-4dad-11e0-a47a-0025225356f3', 30),
-        (3, '97edb73c-4dac-11e0-9096-0025225356f3', 35),
-        (3, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 0),
-        (3, 'd575d506-4da4-11e0-b951-0025225356f3', 65)
+        (5, 3, '5d0290a6-4dad-11e0-a47a-0025225356f3', 30),
+        (1, 3, '97edb73c-4dac-11e0-9096-0025225356f3', 35),
+        (2, 3, 'd575d506-4da4-11e0-b951-0025225356f3', 65)
     ]
-    assert_true(expected, rows)
+    assert_equals(expected, rows)
     rows = conn.execute("SELECT track_id, puid, submission_count FROM track_puid ORDER BY track_id, puid").fetchall()
     expected = [
         (3, '5d0290a6-4dad-11e0-a47a-0025225356f4', 30),
         (3, '97edb73c-4dac-11e0-9096-0025225356f4', 35),
-        (3, 'b81f83ee-4da4-11e0-9ed8-0025225356f4', 0),
         (3, 'd575d506-4da4-11e0-b951-0025225356f4', 65)
     ]
-    assert_true(expected, rows)
-    rows = conn.execute("SELECT id FROM track ORDER BY id").fetchall()
-    assert_true([(3,)], rows)
+    assert_equals(expected, rows)
+    rows = conn.execute("SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id").fetchall()
+    expected_rows = [(1, 1), (2, 1), (2, 1), (5, 1)]
+    assert_equals(expected_rows, rows)
+    rows = conn.execute("SELECT id, new_id FROM track ORDER BY id, new_id").fetchall()
+    assert_equals([(1, 3), (2, 3), (3, None), (4, 3)], rows)
 
 
 @with_database
-def test_track_fingerprint_matrix(conn):
+def test_merge_tracks_disabled_target(conn):
     prepare_database(conn, """
-INSERT INTO fingerprint (fingerprint, length, track_id)
-    VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 1),
-           (%(fp3)s, %(len3)s, 1);
-    """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
-              fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH,
-              fp3=TEST_1C_FP_RAW, len3=TEST_1C_LENGTH))
-    matrix = calculate_fingerprint_similarity_matrix(conn, [1])
-    assert_equal([1, 2, 3], matrix.keys())
-    assert_almost_equal(0.973319, matrix[1][2])
-    assert_almost_equal(0.94152, matrix[1][3])
-    assert_almost_equal(0.973319, matrix[2][1])
-    assert_almost_equal(0.938414, matrix[2][3])
-    assert_almost_equal(0.94152, matrix[3][1])
-    assert_almost_equal(0.938414, matrix[3][2])
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11);
+""")
+    merge_tracks(conn, 1, [2])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+    ]
+    assert_equals(expected_rows, rows)
+
+
+@with_database
+def test_merge_tracks_disabled_source(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11, true);
+""")
+    merge_tracks(conn, 1, [2])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+    ]
+    assert_equals(expected_rows, rows)
+
+
+@with_database
+def test_merge_tracks_disabled_both(conn):
+    prepare_database(conn, """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
+INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11, true);
+""")
+    merge_tracks(conn, 1, [2])
+    rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
+    expected_rows = [
+        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, True),
+    ]
+    assert_equals(expected_rows, rows)
 
 
 @with_database
 def test_can_merge_tracks(conn):
     prepare_database(conn, """
-INSERT INTO fingerprint (fingerprint, length, track_id)
-    VALUES (%(fp1)s, %(len1)s, 1), (%(fp2)s, %(len2)s, 2),
-           (%(fp3)s, %(len3)s, 3);
+INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1),
+           (%(fp3)s, %(len3)s, 3, 1);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH,
               fp3=TEST_2_FP_RAW, len3=TEST_2_LENGTH))
@@ -151,11 +247,13 @@ INSERT INTO fingerprint (fingerprint, length, track_id)
 @with_database
 def test_can_add_fp_to_track(conn):
     prepare_database(conn, """
-INSERT INTO fingerprint (fingerprint, length, track_id)
-    VALUES (%(fp1)s, %(len1)s, 1);
+INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
+    VALUES (%(fp1)s, %(len1)s, 1, 1);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH))
-    res = can_add_fp_to_track(conn, 1, TEST_2_FP_RAW)
+    res = can_add_fp_to_track(conn, 1, TEST_2_FP_RAW, TEST_2_LENGTH)
     assert_equal(False, res)
-    res = can_add_fp_to_track(conn, 1, TEST_1B_FP_RAW)
+    res = can_add_fp_to_track(conn, 1, TEST_1B_FP_RAW, TEST_1B_LENGTH + 20)
+    assert_equal(False, res)
+    res = can_add_fp_to_track(conn, 1, TEST_1B_FP_RAW, TEST_1B_LENGTH)
     assert_equal(True, res)
 

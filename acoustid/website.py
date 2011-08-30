@@ -477,10 +477,6 @@ class MBIDHandler(WebSiteHandler):
             return self.render_template('mbid-not-found.html', title=title, mbid=mbid)
         metadata = metadata[mbid]
         title = 'Recording "%s" by %s' % (metadata['name'], metadata['artist_name'])
-        tracks = lookup_tracks(self.conn, [mbid])
-        if mbid in tracks:
-            tracks = [{'id': id} for id in tracks[mbid]]
-        else:
-            tracks = []
+        tracks = lookup_tracks(self.conn, [mbid]).get(mbid, [])
         return self.render_template('mbid.html', title=title, tracks=tracks, mbid=mbid)
 

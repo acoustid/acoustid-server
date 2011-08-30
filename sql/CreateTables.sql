@@ -79,7 +79,8 @@ CREATE TABLE track_mbid (
     mbid uuid NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,
     id serial NOT NULL,
-    submission_count int NOT NULL
+    submission_count int NOT NULL,
+    disabled boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE track_mbid_source (
@@ -87,6 +88,21 @@ CREATE TABLE track_mbid_source (
     track_mbid_id int NOT NULL,
     submission_id int NOT NULL,
     source_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+CREATE TABLE track_mbid_change (
+    id serial NOT NULL,
+    track_mbid_id int NOT NULL,
+    account_id int NOT NULL,
+    created timestamp with time zone DEFAULT current_timestamp
+);
+
+CREATE TABLE track_mbid_flag (
+    id serial NOT NULL,
+    track_mbid_id int NOT NULL,
+    account_id int NOT NULL,
+    handled boolean NOT NULL DEFAULT false,
     created timestamp with time zone DEFAULT current_timestamp
 );
 
@@ -114,7 +130,7 @@ CREATE TABLE foreignid_vendor (
 CREATE TABLE foreignid (
     id serial NOT NULL,
     vendor_id int NOT NULL,
-    name text(256) NOT NULL
+    name text NOT NULL
 );
 
 CREATE TABLE track_foreignid (

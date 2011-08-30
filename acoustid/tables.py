@@ -119,6 +119,7 @@ track_mbid = Table('track_mbid', metadata,
     Column('mbid', String),
     Column('created', DateTime),
     Column('submission_count', Integer),
+    Column('disabled', Boolean),
 )
 
 track_mbid_source = Table('track_mbid_source', metadata,
@@ -126,6 +127,19 @@ track_mbid_source = Table('track_mbid_source', metadata,
     Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
     Column('submission_id', Integer, ForeignKey('submission.id')),
     Column('source_id', Integer, ForeignKey('source.id')),
+)
+
+track_mbid_change = Table('track_mbid_change', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
+    Column('account_id', Integer, ForeignKey('account.id')),
+)
+
+track_mbid_flag = Table('track_mbid_flag', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
+    Column('account_id', Integer, ForeignKey('account.id')),
+    Column('handled', Boolean),
 )
 
 track_puid = Table('track_puid', metadata,

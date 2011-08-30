@@ -5,6 +5,7 @@ import os
 import json
 import pprint
 import difflib
+import logging
 import sqlalchemy
 import sqlalchemy.pool
 from contextlib import closing
@@ -53,6 +54,8 @@ SEQUENCES = [
     ('track', 'id'),
     ('track_mbid', 'id'),
     ('track_mbid_source', 'id'),
+    ('track_mbid_change', 'id'),
+    ('track_mbid_flag', 'id'),
     ('track_puid', 'id'),
     ('track_puid_source', 'id'),
     ('track_meta', 'id'),
@@ -75,6 +78,8 @@ TABLES = [
     'track',
     'track_mbid',
     'track_mbid_source',
+    'track_mbid_change',
+    'track_mbid_flag',
     'track_puid',
     'track_puid_source',
     'track_meta',
@@ -113,7 +118,7 @@ INSERT INTO track (id, gid) VALUES
     (2, '92732e4b-97c6-4250-b237-1636384d466f'),
     (3, '30e66c45-f761-490a-b1bd-55763e8b59be'),
     (4, '014e973b-368e-42bf-b619-84cab14c4af6');
-INSERT INTO track_mbid (track_id, mbid) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3');
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 1);
 
 INSERT INTO musicbrainz.artist_name (id, name) VALUES
     (1, 'Artist A');
@@ -188,6 +193,8 @@ def setup():
     global config, engine
     config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid-test.conf'
     config = Config(config_path)
+    for logger_name, level in sorted(config.logging.levels.items()):
+        logging.getLogger(logger_name).setLevel(level)
     engine = sqlalchemy.create_engine(config.database.create_url(),
         poolclass=sqlalchemy.pool.AssertionPool)
     if not os.environ.get('SKIP_DB_SETUP'):
