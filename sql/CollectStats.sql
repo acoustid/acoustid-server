@@ -30,7 +30,7 @@ INSERT INTO stats (name, value) VALUES ('track_mbid.all', (
 ));
 
 INSERT INTO stats (name, value) VALUES ('track_puid.all', (
-    SELECT count(*) FROM track_mbid
+    SELECT count(*) FROM track_puid
 ));
 
 INSERT INTO stats (name, value) VALUES ('mbid.all', (SELECT count(DISTINCT mbid) FROM track_mbid));
@@ -94,6 +94,47 @@ INSERT INTO stats (name, value) VALUES ('track.7mbids', coalesce((SELECT sum(tra
 INSERT INTO stats (name, value) VALUES ('track.8mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=8), 0));
 INSERT INTO stats (name, value) VALUES ('track.9mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count=9), 0));
 INSERT INTO stats (name, value) VALUES ('track.10mbids', coalesce((SELECT sum(track_count) FROM tmp_track_mbids WHERE mbid_count>=10), 0));
+
+SELECT track_count, count(*) puid_count
+    INTO TEMP TABLE tmp_puid_tracks
+    FROM (
+        SELECT count(track_id) track_count FROM track_puid
+        GROUP BY puid
+    ) a
+    GROUP BY track_count ORDER BY track_count;
+
+INSERT INTO stats (name, value) VALUES ('puid.0tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=0), 0));
+INSERT INTO stats (name, value) VALUES ('puid.1tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=1), 0));
+INSERT INTO stats (name, value) VALUES ('puid.2tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=2), 0));
+INSERT INTO stats (name, value) VALUES ('puid.3tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=3), 0));
+INSERT INTO stats (name, value) VALUES ('puid.4tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=4), 0));
+INSERT INTO stats (name, value) VALUES ('puid.5tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=5), 0));
+INSERT INTO stats (name, value) VALUES ('puid.6tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=6), 0));
+INSERT INTO stats (name, value) VALUES ('puid.7tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=7), 0));
+INSERT INTO stats (name, value) VALUES ('puid.8tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=8), 0));
+INSERT INTO stats (name, value) VALUES ('puid.9tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count=9), 0));
+INSERT INTO stats (name, value) VALUES ('puid.10tracks', coalesce((SELECT sum(puid_count) FROM tmp_puid_tracks WHERE track_count>=10), 0));
+
+SELECT puid_count, count(*) track_count
+    INTO TEMP TABLE tmp_track_puids
+    FROM (
+        SELECT count(tm.puid) puid_count
+        FROM track t LEFT JOIN track_puid tm ON t.id=tm.track_id
+        GROUP BY t.id
+    ) a
+    GROUP BY puid_count ORDER BY puid_count;
+
+INSERT INTO stats (name, value) VALUES ('track.0puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=0), 0));
+INSERT INTO stats (name, value) VALUES ('track.1puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=1), 0));
+INSERT INTO stats (name, value) VALUES ('track.2puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=2), 0));
+INSERT INTO stats (name, value) VALUES ('track.3puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=3), 0));
+INSERT INTO stats (name, value) VALUES ('track.4puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=4), 0));
+INSERT INTO stats (name, value) VALUES ('track.5puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=5), 0));
+INSERT INTO stats (name, value) VALUES ('track.6puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=6), 0));
+INSERT INTO stats (name, value) VALUES ('track.7puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=7), 0));
+INSERT INTO stats (name, value) VALUES ('track.8puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=8), 0));
+INSERT INTO stats (name, value) VALUES ('track.9puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count=9), 0));
+INSERT INTO stats (name, value) VALUES ('track.10puids', coalesce((SELECT sum(track_count) FROM tmp_track_puids WHERE puid_count>=10), 0));
 
 INSERT INTO stats (name, value) VALUES ('mbid.onlyacoustid', (
     select count(distinct mbid) from track_mbid tm join musicbrainz.recording r on r.gid=tm.mbid left join musicbrainz.recording_puid rp on rp.recording=r.id where rp.recording is null
