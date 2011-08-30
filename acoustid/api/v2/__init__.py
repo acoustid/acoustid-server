@@ -301,7 +301,7 @@ class LookupHandler(APIHandler):
                     if 'compress' in meta:
                         for medium in mediums:
                             for track in medium['tracks']:
-                                if track['artists'] == el['artists']:
+                                if track['artists'] == el.get('artists'):
                                     del track['artists']
                     el['mediums'] = mediums
 
@@ -314,10 +314,10 @@ class LookupHandler(APIHandler):
             if 'compress' in meta:
                 for release_groups in el_release_group.itervalues():
                     for release_group in release_groups:
-                        for release in release_group['releases']:
-                            if release['artists'] == release_group['artists']:
+                        for release in release_group.get('releases', []):
+                            if 'artists' in release and release['artists'] == release_group.get('artists'):
                                 del release['artists']
-                            if release['title'] == release_group['title']:
+                            if 'title' in release and release['title'] == release_group.get('title'):
                                 del release['title']
 
     def inject_recordings(self, meta):
@@ -343,23 +343,23 @@ class LookupHandler(APIHandler):
             if 'compress' in meta:
                 for recordings in el_recording.itervalues():
                     for recording in recordings:
-                        for release_group in recording['releasegroups']:
-                            for release in release_group['releases']:
-                                for medium in release['mediums']:
+                        for release_group in recording.get('releasegroups', []):
+                            for release in release_group.get('releases', []):
+                                for medium in release.get('mediums', []):
                                     for track in medium['tracks']:
-                                        if track['title'] == recording['title']:
+                                        if track['title'] == recording.get('title'):
                                             del track['title']
         elif 'releases' in meta or 'releaseids' in meta:
             self._inject_releases_internal(meta, metadata, el_recording, self.group_releases_by_recording)
             if 'compress' in meta:
                 for recordings in el_recording.itervalues():
                     for recording in recordings:
-                        for release in recording['releases']:
-                            for medium in release['mediums']:
+                        for release in recording.get('releases', []):
+                            for medium in release.get('mediums', []):
                                 for track in medium['tracks']:
-                                    if track['title'] == recording['title']:
+                                    if track['title'] == recording.get('title'):
                                         del track['title']
-                            if release['artists'] == recording['artists']:
+                            if 'artists' in release and release['artists'] == recording.get('artists'):
                                 del release['artists']
 
     def inject_releases(self, meta):
