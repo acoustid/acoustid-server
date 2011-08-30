@@ -42,9 +42,11 @@ class LookupHandlerParams(APIHandlerParams):
     def parse(self, values, conn):
         super(LookupHandlerParams, self).parse(values, conn)
         self._parse_client(values, conn)
-        self.meta = values.get('meta', type=int)
-        if self.meta > 1:
-            self.meta = 1
+        self.meta = values.get('meta')
+        if self.meta:
+            self.meta = ['recordingids']
+        else:
+            self.meta = []
         self.duration = values.get('length', type=int)
         if not self.duration:
             raise errors.MissingParameterError('length')

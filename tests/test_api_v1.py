@@ -99,7 +99,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
-    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><score>1.0</score><id>1</id></result></results></response>"
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><score>1.0</score><id>eb31d1c3-950e-468b-9e36-e46fa75b1291</id></result></results></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     # one exact match with MBIDs
@@ -108,7 +108,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
-    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id></track></tracks><score>1.0</score><id>1</id></result></results></response>"
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id></track></tracks><score>1.0</score><id>eb31d1c3-950e-468b-9e36-e46fa75b1291</id></result></results></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     # one exact match with MBIDs (no exta metadata in v1)
@@ -117,7 +117,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     handler = LookupHandler(connect=provider(conn))
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
-    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id></track></tracks><score>1.0</score><id>1</id></result></results></response>"
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id></track></tracks><score>1.0</score><id>eb31d1c3-950e-468b-9e36-e46fa75b1291</id></result></results></response>"
     #expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><length>123</length><artist><id>a64796c0-4da4-11e0-bf81-0025225356f3</id><name>Artist A</name></artist><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id><releases><release><track_num>1</track_num><id>dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23</id><track_count>2</track_count><name>Album A</name></release></releases><name>Track A</name></track></tracks><score>1.0</score><id>1</id></result></results></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
