@@ -31,6 +31,8 @@ def _load_artists(conn, artist_credit_ids):
 
 
 def lookup_metadata(conn, recording_ids, load_releases=False, load_release_groups=False, load_artists=False):
+    if not recording_ids:
+        return []
     src = schema.mb_recording
     columns = [
         schema.mb_recording.c.gid.label('recording_id'),
