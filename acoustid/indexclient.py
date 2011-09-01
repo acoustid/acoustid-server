@@ -30,6 +30,7 @@ class IndexClient(object):
         self.host = host
         self.port = port
         self.timeout = timeout
+        self.socket_timeout = 0.25
         self.in_transaction = False
         self.created = time.time()
         self.sock = None
@@ -43,8 +44,11 @@ class IndexClient(object):
 
     def _connect(self):
         logger.info("Connecting index server at %s:%s", self.host, self.port)
-        self.sock = socket.create_connection((self.host, self.port))
-        self.sock.setblocking(0)
+        try:
+            self.sock = socket.create_connection((self.host, self.port), self.socket_timeout)
+            self.sock.setblocking(0)
+        except socket.error:
+            raise IndexClientError('unable to connect to the index server at %s:%s' % (self.host, self.port))
 
     def _putline(self, line):
         self.sock.sendall('%s%s' % (line, CRLF))
@@ -55,7 +59,7 @@ class IndexClient(object):
             timeout = self.timeout
         deadline = time.time() + timeout
         while pos == -1:
-            ready_to_read, ready_to_write, in_error = select.select([self.sock], [], [self.sock], 0.5)
+            ready_to_read, ready_to_write, in_error = select.select([self.sock], [], [self.sock], self.socket_timeout)
             if in_error:
                 raise IndexClientError("socket error")
             if ready_to_read:
