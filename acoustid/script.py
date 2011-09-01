@@ -20,8 +20,8 @@ class Script(object):
         #self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
         #    poolclass=sqlalchemy.pool.AssertionPool)
         self.engine = sqlalchemy.create_engine(self.config.database.create_url())
-        self.index = IndexClientPool(host=script.config.index.host,
-                                     port=script.config.index.port,
+        self.index = IndexClientPool(host=self.config.index.host,
+                                     port=self.config.index.port,
                                      recycle=15)
         self.setup_logging()
 

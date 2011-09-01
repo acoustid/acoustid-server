@@ -81,6 +81,7 @@ class IndexClient(object):
     def search(self, fingerprint):
         line = self._request('search %s' % (encode_fp(fingerprint),))
         matches = [Result(*map(int, r.split(':'))) for r in line.split(' ')]
+        logger.debug("Searching %s => %s", fingerprint, matches)
         return matches
 
     def begin(self):
@@ -102,6 +103,7 @@ class IndexClient(object):
         self.in_transaction = False
 
     def insert(self, id, fingerprint):
+        logger.debug("Inserting %s %s", id, fingerprint)
         return self._request('insert %d %s' % (id, encode_fp(fingerprint)))
 
     def close(self):
@@ -111,7 +113,7 @@ class IndexClient(object):
             self._putline('quit')
             self.sock.close()
         except StandardError:
-            logger.exception("Error while closing connection %s", (self,))
+            logger.exception("Error while closing connection %s", self)
         self.sock = None
 
 
@@ -119,7 +121,7 @@ class IndexClientWrapper(object):
 
     def __init__(self, pool=None, client=None):
         self._pool = pool
-        self._client = None
+        self._client = client
         self.ping = self._client.ping
         self.search = self._client.search
         self.begin = self._client.begin
@@ -130,7 +132,7 @@ class IndexClientWrapper(object):
     def close(self):
         if self._client.in_transaction:
             self._client.rollback()
-        self._pool.release(self._client)
+        self._pool._release(self._client)
 
 
 class IndexClientPool(object):
@@ -143,13 +145,10 @@ class IndexClientPool(object):
 
     def _release(self, client):
         if len(self.clients) >= self.max_idle_clients:
-            logger.info("Too many idle connections, closing %s", (client,))
-            client.close()
-        elif self.recycle > 0 and client.created + self.recycle < time.time():
-            logger.info("Recycling connection %s after %d seconds", (client, self.recycle))
+            logger.info("Too many idle connections, closing %s", client)
             client.close()
         else:
-            logger.info("Checking in connection %s", (client,))
+            logger.debug("Checking in connection %s", client)
             self.clients.append(client)
 
     def connect(self):
@@ -157,11 +156,16 @@ class IndexClientPool(object):
         if self.clients:
             client = self.clients.popleft()
             try:
-                client.ping()
+                if self.recycle > 0 and client.created + self.recycle < time.time():
+                    logger.info("Recycling connection %s after %d seconds", client, self.recycle)
+                    raise IndexClientError()
+                else:
+                    client.ping()
             except IndexClientError:
                 client.close()
                 client = None
         if client is None:
             client = IndexClient(**self.args)
+        logger.debug("Checking out connection %s", client)
         return IndexClientWrapper(self, client)
 

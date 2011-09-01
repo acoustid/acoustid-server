@@ -8,7 +8,7 @@ from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids, lookup_puids
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.submission import insert_submission
-from acoustid.data.fingerprint import lookup_fingerprint, decode_fingerprint
+from acoustid.data.fingerprint import lookup_fingerprint, decode_fingerprint, FingerprintSearcher
 from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
@@ -65,7 +65,9 @@ class APIHandler(Handler):
 
     @classmethod
     def create_from_server(cls, server):
-        return cls(connect=server.engine.connect)
+        handler = cls(connect=server.engine.connect)
+        handler.index = server.index
+        return handler
 
     def _error(self, code, message, format=DEFAULT_FORMAT, status=400):
         response_data = {
@@ -424,7 +426,8 @@ class LookupHandler(APIHandler):
     def _handle_internal(self, params):
         response = {}
         response['results'] = results = []
-        matches = lookup_fingerprint(self.conn, params.fingerprint, params.duration, 0.7, 0.3)
+        searcher = FingerprintSearcher(self.conn, self.index)
+        matches = searcher.search(params.fingerprint, params.duration)
         result_map = {}
         for fingerprint_id, track_id, track_gid, score in matches:
             if track_id in result_map:
