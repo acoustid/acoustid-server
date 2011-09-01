@@ -30,7 +30,7 @@ class TrackListByMBIDHandler(APIHandler):
     def _handle_internal(self, params):
         response = {}
         query = sql.select([schema.track_mbid.c.mbid, schema.track.c.gid],
-            schema.track_mbid.c.mbid.in_(params.mbids),
+            sql.and_(schema.track_mbid.c.mbid.in_(params.mbids), schema.track_mbid.c.disabled == False),
             schema.track_mbid.join(schema.track))
         tracks_map = {}
         for mbid, track_gid in self.conn.execute(query):
