@@ -58,6 +58,8 @@ class FingerprintSearcher(object):
         self.max_offset = const.TRACK_MAX_OFFSET
 
     def _search_index(self, fp, length):
+        import time
+        t = time.time()
         # index search
         fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
         with closing(self.idx.connect()) as idx:
@@ -68,6 +70,8 @@ class FingerprintSearcher(object):
             candidate_ids = [r.id for r in results if r.score > min_score]
             if not candidate_ids:
                 return []
+        logger.info("Index search took %s", time.time() - t)
+        t = time.time()
         # construct the subquery
         f_columns = [
             schema.fingerprint.c.id,
@@ -86,20 +90,19 @@ class FingerprintSearcher(object):
         query = sql.select(columns, f.c.score > self.min_score, src,
                            order_by=[f.c.score.desc(), f.c.id])
         # database scoring
-        return self.db.execute(query).fetchall()
+        matches = self.db.execute(query).fetchall()
+        logger.info("Index database took %s", time.time() - t)
+        return matches
 
     def _search_database(self, fp, index):
         return lookup_fingerprint(self.db, fp, length, const.TRACK_MERGE_THRESHOLD,
                                   self.min_score, max_offset=self.max_offset)
 
     def search(self, fp, length):
-        import time
-        t = time.time()
         if self.idx is not None:
             matches = self._search_index(fp, length)
         else:
             matches = self._search_database(fp, length)
-        print time.time() - t
         return matches
 
 
