@@ -431,6 +431,7 @@ class LookupHandler(APIHandler):
                 continue
             result_map[track_id] = result = {'id': track_gid, 'score': score}
             results.append(result)
+        logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)
         return response
