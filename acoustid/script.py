@@ -7,6 +7,7 @@ import sqlalchemy
 import sqlalchemy.pool
 from optparse import OptionParser
 from acoustid.config import Config
+from acoustid.indexclient import IndexClientPool
 from acoustid.utils import LocalSysLogHandler
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,9 @@ class Script(object):
         #self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
         #    poolclass=sqlalchemy.pool.AssertionPool)
         self.engine = sqlalchemy.create_engine(self.config.database.create_url())
+        self.index = IndexClientPool(host=script.config.index.host,
+                                     port=script.config.index.port,
+                                     recycle=15)
         self.setup_logging()
 
     def setup_logging(self):
