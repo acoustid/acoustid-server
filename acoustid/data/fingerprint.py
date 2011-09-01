@@ -6,6 +6,7 @@ import chromaprint
 from contextlib import closing
 from sqlalchemy import sql
 from acoustid import tables as schema, const
+from acoustid.indexclient import IndexClientError
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,8 @@ class FingerprintSearcher(object):
         t = time.time()
         # index search
         fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
+        if not fp_query:
+            return []
         with closing(self.idx.connect()) as idx:
             results = idx.search(fp_query)
             if not results:
@@ -94,14 +97,19 @@ class FingerprintSearcher(object):
         logger.info("Index database took %s", time.time() - t)
         return matches
 
-    def _search_database(self, fp, index):
+    def _search_database(self, fp, length):
         return lookup_fingerprint(self.db, fp, length, const.TRACK_MERGE_THRESHOLD,
                                   self.min_score, max_offset=self.max_offset)
 
     def search(self, fp, length):
+        matches = None
         if self.idx is not None:
-            matches = self._search_index(fp, length)
-        else:
+            try:
+                matches = self._search_index(fp, length)
+            except IndexClientError:
+                logger.exception("Index search error")
+                matches = None
+        if matches is None: 
             matches = self._search_database(fp, length)
         return matches
 
