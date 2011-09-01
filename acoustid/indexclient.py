@@ -42,7 +42,7 @@ class IndexClient(object):
             self.close()
 
     def _connect(self):
-        logger.info("Connecting index server at %s:%s", (self.host, self.port))
+        logger.info("Connecting index server at %s:%s", self.host, self.port)
         self.sock = socket.create_connection((self.host, self.port))
         self.sock.setblocking(0)
 
@@ -90,13 +90,13 @@ class IndexClient(object):
         self.in_transaction = True
 
     def commit(self):
-        if self.in_transaction:
+        if not self.in_transaction:
             raise IndexClientError('called commit() without a transaction')
         self._request('commit')
         self.in_transaction = False
 
     def rollback(self):
-        if self.in_transaction:
+        if not self.in_transaction:
             raise IndexClientError('called rollback() without a transaction')
         self._request('rollback')
         self.in_transaction = False
@@ -108,7 +108,7 @@ class IndexClient(object):
         try:
             if self.in_transaction:
                 self.rollback()
-            self._request('quit')
+            self._putline('quit')
             self.sock.close()
         except StandardError:
             logger.exception("Error while closing connection %s", (self,))
@@ -117,7 +117,7 @@ class IndexClient(object):
 
 class IndexClientWrapper(object):
 
-    def __init__(self, pool=None, client=None)
+    def __init__(self, pool=None, client=None):
         self._pool = pool
         self._client = None
         self.ping = self._client.ping
