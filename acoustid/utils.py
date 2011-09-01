@@ -107,7 +107,8 @@ class LocalSysLogHandler(Handler):
             if isinstance(msg, unicode):
                 msg = msg.encode('utf-8')
             priority = self.priority_map[record.levelname]
-            syslog.syslog(self.facility | priority, msg)
+            for m in msg.splitlines():
+                syslog.syslog(self.facility | priority, m)
         except StandardError:
             self.handleError(record)
 
