@@ -66,3 +66,7 @@ def reset_account_apikey(conn, id):
         conn.execute(update_stmt)
     logger.debug("Reset API key for account %r", id)
 
+
+def is_moderator(id):
+    return id in [3]
+

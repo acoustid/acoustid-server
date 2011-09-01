@@ -172,7 +172,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     expected = {
         "status": "ok",
         "results": [{
-            "id": 1,
+            "id": 'eb31d1c3-950e-468b-9e36-e46fa75b1291',
             "score": 1.0,
         }],
     }
@@ -187,7 +187,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     expected = {
         "status": "ok",
         "results": [{
-            "id": 1,
+            "id": 'eb31d1c3-950e-468b-9e36-e46fa75b1291',
             "score": 1.0,
             "recordings": [{"id": "b81f83ee-4da4-11e0-9ed8-0025225356f3"}],
         }],
@@ -204,7 +204,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     expected = {
         "status": "ok",
         "results": [{
-            "id": 1,
+            "id": 'eb31d1c3-950e-468b-9e36-e46fa75b1291',
             "score": 1.0,
             "recordings": [{
                 "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
@@ -218,9 +218,9 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
                     "medium": {
                         "track_count": 2,
                         "position": 1,
-                        "format": "CD",
+                        "format": "DVD",
                         "release": {
-                            "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
+                            "id": "1d4d546f-e2ec-4553-8df7-9004298924d5",
                             "title": "Album A",
                         },
                     },
@@ -235,9 +235,9 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
                     "medium": {
                         "track_count": 2,
                         "position": 1,
-                        "format": "DVD",
+                        "format": "CD",
                         "release": {
-                            "id": "1d4d546f-e2ec-4553-8df7-9004298924d5",
+                            "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
                             "title": "Album A",
                         },
                     },
@@ -264,7 +264,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     expected = {
         "status": "ok",
         "results": [{
-            "id": 1,
+            "id": 'eb31d1c3-950e-468b-9e36-e46fa75b1291',
             "score": 1.0,
         }],
     }

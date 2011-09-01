@@ -95,7 +95,8 @@ CREATE TABLE track_mbid_change (
     id serial NOT NULL,
     track_mbid_id int NOT NULL,
     account_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
+    created timestamp with time zone DEFAULT current_timestamp,
+    disabled boolean NOT NULL
 );
 
 CREATE TABLE track_mbid_flag (

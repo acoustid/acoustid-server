@@ -25,7 +25,8 @@ from acoustid.data.account import (
     insert_account,
     get_account_details,
     reset_account_apikey,
-    update_account_lastlogin
+    update_account_lastlogin,
+    is_moderator,
 )
 from acoustid.data.stats import (
     find_current_stats,
@@ -403,6 +404,9 @@ class TrackHandler(WebSiteHandler):
         else:
             track_id = int(track_id)
         title = 'Track #%s' % (track_id,)
+        track = {
+            'id': track_id
+        }
         #matrix = get_track_fingerprint_matrix(self.conn, track_id)
         #ids = sorted(matrix.keys())
         #if not ids:
@@ -433,7 +437,8 @@ class TrackHandler(WebSiteHandler):
         puids = list(self.conn.execute(query).fetchall())
         query = sql.select(
             [schema.track_mbid.c.mbid,
-             schema.track_mbid.c.submission_count],
+             schema.track_mbid.c.submission_count,
+             schema.track_mbid.c.disabled],
             schema.track_mbid.c.track_id == track_id)
         mbids = self.conn.execute(query).fetchall()
         metadata = lookup_recording_metadata(self.conn, [r['mbid'] for r in mbids])
@@ -442,10 +447,13 @@ class TrackHandler(WebSiteHandler):
             recording = metadata.get(mbid['mbid'], {})
             recording['mbid'] = mbid['mbid']
             recording['submission_count'] = mbid['submission_count']
+            recording['disabled'] = mbid['disabled']
             recordings.append(recording)
         recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
+        moderator = is_moderator(self.session.get('id'))
         return self.render_template('track.html', title=title,
-            fingerprints=fingerprints, recordings=recordings, puids=puids)
+            fingerprints=fingerprints, recordings=recordings, puids=puids,
+            moderator=moderator, track=track)
 
 
 class FingerprintHandler(WebSiteHandler):
@@ -464,7 +472,6 @@ class FingerprintHandler(WebSiteHandler):
             fingerprint=fingerprint)
 
 
-
 class MBIDHandler(WebSiteHandler):
 
     def _handle_request(self, req):
@@ -479,4 +486,28 @@ class MBIDHandler(WebSiteHandler):
         title = 'Recording "%s" by %s' % (metadata['name'], metadata['artist_name'])
         tracks = lookup_tracks(self.conn, [mbid]).get(mbid, [])
         return self.render_template('mbid.html', title=title, tracks=tracks, mbid=mbid)
+
+
+class EditToggleTrackMBIDHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        self.require_user()
+        track_id = req.form.get('track_id', type=int)
+        state = bool(req.form.get('state', type=int))
+        mbid = req.form.get('mbid')
+        if not is_moderator(self.session['id']) or not track_id or not mbid:
+            return redirect(self.config.base_url)
+        query = sql.select([schema.track_mbid.c.id, schema.track_mbid.c.disabled],
+            sql.and_(schema.track_mbid.c.track_id == track_id,
+                     schema.track_mbid.c.mbid == mbid))
+        id, current_state = self.conn.execute(query).fetchall()[0]
+        if state == current_state:
+            return redirect(self.config.base_url + 'track/%d' % (track_id,))
+        with self.conn.begin():
+            update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == id).values(disabled=state)
+            self.conn.execute(update_stmt)
+            insert_stmt = schema.track_mbid_change.insert().values(track_mbid_id=id, account_id=self.session['id'],
+                                                                   disabled=state)
+            self.conn.execute(insert_stmt)
+        return redirect(self.config.base_url + 'track/%d' % (track_id,))
 
