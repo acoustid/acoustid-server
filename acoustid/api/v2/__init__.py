@@ -424,6 +424,8 @@ class LookupHandler(APIHandler):
             self.inject_puids(meta, result_map)
 
     def _handle_internal(self, params):
+        import time
+        t = time.time()
         response = {}
         response['results'] = results = []
         searcher = FingerprintSearcher(self.conn, self.index)
@@ -437,6 +439,7 @@ class LookupHandler(APIHandler):
         logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)
+        logger.info("Lookup took %s", time.time() - t)
         return response
 
 
