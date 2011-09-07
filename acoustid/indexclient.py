@@ -85,7 +85,7 @@ class IndexClient(object):
     def search(self, fingerprint):
         line = self._request('search %s' % (encode_fp(fingerprint),))
         matches = [Result(*map(int, r.split(':'))) for r in line.split(' ')]
-        logger.debug("Searching %s => %s", fingerprint, matches)
+        #logger.debug("Searching %s => %s", fingerprint, matches)
         return matches
 
     def begin(self):
@@ -107,7 +107,7 @@ class IndexClient(object):
         self.in_transaction = False
 
     def insert(self, id, fingerprint):
-        logger.debug("Inserting %s %s", id, fingerprint)
+        #logger.debug("Inserting %s %s", id, fingerprint)
         return self._request('insert %d %s' % (id, encode_fp(fingerprint)))
 
     def close(self):
