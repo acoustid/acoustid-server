@@ -5,7 +5,7 @@ import re
 import logging
 import operator
 from acoustid.handler import Handler, Response
-from acoustid.data.track import lookup_mbids, lookup_puids
+from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.submission import insert_submission
 from acoustid.data.fingerprint import lookup_fingerprint, decode_fingerprint, FingerprintSearcher
@@ -114,15 +114,19 @@ class LookupHandlerParams(APIHandlerParams):
             self.meta = ['m2']
         else:
             self.meta = self.meta.split()
-        self.duration = values.get('duration', type=int)
-        if not self.duration:
-            raise errors.MissingParameterError('duration')
-        fingerprint_string = values.get('fingerprint')
-        if not fingerprint_string:
-            raise errors.MissingParameterError('fingerprint')
-        self.fingerprint = decode_fingerprint(fingerprint_string)
-        if not self.fingerprint:
-            raise errors.InvalidFingerprintError()
+        self.track_gid = values.get('trackid')
+        if self.track_gid and not is_uuid(self.track_gid):
+            raise errors.InvalidUUIDError('trackid')
+        if not self.track_gid:
+            self.duration = values.get('duration', type=int)
+            if not self.duration:
+                raise errors.MissingParameterError('duration')
+            fingerprint_string = values.get('fingerprint')
+            if not fingerprint_string:
+                raise errors.MissingParameterError('fingerprint')
+            self.fingerprint = decode_fingerprint(fingerprint_string)
+            if not self.fingerprint:
+                raise errors.InvalidFingerprintError()
 
 
 class LookupHandler(APIHandler):
@@ -428,8 +432,12 @@ class LookupHandler(APIHandler):
         t = time.time()
         response = {}
         response['results'] = results = []
-        searcher = FingerprintSearcher(self.conn, self.index)
-        matches = searcher.search(params.fingerprint, params.duration)
+        if params.track_gid:
+            track_id = resolve_track_gid(self.conn, params.track_gid)
+            matches = [(0, track_id, params.track_gid, 1.0)]
+        else:
+            searcher = FingerprintSearcher(self.conn, self.index)
+            matches = searcher.search(params.fingerprint, params.duration)
         result_map = {}
         for fingerprint_id, track_id, track_gid, score in matches:
             if track_id in result_map:
