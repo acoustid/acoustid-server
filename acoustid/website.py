@@ -33,6 +33,7 @@ from acoustid.data.stats import (
     find_daily_stats,
     find_top_contributors,
     find_all_contributors,
+    find_lookup_stats,
 )
 
 logger = logging.getLogger(__name__)
@@ -378,9 +379,10 @@ class StatsHandler(WebSiteHandler):
             'mbids': daily_raw['mbid.all'],
             'puids': daily_raw['puid.all'],
         }
+        lookups = find_lookup_stats(self.conn)
         return self.render_template('stats.html', title=title, basic=basic,
             track_mbid=track_mbid, mbid_track=mbid_track,
-            top_contributors=top_contributors, daily=daily)
+            top_contributors=top_contributors, daily=daily, lookups=lookups)
 
 
 class ContributorsHandler(WebSiteHandler):
