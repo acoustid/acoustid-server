@@ -303,7 +303,7 @@ class LookupHandler(APIHandler):
                     if 'compress' in meta:
                         for medium in mediums:
                             for track in medium['tracks']:
-                                if track['artists'] == el.get('artists'):
+                                if 'artists' in track and track['artists'] == el.get('artists'):
                                     del track['artists']
                     el['mediums'] = mediums
 
