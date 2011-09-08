@@ -355,7 +355,7 @@ class LookupHandler(APIHandler):
                             for release in release_group.get('releases', []):
                                 for medium in release.get('mediums', []):
                                     for track in medium['tracks']:
-                                        if track['title'] == recording.get('title'):
+                                        if 'title' in track and track['title'] == recording.get('title'):
                                             del track['title']
                         if 'artists' in release_group and release_group['artists'] == recording.get('artists'):
                             del release_group['artists']
@@ -367,7 +367,7 @@ class LookupHandler(APIHandler):
                         for release in recording.get('releases', []):
                             for medium in release.get('mediums', []):
                                 for track in medium['tracks']:
-                                    if track['title'] == recording.get('title'):
+                                    if 'title' in track and track['title'] == recording.get('title'):
                                         del track['title']
                             if 'artists' in release and release['artists'] == recording.get('artists'):
                                 del release['artists']
