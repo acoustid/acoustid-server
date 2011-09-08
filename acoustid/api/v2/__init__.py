@@ -170,6 +170,8 @@ class LookupHandler(APIHandler):
         if only_id:
             return release
         release['title'] = m['release_title']
+        release['medium_count'] = m['release_medium_count']
+        release['track_count'] = m['release_track_count']
         if m['release_country']:
             release['country'] = m['release_country']
         if m['release_artists']:
