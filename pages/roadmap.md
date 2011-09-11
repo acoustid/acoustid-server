@@ -11,19 +11,14 @@ have. If you would like to help with any of these goals, please [let me know][1]
   (remove obviously wrong fingerprints, merge incorrectly imported
   fingerprints, etc.).<br />
   **Status:** No work done on this yet.
-* Run a test to determine the best fingerprint similarity thresholds based on
-  [NGS][2] recordings. The final test probably needs to wait until NGS
-  data is somehow stabilized, but it can be prepared before that.<br />
+* Allow better browsing of the fingerprint database on the website.<br />
   **Status:** No work done on this yet.
-* Allow browsing of the fingerprint database on the website.<br />
-  **Status:** No work done on this yet.
-* Create a Greasemonkey script and corresponding API to show fingerprints on
-  the MusicBrainz website, similarly to PUIDs.<br />
-  **Status:** No work done on this yet.
-* Modify MusicBrainz Picard to optionally use Acoustid for lookups.<br />
-  **Status:** Very crude hack implemented ([code][4]), needs work.
-* Write a custom server application for fingerprint search.<br />
-  **Status:** Proof-of-concept implemented ([code][3]), needs a lot of work.
+* Display AcoustIDs on the MusicBrainz website. <br />
+  **Status:** Implemented as an [userscript](http://userscripts.org/scripts/show/110183), but should be integrated to the MusicBrainz server code. Needs agreement from MusicBrainz.
+* Allow MusicBrainz users to submit edits to remove incorrect AcoustID-MusicBrainz matches.<br />
+  **Status:** No work done on this yet. Needs agreement from MusicBrainz.
+* Modify MusicBrainz Picard to optionally (exclusively?) use Acoustid for lookups.<br />
+  **Status:** Very crude hack implemented ([code][4]). Needs work.
 
 [3]: https://github.com/lalinsky/acoustid-index
 [2]: http://wiki.musicbrainz.org/Next_Generation_Schema 
