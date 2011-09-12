@@ -84,8 +84,9 @@ class IndexClient(object):
 
     def search(self, fingerprint):
         line = self._request('search %s' % (encode_fp(fingerprint),))
+        if not line:
+            return []
         matches = [Result(*map(int, r.split(':'))) for r in line.split(' ')]
-        #logger.debug("Searching %s => %s", fingerprint, matches)
         return matches
 
     def begin(self):
