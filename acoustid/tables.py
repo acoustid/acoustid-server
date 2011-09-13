@@ -282,7 +282,7 @@ mb_medium = Table('medium', metadata,
     Column('release', Integer, ForeignKey('musicbrainz.s_release.id')),
     Column('tracklist', Integer, ForeignKey('musicbrainz.tracklist.id')),
     Column('position', Integer),
-    Column('format', Integer, ForeignKey('musicbrainz.format.id')),
+    Column('format', Integer, ForeignKey('musicbrainz.medium_format.id')),
     schema='musicbrainz',
 )
 

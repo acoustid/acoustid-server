@@ -30,6 +30,28 @@ def _load_artists(conn, artist_credit_ids):
     return result
 
 
+def _load_release_meta(conn, release_ids):
+    if not release_ids:
+        return {}
+    src = schema.mb_medium
+    src = src.join(schema.mb_tracklist)
+    condition = schema.mb_medium.c.release.in_(release_ids)
+    columns = [
+        schema.mb_medium.c.release,
+        sql.func.count(schema.mb_medium.c.id).label('release_medium_count'),
+        sql.func.sum(schema.mb_tracklist.c.track_count).label('release_track_count'),
+    ]
+    query = sql.select(columns, condition, from_obj=src,
+                group_by=schema.mb_medium.c.release)
+    result = {}
+    for row in conn.execute(query):
+        result[row['release']] = {
+            'release_medium_count': row['release_medium_count'],
+            'release_track_count': row['release_track_count']
+        }
+    return result
+
+
 def lookup_metadata(conn, recording_ids, load_releases=False, load_release_groups=False, load_artists=False):
     if not recording_ids:
         return []
@@ -55,6 +77,7 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
             schema.mb_medium.c.position.label('medium_position'),
             schema.mb_medium_format.c.name.label('medium_format'),
             schema.mb_tracklist.c.track_count.label('medium_track_count'),
+            schema.mb_release.c.id.label('release_rid'),
             schema.mb_release.c.gid.label('release_id'),
             schema.mb_release.c.name.label('release_title'),
             schema.mb_release.c.artist_credit.label('release_artist_credit'),
@@ -76,15 +99,18 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
     query = sql.select(columns, condition, from_obj=src)
     results = []
     artist_credit_ids = set()
+    release_ids = set()
     for row in conn.execute(query):
         results.append(dict(row))
         artist_credit_ids.add(row['recording_artist_credit'])
         if load_releases:
+            release_ids.add(row['release_rid'])
             artist_credit_ids.add(row['release_artist_credit'])
             artist_credit_ids.add(row['track_artist_credit'])
             if load_release_groups:
                 artist_credit_ids.add(row['release_group_artist_credit'])
     artists = _load_artists(conn, artist_credit_ids)
+    releases = _load_release_meta(conn, release_ids)
     for row in results:
         row['recording_artists'] = artists[row.pop('recording_artist_credit')]
         if load_releases:
@@ -92,6 +118,7 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
             row['track_artists'] = artists[row.pop('track_artist_credit')]
             if load_release_groups:
                 row['release_group_artists'] = artists[row.pop('release_group_artist_credit')]
+            row.update(releases[row.pop('release_rid')])
     return results
 
 

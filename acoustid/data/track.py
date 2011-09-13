@@ -85,13 +85,12 @@ def merge_mbids(conn, target_mbid, source_mbids):
             group_by=schema.track_mbid.c.track_id)
         rows = conn.execute(query).fetchall()
         to_delete = set()
+        to_update = []
         for row in rows:
             old_ids = set(row['all_ids'])
             old_ids.remove(row['id'])
             to_delete.update(old_ids)
-            update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == row['id'])
-            conn.execute(update_stmt.values(submission_count=row['count'],
-                mbid=target_mbid, disabled=row['all_disabled']))
+            to_update.append((old_ids, row))
             if old_ids:
                 update_stmt = schema.track_mbid_source.update().where(schema.track_mbid_source.c.track_mbid_id.in_(old_ids))
                 conn.execute(update_stmt.values(track_mbid_id=row['id']))
@@ -103,6 +102,10 @@ def merge_mbids(conn, target_mbid, source_mbids):
             delete_stmt = schema.track_mbid.delete().where(
                 schema.track_mbid.c.id.in_(to_delete))
             conn.execute(delete_stmt)
+        for old_ids, row in to_update:
+            update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == row['id'])
+            conn.execute(update_stmt.values(submission_count=row['count'],
+                mbid=target_mbid, disabled=row['all_disabled']))
 
 
 def merge_missing_mbids(conn):
@@ -145,15 +148,12 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
     query = sql.select(columns, tab.c.track_id.in_(source_ids + [target_id]), group_by=col)
     rows = conn.execute(query).fetchall()
     to_delete = set()
+    to_update = []
     for row in rows:
         old_ids = set(row['all_ids'])
         old_ids.remove(row['id'])
         to_delete.update(old_ids)
-        update_stmt = tab.update().where(tab.c.id == row['id'])
-        if name == 'mbid':
-            conn.execute(update_stmt.values(submission_count=row['count'], track_id=target_id, disabled=row['all_disabled']))
-        else:
-            conn.execute(update_stmt.values(submission_count=row['count'], track_id=target_id))
+        to_update.append((old_ids, row))
         if old_ids:
             update_stmt = tab_src.update().where(col_src.in_(old_ids))
             conn.execute(update_stmt.values({col_src: row['id']}))
@@ -165,6 +165,12 @@ def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
     if to_delete:
         delete_stmt = tab.delete().where(tab.c.id.in_(to_delete))
         conn.execute(delete_stmt)
+    for old_ids, row in to_update:
+        update_stmt = tab.update().where(tab.c.id == row['id'])
+        if name == 'mbid':
+            conn.execute(update_stmt.values(submission_count=row['count'], track_id=target_id, disabled=row['all_disabled']))
+        else:
+            conn.execute(update_stmt.values(submission_count=row['count'], track_id=target_id))
 
 
 def merge_tracks(conn, target_id, source_ids):

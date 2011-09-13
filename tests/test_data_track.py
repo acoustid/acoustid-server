@@ -37,8 +37,8 @@ INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '97e
 INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, 'd575d506-4da4-11e0-b951-0025225356f3', 11);
 INSERT INTO track_mbid_source (track_mbid_id, submission_id, source_id) VALUES (1, 1, 1);
 INSERT INTO track_mbid_source (track_mbid_id, submission_id, source_id) VALUES (2, 2, 1);
-INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (1, 1);
-INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (2, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (1, 1, true);
+INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1, true);
 """)
     merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
@@ -156,10 +156,10 @@ INSERT INTO track_puid (track_id, puid, submission_count) VALUES (1, 'd575d506-4
 INSERT INTO track_puid (track_id, puid, submission_count) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f4', 50);
 INSERT INTO track_puid (track_id, puid, submission_count) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f4', 25);
 INSERT INTO track_puid (track_id, puid, submission_count) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f4', 30);
-INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (2, 1);
-INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (3, 1);
-INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (4, 1);
-INSERT INTO track_mbid_change (track_mbid_id, account_id) VALUES (5, 1);
+INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1, true);
+INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (3, 1, true);
+INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (4, 1, true);
+INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1, true);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH))
     merge_tracks(conn, 3, [1, 2, 4])

@@ -58,6 +58,7 @@ class APIHandler(Handler):
 
     def __init__(self, connect=None):
         self._connect = connect
+        self.index = None
 
     @cached_property
     def conn(self):
@@ -170,6 +171,8 @@ class LookupHandler(APIHandler):
         if only_id:
             return release
         release['title'] = m['release_title']
+        release['medium_count'] = m['release_medium_count']
+        release['track_count'] = m['release_track_count']
         if m['release_country']:
             release['country'] = m['release_country']
         if m['release_artists']:
@@ -353,7 +356,7 @@ class LookupHandler(APIHandler):
                             for release in release_group.get('releases', []):
                                 for medium in release.get('mediums', []):
                                     for track in medium['tracks']:
-                                        if track['title'] == recording.get('title'):
+                                        if 'title' in track and track['title'] == recording.get('title'):
                                             del track['title']
                         if 'artists' in release_group and release_group['artists'] == recording.get('artists'):
                             del release_group['artists']
@@ -365,7 +368,7 @@ class LookupHandler(APIHandler):
                         for release in recording.get('releases', []):
                             for medium in release.get('mediums', []):
                                 for track in medium['tracks']:
-                                    if track['title'] == recording.get('title'):
+                                    if 'title' in track and track['title'] == recording.get('title'):
                                         del track['title']
                             if 'artists' in release and release['artists'] == recording.get('artists'):
                                 del release['artists']
@@ -432,7 +435,7 @@ class LookupHandler(APIHandler):
         t = time.time()
         response = {}
         response['results'] = results = []
-        if params.track_gid:
+        if getattr(params, 'track_gid', None):
             track_id = resolve_track_gid(self.conn, params.track_gid)
             matches = [(0, track_id, params.track_gid, 1.0)]
         else:
