@@ -67,17 +67,15 @@ class FingerprintSearcher(object):
             return []
         with closing(self.idx.connect()) as idx:
             results = idx.search(fp_query)
-            print results
             if not results:
                 return []
-            min_score = results[0].score * 0.50 # at least 10% of the top score
+            min_score = results[0].score * 0.1 # at least 10% of the top score
             candidate_ids = [r.id for r in results if r.score > min_score]
             if not candidate_ids:
                 return []
         logger.info("Index search took %s", time.time() - t)
         t = time.time()
         # construct the subquery
-        self.max_offset = 600
         f_columns = [
             schema.fingerprint.c.id,
             schema.fingerprint.c.track_id,
@@ -89,11 +87,9 @@ class FingerprintSearcher(object):
             schema.fingerprint.c.length.between(length - self.max_length_diff,
                                                 length + self.max_length_diff))
         f = sql.select(f_columns, f_where).alias('f')
-        print self.db.execute(f).fetchall()
         # construct the main query
         columns = [f.c.id, f.c.track_id, schema.track.c.gid.label('track_gid'), f.c.score]
         src = f.join(schema.track, schema.track.c.id == f.c.track_id)
-        self.min_score = 0.0
         query = sql.select(columns, f.c.score > self.min_score, src,
                            order_by=[f.c.score.desc(), f.c.id])
         # database scoring
