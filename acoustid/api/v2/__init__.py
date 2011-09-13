@@ -58,6 +58,7 @@ class APIHandler(Handler):
 
     def __init__(self, connect=None):
         self._connect = connect
+        self.index = None
 
     @cached_property
     def conn(self):
@@ -434,7 +435,7 @@ class LookupHandler(APIHandler):
         t = time.time()
         response = {}
         response['results'] = results = []
-        if params.track_gid:
+        if getattr(params, 'track_gid', None):
             track_id = resolve_track_gid(self.conn, params.track_gid)
             matches = [(0, track_id, params.track_gid, 1.0)]
         else:
