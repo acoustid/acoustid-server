@@ -174,12 +174,6 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 
 	ereport(DEBUG5, (errmsg("acoustid_compare2: offset %d, offset score %d, size %d", topoffset, topcount, size * 2)));
 
-	if (topcount < size * 0.04) {
-		ereport(DEBUG4, (errmsg("acoustid_compare2: top offset score is below 2%% of the size")));
-		score = 0.0;
-		goto exit;
-	}
-
 	memset(seen, 0, UNIQ_MASK);
 	for (i = 0; i < asize; i++) {
 		int key = UNIQ_STRIP(a[i]);
@@ -200,6 +194,12 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 
 	diversity = 0.5 * (Min(1.0, (float)auniq / asize + 0.5) +
 	                   Min(1.0, (float)buniq / bsize + 0.5));
+
+	if (topcount < Min(auniq, buniq) * 0.02) {
+		ereport(DEBUG4, (errmsg("acoustid_compare2: top offset score is below 2%% of the unique size")));
+		score = 0.0;
+		goto exit;
+	}
 
 	adata = (uint64_t *)a;
 	bdata = (uint64_t *)b;
