@@ -43,7 +43,7 @@ def find_lookup_stats(conn):
             sum(count_nohits) AS count_nohits,
             sum(count_hits) + sum(count_nohits) AS count
         FROM stats_lookups
-        WHERE date > now() - INTERVAL '30 day'
+        WHERE date > now() - INTERVAL '30 day' AND date < date(now())
         GROUP BY date
         ORDER BY date
     """
