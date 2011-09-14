@@ -471,6 +471,7 @@ class LookupHandler(APIHandler):
             seen.add(track_id)
             result_map[track_id] = result = {'id': track_gid, 'score': score}
             results.append(result)
+        return seen
 
     def _handle_internal(self, params):
         import time
@@ -495,12 +496,13 @@ class LookupHandler(APIHandler):
             for p, matches in zip(fingerprints, all_matches):
                 results = []
                 fps.append({'index': p['index'], 'results': results})
-                self._inject_results(results, result_map, matches)
+                track_ids = self._inject_results(results, result_map, matches)
+                logger.info("Lookup from %s: %s", params.application_id, list(track_ids))
         else:
             response['results'] = results = []
             result_map = {}
             self._inject_results(results, result_map, all_matches[0])
-        logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
+            logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)
         logger.info("Lookup took %s", time.time() - t)
