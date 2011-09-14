@@ -172,8 +172,6 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 		goto exit;
 	}
 
-	ereport(DEBUG5, (errmsg("acoustid_compare2: offset %d, offset score %d, size %d", topoffset, topcount, size * 2)));
-
 	memset(seen, 0, UNIQ_MASK);
 	for (i = 0; i < asize; i++) {
 		int key = UNIQ_STRIP(a[i]);
@@ -192,10 +190,12 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 		}
 	}
 
-	diversity = 0.5 * (Min(1.0, (float)auniq / asize + 0.5) +
-	                   Min(1.0, (float)buniq / bsize + 0.5));
+	diversity = Min(Min(1.0, (float)auniq / asize + 0.5),
+	                Min(1.0, (float)buniq / bsize + 0.5));
 
-	if (topcount < Min(auniq, buniq) * 0.02) {
+	ereport(DEBUG5, (errmsg("acoustid_compare2: offset %d, offset score %d, size %d, uniq size %d, diversity %f", topoffset, topcount, size * 2, Max(auniq, buniq), diversity)));
+
+	if (topcount < Max(auniq, buniq) * 0.02) {
 		ereport(DEBUG4, (errmsg("acoustid_compare2: top offset score is below 2%% of the unique size")));
 		score = 0.0;
 		goto exit;
@@ -212,7 +212,9 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 		score = 0.0;
 	}
 	if (diversity < 1.0) {
-		score = pow(score, 2.0 - diversity);
+		float newscore = pow(score, 10.0 - 9.0 * diversity);
+		ereport(DEBUG4, (errmsg("acoustid_compare2: scaling score because of duplicate items, %f => %f", score, newscore)));
+		score = newscore;
 	}
 exit:
 	pfree(aoffsets);
