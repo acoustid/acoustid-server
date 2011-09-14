@@ -190,8 +190,8 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 		}
 	}
 
-	diversity = Min(Min(1.0, (float)auniq / asize + 0.5),
-	                Min(1.0, (float)buniq / bsize + 0.5));
+	diversity = Min(Min(1.0, (float)(auniq + 10) / asize + 0.5),
+	                Min(1.0, (float)(buniq + 10) / bsize + 0.5));
 
 	ereport(DEBUG5, (errmsg("acoustid_compare2: offset %d, offset score %d, size %d, uniq size %d, diversity %f", topoffset, topcount, size * 2, Max(auniq, buniq), diversity)));
 
