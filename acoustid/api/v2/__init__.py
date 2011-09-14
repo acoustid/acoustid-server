@@ -27,6 +27,19 @@ DEFAULT_FORMAT = 'json'
 FORMATS = set(['xml', 'json', 'jsonp'])
 
 
+def iter_args_suffixes(args, *prefixes):
+    results = set()
+    for name in args.iterkeys():
+        for prefix in prefixes:
+            if name == prefix:
+                results.add(None)
+            elif name.startswith(prefix + '.'):
+                prefix, suffix = name.split('.', 1)
+                if suffix.isdigit():
+                    results.add(int(suffix))
+    return ['.%d' % i if i is not None else '' for i in sorted(results)]
+
+
 class APIHandlerParams(object):
 
     def _parse_client(self, values, conn):
@@ -103,6 +116,24 @@ class APIHandler(Handler):
 
 class LookupHandlerParams(APIHandlerParams):
 
+    def _parse_query(self, values, suffix):
+        p = {}
+        p['index'] = (suffix or '')[1:]
+        p['track_gid'] = values.get('trackid' + suffix)
+        if p['track_gid'] and not is_uuid(p['track_gid']):
+            raise errors.InvalidUUIDError('trackid' + suffix)
+        if not p['track_gid']:
+            p['duration'] = values.get('duration' + suffix, type=int)
+            if not p['duration']:
+                raise errors.MissingParameterError('duration' + suffix)
+            fingerprint_string = values.get('fingerprint' + suffix)
+            if not fingerprint_string:
+                raise errors.MissingParameterError('fingerprint' + suffix)
+            p['fingerprint'] = decode_fingerprint(fingerprint_string)
+            if not p['fingerprint']:
+                raise errors.InvalidFingerprintError()
+        self.fingerprints.append(p)
+
     def parse(self, values, conn):
         super(LookupHandlerParams, self).parse(values, conn)
         self._parse_client(values, conn)
@@ -115,19 +146,17 @@ class LookupHandlerParams(APIHandlerParams):
             self.meta = ['m2']
         else:
             self.meta = self.meta.split()
-        self.track_gid = values.get('trackid')
-        if self.track_gid and not is_uuid(self.track_gid):
-            raise errors.InvalidUUIDError('trackid')
-        if not self.track_gid:
-            self.duration = values.get('duration', type=int)
-            if not self.duration:
-                raise errors.MissingParameterError('duration')
-            fingerprint_string = values.get('fingerprint')
-            if not fingerprint_string:
-                raise errors.MissingParameterError('fingerprint')
-            self.fingerprint = decode_fingerprint(fingerprint_string)
-            if not self.fingerprint:
-                raise errors.InvalidFingerprintError()
+        self.batch = values.get('batch', type=int)
+        self.fingerprints = []
+        suffixes = list(iter_args_suffixes(values, 'fingerprint', 'trackid'))
+        if not suffixes:
+            raise errors.MissingParameterError('fingerprint')
+        for i, suffix in enumerate(suffixes):
+            try:
+                self._parse_query(values, suffix)
+            except errors.WebServiceError:
+                if not self.fingerprints and i + 1 == len(suffixes):
+                    raise
 
 
 class LookupHandler(APIHandler):
@@ -430,42 +459,48 @@ class LookupHandler(APIHandler):
         if 'puids' in meta:
             self.inject_puids(meta, result_map)
 
+    def _inject_results(self, results, result_map, matches):
+        seen = set()
+        for fingerprint_id, track_id, track_gid, score in matches:
+            if track_id in seen:
+                continue
+            seen.add(track_id)
+            result_map[track_id] = result = {'id': track_gid, 'score': score}
+            results.append(result)
+
     def _handle_internal(self, params):
         import time
         t = time.time()
-        response = {}
-        response['results'] = results = []
-        if getattr(params, 'track_gid', None):
-            track_id = resolve_track_gid(self.conn, params.track_gid)
-            matches = [(0, track_id, params.track_gid, 1.0)]
+        searcher = FingerprintSearcher(self.conn, self.index)
+        if params.batch:
+            fingerprints = params.fingerprints
         else:
-            searcher = FingerprintSearcher(self.conn, self.index)
-            matches = searcher.search(params.fingerprint, params.duration)
-        result_map = {}
-        for fingerprint_id, track_id, track_gid, score in matches:
-            if track_id in result_map:
-                continue
-            result_map[track_id] = result = {'id': track_gid, 'score': score}
-            results.append(result)
+            fingerprints = params.fingerprints[:1]
+        all_matches = []
+        for p in fingerprints:
+            if p['track_gid']:
+                track_id = resolve_track_gid(self.conn, p['track_gid'])
+                matches = [(0, track_id, p['track_gid'], 1.0)]
+            else:
+                matches = searcher.search(p['fingerprint'], p['duration'])
+            all_matches.append(matches)
+        response = {}
+        if params.batch:
+            response['fingerprints'] = fps = []
+            result_map = {}
+            for p, matches in zip(fingerprints, all_matches):
+                results = []
+                fps.append({'index': p['index'], 'results': results})
+                self._inject_results(results, result_map, matches)
+        else:
+            response['results'] = results = []
+            result_map = {}
+            self._inject_results(results, result_map, all_matches[0])
         logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)
         logger.info("Lookup took %s", time.time() - t)
         return response
-
-
-def iter_args_suffixes(args, prefix):
-    prefix_dot = prefix + '.'
-    results = []
-    for name in args.iterkeys():
-        if name == prefix:
-            results.append(None)
-        elif name.startswith(prefix_dot):
-            prefix, suffix = name.split('.', 1)
-            if suffix.isdigit():
-                results.append(int(suffix))
-    results.sort()
-    return ['.%d' % i if i is not None else '' for i in results]
 
 
 class SubmitHandlerParams(APIHandlerParams):
