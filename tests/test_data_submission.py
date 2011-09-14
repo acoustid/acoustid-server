@@ -273,7 +273,12 @@ def test_import_submission_merge_existing_tracks(conn):
     query = tables.submission.select(tables.submission.c.id == id)
     submission = conn.execute(query).fetchone()
     assert_false(submission['handled'])
-    fingerprint = import_submission(conn, submission)
+    try:
+        old_threshold = const.FINGERPRINT_MERGE_THRESHOLD
+        const.FINGERPRINT_MERGE_THRESHOLD = 0.85
+        fingerprint = import_submission(conn, submission)
+    finally:
+        const.FINGERPRINT_MERGE_THRESHOLD = old_threshold
     assert_equals(1, fingerprint['id'])
     assert_equals(1, fingerprint['track_id'])
     query = tables.fingerprint.select(tables.fingerprint.c.id == 1)

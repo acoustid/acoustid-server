@@ -36,6 +36,10 @@
 
 <div id="graph-fp"></div>
 
+<p><b>Searches</b></p>
+
+<div id="lookups-graph-fp"></div>
+
 <p><b>MusicBrainz database coverage compared to PUIDs</b></p>
 
 <table class="listing">
@@ -117,10 +121,23 @@
 }
 {% endmacro %}
 
+{% macro lookup_data_series(name, data, field, visible=True)  %}
+{
+    name: '{{ name }}',
+	data: [
+		{% for i in data -%}
+			[Date.UTC({{ i.date.year }}, {{ i.date.month - 1 }}, {{ i.date.day }}), {{ i[field] }}]{% if not loop.last %},{% endif %}
+		{%- endfor %}
+	],
+	visible: {{ 'true' if visible else 'false' }}
+}
+{% endmacro %}
+
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js" type="text/javascript"></script>
 <script src="/static/highcharts.js" type="text/javascript"></script>
 <script type="text/javascript">
 var chart1; // globally available
+var chart2; // globally available
 $(document).ready(function() {
 	chart1 = new Highcharts.Chart({
 		chart: {
@@ -154,6 +171,38 @@ $(document).ready(function() {
 			{{ data_series('Tracks', daily.tracks, false) }},
 			{{ data_series('MBIDs', daily.mbids, false) }},
 			{{ data_series('PUIDs', daily.puids, false) }}
+		]
+	});
+	chart2 = new Highcharts.Chart({
+		chart: {
+			renderTo: 'lookups-graph-fp',
+			height: 250,
+			zoomType: 'x',
+			defaultSeriesType: 'line'
+		},
+		title: { text: '' },
+		xAxis: {
+			type: 'datetime',
+			dateTimeLabelFormats: {
+				month: '%e. %b',
+				year: '%b'
+			}
+		},
+		yAxis: {
+			title: { text: '' }
+		},
+		legend: {
+			shadow: false
+		},
+		plotOptions: {
+			line: {
+				lineWidth: 1
+			}
+		},
+		series: [
+			{{ lookup_data_series('All', lookups, 'count') }},
+			{{ lookup_data_series('Hits', lookups, 'count_hits') }},
+			{{ lookup_data_series('Misses', lookups, 'count_nohits') }}
 		]
 	});
 });

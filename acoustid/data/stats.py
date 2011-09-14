@@ -35,6 +35,24 @@ def find_daily_stats(conn, names):
     return stats
 
 
+def find_lookup_stats(conn):
+    query = """
+        SELECT
+            date,
+            sum(count_hits) AS count_hits,
+            sum(count_nohits) AS count_nohits,
+            sum(count_hits) + sum(count_nohits) AS count
+        FROM stats_lookups
+        WHERE date > now() - INTERVAL '30 day' AND date < date(now())
+        GROUP BY date
+        ORDER BY date
+    """
+    stats = []
+    for row in conn.execute(query):
+        stats.append(dict(row))
+    return stats
+
+
 def find_top_contributors(conn):
     src = schema.stats_top_accounts.join(schema.account)
     query = sql.select([
