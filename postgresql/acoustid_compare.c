@@ -212,7 +212,7 @@ match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
 		score = 0.0;
 	}
 	if (diversity < 1.0) {
-		float newscore = pow(score, 10.0 - 9.0 * diversity);
+		float newscore = pow(score, 8.0 - 7.0 * diversity);
 		ereport(DEBUG4, (errmsg("acoustid_compare2: scaling score because of duplicate items, %f => %f", score, newscore)));
 		score = newscore;
 	}
