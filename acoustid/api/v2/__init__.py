@@ -3,6 +3,7 @@
 
 import re
 import logging
+import pprint
 import operator
 from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid
@@ -209,6 +210,7 @@ class LookupHandler(APIHandler):
             if recording_id != last_recording_id:
                 if releases:
                     yield last_recording_id, releases
+                releases = []
                 last_recording_id = recording_id
                 last_release_id = None
             release_id = item['release_id']
@@ -228,6 +230,7 @@ class LookupHandler(APIHandler):
             if release_group_id != last_release_group_id:
                 if releases:
                     yield last_release_group_id, releases
+                releases = []
                 last_release_group_id = release_group_id
                 last_release_id = None
             release_id = item['release_id']
@@ -247,6 +250,7 @@ class LookupHandler(APIHandler):
             if recording_id != last_recording_id:
                 if release_groups:
                     yield last_recording_id, release_groups
+                release_groups = []
                 last_recording_id = recording_id
                 last_release_group_id = None
             release_group_id = item['release_group_id']
