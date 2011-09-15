@@ -167,23 +167,22 @@ class LookupHandler(APIHandler):
 
     def inject_puids(self, meta, result_map):
         for track_id, puids in lookup_puids(self.conn, self.el_result.keys()).iteritems():
-            self.el_result[track_id]['puids'] = puids
+            for result_el in self.el_result[track_id]:
+                result_el['puids'] = puids
 
     def _inject_recording_ids_internal(self, add=True):
         el_recording = {}
         track_mbid_map = lookup_mbids(self.conn, self.el_result.keys())
         for track_id, mbids in track_mbid_map.iteritems():
-            result = self.el_result[track_id]
-            if add:
-                result[self.recordings_name] = recordings = []
             for mbid in mbids:
                 if add:
-                    recording = {'id': mbid}
-                    recordings.append(recording)
-                    el_recording.setdefault(mbid, []).append(recording)
+                    for result_el in self.el_result(track_id):
+                        recording = {'id': mbid}
+                        result_el.setdefault(self.recordings_name, []).append(recording)
+                        el_recording.setdefault(mbid, []).append(recording)
                 else:
-                    el_recording.setdefault(mbid, []).append(result)
-        return el_recording
+                    el_recording.setdefault(mbid, []).extend(self.el_result[track_id])
+        return el_recording, track_mbid_map
 
     def extract_recording(self, m, only_id=False):
         recording = {'id': m['recording_id']}
@@ -229,141 +228,35 @@ class LookupHandler(APIHandler):
             release_group['artists'] = m['release_group_artists']
         return release_group
 
-    def group_releases_by_recording(self, metadata, only_ids=False):
-        metadata = sorted(metadata, key=operator.itemgetter('recording_id', 'release_id'))
-        last_recording_id = None
-        last_release_id = None
-        releases = []
-        for item in metadata:
-            recording_id = item['recording_id']
-            if recording_id != last_recording_id:
-                if releases:
-                    yield last_recording_id, releases
-                releases = []
-                last_recording_id = recording_id
-                last_release_id = None
-            release_id = item['release_id']
-            if release_id != last_release_id:
-                releases.append(self.extract_release(item, only_id=only_ids))
-                last_release_id = release_id
-        if releases:
-            yield last_recording_id, releases
+    def _inject_release_groups_internal(self, meta, parent, metadata):
+        release_groups = self._group_release_groups(metadata, 'releasegroupids' in meta)
+        parent['releasegroups'] = []
+        for release_group, release_group_metadata in release_groups:
+            parent['releasegroups'].append(release_group)
+            if 'releases' in meta or 'releaseids' in meta:
+                self._inject_releases_internal(meta, release_group, release_group_metadata)
+                if 'compress' in meta:
+                    for release in release_group['releases']:
+                        if 'artists' in release and release['artists'] == release_group.get('artists'):
+                            del release['artists']
+                        if 'title' in release and release['title'] == release_group.get('title'):
+                            del release['title']
 
-    def group_releases_by_release_group(self, metadata, only_ids=False):
-        metadata = sorted(metadata, key=operator.itemgetter('release_group_id', 'release_id'))
-        last_release_group_id = None
-        last_release_id = None
-        releases = []
-        for item in metadata:
-            release_group_id = item['release_group_id']
-            if release_group_id != last_release_group_id:
-                if releases:
-                    yield last_release_group_id, releases
-                releases = []
-                last_release_group_id = release_group_id
-                last_release_id = None
-            release_id = item['release_id']
-            if release_id != last_release_id:
-                releases.append(self.extract_release(item, only_id=only_ids))
-                last_release_id = release_id
-        if releases:
-            yield last_release_group_id, releases
-
-    def group_release_groups_by_recording(self, metadata, only_ids=False):
-        metadata = sorted(metadata, key=operator.itemgetter('recording_id', 'release_group_id'))
-        last_recording_id = None
-        last_release_group_id = None
-        release_groups = []
-        for item in metadata:
-            recording_id = item['recording_id']
-            if recording_id != last_recording_id:
-                if release_groups:
-                    yield last_recording_id, release_groups
-                release_groups = []
-                last_recording_id = recording_id
-                last_release_group_id = None
-            release_group_id = item['release_group_id']
-            if release_group_id != last_release_group_id:
-                release_groups.append(self.extract_release_group(item, only_id=only_ids))
-                last_release_group_id = release_group_id
-        if release_groups:
-            yield last_recording_id, release_groups
-
-    def group_tracks_by_release(self, metadata, only_ids=False):
-        metadata = sorted(metadata, key=operator.itemgetter('release_id', 'medium_position', 'track_position'))
-        last_release_id = None
-        last_medium_pos = None
-        mediums = []
-        for item in metadata:
-            release_id = item['release_id']
-            if release_id != last_release_id:
-                if mediums:
-                    yield last_release_id, mediums
-                mediums = []
-                last_release_id = release_id
-                last_medium_pos = None
-            medium_pos = item['medium_position']
-            if medium_pos != last_medium_pos:
-                medium = {'position': medium_pos, 'tracks': []}
-                medium['track_count'] = item['medium_track_count']
-                if item['medium_format']:
-                    medium['format'] = item['medium_format']
-                mediums.append(medium)
-                last_medium_pos = medium_pos
-            track = {
-                'position': item['track_position'],
-                'title': item['track_title'],
-                'artists': item['track_artists'],
-            }
-            mediums[-1]['tracks'].append(track)
-        if mediums:
-            yield last_release_id, mediums
-
-    def inject_releases_to_els(self, releases, els, el_release):
-        for el in els:
-            el['releases'] = []
-            for release in releases:
-                el['releases'].append(release)
-                el_release.setdefault(release['id'], []).append(release)
-
-    def inject_release_groups_to_els(self, release_groups, els, el_release_group):
-        for el in els:
-            el['releasegroups'] = []
-            for release_group in release_groups:
-                el['releasegroups'].append(release_group)
-                el_release_group.setdefault(release_group['id'], []).append(release_group)
-
-    def _inject_releases_internal(self, meta, metadata, els, group_func):
-        el_release = {}
-        for el_id, releases in group_func(metadata, 'releaseids' in meta):
-            self.inject_releases_to_els(releases, els[el_id], el_release)
-        if 'tracks' in meta:
-            for release_id, mediums in self.group_tracks_by_release(metadata):
-                for el in el_release[release_id]:
-                    if 'compress' in meta:
-                        for medium in mediums:
-                            for track in medium['tracks']:
-                                if 'artists' in track and track['artists'] == el.get('artists'):
-                                    del track['artists']
-                    el['mediums'] = mediums
-
-    def _inject_release_groups_internal(self, meta, metadata, els, group_func):
-        el_release_group = {}
-        for el_id, release_groups in group_func(metadata, 'releasegroupids' in meta):
-            self.inject_release_groups_to_els(release_groups, els[el_id], el_release_group)
-        if 'releases' in meta or 'releaseids' in meta:
-            self._inject_releases_internal(meta, metadata, el_release_group, self.group_releases_by_release_group)
-            if 'compress' in meta:
-                for release_groups in el_release_group.itervalues():
-                    for release_group in release_groups:
-                        for release in release_group.get('releases', []):
-                            if 'artists' in release and release['artists'] == release_group.get('artists'):
-                                del release['artists']
-                            if 'title' in release and release['title'] == release_group.get('title'):
-                                del release['title']
+    def _inject_releases_internal(self, meta, parent, metadata):
+        releases = self._group_releases(metadata, 'releaseids' in meta)
+        parent['releases'] = []
+        for release, release_metadata in releases:
+            parent['releases'].append(release)
+            if 'tracks' in meta:
+                release['mediums'] = list(self._group_tracks(release_metadata))
+                if 'compress' in meta:
+                    for medium in release['mediums']:
+                        for track in medium['tracks']:
+                            if 'artists' in track and track['artists'] == release.get('artists'):
+                                del track['artists']
 
     def inject_recordings(self, meta):
-        el_recording = self._inject_recording_ids_internal(True)
+        recording_els = self._inject_recording_ids_internal(True)[0]
         load_releases = False
         load_release_groups = False
         if 'releaseids' in meta or 'releases' in meta:
@@ -371,50 +264,105 @@ class LookupHandler(APIHandler):
         if 'releasegroupids' in meta or 'releasegroups' in meta:
             load_releases = True
             load_release_groups = True
-        metadata = lookup_metadata(self.conn, el_recording.keys(), load_releases=load_releases, load_release_groups=load_release_groups)
-        last_recording_id = None
-        only_recording_ids = 'recordingids' in meta
-        for item in metadata:
-            if last_recording_id != item['recording_id']:
-                recording = self.extract_recording(item, only_recording_ids)
-                last_recording_id = recording['id']
-                for el in el_recording[recording['id']]:
-                    el.update(recording)
-        if 'releasegroups' in meta or 'releasegroupids' in meta:
-            self._inject_release_groups_internal(meta, metadata, el_recording, self.group_release_groups_by_recording)
-            if 'compress' in meta:
-                for recordings in el_recording.itervalues():
-                    for recording in recordings:
-                        for release_group in recording.get('releasegroups', []):
-                            for release in release_group.get('releases', []):
-                                for medium in release.get('mediums', []):
-                                    for track in medium['tracks']:
-                                        if 'title' in track and track['title'] == recording.get('title'):
-                                            del track['title']
-                        if 'artists' in release_group and release_group['artists'] == recording.get('artists'):
-                            del release_group['artists']
-        elif 'releases' in meta or 'releaseids' in meta:
-            self._inject_releases_internal(meta, metadata, el_recording, self.group_releases_by_recording)
-            if 'compress' in meta:
-                for recordings in el_recording.itervalues():
-                    for recording in recordings:
-                        for release in recording.get('releases', []):
+        metadata = lookup_metadata(self.conn, recording_els.keys(), load_releases=load_releases, load_release_groups=load_release_groups)
+        for recording, recording_metadata in self._group_recordings(metadata, 'recordingids' in meta):
+            if 'releasegroups' in meta or 'releasegroupids' in meta:
+                self._inject_release_groups_internal(meta, recording, recording_metadata)
+                if 'compress' in meta:
+                    for release_group in recording.get('releasegroups', []):
+                        for release in release_group.get('releases', []):
                             for medium in release.get('mediums', []):
                                 for track in medium['tracks']:
                                     if 'title' in track and track['title'] == recording.get('title'):
                                         del track['title']
-                            if 'artists' in release and release['artists'] == recording.get('artists'):
-                                del release['artists']
+                    if 'artists' in release_group and release_group['artists'] == recording.get('artists'):
+                        del release_group['artists']
+            elif 'releases' in meta or 'releaseids' in meta:
+                self._inject_releases_internal(meta, recording, recording_metadata)
+                if 'compress' in meta:
+                    for release in recording.get('releases', []):
+                        for medium in release.get('mediums', []):
+                            for track in medium['tracks']:
+                                if 'title' in track and track['title'] == recording.get('title'):
+                                    del track['title']
+                        if 'artists' in release and release['artists'] == recording.get('artists'):
+                            del release['artists']
+            for recording_el in recording_els[recording['id']]:
+                recording_el.update(recording)
 
     def inject_releases(self, meta):
-        el_recording = self._inject_recording_ids_internal(False)
-        metadata = lookup_metadata(self.conn, el_recording.keys(), load_releases=True)
-        self._inject_releases_internal(meta, metadata, el_recording, self.group_releases_by_recording)
+        recording_els, track_mbid_map = self._inject_recording_ids_internal(False)
+        metadata = lookup_metadata(self.conn, recording_els.keys(), load_releases=True, load_release_groups=True)
+        for track_id, track_metadata in self._group_metadata(metadata, track_mbid_map):
+            result = {}
+            self._inject_releases_internal(meta, result, track_metadata)
+            for result_el in self.el_result[track_id]:
+                result_el.update(result)
 
     def inject_release_groups(self, meta):
-        el_recording = self._inject_recording_ids_internal(False)
-        metadata = lookup_metadata(self.conn, el_recording.keys(), load_releases=True, load_release_groups=True)
-        self._inject_release_groups_internal(meta, metadata, el_recording, self.group_release_groups_by_recording)
+        recording_els, track_mbid_map = self._inject_recording_ids_internal(False)
+        metadata = lookup_metadata(self.conn, recording_els.keys(), load_releases=True, load_release_groups=True)
+        for track_id, track_metadata in self._group_metadata(metadata, track_mbid_map):
+            result = {}
+            self._inject_release_groups_internal(meta, result, track_metadata)
+            for result_el in self.el_result[track_id]:
+                result_el.update(result)
+
+    def _group_metadata(self, metadata, track_mbid_map):
+        results = {}
+        for track_id, mbids in track_mbid_map.iteritems():
+            mbids = set(mbids)
+            results[track_id] = []
+            for item in metadata:
+                if item['recording_id'] in mbids:
+                    results[track_id].append(item)
+        return results.iteritems()
+
+    def _group_release_groups(self, metadata, only_ids=False):
+        results = {}
+        for item in metadata:
+            id = item['release_group_id']
+            if id not in results:
+                results[id] = (self.extract_release_group(item, only_id=only_ids), [])
+            results[id][1].append(item)
+        return results.itervalues()
+
+    def _group_recordings(self, metadata, only_ids=False):
+        results = {}
+        for item in metadata:
+            id = item['recording_id']
+            if id not in results:
+                results[id] = (self.extract_recording(item, only_id=only_ids), [])
+            results[id][1].append(item)
+        return results.itervalues()
+
+    def _group_releases(self, metadata, only_ids=False):
+        results = {}
+        for item in metadata:
+            id = item['release_id']
+            if id not in results:
+                results[id] = (self.extract_release(item, only_id=only_ids), [])
+            results[id][1].append(item)
+        return results.itervalues()
+
+    def _group_tracks(self, metadata):
+        results = {}
+        for item in metadata:
+            medium_pos = item['medium_position']
+            medium = results.get(medium_pos)
+            if medium is None:
+                medium = {'position': medium_pos, 'tracks': []}
+                medium['track_count'] = item['medium_track_count']
+                if item['medium_format']:
+                    medium['format'] = item['medium_format']
+                results[medium_pos] = medium
+            track = {
+                'position': item['track_position'],
+                'title': item['track_title'],
+                'artists': item['track_artists'],
+            }
+            medium['tracks'].append(track)
+        return results.itervalues()
 
     def inject_m2(self, meta):
         el_recording = self._inject_recording_ids_internal(True)
@@ -469,7 +417,8 @@ class LookupHandler(APIHandler):
             if track_id in seen:
                 continue
             seen.add(track_id)
-            result_map[track_id] = result = {'id': track_gid, 'score': score}
+            result = {'id': track_gid, 'score': score}
+            result_map.setdefault(track_id, []).append(result)
             results.append(result)
         return seen
 
