@@ -176,7 +176,7 @@ class LookupHandler(APIHandler):
         for track_id, mbids in track_mbid_map.iteritems():
             for mbid in mbids:
                 if add:
-                    for result_el in self.el_result(track_id):
+                    for result_el in self.el_result[track_id]:
                         recording = {'id': mbid}
                         result_el.setdefault(self.recordings_name, []).append(recording)
                         el_recording.setdefault(mbid, []).append(recording)
