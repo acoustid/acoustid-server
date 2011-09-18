@@ -113,6 +113,10 @@ fingerprint_source = Table('fingerprint_source', metadata,
     Column('source_id', Integer, ForeignKey('source.id')),
 )
 
+fingerprint_index_queue = Table('fingerprint_index_queue', metadata,
+    Column('fingerprint_id', Integer),
+)
+
 track_mbid = Table('track_mbid', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_id', Integer, ForeignKey('track.id')),

@@ -4,7 +4,7 @@
 import logging
 from sqlalchemy import sql
 from acoustid import tables as schema, const
-from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count
+from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
 from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track, can_merge_tracks, insert_track_foreignid
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def insert_submission(conn, data):
     return id
 
 
-def import_submission(conn, submission):
+def import_submission(conn, submission, index=None):
     """
     Import the given submission into the main fingerprint database
     """
@@ -56,10 +56,9 @@ def import_submission(conn, submission):
         if not num_query_items:
             logger.info("Skipping, no data to index")
             return
-        matches = lookup_fingerprint(conn,
-            submission['fingerprint'], submission['length'],
-            const.FINGERPRINT_MERGE_THRESHOLD,
-            const.TRACK_MERGE_THRESHOLD, fast=True, max_offset=const.TRACK_MAX_OFFSET)
+        searcher = FingerprintSearcher(conn, index, fast=False)
+        searcher.min_score = const.TRACK_MERGE_THRESHOLD
+        matches = searcher.search(submission['fingerprint'], submission['length'])
         fingerprint = {
             'id': None,
             'track_id': None,
@@ -107,14 +106,14 @@ def import_submission(conn, submission):
         return fingerprint
 
 
-def import_queued_submissions(conn, limit=50):
+def import_queued_submissions(conn, limit=50, index=None):
     """
     Import the given submission into the main fingerprint database
     """
     query = schema.submission.select(schema.submission.c.handled == False).limit(limit)
     count = 0
     for submission in conn.execute(query):
-        import_submission(conn, submission)
+        import_submission(conn, submission, index=index)
         count += 1
     logger.debug("Imported %d submissions", count)
 
