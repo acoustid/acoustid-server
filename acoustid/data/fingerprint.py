@@ -122,7 +122,7 @@ class FingerprintSearcher(object):
             except IndexClientError:
                 logger.exception("Index search error")
                 matches = None
-        if matches is None or (not self.fast and not self.matches):
+        if matches is None or (not self.fast and not matches):
             matches = self._search_database(fp, length, min_fp_id)
         return matches
 
