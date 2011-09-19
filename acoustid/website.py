@@ -456,7 +456,7 @@ class TrackHandler(WebSiteHandler):
             recording['disabled'] = mbid['disabled']
             recordings.append(recording)
         recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
-        moderator = is_moderator(self.session.get('id'))
+        moderator = is_moderator(self.conn, self.session.get('id'))
         return self.render_template('track.html', title=title,
             fingerprints=fingerprints, recordings=recordings, puids=puids,
             moderator=moderator, track=track)
@@ -510,7 +510,7 @@ class EditToggleTrackMBIDHandler(WebSiteHandler):
         mbid = req.values.get('mbid')
         if not track_id or not mbid or not track_gid:
             return redirect(self.config.base_url)
-        if not is_moderator(self.session['id']):
+        if not is_moderator(self.conn, self.session['id']):
             title = 'MusicBrainz account required'
             return self.render_template('toggle_track_mbid_login.html', title=title)
         query = sql.select([schema.track_mbid.c.id, schema.track_mbid.c.disabled],

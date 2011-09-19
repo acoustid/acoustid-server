@@ -67,6 +67,7 @@ def reset_account_apikey(conn, id):
     logger.debug("Reset API key for account %r", id)
 
 
-def is_moderator(id):
-    return id in [3]
+def is_moderator(conn, id):
+    query = sql.select([schema.account.c.mbuser], schema.account.c.id == id)
+    return bool(conn.execute(query).scalar())
 
