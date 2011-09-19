@@ -46,7 +46,10 @@ def serialize_json(data, callback=None, **kwargs):
     res = json.dumps(data)
     if callback:
         res = '%s(%s)' % (callback, res)
-    return Response(res, content_type='application/json; charset=UTF-8', **kwargs)
+        mime = 'application/javascript; charset=UTF-8'
+    else:
+        mime = 'application/json; charset=UTF-8'
+    return Response(res, content_type=mime, **kwargs)
 
 
 def serialize_response(data, format, **kwargs):
