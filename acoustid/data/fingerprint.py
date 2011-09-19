@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import time
 import logging
 import chromaprint
 from contextlib import closing
@@ -51,16 +52,34 @@ def lookup_fingerprint(conn, fp, length, good_enough_score, min_score, fast=Fals
 
 class FingerprintSearcher(object):
 
-    def __init__(self, db, idx=None):
+    def __init__(self, db, idx=None, fast=True):
         self.db = db
         self.idx = idx
         self.min_score = const.TRACK_GROUP_MERGE_THRESHOLD
         self.max_length_diff = const.FINGERPRINT_MAX_LENGTH_DIFF
         self.max_offset = const.TRACK_MAX_OFFSET
+        self.fast = fast
+
+    def _create_search_query(self, fp, length, condition):
+        # construct the subquery
+        f_columns = [
+            schema.fingerprint.c.id,
+            schema.fingerprint.c.track_id,
+            sql.func.acoustid_compare2(schema.fingerprint.c.fingerprint, fp,
+                                       self.max_offset).label('score'),
+        ]
+        f_where = sql.and_(
+            condition,
+            schema.fingerprint.c.length.between(length - self.max_length_diff,
+                                                length + self.max_length_diff))
+        f = sql.select(f_columns, f_where).alias('f')
+        # construct the main query
+        columns = [f.c.id, f.c.track_id, schema.track.c.gid.label('track_gid'), f.c.score]
+        src = f.join(schema.track, schema.track.c.id == f.c.track_id)
+        return sql.select(columns, f.c.score > self.min_score, src,
+                           order_by=[f.c.score.desc(), f.c.id])
 
     def _search_index(self, fp, length):
-        import time
-        t = time.time()
         # index search
         fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
         if not fp_query:
@@ -73,35 +92,29 @@ class FingerprintSearcher(object):
             candidate_ids = [r.id for r in results if r.score > min_score]
             if not candidate_ids:
                 return []
-        logger.info("Index search took %s", time.time() - t)
-        t = time.time()
-        # construct the subquery
-        f_columns = [
-            schema.fingerprint.c.id,
-            schema.fingerprint.c.track_id,
-            sql.func.acoustid_compare2(schema.fingerprint.c.fingerprint, fp,
-                                       self.max_offset).label('score'),
-        ]
-        f_where = sql.and_(
-            schema.fingerprint.c.id.in_(candidate_ids),
-            schema.fingerprint.c.length.between(length - self.max_length_diff,
-                                                length + self.max_length_diff))
-        f = sql.select(f_columns, f_where).alias('f')
-        # construct the main query
-        columns = [f.c.id, f.c.track_id, schema.track.c.gid.label('track_gid'), f.c.score]
-        src = f.join(schema.track, schema.track.c.id == f.c.track_id)
-        query = sql.select(columns, f.c.score > self.min_score, src,
-                           order_by=[f.c.score.desc(), f.c.id])
+        # construct the query
+        condition = schema.fingerprint.c.id.in_(candidate_ids)
+        query = self._create_search_query(fp, length, condition)
         # database scoring
         matches = self.db.execute(query).fetchall()
-        logger.info("Index database took %s", time.time() - t)
         return matches
 
-    def _search_database(self, fp, length):
-        return lookup_fingerprint(self.db, fp, length, const.TRACK_MERGE_THRESHOLD,
-                                  self.min_score, max_offset=self.max_offset)
+    def _search_database(self, fp, length, min_fp_id):
+        # construct the query
+        condition = sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint).op('&&')(sql.func.acoustid_extract_query(fp))
+        if min_fp_id:
+            condition = sql.and_(condition, schema.fingerprint.c.id > min_fp_id)
+        query = self._create_search_query(fp, length, condition)
+        # database scoring
+        matches = self.db.execute(query).fetchall()
+        return matches
+
+    def _get_min_indexed_fp_id(self):
+        query = sql.select([sql.func.min(schema.fingerprint_index_queue.c.fingerprint_id)])
+        return self.db.execute(query).scalar()
 
     def search(self, fp, length):
+        min_fp_id = 0 if self.idx is None or self.fast else self._get_min_indexed_fp_id()
         matches = None
         if self.idx is not None:
             try:
@@ -109,8 +122,8 @@ class FingerprintSearcher(object):
             except IndexClientError:
                 logger.exception("Index search error")
                 matches = None
-        if matches is None: 
-            matches = self._search_database(fp, length)
+        if matches is None or (not self.fast and not matches):
+            matches = self._search_database(fp, length, min_fp_id)
         return matches
 
 
