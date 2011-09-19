@@ -16,6 +16,7 @@ class TrackListByMBIDHandlerParams(APIHandlerParams):
 
     def parse(self, values, conn):
         super(TrackListByMBIDHandlerParams, self).parse(values, conn)
+        self.disabled = values.get('disabled', type=int)
         self.mbids = values.getlist('mbid')
         if not self.mbids:
             raise errors.MissingParameterError('mbid')
@@ -29,21 +30,26 @@ class TrackListByMBIDHandler(APIHandler):
 
     def _handle_internal(self, params):
         response = {}
-        query = sql.select([schema.track_mbid.c.mbid, schema.track.c.gid],
-            sql.and_(schema.track_mbid.c.mbid.in_(params.mbids), schema.track_mbid.c.disabled == False),
-            schema.track_mbid.join(schema.track))
+        condition = schema.track_mbid.c.mbid.in_(params.mbids)
+        if not params.disabled:
+            condition = sql.and_(condition, schema.track_mbid.c.disabled == False)
+        query = sql.select([schema.track_mbid.c.mbid, schema.track_mbid.c.disabled, schema.track.c.gid],
+            condition, schema.track_mbid.join(schema.track))
         tracks_map = {}
-        for mbid, track_gid in self.conn.execute(query):
-            tracks_map.setdefault(mbid, []).append({'id': track_gid})
-        if len(params.mbids) == 1:
-            response['tracks'] = tracks_map.get(params.mbids[0], [])
-        else:
-            response['mbids'] = mbids = []
-            for mbid in params.mbids:
-                mbids.append({
-                    'mbid': mbid,
-                    'tracks': tracks_map.get(mbid, []),
-                })
+        for mbid, disabled, track_gid in self.conn.execute(query):
+            track = {'id': track_gid}
+            if params.disabled and disabled:
+                track['disabled'] = disabled
+            tracks_map.setdefault(mbid, []).append(track)
+        #if len(params.mbids) == 1:
+        response['tracks'] = tracks_map.get(params.mbids[0], [])
+        #else:
+        #    response['mbids'] = mbids = []
+        #    for mbid in params.mbids:
+        #        mbids.append({
+        #            'mbid': mbid,
+        #            'tracks': tracks_map.get(mbid, []),
+        #        })
         return response
 
 
