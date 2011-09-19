@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean, Date
+from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean, Date, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 
 
@@ -138,6 +138,7 @@ track_mbid_change = Table('track_mbid_change', metadata,
     Column('track_mbid_id', Integer, ForeignKey('track_mbid.id')),
     Column('account_id', Integer, ForeignKey('account.id')),
     Column('disabled', Boolean),
+    Column('note', Text),
 )
 
 track_mbid_flag = Table('track_mbid_flag', metadata,

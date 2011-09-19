@@ -13,8 +13,10 @@ from acoustid import tables as schema
 from werkzeug import redirect
 from werkzeug.exceptions import NotFound, abort, HTTPException
 from werkzeug.utils import cached_property
+from werkzeug.urls import url_encode
 from werkzeug.contrib.securecookie import SecureCookie
 from acoustid.handler import Handler, Response
+from acoustid.data.track import lookup_mbids, resolve_track_gid
 from acoustid.data.application import (
     find_applications_by_account,
     insert_application,
@@ -109,9 +111,9 @@ class WebSiteHandler(Handler):
         html = self.templates.get_template(name).render(**context)
         return Response(html, content_type='text/html; charset=UTF-8')
 
-    def require_user(self):
+    def require_user(self, req):
         if 'id' not in self.session:
-            raise abort(redirect(self.login_url))
+            raise abort(redirect(self.login_url + '?' + url_encode({'return_url': req.url})))
 
 
 class PageHandler(WebSiteHandler):
@@ -201,7 +203,7 @@ class LoginHandler(WebSiteHandler):
                               alias='nickname'))
                     openid_req.addExtension(ax_req)
                     realm = self.config.base_https_url.rstrip('/')
-                    url = openid_req.redirectURL(realm, self.login_url)
+                    url = openid_req.redirectURL(realm, self.login_url + '?' + url_encode({'return_url': req.values.get('return_url')}))
                     return redirect(url)
         else:
             errors.append('Missing OpenID')
@@ -242,6 +244,7 @@ class LoginHandler(WebSiteHandler):
             errors.append('OpenID verification failed')
 
     def _handle_request(self, req):
+        return_url = req.values.get('return_url')
         errors = {'openid': [], 'mb': []}
         if 'login' in req.form:
             if req.form['login'] == 'mb':
@@ -263,8 +266,10 @@ class LoginHandler(WebSiteHandler):
         if 'openid.mode' in req.args:
             self._handle_openid_login_response(req, errors['openid'])
         if 'id' in self.session:
-            return redirect(self.config.base_url + 'api-key')
-        return self.render_template('login.html', errors=errors)
+            if not return_url or not return_url.startswith(self.config.base_url):
+                return_url = self.config.base_url + 'api-key'
+            return redirect(return_url)
+        return self.render_template('login.html', errors=errors, return_url=return_url)
 
 
 class LogoutHandler(WebSiteHandler):
@@ -278,7 +283,7 @@ class LogoutHandler(WebSiteHandler):
 class APIKeyHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        self.require_user()
+        self.require_user(req)
         title = 'Your API Key'
         info = get_account_details(self.conn, self.session['id'])
         return self.render_template('apikey.html', apikey=info['apikey'], title=title)
@@ -287,7 +292,7 @@ class APIKeyHandler(WebSiteHandler):
 class NewAPIKeyHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        self.require_user()
+        self.require_user(req)
         reset_account_apikey(self.conn, self.session['id'])
         return redirect(self.config.base_url + 'api-key')
 
@@ -295,7 +300,7 @@ class NewAPIKeyHandler(WebSiteHandler):
 class ApplicationsHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        self.require_user()
+        self.require_user(req)
         title = 'Your Applications'
         applications = find_applications_by_account(self.conn, self.session['id'])
         return self.render_template('applications.html', title=title,
@@ -305,7 +310,7 @@ class ApplicationsHandler(WebSiteHandler):
 class NewApplicationHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        self.require_user()
+        self.require_user(req)
         errors = []
         title = 'New Applications'
         if req.form.get('submit'):
@@ -397,7 +402,6 @@ class ContributorsHandler(WebSiteHandler):
 class TrackHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        from acoustid.data.track import lookup_mbids, resolve_track_gid
         from acoustid.data.musicbrainz import lookup_recording_metadata
         from acoustid.utils import is_uuid
         track_id = self.url_args['id']
@@ -493,23 +497,43 @@ class MBIDHandler(WebSiteHandler):
 class EditToggleTrackMBIDHandler(WebSiteHandler):
 
     def _handle_request(self, req):
-        self.require_user()
-        track_id = req.form.get('track_id', type=int)
-        state = bool(req.form.get('state', type=int))
-        mbid = req.form.get('mbid')
-        if not is_moderator(self.session['id']) or not track_id or not mbid:
+        self.require_user(req)
+        track_id = req.values.get('track_id', type=int)
+        if track_id:
+            query = sql.select([schema.track.c.gid], schema.track.c.id == track_id)
+            track_gid = self.conn.execute(query).scalar()
+        else:
+            track_gid = req.values.get('track_gid')
+            track_id = resolve_track_gid(self.conn, track_gid)
+            print track_gid, track_id
+        state = bool(req.values.get('state', type=int))
+        mbid = req.values.get('mbid')
+        if not track_id or not mbid or not track_gid:
             return redirect(self.config.base_url)
+        if not is_moderator(self.session['id']):
+            title = 'MusicBrainz account required'
+            return self.render_template('toggle_track_mbid_login.html', title=title)
         query = sql.select([schema.track_mbid.c.id, schema.track_mbid.c.disabled],
             sql.and_(schema.track_mbid.c.track_id == track_id,
                      schema.track_mbid.c.mbid == mbid))
-        id, current_state = self.conn.execute(query).fetchall()[0]
+        rows = self.conn.execute(query).fetchall()
+        if not rows:
+            return redirect(self.config.base_url)
+        id, current_state = rows[0]
         if state == current_state:
             return redirect(self.config.base_url + 'track/%d' % (track_id,))
-        with self.conn.begin():
-            update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == id).values(disabled=state)
-            self.conn.execute(update_stmt)
-            insert_stmt = schema.track_mbid_change.insert().values(track_mbid_id=id, account_id=self.session['id'],
-                                                                   disabled=state)
-            self.conn.execute(insert_stmt)
-        return redirect(self.config.base_url + 'track/%d' % (track_id,))
+        if req.form.get('submit'):
+            note = req.values.get('note')
+            with self.conn.begin():
+                update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == id).values(disabled=state)
+                self.conn.execute(update_stmt)
+                insert_stmt = schema.track_mbid_change.insert().values(track_mbid_id=id, account_id=self.session['id'],
+                                                                       disabled=state, note=note)
+                self.conn.execute(insert_stmt)
+            return redirect(self.config.base_url + 'track/%d' % (track_id,))
+        if state:
+            title = 'Unlink MBID'
+        else:
+            title = 'Link MBID'
+        return self.render_template('toggle_track_mbid.html', title=title, track_gid=track_gid, mbid=mbid, state=state, track_id=track_id)
 
