@@ -37,25 +37,19 @@ class APIHandler(v2.APIHandler):
         return serialize_response(response_data, format)
 
 
-class LookupHandlerParams(APIHandlerParams):
+class LookupHandlerParams(v2.LookupHandlerParams):
+
+    duration_name = 'length'
+
+    def _parse_format(self, values):
+        self.format = FORMAT
 
     def parse(self, values, conn):
         super(LookupHandlerParams, self).parse(values, conn)
-        self._parse_client(values, conn)
-        self.meta = values.get('meta')
         if self.meta:
             self.meta = ['recordingids']
         else:
             self.meta = []
-        self.duration = values.get('length', type=int)
-        if not self.duration:
-            raise errors.MissingParameterError('length')
-        fingerprint_string = values.get('fingerprint')
-        if not fingerprint_string:
-            raise errors.MissingParameterError('fingerprint')
-        self.fingerprint = decode_fingerprint(fingerprint_string)
-        if not self.fingerprint:
-            raise errors.InvalidFingerprintError()
 
 
 class LookupHandler(v2.LookupHandler):

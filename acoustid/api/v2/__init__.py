@@ -117,6 +117,8 @@ class APIHandler(Handler):
 
 class LookupHandlerParams(APIHandlerParams):
 
+    duration_name = 'duration'
+
     def _parse_query(self, values, suffix):
         p = {}
         p['index'] = (suffix or '')[1:]
@@ -124,9 +126,9 @@ class LookupHandlerParams(APIHandlerParams):
         if p['track_gid'] and not is_uuid(p['track_gid']):
             raise errors.InvalidUUIDError('trackid' + suffix)
         if not p['track_gid']:
-            p['duration'] = values.get('duration' + suffix, type=int)
+            p['duration'] = values.get(self.duration_name + suffix, type=int)
             if not p['duration']:
-                raise errors.MissingParameterError('duration' + suffix)
+                raise errors.MissingParameterError(self.duration_name + suffix)
             fingerprint_string = values.get('fingerprint' + suffix)
             if not fingerprint_string:
                 raise errors.MissingParameterError('fingerprint' + suffix)
@@ -365,7 +367,7 @@ class LookupHandler(APIHandler):
         return results.itervalues()
 
     def inject_m2(self, meta):
-        el_recording = self._inject_recording_ids_internal(True)
+        el_recording = self._inject_recording_ids_internal(True)[0]
         metadata = lookup_metadata(self.conn, el_recording.keys(), load_releases=True)
         last_recording_id = None
         for item in metadata:

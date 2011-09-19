@@ -96,8 +96,8 @@ def test_lookup_handler_params(conn):
     params.parse(values, conn)
     assert_equals('json', params.format)
     assert_equals(1, params.application_id)
-    assert_equals(TEST_1_LENGTH, params.duration)
-    assert_equals(TEST_1_FP_RAW, params.fingerprint)
+    assert_equals(TEST_1_LENGTH, params.fingerprints[0]['duration'])
+    assert_equals(TEST_1_FP_RAW, params.fingerprints[0]['fingerprint'])
 
 
 class WebServiceErrorHandler(APIHandler):
