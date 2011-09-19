@@ -17,7 +17,7 @@ def test_serialize_json():
 def test_serialize_jsonp():
     data = {'status': 'ok', 'artists': [{'name': 'Jean Michel Jarre', 'year': 1948, 'cities': ['Paris', 'Lyon']}]}
     resp = serialize_response(data, 'jsonp:getData')
-    assert_equals('application/json; charset=UTF-8', resp.content_type)
+    assert_equals('application/javascript; charset=UTF-8', resp.content_type)
     expected = '''getData({"status": "ok", "artists": [{"cities": ["Paris", "Lyon"], "name": "Jean Michel Jarre", "year": 1948}]})'''
     assert_equals(expected, resp.data)
 
