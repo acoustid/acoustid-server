@@ -15,11 +15,11 @@
         <td class="r">{{ basic.fingerprints }}</td>
     </tr>
     <tr>
-        <td>Tracks</td>
+        <td>AcoustIDs</td>
         <td class="r">{{ basic.tracks }}</td>
     </tr>
     <tr>
-        <td>MBIDs</td>
+        <td>Recordings</td>
         <td class="r">{{ basic.mbids }}</td>
     </tr>
     <tr>
@@ -44,47 +44,47 @@
 
 <table class="listing">
     <tr>
-        <td>MBIDs identifiable by both PUIDs and Acoustid</td>
+        <td>Recordings identifiable by both PUIDs and AcoustID</td>
         <td class="r">{{ basic.mbids_both }}</td>
     </tr>
     <tr>
-        <td>MBIDs identifiable only by PUIDs</td>
+        <td>Recordings identifiable only by PUIDs</td>
         <td class="r">{{ basic.mbids_onlypuid }}</td>
     </tr>
     <tr>
-        <td>MBIDs identifiable only by Acoustid</td>
+        <td>Recordings identifiable only by AcoustID</td>
         <td class="r">{{ basic.mbids_onlyacoustid }}</td>
     </tr>
 </table>
 
-<p><b>Tracks per the number of linked MBIDs</b></p>
+<p><b>AcoustIDs per the number of linked recordings</b></p>
 
 <table class="listing">
     <tr>
-        <td>Tracks with at least 1 MBID</td>
+        <td>AcoustIDs with at least 1 recording</td>
         <td class="r">{{ basic.tracks_with_mbid }}</td>
         <td class="r">{{ basic.tracks_with_mbid_percent }} %</td>
     </tr>
     {% for t in track_mbid %}
-    <tr>
-        <td>Tracks with {% if t.i == 1 %}1 MBID{% elif t.i == 10 %}10 or more MBIDs{% else %}{{ t.i }} MBIDs{% endif %}</td>
+    <tr class="indent">
+        <td>with {% if t.i == 1 %}1 recording{% elif t.i == 10 %}10 or more recordings{% else %}{{ t.i }} recordings{% endif %}</td>
         <td class="r">{{ t.count }}</td>
         <td class="r">{{ t.percent }} %</td>
     </tr>
     {% endfor %}
 </table>
 
-<p><b>MBIDs per the number of linked tracks</b></p>
+<p><b>Recordings per the number of linked AcoustIDs</b></p>
 
 <table class="listing">
     <tr>
-        <td>MBIDs with at least 1 track</td>
+        <td>Recording with at least 1 AcoustID</td>
         <td class="r">{{ basic.mbids }}</td>
         <td class="r">100.00 %</td>
     </tr>
     {% for t in mbid_track %}
-    <tr>
-        <td>MBIDs with {% if t.i == 1 %}1 track{% elif t.i == 10 %}10 or more tracks{% else %}{{ t.i }} tracks{% endif %}</td>
+    <tr class="indent">
+        <td>with {% if t.i == 1 %}1 AcoustID{% elif t.i == 10 %}10 or more AcoustIDs{% else %}{{ t.i }} AcoustIDs{% endif %}</td>
         <td class="r">{{ t.count }}</td>
         <td class="r">{{ t.percent }} %</td>
     </tr>
@@ -168,7 +168,7 @@ $(document).ready(function() {
 		series: [
 			{{ data_series('Submissions', daily.submissions) }},
 			{{ data_series('Fingerprints', daily.fingerprints, false) }},
-			{{ data_series('Tracks', daily.tracks, false) }},
+			{{ data_series('AcoustIDs', daily.tracks, false) }},
 			{{ data_series('MBIDs', daily.mbids, false) }},
 			{{ data_series('PUIDs', daily.puids, false) }}
 		]

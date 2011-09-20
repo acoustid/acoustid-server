@@ -224,3 +224,6 @@ table.matrix td {
     opacity: 0.5;
 }
 
+tr.indent td {
+    padding-left: 2em;
+}

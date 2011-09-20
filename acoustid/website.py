@@ -343,9 +343,12 @@ class StatsHandler(WebSiteHandler):
 
     def _get_pie_chart(self, stats, pattern):
         track_mbid_data = []
+        track_mbid_sum = 0
         for i in range(11):
-            track_mbid_data.append(stats.get(pattern % i, 0))
-        track_mbid_sum = sum(track_mbid_data)
+            value = stats.get(pattern % i, 0)
+            if i != 0:
+                track_mbid_sum += value
+            track_mbid_data.append(value)
         track_mbid = []
         for i, count in enumerate(track_mbid_data):
             if i == 0:
