@@ -497,6 +497,16 @@ class MBIDHandler(WebSiteHandler):
         return self.render_template('mbid.html', title=title, tracks=tracks, mbid=mbid)
 
 
+class PUIDHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        from acoustid.data.track import lookup_tracks_by_puids
+        puid = self.url_args['puid']
+        title = 'PUID "%s"' % (puid,)
+        tracks = lookup_tracks_by_puids(self.conn, [puid]).get(puid, [])
+        return self.render_template('puid.html', title=title, tracks=tracks, puid=puid)
+
+
 class EditToggleTrackMBIDHandler(WebSiteHandler):
 
     def _handle_request(self, req):

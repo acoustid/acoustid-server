@@ -70,7 +70,7 @@
 {% for rec in recordings %}
 <tr{% if rec.disabled %} class="mbid-disabled"{% endif %}>
     {% if rec.name %}
-    <td><a href="http://musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a></td>
+    <td><a href="{{ base_url }}mbid/{{ rec.mbid }}">{{ rec.name }}</a></td>
     <td>{{ rec.artist_name }}</td>
     <td>{{ format_length(rec.length) }}</td>
     {% else %}
@@ -102,7 +102,7 @@
 </tr>
 {% for p in puids %}
 <tr>
-    <td><a href="http://musicbrainz.org/puid/{{ p.puid }}">{{ p.puid }}</a></td>
+    <td><a href="{{ base_url }}puid/{{ p.puid }}">{{ p.puid }}</a></td>
     <td>{{ p.submission_count }}</td>
 </tr>
 {% endfor %}

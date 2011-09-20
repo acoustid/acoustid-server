@@ -67,6 +67,20 @@ def lookup_tracks(conn, mbids):
     return results
 
 
+def lookup_tracks_by_puids(conn, puids):
+    if not puids:
+        return {}
+    query = sql.select(
+        [schema.track_puid.c.track_id, schema.track.c.gid, schema.track_puid.c.puid],
+        schema.track_puid.c.puid.in_(puids),
+        from_obj=schema.track_puid.join(schema.track, schema.track_puid.c.track_id == schema.track.c.id)). \
+        order_by(schema.track_puid.c.track_id)
+    results = {}
+    for track_id, track_gid, puid in conn.execute(query):
+        results.setdefault(puid, []).append({'id': track_id, 'gid': track_gid})
+    return results
+
+
 def merge_mbids(conn, target_mbid, source_mbids):
     """
     Merge the specified MBIDs.

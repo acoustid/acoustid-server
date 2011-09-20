@@ -47,6 +47,7 @@ website_url_rules = [
     Rule('/track/<string:id>', endpoint=website.TrackHandler),
     Rule('/fingerprint/<int:id>', endpoint=website.FingerprintHandler),
     Rule('/mbid/<string:mbid>', endpoint=website.MBIDHandler),
+    Rule('/puid/<string:puid>', endpoint=website.PUIDHandler),
     Rule('/edit/toggle-track-mbid', endpoint=website.EditToggleTrackMBIDHandler),
     Rule('/<path:page>', endpoint=website.PageHandler),
 ]
