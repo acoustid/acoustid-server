@@ -84,8 +84,9 @@ ul#menu {
 	font-size: 14px;
 }
 
-#content p {
+#content p, #content form {
 	margin-top: 0;
+	margin-bottom: 1em;
 }
 
 a {
