@@ -50,6 +50,7 @@ class APIHandlerParams(object):
         self.application_id = lookup_application_id_by_apikey(conn, application_apikey)
         if not self.application_id:
             raise errors.InvalidAPIKeyError()
+        self.application_version = values.get('clientversion')
 
     def _parse_format(self, values):
         self.format = values.get('format', DEFAULT_FORMAT)
@@ -532,7 +533,7 @@ class SubmitHandler(APIHandler):
 
     def _handle_internal(self, params):
         with self.conn.begin():
-            source_id = find_or_insert_source(self.conn, params.application_id, params.account_id)
+            source_id = find_or_insert_source(self.conn, params.application_id, params.account_id, params.application_version)
             format_ids = {}
             for p in params.submissions:
                 if p['format']:

@@ -39,7 +39,8 @@ CREATE TABLE format (
 CREATE TABLE source (
     id serial NOT NULL,
     application_id int NOT NULL,
-    account_id int NOT NULL
+    account_id int NOT NULL,
+    version varchar
 );
 
 CREATE TABLE fingerprint (

@@ -181,6 +181,12 @@ track ID. Otherwise you can send the PUID or textual metadata.
 		<td>application's API key</td>
 	</tr>
 	<tr>
+		<td>clientversion</td>
+		<td>no</td>
+		<td>1.0</td>
+		<td>application's version</td>
+	</tr>
+	<tr>
 		<td>user</td>
 		<td>yes</td>
 		<td>9Hg1oNwY</td>
