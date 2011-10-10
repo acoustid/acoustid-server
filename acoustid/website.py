@@ -409,10 +409,13 @@ class TrackHandler(WebSiteHandler):
         from acoustid.utils import is_uuid
         track_id = self.url_args['id']
         if is_uuid(track_id):
+            track_gid = track_id
             track_id = resolve_track_gid(self.conn, track_id)
         else:
             track_id = int(track_id)
-        title = 'Track #%s' % (track_id,)
+            query = sql.select([schema.track.c.gid], schema.track.c.id == track_id)
+            track_gid = self.conn.execute(query).scalar()
+        title = 'Track "%s"' % (track_gid,)
         track = {
             'id': track_id
         }
