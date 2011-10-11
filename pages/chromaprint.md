@@ -7,18 +7,18 @@ found in the blog post ["How does Chromaprint work?"][blog2].
 
 ### Download
 
-Latest release &mdash; 0.4 (May 14, 2011)
+Latest release &mdash; 0.5 (October 6, 2011)
 
- * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.4.tar.gz) (529K)
+ * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.5.tar.gz) (530K)
  * Packages
      * [Arch Linux](http://aur.archlinux.org/packages.php?ID=46382)
      * [Debian](http://packages.debian.org/chromaprint)
      * [FreeBSD](https://github.com/lalinsky/ports)
      * [Ubuntu][ppa] ([daily builds][ppad])
  * Static binaries for the fpcalc tool
-     * [Windows, x86](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.4-win32.zip) (633K)
-     * [Mac OS X, x86, 10.4+](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.4-osx.tar.gz) (523K)
-     * [Linux, x86](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.4-linux.tar.gz) (650K)
+     * [Windows, x86](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.5-win32.zip) (634K)
+     * [Mac OS X, x86, 10.4+](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.5-osx.tar.gz) (524K)
+     * [Linux, x86](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.5-linux.tar.gz) (651K)
 
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
 [ppad]: https://launchpad.net/~luks/+archive/acoustid-daily
