@@ -42,7 +42,7 @@ Since the Acoustid database depends heavily on the MusicBrainz database,
 we really wanted to re-use existing user accounts. The only way to do this 
 at the moment is to ask the user for both the username and password. We do 
 not store the password anywhere, it is transmitted to our server over an 
-[SSL tunel][ssl] and it's sent to the MusicBrainz web service for
+[SSL tunnel][ssl] and it's sent to the MusicBrainz web service for
 authentication in a [hashed form][auth]. After it's verified that the 
 username and password match, we only store the username.
 The server code is [open source][code], so you can check all this by yourself.
