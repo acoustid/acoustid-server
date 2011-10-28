@@ -187,7 +187,11 @@ def find_puid_mbids(conn, puid, min_duration, max_duration):
     src = src.join(schema.mb_artist_credit, schema.mb_artist_credit.c.id == schema.mb_recording.c.artist_credit)
     condition = sql.and_(
         schema.mb_puid.c.puid == puid,
-        schema.mb_recording.c.length.between(min_duration * 1000, max_duration * 1000))
+        sql.or_(
+            schema.mb_recording.c.length.between(min_duration * 1000, max_duration * 1000),
+            schema.mb_recording.c.length == None
+        )
+    )
     columns = [
         schema.mb_recording.c.gid,
         schema.mb_recording.c.name,

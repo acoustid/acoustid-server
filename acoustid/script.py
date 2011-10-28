@@ -25,7 +25,7 @@ class Script(object):
         else:
             self.index = IndexClientPool(host=self.config.index.host,
                                          port=self.config.index.port,
-                                         recycle=15)
+                                         recycle=60)
         self.setup_logging()
 
     def setup_logging(self):
