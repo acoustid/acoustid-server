@@ -98,7 +98,7 @@ class IndexClient(object):
     def commit(self):
         if not self.in_transaction:
             raise IndexClientError('called commit() without a transaction')
-        self._request('commit')
+        self._request('commit', timeout=60.0*10)
         self.in_transaction = False
 
     def rollback(self):
@@ -109,7 +109,7 @@ class IndexClient(object):
 
     def insert(self, id, fingerprint):
         #logger.debug("Inserting %s %s", id, fingerprint)
-        return self._request('insert %d %s' % (id, encode_fp(fingerprint)))
+        return self._request('insert %d %s' % (id, encode_fp(fingerprint)), timeout=60.0*10)
 
     def close(self):
         try:
@@ -153,7 +153,7 @@ class IndexClientPool(object):
             logger.info("Too many idle connections, closing %s", client)
             client.close()
         else:
-            logger.debug("Checking in connection %s", client)
+            #logger.debug("Checking in connection %s", client)
             self.clients.append(client)
 
     def connect(self):
@@ -171,6 +171,6 @@ class IndexClientPool(object):
                 client = None
         if client is None:
             client = IndexClient(**self.args)
-        logger.debug("Checking out connection %s", client)
+        #logger.debug("Checking out connection %s", client)
         return IndexClientWrapper(self, client)
 
