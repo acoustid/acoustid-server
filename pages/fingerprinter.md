@@ -40,6 +40,7 @@ Latest release &mdash; 0.4 (Aug 6, 2011)
 There are other applications that can submit fingerprints to the Acoustid database.
 You can use them instead of the Acoustid fingerprinter to contribute:
 
+ * [Picard][picard]
  * [Jaikoz][jaikoz]
  * [Quod Libet][ql] with this [plugin][qlp]
 
