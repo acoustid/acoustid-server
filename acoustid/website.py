@@ -477,11 +477,14 @@ class FingerprintHandler(WebSiteHandler):
             [schema.fingerprint.c.id,
              schema.fingerprint.c.length,
              schema.fingerprint.c.fingerprint,
+             schema.fingerprint.c.track_id,
              schema.fingerprint.c.submission_count],
             schema.fingerprint.c.id == fingerprint_id)
         fingerprint = self.conn.execute(query).first()
+        query = sql.select([schema.track.c.gid], schema.track.c.id == fingerprint['track_id'])
+        track_gid = self.conn.execute(query).scalar()
         return self.render_template('fingerprint.html', title=title,
-            fingerprint=fingerprint)
+            fingerprint=fingerprint, track_gid=track_gid)
 
 
 class MBIDHandler(WebSiteHandler):
