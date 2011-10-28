@@ -9,7 +9,7 @@ from acoustid.data.submission import import_queued_submissions
 
 def main(script, opts, args):
     conn = script.engine.connect()
-    import_queued_submissions(conn, limit=150, index=script.index)
+    import_queued_submissions(conn, limit=300, index=script.index)
 
 run_script(main)
 

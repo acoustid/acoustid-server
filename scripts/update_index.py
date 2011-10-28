@@ -16,7 +16,7 @@ def main(script, opts, args):
             FROM fingerprint
             WHERE id > (SELECT fingerprint_id FROM fingerprint_index_queue)
             ORDER BY id
-            LIMIT 5000
+            LIMIT 10000
         """)
         max_id = 0
         for row in rows:
