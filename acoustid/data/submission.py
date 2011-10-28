@@ -110,7 +110,7 @@ def import_queued_submissions(conn, limit=50, index=None):
     """
     Import the given submission into the main fingerprint database
     """
-    query = schema.submission.select(schema.submission.c.handled == False).limit(limit)
+    query = schema.submission.select(schema.submission.c.handled == False).limit(limit).order_by(schema.submission.c.id.desc())
     count = 0
     for submission in conn.execute(query):
         import_submission(conn, submission, index=index)
