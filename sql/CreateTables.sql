@@ -51,8 +51,6 @@ CREATE TABLE fingerprint (
     format_id int,
     created timestamp with time zone NOT NULL DEFAULT current_timestamp,
     track_id int NOT NULL,
-    hash_full bytea,
-    hash_query bytea,
     submission_count int NOT NULL
 );
 
