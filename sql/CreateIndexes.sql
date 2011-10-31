@@ -10,7 +10,7 @@ CREATE UNIQUE INDEX foreignid_idx_vendor_name ON foreignid (vendor_id, name);
 
 CREATE UNIQUE INDEX format_idx_name ON format (name);
 
-CREATE UNIQUE INDEX source_idx_uniq ON source (application_id, account_id);
+CREATE UNIQUE INDEX source_idx_uniq ON source (application_id, account_id, version);
 
 CREATE INDEX fingerprint_idx_fingerprint ON fingerprint USING gin (acoustid_extract_query(fingerprint) gin__int_ops);
 
