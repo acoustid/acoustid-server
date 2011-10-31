@@ -190,6 +190,15 @@ CREATE TABLE stats (
     value int NOT NULL
 );
 
+CREATE TABLE stats_lookups (
+    id serial NOT NULL,
+    date date NOT NULL,
+    hour int NOT NULL,
+    application_id int NOT NULL,
+    count_nohits int NOT NULL DEFAULT 0,
+    count_hits int NOT NULL default 0
+);
+
 CREATE TABLE stats_top_accounts (
     id serial NOT NULL,
     account_id int NOT NULL,
