@@ -11,6 +11,7 @@ account = Table('account', metadata,
     Column('mbuser', String),
     Column('created', DateTime),
     Column('lastlogin', DateTime),
+    Column('anonymous', Boolean),
     Column('submission_count', Integer),
 )
 
