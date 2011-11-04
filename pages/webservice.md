@@ -83,7 +83,7 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 	<tr>
 		<td>meta</td>
 		<td>no</td>
-		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, puids, compress</td>
+		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, puids, compress, usermeta</td>
 		<td>returned metadata</td>
 	</tr>
 </table>
@@ -223,7 +223,7 @@ track ID. Otherwise you can send the PUID or textual metadata.
 		<td>corresponding PUID</td>
 	</tr>
 	<tr>
-		<td>artist.#</td>
+		<td>track.#</td>
 		<td>no</td>
 		<td>High Hopes</td>
 		<td>track title</td>
