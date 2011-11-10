@@ -39,7 +39,8 @@ CREATE TABLE format (
 CREATE TABLE source (
     id serial NOT NULL,
     application_id int NOT NULL,
-    account_id int NOT NULL
+    account_id int NOT NULL,
+    version varchar
 );
 
 CREATE TABLE fingerprint (
@@ -50,8 +51,6 @@ CREATE TABLE fingerprint (
     format_id int,
     created timestamp with time zone NOT NULL DEFAULT current_timestamp,
     track_id int NOT NULL,
-    hash_full bytea,
-    hash_query bytea,
     submission_count int NOT NULL
 );
 
@@ -187,6 +186,15 @@ CREATE TABLE stats (
     name varchar NOT NULL,
     date date NOT NULL DEFAULT current_date,
     value int NOT NULL
+);
+
+CREATE TABLE stats_lookups (
+    id serial NOT NULL,
+    date date NOT NULL,
+    hour int NOT NULL,
+    application_id int NOT NULL,
+    count_nohits int NOT NULL DEFAULT 0,
+    count_hits int NOT NULL default 0
 );
 
 CREATE TABLE stats_top_accounts (

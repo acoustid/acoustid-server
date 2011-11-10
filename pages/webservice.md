@@ -3,6 +3,23 @@ Title: Web Service
 The Acoustid web service currently supports only two operations, searching in the 
 fingerprint database and submitting new fingerprints into the database.
 
+### Usage Guidelines
+
+Remember that this is an open source project, with hopes to provide free and
+useful service. Please respect the following guidelines when integrating it
+into your application.
+
+ * **No commercial usage** — This service is provided for free to non-commercial
+   users. If you would like to use it in a commercial application or
+   if you are not sure whether you qualify as a non-commercial user, please 
+   <a href="mailto:info@acoustid.org">contact us</a> first.
+ * **Rate limiting** — Do not make more than 3 requests per second.
+ * **Don't do anything illegal** — Don't use this service in connection with
+   any illegal products of services.
+ * **Let us know** — If you are deploying an application that you expect
+   to generate significant traffic to this service, please
+   <a href="mailto:info@acoustid.org">let us know</a> in advance.
+
 ### Overview
 
 You can use both GET and POST HTTP methods to send requests to the web service,
@@ -179,6 +196,12 @@ track ID. Otherwise you can send the PUID or textual metadata.
 		<td>yes</td>
 		<td>8XaBELgH</td>
 		<td>application's API key</td>
+	</tr>
+	<tr>
+		<td>clientversion</td>
+		<td>no</td>
+		<td>1.0</td>
+		<td>application's version</td>
 	</tr>
 	<tr>
 		<td>user</td>

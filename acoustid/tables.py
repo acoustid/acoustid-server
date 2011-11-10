@@ -44,6 +44,7 @@ source = Table('source', metadata,
     Column('id', Integer, primary_key=True),
     Column('account_id', Integer, ForeignKey('account.id')),
     Column('application_id', Integer, ForeignKey('application.id')),
+    Column('version', String),
 )
 
 submission = Table('submission', metadata,
