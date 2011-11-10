@@ -41,6 +41,7 @@ website_url_rules = [
     Rule('/api-key', endpoint=website.APIKeyHandler),
     Rule('/new-api-key', endpoint=website.NewAPIKeyHandler),
     Rule('/applications', endpoint=website.ApplicationsHandler),
+    Rule('/application/<int:id>', endpoint=website.ApplicationHandler),
     Rule('/new-application', endpoint=website.NewApplicationHandler),
     Rule('/stats', endpoint=website.StatsHandler),
     Rule('/contributors', endpoint=website.ContributorsHandler),

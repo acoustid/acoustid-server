@@ -21,7 +21,7 @@
 <tbody>
 {% for app in applications %}
 	<tr>
-		<td>{{ app.name }}</td>
+		<td><a href="{{ base_url }}application/{{ app.id }}">{{ app.name }}</a></td>
 		<td>{{ app.version }}</td>
 		<td><code>{{ app.apikey }}</code></td>
 	</tr>

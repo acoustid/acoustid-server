@@ -11,7 +11,7 @@ from openid.extensions import ax, sreg
 from sqlalchemy import sql
 from acoustid import tables as schema
 from werkzeug import redirect
-from werkzeug.exceptions import NotFound, abort, HTTPException
+from werkzeug.exceptions import NotFound, abort, HTTPException, Forbidden
 from werkzeug.utils import cached_property
 from werkzeug.urls import url_encode
 from werkzeug.contrib.securecookie import SecureCookie
@@ -36,6 +36,7 @@ from acoustid.data.stats import (
     find_top_contributors,
     find_all_contributors,
     find_lookup_stats,
+    find_application_lookup_stats,
 )
 
 logger = logging.getLogger(__name__)
@@ -305,6 +306,34 @@ class ApplicationsHandler(WebSiteHandler):
         applications = find_applications_by_account(self.conn, self.session['id'])
         return self.render_template('applications.html', title=title,
             applications=applications)
+
+
+class ApplicationHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        self.require_user(req)
+        application_id = self.url_args['id']
+        title = 'Your Application'
+        application = self.conn.execute("""
+            SELECT * FROM application
+            WHERE id = %s
+        """, (application_id,)).fetchone()
+        if application is None:
+            raise NotFound()
+        if self.session['id'] != 3 and self.session['id'] != application['account_id']:
+            raise Forbidden()
+        monthly_stats = self.conn.execute("""
+            SELECT
+                date_trunc('month', date) AS month,
+                sum(count_hits) + sum(count_nohits) AS lookups
+            FROM stats_lookups
+            WHERE application_id = %s
+            GROUP BY date_trunc('month', date)
+            ORDER BY date_trunc('month', date)
+        """, (application_id,)).fetchall()
+        lookups = find_application_lookup_stats(self.conn, application_id)
+        return self.render_template('application.html', title=title,
+            app=application, monthly_stats=monthly_stats, lookups=lookups)
 
 
 class NewApplicationHandler(WebSiteHandler):
