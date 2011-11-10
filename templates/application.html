@@ -1,0 +1,76 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>Application "{{ app.name }}"</h2>
+
+<p><b>Searches during the last 30 days</b></p>
+
+<div id="lookups-graph-fp"></div>
+
+<p><b>Searches per month</b></p>
+
+<table class="listing">
+    {% for m in monthly_stats %}
+    <tr>
+        <td>{{ m.month.strftime('%B %Y') }}</td>
+        <td class="r">{{ m.lookups }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% macro lookup_data_series(name, data, field, visible=True)  %}
+{
+    name: '{{ name }}',
+	data: [
+		{% for i in data -%}
+			[Date.UTC({{ i.date.year }}, {{ i.date.month - 1 }}, {{ i.date.day }}), {{ i[field] }}]{% if not loop.last %},{% endif %}
+		{%- endfor %}
+	],
+	visible: {{ 'true' if visible else 'false' }}
+}
+{% endmacro %}
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js" type="text/javascript"></script>
+<script src="/static/highcharts.js" type="text/javascript"></script>
+<script type="text/javascript">
+var chart1; // globally available
+var chart2; // globally available
+$(document).ready(function() {
+	chart2 = new Highcharts.Chart({
+		chart: {
+			renderTo: 'lookups-graph-fp',
+			height: 250,
+			zoomType: 'x',
+			defaultSeriesType: 'line'
+		},
+		title: { text: '' },
+		xAxis: {
+			type: 'datetime',
+			dateTimeLabelFormats: {
+				month: '%e. %b',
+				year: '%b'
+			}
+		},
+		yAxis: {
+			title: { text: '' }
+		},
+		legend: {
+			shadow: false
+		},
+		plotOptions: {
+			line: {
+				lineWidth: 1
+			}
+		},
+		series: [
+			{{ lookup_data_series('All', lookups, 'count') }},
+			{{ lookup_data_series('Hits', lookups, 'count_hits') }},
+			{{ lookup_data_series('Misses', lookups, 'count_nohits') }}
+		]
+	});
+});
+</script>
+
+
+{% endblock %}
+
