@@ -58,6 +58,7 @@ SELECT track_count, count(*) mbid_count
     INTO TEMP TABLE tmp_mbid_tracks
     FROM (
         SELECT count(track_id) track_count FROM track_mbid
+        WHERE disabled=false
         GROUP BY mbid
     ) a
     GROUP BY track_count ORDER BY track_count;
@@ -78,7 +79,7 @@ SELECT mbid_count, count(*) track_count
     INTO TEMP TABLE tmp_track_mbids
     FROM (
         SELECT count(tm.mbid) mbid_count
-        FROM track t LEFT JOIN track_mbid tm ON t.id=tm.track_id
+        FROM track t LEFT JOIN track_mbid tm ON t.id=tm.track_id AND tm.disabled=false
         GROUP BY t.id
     ) a
     GROUP BY mbid_count ORDER BY mbid_count;

@@ -38,6 +38,18 @@ def lookup_mbids(conn, track_ids):
     return results
 
 
+def lookup_meta_ids(conn, track_ids):
+    if not track_ids:
+        return {}
+    query = sql.select(
+        [schema.track_meta.c.track_id, schema.track_meta.c.meta_id],
+        sql.and_(schema.track_meta.c.track_id.in_(track_ids))).order_by(schema.track_meta.c.meta_id)
+    results = {}
+    for track_id, meta_id in conn.execute(query):
+        results.setdefault(track_id, []).append(meta_id)
+    return results
+
+
 def lookup_puids(conn, track_ids):
     """
     Lookup PUIDs for the specified Acoustid track IDs.

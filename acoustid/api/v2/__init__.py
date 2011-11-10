@@ -6,7 +6,7 @@ import logging
 import pprint
 import operator
 from acoustid.handler import Handler, Response
-from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid
+from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.submission import insert_submission
 from acoustid.data.fingerprint import lookup_fingerprint, decode_fingerprint, FingerprintSearcher
@@ -14,7 +14,7 @@ from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
-from acoustid.data.meta import insert_meta
+from acoustid.data.meta import insert_meta, lookup_meta
 from acoustid.data.foreignid import find_or_insert_foreignid
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
@@ -187,11 +187,25 @@ class LookupHandler(APIHandler):
                     el_recording.setdefault(mbid, []).extend(self.el_result[track_id])
         return el_recording, track_mbid_map
 
+    def _inject_user_meta_ids_internal(self, add=True):
+        el_recording = {}
+        track_meta_map = lookup_meta_ids(self.conn, self.el_result.keys())
+        for track_id, meta_ids in track_meta_map.iteritems():
+            for meta_id in meta_ids:
+                if add:
+                    for result_el in self.el_result[track_id]:
+                        recording = {}
+                        result_el.setdefault(self.recordings_name, []).append(recording)
+                        el_recording.setdefault(meta_id, []).append(recording)
+                else:
+                    el_recording.setdefault(meta_id, []).extend(self.el_result[track_id])
+        return el_recording, track_meta_map
+
     def extract_recording(self, m, only_id=False):
         recording = {'id': m['recording_id']}
         if only_id:
             return recording
-        recording['title'] = m['recording_title']
+        recording['title'] = m['recording_title'] or ''
         if m['recording_duration']:
             recording['duration'] = m['recording_duration']
         if m['recording_artists']:
@@ -202,9 +216,11 @@ class LookupHandler(APIHandler):
         release = {'id': m['release_id']}
         if only_id:
             return release
-        release['title'] = m['release_title']
-        release['medium_count'] = m['release_medium_count']
-        release['track_count'] = m['release_track_count']
+        release['title'] = m['release_title'] or ''
+        if m['release_medium_count']:
+            release['medium_count'] = m['release_medium_count']
+        if m['release_track_count']:
+            release['track_count'] = m['release_track_count']
         if m['release_country']:
             release['country'] = m['release_country']
         if m['release_artists']:
@@ -224,8 +240,6 @@ class LookupHandler(APIHandler):
         release_group = {'id': m['release_group_id']}
         if only_id:
             return release_group
-        release_group['title'] = m['release_group_title']
-        if m['release_group_type']:
             release_group['type'] = m['release_group_type']
         if m['release_group_artists']:
             release_group['artists'] = m['release_group_artists']
@@ -268,6 +282,11 @@ class LookupHandler(APIHandler):
             load_releases = True
             load_release_groups = True
         metadata = lookup_metadata(self.conn, recording_els.keys(), load_releases=load_releases, load_release_groups=load_release_groups)
+        if 'usermeta' in meta and not metadata:
+            user_meta_els = self._inject_user_meta_ids_internal(True)[0]
+            recording_els.update(user_meta_els)
+            user_meta = lookup_meta(self.conn, user_meta_els.keys())
+            metadata.extend(user_meta)
         for recording, recording_metadata in self._group_recordings(metadata, 'recordingids' in meta):
             if 'releasegroups' in meta or 'releasegroupids' in meta:
                 self._inject_release_groups_internal(meta, recording, recording_metadata)
@@ -291,6 +310,47 @@ class LookupHandler(APIHandler):
                         if 'artists' in release and release['artists'] == recording.get('artists'):
                             del release['artists']
             for recording_el in recording_els[recording['id']]:
+                if 'usermeta' in meta:
+                    if isinstance(recording['id'], int):
+                        del recording['id']
+                        if 'title' in recording and not recording['title']:
+                            del recording['title']
+                        if 'releasegroups' in recording:
+                            releasegroups = []
+                            for releasegroup in recording['releasegroups']:
+                                del releasegroup['id']
+                                if 'title' in releasegroup and not releasegroup['title']:
+                                    del releasegroup['title']
+                                if 'releases' in releasegroup:
+                                    releases = []
+                                    for release in releasegroup['releases']:
+                                        del release['id']
+                                        if 'title' in release and not release['title']:
+                                            del release['title']
+                                        if release:
+                                            releases.append(release)
+                                    if releases:
+                                        releasegroup['releases'] = releases
+                                    else:
+                                        del releasegroup['releases']
+                                if releasegroup:
+                                    releasegroups.append(releasegroup)
+                            if releasegroups:
+                                recording['releasegroups'] = releasegroups
+                            else:
+                                del recording['releasegroups']
+                        if 'releases' in recording:
+                            releases = []
+                            for release in recording['releases']:
+                                del release['id']
+                                if 'title' in release and not release['title']:
+                                    del release['title']
+                                if release:
+                                    releases.append(release)
+                            if releases:
+                                recording['releases'] = releases
+                            else:
+                                del recording['releases']
                 recording_el.update(recording)
 
     def inject_releases(self, meta):
