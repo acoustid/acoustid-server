@@ -15,7 +15,7 @@ into your application.
    <a href="mailto:info@acoustid.org">contact us</a> first.
  * **Rate limiting** — Do not make more than 3 requests per second.
  * **Don't do anything illegal** — Don't use this service in connection with
-   any illegal products of services.
+   any illegal products or services.
  * **Let us know** — If you are deploying an application that you expect
    to generate significant traffic to this service, please
    <a href="mailto:info@acoustid.org">let us know</a> in advance.
