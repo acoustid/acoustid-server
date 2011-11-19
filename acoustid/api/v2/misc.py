@@ -17,6 +17,7 @@ class TrackListByMBIDHandlerParams(APIHandlerParams):
     def parse(self, values, conn):
         super(TrackListByMBIDHandlerParams, self).parse(values, conn)
         self.disabled = values.get('disabled', type=int)
+        self.batch = values.get('batch', type=int)
         self.mbids = values.getlist('mbid')
         if not self.mbids:
             raise errors.MissingParameterError('mbid')
@@ -41,15 +42,15 @@ class TrackListByMBIDHandler(APIHandler):
             if params.disabled and disabled:
                 track['disabled'] = disabled
             tracks_map.setdefault(mbid, []).append(track)
-        #if len(params.mbids) == 1:
-        response['tracks'] = tracks_map.get(params.mbids[0], [])
-        #else:
-        #    response['mbids'] = mbids = []
-        #    for mbid in params.mbids:
-        #        mbids.append({
-        #            'mbid': mbid,
-        #            'tracks': tracks_map.get(mbid, []),
-        #        })
+        if not params.batch:
+            response['tracks'] = tracks_map.get(params.mbids[0], [])
+        else:
+            response['mbids'] = mbids = []
+            for mbid in params.mbids:
+                mbids.append({
+                    'mbid': mbid,
+                    'tracks': tracks_map.get(mbid, []),
+                })
         return response
 
 
