@@ -235,6 +235,7 @@ mb_recording = Table('s_recording', metadata,
     Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
     Column('name', String),
     Column('gid', String),
+    Column('comment', String),
     Column('length', Integer),
     schema='musicbrainz',
 )

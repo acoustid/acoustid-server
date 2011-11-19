@@ -70,7 +70,7 @@
 {% for rec in recordings %}
 <tr{% if rec.disabled %} class="mbid-disabled"{% endif %}>
     {% if rec.name %}
-    <td><a href="http://musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a></td>
+    <td><a href="http://musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a>{% if rec.comment %}<small> ({{ rec.comment }})</small>{% endif %}</td>
     <td>{{ rec.artist_name }}</td>
     <td>{{ format_length(rec.length) }}</td>
     {% else %}
