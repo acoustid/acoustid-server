@@ -134,6 +134,7 @@ def lookup_recording_metadata(conn, mbids):
             schema.mb_recording.c.gid,
             schema.mb_recording.c.name,
             schema.mb_recording.c.length,
+            schema.mb_recording.c.comment,
             schema.mb_artist_credit.c.name.label('artist_name'),
         ],
         schema.mb_recording.c.gid.in_(mbids),
