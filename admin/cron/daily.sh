@@ -6,5 +6,5 @@ LOCKNAME=acoustid-daily
 DIR=`dirname $0`/../..
 PSQL=$DIR/run_psql.sh
 
-$PSQL <$DIR/sql/CollectStats.sql
+$PSQL -q -t -A <$DIR/sql/CollectStats.sql | perl -pe 's{^\s+}{}'
 
