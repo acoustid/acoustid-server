@@ -7,6 +7,7 @@ from acoustid import tables as schema, const
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
 from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
 from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track, can_merge_tracks, insert_track_foreignid
+
 logger = logging.getLogger(__name__)
 
 

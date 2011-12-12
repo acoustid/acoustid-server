@@ -5,6 +5,8 @@ import logging
 import uuid
 from sqlalchemy import sql
 from acoustid import tables as schema, const
+from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
+from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
 
 logger = logging.getLogger(__name__)
 
@@ -331,4 +333,45 @@ def can_add_fp_to_track(conn, track_id, fingerprint, length):
         if abs(fp_length - length) > const.FINGERPRINT_MAX_LENGTH_DIFF:
             return False
     return True
+
+
+def find_track_duplicates(conn, fingerprint, index=None):
+    with conn.begin():
+        searcher = FingerprintSearcher(conn, index)
+        searcher.min_score = const.TRACK_MERGE_THRESHOLD
+        matches = searcher.search(fingerprint['fingerprint'], fingerprint['length'])
+        if not matches:
+            logger.debug("Not matched itself!")
+            return
+        logged = False
+        match = matches[0]
+        all_track_ids = set()
+        possible_track_ids = set()
+        for m in matches:
+            if m['track_id'] in all_track_ids:
+                continue
+            all_track_ids.add(m['track_id'])
+            if can_add_fp_to_track(conn, m['track_id'], fingerprint['fingerprint'], fingerprint['length']):
+                if m['id'] != fingerprint['id']:
+                    if not logged:
+                        logger.debug("Deduplicating fingerprint %d", fingerprint['id'])
+                        logged = True
+                    logger.debug("Fingerprint %d with track %d is %d%% similar", m['id'], m['track_id'], m['score'] * 100)
+                possible_track_ids.add(m['track_id'])
+        if len(possible_track_ids) > 1:
+            for group in can_merge_tracks(conn, possible_track_ids):
+                if len(group) > 1:
+                    target_track_id = min(group)
+                    group.remove(target_track_id)
+                    #logger.debug("Would like to merge tracks %r into %d", list(group), target_track_id)
+                    merge_tracks(conn, target_track_id, list(group))
+                    #raise Exception(1)
+                    break
+        conn.execute("INSERT INTO fingerprint_deduplicate (id) VALUES (%s)", fingerprint['id'])
+
+
+def find_duplicates(conn, limit=50, index=None):
+    query = "SELECT f.id, fingerprint, length FROM fingerprint f LEFT JOIN fingerprint_deduplicate d ON f.id=d.id WHERE d.id IS NULL ORDER BY f.id LIMIT 1000"
+    for fingerprint in conn.execute(query):
+        find_track_duplicates(conn, fingerprint, index=index)
 
