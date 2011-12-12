@@ -8,7 +8,7 @@ import os
 
 
 def main(script, opts, args):
-    os.execlp('psql', 'psql', *script.config.database.create_psql_args())
+    os.execlp('psql', 'psql', *(script.config.database.create_psql_args() + args))
 
 run_script(main)
 
