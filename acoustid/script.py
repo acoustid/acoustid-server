@@ -46,12 +46,14 @@ class Script(object):
 
 
 
-def run_script(func):
+def run_script(func, option_cb=None):
     parser = OptionParser()
     parser.add_option("-c", "--config", dest="config",
         help="configuration file", metavar="FILE")
     parser.add_option("-q", "--quiet", dest="quiet", action="store_true",
         default=False, help="don't print info messages to stdout")
+    if option_cb is not None:
+        option_cb(parser)
     (options, args) = parser.parse_args()
     if not options.config:
         parser.error('no configuration file')
