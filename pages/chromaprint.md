@@ -13,6 +13,7 @@ Latest release &mdash; 0.5 (October 6, 2011)
  * Packages
      * [Arch Linux](http://aur.archlinux.org/packages.php?ID=46382)
      * [Debian](http://packages.debian.org/chromaprint)
+     * [Fedora](https://admin.fedoraproject.org/pkgdb/acls/name/chromaprint)
      * [FreeBSD](https://github.com/lalinsky/ports)
      * [Ubuntu][ppa] ([daily builds][ppad])
  * Static binaries for the fpcalc tool
