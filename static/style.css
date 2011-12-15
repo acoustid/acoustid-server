@@ -228,3 +228,7 @@ table.matrix td {
 tr.indent td {
     padding-left: 2em;
 }
+
+form small label small {
+    color: #aaa;
+}

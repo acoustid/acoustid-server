@@ -27,6 +27,8 @@ def insert_application(conn, data):
         insert_stmt = schema.application.insert().values({
             'name': data['name'],
             'version': data['version'],
+            'email': data.get('email'),
+            'website': data.get('website'),
             'account_id': data['account_id'],
             'apikey': sql.text('generate_api_key()'),
         })

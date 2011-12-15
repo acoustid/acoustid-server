@@ -28,7 +28,9 @@ CREATE TABLE application (
     apikey varchar NOT NULL,
     created timestamp with time zone DEFAULT current_timestamp,
     active boolean DEFAULT true,
-    account_id int NOT NULL
+    account_id int NOT NULL,
+    email varchar,
+    website varchar
 );
 
 CREATE TABLE format (

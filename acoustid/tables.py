@@ -27,6 +27,8 @@ application = Table('application', metadata,
     Column('apikey', String),
     Column('created', DateTime),
     Column('account_id', Integer),
+    Column('email', String),
+    Column('website', String),
 )
 
 track = Table('track', metadata,

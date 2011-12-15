@@ -12,7 +12,11 @@
 	<small><label for="name_i">Application name:</label></small><br />
  	<input name="name" id="name_i" type="text" class="text" value="{{ form.name }}" /><br />
 	<small><label for="version_i">Version number:</label></small><br />
-	<input name="version" id="version_i" type="text" class="text value="{{ form.version }}"" />
+	<input name="version" id="version_i" type="text" class="text" value="{{ form.version }}" /><br />
+	<small><label for="email_i">Contact email: <small>(optional)</small></label></small><br />
+ 	<input name="email" id="email_i" type="text" class="text" value="{{ form.email }}" /><br />
+	<small><label for="website_i">Website: <small>(optional)</small></label></small><br />
+ 	<input name="website" id="website_i" type="website" class="text" value="{{ form.website }}" /><br />
 </p>
 <p>
 	<input type="submit" value="Register" />

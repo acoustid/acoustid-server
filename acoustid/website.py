@@ -2,9 +2,12 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import os
+import re
 import logging
+import urlparse
 import urllib
 import urllib2
+from wtforms import Form, BooleanField, TextField, validators
 from openid import oidutil, fetchers
 from openid.consumer import consumer as openid
 from openid.extensions import ax, sreg
@@ -336,27 +339,48 @@ class ApplicationHandler(WebSiteHandler):
             app=application, monthly_stats=monthly_stats, lookups=lookups)
 
 
+def is_valid_email(s):
+    if re.match(r'^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$', s, re.I):
+        return True
+    return False
+
+
+def is_valid_url(s):
+    url = urlparse.urlparse(s)
+    if url.scheme in ('http', 'https') and url.netloc:
+        return True
+    return False
+
+
 class NewApplicationHandler(WebSiteHandler):
 
     def _handle_request(self, req):
         self.require_user(req)
+        print req.form
         errors = []
         title = 'New Applications'
         if req.form.get('submit'):
             name = req.form.get('name')
+            if not name:
+                errors.append('Missing application name')
             version = req.form.get('version')
-            if name and version:
+            if not version:
+                errors.append('Missing version number')
+            email = req.form.get('email')
+            if email and not is_valid_email(email):
+                errors.append('Invalid email address')
+            website = req.form.get('website')
+            if website and not is_valid_url(website):
+                errors.append('Invalid website URL')
+            if not errors:
                 insert_application(self.conn, {
                     'name': name,
                     'version': version,
+                    'email': req.form.get('email'),
+                    'website': req.form.get('website'),
                     'account_id': self.session['id'],
                 })
                 return redirect(self.config.base_url + 'applications')
-            else:
-                if not name:
-                    errors.append('Missing application name')
-                if not version:
-                    errors.append('Missing version number')
         return self.render_template('new-application.html', title=title,
             form=req.form, errors=errors)
 
