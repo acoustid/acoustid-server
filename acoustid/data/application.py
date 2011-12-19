@@ -36,3 +36,17 @@ def insert_application(conn, data):
     logger.debug("Inserted application %r with data %r", id, data)
     return id
 
+
+def update_application(conn, id, data):
+    with conn.begin():
+        update_stmt = schema.application.update().where(schema.application.c.id == id)
+        update_stmt = update_stmt.values({
+            'name': data['name'],
+            'version': data['version'] or None,
+            'email': data.get('email') or None,
+            'website': data.get('website') or None,
+        })
+        conn.execute(update_stmt)
+    logger.debug("Updated application %r with data %r", id, data)
+    return id
+

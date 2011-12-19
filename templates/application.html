@@ -3,6 +3,14 @@
 
 <h2>Application "{{ app.name }}"</h2>
 
+<p><b>Details</b> (<a href="{{ base_url }}edit/application/{{ app.id }}">edit</a>)</p>
+
+<ul>
+    <li><b>Version:</b> {{  app.version }}</li>
+    <li><b>Email:</b> {% if app.email %}<a href="mailto:{{ app.email }}">{{ app.email }}</a>{% else %}none{% endif %}</li>
+    <li><b>Website:</b> {% if app.website %}<a href="{{ app.website }}">{{ app.website }}</a>{% else %}none{% endif %}</li>
+</ul>
+
 <p><b>Searches during the last 30 days</b></p>
 
 <div id="lookups-graph-fp"></div>

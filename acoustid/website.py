@@ -7,7 +7,7 @@ import logging
 import urlparse
 import urllib
 import urllib2
-from wtforms import Form, BooleanField, TextField, validators
+#from wtforms import Form, BooleanField, TextField, validators
 from openid import oidutil, fetchers
 from openid.consumer import consumer as openid
 from openid.extensions import ax, sreg
@@ -23,6 +23,7 @@ from acoustid.data.track import lookup_mbids, resolve_track_gid
 from acoustid.data.application import (
     find_applications_by_account,
     insert_application,
+    update_application,
 )
 from acoustid.data.account import (
     lookup_account_id_by_mbuser,
@@ -164,7 +165,6 @@ def check_mb_account(username, password):
             logger.exception('MB error %s', e.read())
         else:
             logger.exception('MB error')
-        return False
     return True
 
 
@@ -362,7 +362,6 @@ class NewApplicationHandler(WebSiteHandler):
 
     def _handle_request(self, req):
         self.require_user(req)
-        print req.form
         errors = []
         title = 'New Applications'
         if req.form.get('submit'):
@@ -389,6 +388,51 @@ class NewApplicationHandler(WebSiteHandler):
                 return redirect(self.config.base_url + 'applications')
         return self.render_template('new-application.html', title=title,
             form=req.form, errors=errors)
+
+
+class EditApplicationHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        self.require_user(req)
+        application_id = self.url_args['id']
+        application = self.conn.execute(schema.application.select().where(schema.application.c.id == application_id)).fetchone()
+        if application is None:
+            raise NotFound()
+        if self.session['id'] != application['account_id']:
+            raise Forbidden()
+        errors = []
+        title = 'Edit Applications'
+        if req.form.get('submit'):
+            form = req.form
+            name = req.form.get('name')
+            if not name:
+                errors.append('Missing application name')
+            version = req.form.get('version')
+            if not version:
+                errors.append('Missing version number')
+            email = req.form.get('email')
+            if email and not is_valid_email(email):
+                errors.append('Invalid email address')
+            website = req.form.get('website')
+            if website and not is_valid_url(website):
+                errors.append('Invalid website URL')
+            if not errors:
+                update_application(self.conn, application.id, {
+                    'name': name,
+                    'version': version,
+                    'email': req.form.get('email'),
+                    'website': req.form.get('website'),
+                    'account_id': self.session['id'],
+                })
+                return redirect(self.config.base_url + 'applications')
+        else:
+            form = {}
+            form['name'] = application['name']
+            form['version'] = application['version'] or ''
+            form['email'] = application['email'] or ''
+            form['website'] = application['website'] or ''
+        return self.render_template('edit-application.html', title=title,
+            form=form, errors=errors, app=application)
 
 
 def percent(x, total):
