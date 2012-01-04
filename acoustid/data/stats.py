@@ -20,17 +20,20 @@ def find_daily_stats(conn, names):
     query = """
         SELECT
             date, name,
-            value - first_value(value) over(PARTITION BY name
-                                            ORDER BY date
-                                            ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS value
+            value - lag(value, 1, 0) over(PARTITION BY name ORDER BY date) AS value
         FROM stats
-        WHERE date > now() - INTERVAL '30 day' AND name IN (""" + ",".join(["%s" for i in names]) +  """)
+        WHERE date > now() - INTERVAL '31 day' AND name IN (""" + ",".join(["%s" for i in names]) +  """)
         ORDER BY name, date
     """
     stats = {}
     for name in names:
         stats[name] = []
-    for row in conn.execute(query, tuple(names)):
+    seen = set()
+    for row in conn.execute(query, tuple(names)).fetchall():
+        name = row['name']
+        if name not in seen:
+            seen.add(name)
+            continue
         stats[row['name']].append({'date': row['date'], 'value': row['value']})
     return stats
 
