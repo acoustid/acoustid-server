@@ -140,6 +140,8 @@ class IndexClientWrapper(object):
         self.commit = self._client.commit
         self.rollback = self._client.rollback
         self.insert = self._client.insert
+        self.get_attribute = self._client.get_attribute
+        self.set_attribute = self._client.set_attribute
 
     def close(self):
         if self._client.in_transaction:
