@@ -1,9 +1,10 @@
-# Copyright (C) 2011 Lukas Lalinsky
+# Copyright (C) 2011,2012 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
 from sqlalchemy import sql
 from acoustid import tables as schema
+from acoustid.data.account import insert_account, lookup_account_id_by_apikey
 from acoustid.api import errors
 from acoustid.api.v2 import APIHandler, APIHandlerParams
 from acoustid.handler import Handler, Response
@@ -78,4 +79,37 @@ class TrackListByPUIDHandler(APIHandler):
         for row in self.conn.execute(query):
             tracks.append({'id': row['gid']})
         return response
+
+
+class UserCreateAnonymousHandler(APIHandler):
+
+    params_class = APIHandlerParams
+
+    def _handle_internal(self, params):
+        id, api_key = insert_account(self.conn, {
+            'name': 'Anonymous',
+            'created_from': self.user_ip
+        })
+        return {'user': {'apikey': api_key}}
+
+
+class UserLookupHandlerParams(APIHandlerParams):
+
+    def parse(self, values, conn):
+        super(UserLookupHandlerParams, self).parse(values, conn)
+        account_apikey = values.get('user')
+        if not account_apikey:
+            raise errors.MissingParameterError('user')
+        self.account_id = lookup_account_id_by_apikey(conn, account_apikey)
+        if not self.account_id:
+            raise errors.InvalidUserAPIKeyError()
+        self.account_apikey = account_apikey
+
+
+class UserLookupHandler(APIHandler):
+
+    params_class = UserLookupHandlerParams
+
+    def _handle_internal(self, params):
+        return {'user': {'apikey': params.account_apikey}}
 

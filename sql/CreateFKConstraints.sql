@@ -1,3 +1,7 @@
+ALTER TABLE account ADD CONSTRAINT account_fk_application_id
+    FOREIGN KEY (application_id)
+    REFERENCES application (id);
+
 ALTER TABLE account_openid ADD CONSTRAINT account_openid_fk_account_id
     FOREIGN KEY (account_id)
     REFERENCES account (id);

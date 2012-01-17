@@ -8,7 +8,10 @@ CREATE TABLE account (
     anonymous boolean DEFAULT false,
     created timestamp with time zone DEFAULT current_timestamp,
     lastlogin timestamp with time zone,
-    submission_count int NOT NULL DEFAULT 0
+    submission_count int NOT NULL DEFAULT 0,
+    application_id int,
+    application_version varchar,
+    created_from inet
 );
 
 CREATE TABLE account_stats_control (

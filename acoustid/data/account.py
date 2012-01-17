@@ -44,10 +44,11 @@ def insert_account(conn, data):
         insert_stmt = schema.account.insert().values({
             'name': data['name'],
             'mbuser': data.get('mbuser'),
+            'created_from': data.get('created_from'),
             'lastlogin': sql.text('now()'),
             'apikey': sql.text('generate_api_key()'),
-        })
-        id = conn.execute(insert_stmt).inserted_primary_key[0]
+        }).returning(schema.account.c.id, schema.account.c.apikey)
+        id, api_key = conn.execute(insert_stmt).fetchone()
         if 'openid' in data:
             insert_stmt = schema.account_openid.insert().values({
                 'account_id': id,
@@ -55,7 +56,7 @@ def insert_account(conn, data):
             })
             conn.execute(insert_stmt)
     logger.debug("Inserted account %r with data %r", id, data)
-    return id
+    return id, api_key
 
 
 def reset_account_apikey(conn, id):

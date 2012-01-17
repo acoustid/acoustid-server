@@ -177,7 +177,7 @@ class LoginHandler(WebSiteHandler):
             if check_mb_account(username, password):
                 account_id = lookup_account_id_by_mbuser(self.conn, username)
                 if not account_id:
-                    account_id = insert_account(self.conn, {
+                    account_id, account_api_key = insert_account(self.conn, {
                         'name': username,
                         'mbuser': username,
                     })
@@ -239,7 +239,7 @@ class LoginHandler(WebSiteHandler):
                         pass
             account_id = lookup_account_id_by_openid(self.conn, openid_url)
             if not account_id:
-                account_id = insert_account(self.conn, {
+                account_id, account_api_key = insert_account(self.conn, {
                     'name': 'OpenID User',
                     'openid': openid_url,
                 })

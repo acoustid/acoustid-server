@@ -1,6 +1,7 @@
-# Copyright (C) 2011 Lukas Lalinsky
+# Copyright (C) 2011,2012 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import json
 from nose.tools import *
 from tests import (prepare_database, with_database, assert_json_equals,
     TEST_1_LENGTH,
@@ -22,6 +23,10 @@ from acoustid.api.v2 import (
     SubmitHandlerParams,
     APIHandler,
     APIHandlerParams,
+)
+from acoustid.api.v2.misc import (
+    UserCreateAnonymousHandler,
+    UserLookupHandler,
 )
 from acoustid.utils import provider
 
@@ -546,4 +551,45 @@ def test_submit_handler_foreignid(conn):
     assert_equals(1, row['id'])
     assert_equals(1, row['vendor_id'])
     assert_equals('123', row['name'])
+
+
+@with_database
+def test_user_create_anonumous_handler(conn):
+    values = {'format': 'json', 'client': 'app1key'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = UserCreateAnonymousHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('application/json; charset=UTF-8', resp.content_type)
+    assert_equals('200 OK', resp.status)
+    data = json.loads(resp.data)
+    assert_equals('ok', data['status'])
+    query = tables.account.select().where(tables.account.c.apikey == data['user']['apikey'])
+    user = conn.execute(query).fetchone()
+    assert_true(user)
+
+
+@with_database
+def test_user_lookup_handler(conn):
+    values = {'format': 'json', 'client': 'app1key', 'user': 'user1key'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = UserLookupHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('application/json; charset=UTF-8', resp.content_type)
+    assert_equals('200 OK', resp.status)
+    data = json.loads(resp.data)
+    assert_equal('ok', data['status'])
+    assert_equal('user1key', data['user']['apikey'])
+
+
+@with_database
+def test_user_lookup_handler_missing(conn):
+    values = {'format': 'json', 'client': 'app1key', 'user': 'xxx'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = UserLookupHandler(connect=provider(conn))
+    resp = handler.handle(Request(builder.get_environ()))
+    assert_equals('application/json; charset=UTF-8', resp.content_type)
+    assert_equals('400 BAD REQUEST', resp.status)
+    data = json.loads(resp.data)
+    assert_equal('error', data['status'])
+    assert_equal(6, data['error']['code'])
 

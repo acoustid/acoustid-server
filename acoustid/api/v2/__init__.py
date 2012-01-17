@@ -102,6 +102,10 @@ class APIHandler(Handler):
 
     def handle(self, req):
         params = self.params_class()
+        if req.access_route:
+            self.user_ip = req.access_route[0]
+        else:
+            self.user_ip = req.remote_addr
         try:
             try:
                 params.parse(req.values, self.conn)
