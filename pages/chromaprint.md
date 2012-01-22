@@ -11,7 +11,7 @@ Latest release &mdash; 0.6 (December 22, 2011)
 
  * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.6.tar.gz) (530K)
  * Packages
-     * [Arch Linux](http://aur.archlinux.org/packages.php?ID=46382)
+     * [Arch Linux](https://www.archlinux.org/packages/?q=chromaprint)
      * [Debian](http://packages.debian.org/chromaprint)
      * [Fedora](https://admin.fedoraproject.org/pkgdb/acls/name/chromaprint)
      * [FreeBSD](https://github.com/lalinsky/ports)
