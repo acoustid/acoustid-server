@@ -156,7 +156,7 @@ def main(script, opts, args):
         cursor = conn.connection.cursor()
         export_replication(cursor)
         if opts.full:
-            #export_tables(cursor, 'acoustid-dump', CORE_TABLES)
+            export_tables(cursor, 'acoustid-dump', CORE_TABLES)
             export_tables(cursor, 'acoustid-musicbrainz-dump', MUSICBRAINZ_TABLES)
         conn.connection.commit()
 
