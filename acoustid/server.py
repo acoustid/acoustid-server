@@ -44,7 +44,6 @@ website_url_rules = [
     Rule('/application/<int:id>', endpoint=website.ApplicationHandler),
     Rule('/new-application', endpoint=website.NewApplicationHandler),
     Rule('/stats', endpoint=website.StatsHandler),
-    Rule('/contributors', endpoint=website.ContributorsHandler),
     Rule('/track/<string:id>', endpoint=website.TrackHandler),
     Rule('/fingerprint/<int:id>', endpoint=website.FingerprintHandler),
     Rule('/mbid/<string:mbid>', endpoint=website.MBIDHandler),

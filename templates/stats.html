@@ -91,24 +91,6 @@
     {% endfor %}
 </table>
 
-<p><b>Top contributors in the last two weeks</b></p>
-
-{% if top_contributors %}
-<table class="listing">
-    {% for t in top_contributors %}
-    <tr>
-        <td class="index">{{ loop.index }}.</td>
-        <td>{% if t.mbuser %}<a href="http://musicbrainz.org/user/{{ t.mbuser }}">{% endif %}{{ t.name }}{% if t.mbuser %}</a>{% endif %}</td>
-        <td class="r">{{ t.count }}</td>
-    </tr>
-    {% endfor %}
-</table>
-{% else %}
-<p>Nobody has submitted any new fingerprints in the last 14 days. :-(</p>
-{% endif %}
-
-<p><a href="{{ base_url }}contributors">See all contributors</a></p>
-
 {% macro data_series(name, data, visible=True)  %}
 {
     name: '{{ name }}',
