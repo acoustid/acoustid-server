@@ -168,7 +168,7 @@ track_puid_source = Table('track_puid_source', metadata,
 track_meta = Table('track_meta', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_id', Integer, ForeignKey('track.id')),
-    Column('meta_id', Integer, ForeignKey('track.id')),
+    Column('meta_id', Integer, ForeignKey('meta.id')),
     Column('created', DateTime),
     Column('submission_count', Integer),
 )
