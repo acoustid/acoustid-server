@@ -45,6 +45,8 @@ def insert_account(conn, data):
             'name': data['name'],
             'mbuser': data.get('mbuser'),
             'created_from': data.get('created_from'),
+            'application_id': data.get('application_id'),
+            'application_version': data.get('application_version'),
             'lastlogin': sql.text('now()'),
             'apikey': sql.text('generate_api_key()'),
         }).returning(schema.account.c.id, schema.account.c.apikey)

@@ -81,14 +81,29 @@ class TrackListByPUIDHandler(APIHandler):
         return response
 
 
+class UserCreateAnonymousHandlerParams(APIHandlerParams):
+
+    def parse(self, values, conn):
+        super(UserCreateAnonymousHandlerParams, self).parse(values, conn)
+        self._parse_client(values, conn)
+
+
 class UserCreateAnonymousHandler(APIHandler):
 
-    params_class = APIHandlerParams
+    params_class = UserCreateAnonymousHandlerParams
 
     def _handle_internal(self, params):
+        print {
+            'name': 'Anonymous',
+            'created_from': self.user_ip,
+            'application_id': params.application_id,
+            'application_version': params.application_version,
+        }
         id, api_key = insert_account(self.conn, {
             'name': 'Anonymous',
-            'created_from': self.user_ip
+            'created_from': self.user_ip,
+            'application_id': params.application_id,
+            'application_version': params.application_version,
         })
         return {'user': {'apikey': api_key}}
 

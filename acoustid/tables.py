@@ -13,6 +13,9 @@ account = Table('account', metadata,
     Column('lastlogin', DateTime),
     Column('anonymous', Boolean),
     Column('submission_count', Integer),
+    Column('created_from', String),
+    Column('application_id', Integer, ForeignKey('application.id')),
+    Column('application_version', String),
 )
 
 account_openid = Table('account_openid', metadata,
