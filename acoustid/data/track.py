@@ -31,12 +31,16 @@ def lookup_mbids(conn, track_ids):
     """
     if not track_ids:
         return {}
-    query = sql.select(
-        [schema.track_mbid.c.track_id, schema.track_mbid.c.mbid],
-        sql.and_(schema.track_mbid.c.track_id.in_(track_ids), schema.track_mbid.c.disabled == False)).order_by(schema.track_mbid.c.mbid)
+    query = sql.select([
+        schema.track_mbid.c.track_id,
+        schema.track_mbid.c.mbid,
+        schema.track_mbid.c.submission_count,
+    ])
+    query = query.where(sql.and_(schema.track_mbid.c.track_id.in_(track_ids), schema.track_mbid.c.disabled == False))
+    query = query.order_by(schema.track_mbid.c.mbid)
     results = {}
-    for track_id, mbid in conn.execute(query):
-        results.setdefault(track_id, []).append(mbid)
+    for track_id, mbid, sources in conn.execute(query):
+        results.setdefault(track_id, []).append((mbid, sources))
     return results
 
 

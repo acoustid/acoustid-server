@@ -177,19 +177,24 @@ class LookupHandler(APIHandler):
             for result_el in self.el_result[track_id]:
                 result_el['puids'] = puids
 
-    def _inject_recording_ids_internal(self, add=True):
+    def _inject_recording_ids_internal(self, add=True, add_sources=False):
         el_recording = {}
+        res_map = {}
         track_mbid_map = lookup_mbids(self.conn, self.el_result.keys())
         for track_id, mbids in track_mbid_map.iteritems():
-            for mbid in mbids:
+            res_map[track_id] = []
+            for mbid, sources in mbids:
+                res_map[track_id].append(mbid)
                 if add:
                     for result_el in self.el_result[track_id]:
                         recording = {'id': mbid}
+                        if add_sources:
+                            recording['sources'] = sources
                         result_el.setdefault(self.recordings_name, []).append(recording)
                         el_recording.setdefault(mbid, []).append(recording)
                 else:
                     el_recording.setdefault(mbid, []).extend(self.el_result[track_id])
-        return el_recording, track_mbid_map
+        return el_recording, res_map
 
     def _inject_user_meta_ids_internal(self, add=True):
         el_recording = {}
@@ -279,7 +284,7 @@ class LookupHandler(APIHandler):
                                 del track['artists']
 
     def inject_recordings(self, meta):
-        recording_els = self._inject_recording_ids_internal(True)[0]
+        recording_els = self._inject_recording_ids_internal(True, 'sources' in meta)[0]
         load_releases = False
         load_release_groups = False
         if 'releaseids' in meta or 'releases' in meta:

@@ -19,7 +19,7 @@ from werkzeug.utils import cached_property
 from werkzeug.urls import url_encode
 from werkzeug.contrib.securecookie import SecureCookie
 from acoustid.handler import Handler, Response
-from acoustid.data.track import lookup_mbids, resolve_track_gid
+from acoustid.data.track import resolve_track_gid
 from acoustid.data.application import (
     find_applications_by_account,
     insert_application,
