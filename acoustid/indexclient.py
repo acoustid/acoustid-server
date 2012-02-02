@@ -82,6 +82,13 @@ class IndexClient(object):
         line = self._request('echo', timeout=1.0)
         return True
 
+    def get_attribute(self, name):
+        return self._request('get attribute %s' % (name,))
+
+    def set_attribute(self, name, value):
+        self._request('set attribute %s %s' % (name, value))
+        return True
+
     def search(self, fingerprint):
         line = self._request('search %s' % (encode_fp(fingerprint),))
         if not line:
