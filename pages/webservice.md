@@ -108,7 +108,7 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 	<tr>
 		<td>meta</td>
 		<td>no</td>
-		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, puids, compress, usermeta</td>
+		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, puids, compress, usermeta, sources</td>
 		<td>returned metadata</td>
 	</tr>
 </table>
