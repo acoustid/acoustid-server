@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+from acoustid import const
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ ERROR_INVALID_UUID = 7
 ERROR_INVALID_DURATION = 8
 ERROR_INVALID_BITRATE = 9
 ERROR_INVALID_FOREIGNID = 10
+ERROR_INVALID_MAX_DURATION_DIFF = 11
 
 
 class WebServiceError(Exception):
@@ -101,5 +103,13 @@ class InvalidBitrateError(WebServiceError):
     def __init__(self, name):
         message = 'parameter "%s" must be a positive integer' % (name,)
         WebServiceError.__init__(self, ERROR_INVALID_BITRATE, message)
+        self.parameter = name
+
+
+class InvalidMaxDurationDiffError(WebServiceError):
+
+    def __init__(self, name):
+        message = 'parameter "%s" must be between %d and %d' % (name, 1, const.FINGERPRINT_MAX_ALLOWED_LENGTH_DIFF)
+        WebServiceError.__init__(self, ERROR_INVALID_MAX_DURATION_DIFF, message)
         self.parameter = name
 

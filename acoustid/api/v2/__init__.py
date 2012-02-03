@@ -5,6 +5,7 @@ import re
 import logging
 import pprint
 import operator
+from acoustid import const
 from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
@@ -154,6 +155,11 @@ class LookupHandlerParams(APIHandlerParams):
             self.meta = ['m2']
         else:
             self.meta = self.meta.split()
+        self.max_duration_diff = values.get('maxdurationdiff', type=int)
+        if self.max_duration_diff is None:
+            self.max_duration_diff = const.FINGERPRINT_MAX_LENGTH_DIFF
+        elif self.max_duration_diff > const.FINGERPRINT_MAX_ALLOWED_LENGTH_DIFF or self.max_duration_diff < 1:
+            raise errors.InvalidMaxDurationDiffError('maxdurationdiff')
         self.batch = values.get('batch', type=int)
         self.fingerprints = []
         suffixes = list(iter_args_suffixes(values, 'fingerprint', 'trackid'))
@@ -500,6 +506,7 @@ class LookupHandler(APIHandler):
         import time
         t = time.time()
         searcher = FingerprintSearcher(self.conn, self.index)
+        searcher.max_length_diff = params.max_duration_diff
         if params.batch:
             fingerprints = params.fingerprints
         else:
