@@ -214,7 +214,7 @@ mb_country = Table('country', metadata,
     schema='musicbrainz',
 )
 
-mb_release_group_type = Table('release_group_type', metadata,
+mb_release_group_primary_type = Table('release_group_primary_type', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
     schema='musicbrainz',
@@ -280,7 +280,7 @@ mb_release_group = Table('s_release_group', metadata,
     Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
     Column('name', String),
     Column('gid', String),
-    Column('type', Integer, ForeignKey('musicbrainz.release_group_type.id')),
+    Column('type', Integer, ForeignKey('musicbrainz.release_group_primary_type.id')),
     schema='musicbrainz',
 )
 

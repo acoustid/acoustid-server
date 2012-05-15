@@ -88,12 +88,12 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
         ])
         if load_release_groups:
             src = src.join(schema.mb_release_group, schema.mb_release.c.release_group == schema.mb_release_group.c.id)
-            src = src.outerjoin(schema.mb_release_group_type, schema.mb_release_group.c.type == schema.mb_release_group_type.c.id)
+            src = src.outerjoin(schema.mb_release_group_primary_type, schema.mb_release_group.c.type == schema.mb_release_group_primary_type.c.id)
             columns.extend([
                 schema.mb_release_group.c.gid.label('release_group_id'),
                 schema.mb_release_group.c.name.label('release_group_title'),
                 schema.mb_release_group.c.artist_credit.label('release_group_artist_credit'),
-                schema.mb_release_group_type.c.name.label('release_group_type'),
+                schema.mb_release_group_primary_type.c.name.label('release_group_primary_type'),
             ])
     condition = schema.mb_recording.c.gid.in_(recording_ids)
     query = sql.select(columns, condition, from_obj=src)

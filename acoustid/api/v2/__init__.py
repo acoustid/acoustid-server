@@ -256,8 +256,8 @@ class LookupHandler(APIHandler):
         if only_id:
             return release_group
         release_group['title'] = m['release_group_title'] or ''
-        if m['release_group_type']:
-            release_group['type'] = m['release_group_type']
+        if m['release_group_primary_type']:
+            release_group['type'] = m['release_group_primary_type']
         if m['release_group_artists']:
             release_group['artists'] = m['release_group_artists']
         return release_group

@@ -47,7 +47,7 @@ def lookup_meta(conn, meta_ids):
             'release_group_id': row['id'],
             'release_group_title': row['album'],
             'release_group_artists': [],
-            'release_group_type': None,
+            'release_group_primary_type': None,
         }
         if row['artist']:
             result['recording_artists'].append(row['artist'])
