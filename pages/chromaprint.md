@@ -21,7 +21,7 @@ Latest release &mdash; 0.6 (December 22, 2011)
      * [Mac OS X, 32-bit, 10.4+](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-osx-i386.tar.gz) (582K)
      * [Mac OS X, 64-bit, 10.4+](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-osx-x86_64.tar.gz) (621K)
      * [Linux, 32-bit](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-linux-i686.tar.gz) (711K)
-     * [Linux, 32-bit](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-linux-x86_64.tar.gz) (689K)
+     * [Linux, 64-bit](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-linux-x86_64.tar.gz) (689K)
 
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
 [ppad]: https://launchpad.net/~luks/+archive/acoustid-daily
