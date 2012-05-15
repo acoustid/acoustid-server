@@ -157,14 +157,12 @@ def check_mb_account(username, password):
     opener.addheaders = [('User-Agent', 'Acoustid-Login +http://acoustid.org/login')]
     try:
         opener.open(url, timeout=HTTP_TIMEOUT)
-    except urllib2.HTTPError, error:
-        logger.exception('MB error %s', error.read())
-        return False
     except StandardError, e:
         if hasattr(e, 'read'):
             logger.exception('MB error %s', e.read())
         else:
             logger.exception('MB error')
+        return False
     return True
 
 
