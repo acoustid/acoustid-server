@@ -152,7 +152,7 @@ def check_mb_account(username, password):
     url = 'http://musicbrainz.org/ws/2/artist/89ad4ac3-39f7-470e-963a-56509c546377?inc=user-tags'
     auth_handler = DigestAuthHandler()
     auth_handler.add_password('musicbrainz.org', 'http://musicbrainz.org/',
-                              username, password)
+                              username.encode('utf8'), password.encode('utf8'))
     opener = urllib2.build_opener(auth_handler)
     opener.addheaders = [('User-Agent', 'Acoustid-Login +http://acoustid.org/login')]
     try:
