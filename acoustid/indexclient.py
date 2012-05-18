@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import errno
 import socket
 import select
 import time
@@ -59,11 +60,25 @@ class IndexClient(object):
             timeout = self.timeout
         deadline = time.time() + timeout
         while pos == -1:
-            ready_to_read, ready_to_write, in_error = select.select([self.sock], [], [self.sock], self.socket_timeout)
+            try:
+                ready_to_read, ready_to_write, in_error = select.select([self.sock], [], [self.sock], self.socket_timeout)
+            except OSError, e:
+                if e.errno == errno.EINTR:
+                    continue
+                raise
             if in_error:
                 raise IndexClientError("socket error")
             if ready_to_read:
-                self._buffer += self.sock.recv(1024)
+                while True:
+                    try:
+                        data = self.sock.recv(1024)
+                    except OSError, e:
+                        if e.errno == errno.EINTR:
+                            continue
+                        raise
+                    if not data:
+                        break
+                    self._buffer += data
                 pos = self._buffer.find(CRLF)
             if time.time() > deadline:
                 raise IndexClientError("read timeout exceeded")
