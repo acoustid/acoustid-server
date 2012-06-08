@@ -11,12 +11,12 @@ The main database is licensed under the [Creative Commons Attribution-ShareAlike
 Unported License][cc], with the exception of the MusicBrainz-AcoustID mapping which is
 placed into the [public domain][pd].
 
-Monthly database dumps can be downloaded [here](http://acoustid.org/data/).
+Monthly database dumps can be downloaded [here](http://data.acoustid.org/).
 
 All files are signed using [GnuPG](gpg). In order to verify the signatures you have
 to first import the [public key](pubkey):
 
-    $ curl http://acoustid.org/data/pubkey.txt | gpg --import -
+    $ curl http://data.acoustid.org/pubkey.txt | gpg --import -
 
 Once you have the public key imported, you can verify the signature:
 
@@ -29,4 +29,4 @@ Once you have the public key imported, you can verify the signature:
 [pd]: http://creativecommons.org/licenses/publicdomain/
 [sql]: https://github.com/lalinsky/acoustid-server/blob/master/sql/CreateTables.sql
 [gpg]: http://www.gnupg.org/
-[pubkey]: http://acoustid.org/data/pubkey.txt
+[pubkey]: http://data.acoustid.org/pubkey.txt
