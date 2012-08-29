@@ -115,6 +115,18 @@ class WebSiteConfig(object):
         self.secret = parser.get(section, 'secret')
 
 
+class ReplicationConfig(object):
+    def __init__(self):
+        self.import_acoustid = None
+        self.import_acoustid_musicbrainz = None
+
+    def read(self, parser, section):
+        if parser.has_option(section, 'import_acoustid'):
+            self.import_acoustid = parser.get(section, 'import_acoustid')
+        if parser.has_option(section, 'import_acoustid_musicbrainz'):
+            self.import_acoustid_musicbrainz = parser.get(section, 'import_acoustid_musicbrainz')
+
+
 class Config(object):
 
     def __init__(self, path):
@@ -129,4 +141,6 @@ class Config(object):
         self.website.read(parser, 'website')
         self.index = IndexConfig()
         self.index.read(parser, 'index')
+        self.replication = ReplicationConfig()
+        self.replication.read(parser, 'replication')
 

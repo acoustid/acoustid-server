@@ -20,3 +20,6 @@ level=WARN
 base_url=http://acoustid.org/
 base_https_url=https://acoustid.org/
 secret=XXX
+
+[replication]
+import_acoustid=http://data.acoustid.org/replication/acoustid-update-{seq}.xml.bz2
