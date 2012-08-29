@@ -159,6 +159,7 @@ class DataImporter(Digester):
             self._cursor.close()
         finally:
             self._closed = True
+            self._input.getByteStream().close()
             self._file.close()
 
 
