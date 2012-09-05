@@ -541,7 +541,7 @@ class TrackHandler(WebSiteHandler):
             [schema.fingerprint.c.id,
              schema.fingerprint.c.length,
              schema.fingerprint.c.submission_count],
-            schema.fingerprint.c.track_id == track_id)
+            schema.fingerprint.c.track_id == track_id).order_by(schema.fingerprint.c.length)
         fingerprints = self.conn.execute(query).fetchall()
         query = sql.select(
             [schema.track_puid.c.puid,
