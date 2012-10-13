@@ -152,19 +152,17 @@ def check_mb_account(username, password):
     url = 'http://musicbrainz.org/ws/2/artist/89ad4ac3-39f7-470e-963a-56509c546377?inc=user-tags'
     auth_handler = DigestAuthHandler()
     auth_handler.add_password('musicbrainz.org', 'http://musicbrainz.org/',
-                              username, password)
+                              username.encode('utf8'), password.encode('utf8'))
     opener = urllib2.build_opener(auth_handler)
     opener.addheaders = [('User-Agent', 'Acoustid-Login +http://acoustid.org/login')]
     try:
         opener.open(url, timeout=HTTP_TIMEOUT)
-    except urllib2.HTTPError, error:
-        logger.exception('MB error %s', error.read())
-        return False
     except StandardError, e:
         if hasattr(e, 'read'):
             logger.exception('MB error %s', e.read())
         else:
             logger.exception('MB error')
+        return False
     return True
 
 
@@ -543,7 +541,7 @@ class TrackHandler(WebSiteHandler):
             [schema.fingerprint.c.id,
              schema.fingerprint.c.length,
              schema.fingerprint.c.submission_count],
-            schema.fingerprint.c.track_id == track_id)
+            schema.fingerprint.c.track_id == track_id).order_by(schema.fingerprint.c.length)
         fingerprints = self.conn.execute(query).fetchall()
         query = sql.select(
             [schema.track_puid.c.puid,

@@ -7,9 +7,9 @@ found in the blog post ["How does Chromaprint work?"][blog2].
 
 ### Download
 
-Latest release &mdash; 0.6 (December 22, 2011)
+Latest release &mdash; 0.7 (September 5, 2012)
 
- * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.6.tar.gz) (530K)
+ * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.7.tar.gz) (531K)
  * Packages
      * [Arch Linux](https://www.archlinux.org/packages/?q=chromaprint)
      * [Debian](http://packages.debian.org/chromaprint)
@@ -21,7 +21,7 @@ Latest release &mdash; 0.6 (December 22, 2011)
      * [Mac OS X, 32-bit, 10.4+](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-osx-i386.tar.gz) (582K)
      * [Mac OS X, 64-bit, 10.4+](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-osx-x86_64.tar.gz) (621K)
      * [Linux, 32-bit](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-linux-i686.tar.gz) (711K)
-     * [Linux, 32-bit](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-linux-x86_64.tar.gz) (689K)
+     * [Linux, 64-bit](https://github.com/downloads/lalinsky/chromaprint/chromaprint-fpcalc-0.6-linux-x86_64.tar.gz) (689K)
 
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
 [ppad]: https://launchpad.net/~luks/+archive/acoustid-daily
