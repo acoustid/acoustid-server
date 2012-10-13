@@ -511,8 +511,11 @@ class LookupHandler(APIHandler):
             return
         key = '%s:%s:%s' % (datetime.datetime.now().strftime('%Y-%m-%d:%H'),
                             application_id, 'hit' if hit else 'miss')
-        redis = self.redis.connect()
-        redis.hincrby('lookups', key, 1)
+        try:
+            redis = self.redis.connect()
+            redis.hincrby('lookups', key, 1)
+        except Exception:
+            logger.exception("Can't update lookup stats for %s" % key)
 
     def _handle_internal(self, params):
         import time
