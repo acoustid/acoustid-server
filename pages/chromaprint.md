@@ -7,9 +7,9 @@ found in the blog post ["How does Chromaprint work?"][blog2].
 
 ### Download
 
-Latest release &mdash; 0.6 (December 22, 2011)
+Latest release &mdash; 0.7 (September 5, 2012)
 
- * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.6.tar.gz) (530K)
+ * [Source code tarball](https://github.com/downloads/lalinsky/chromaprint/chromaprint-0.7.tar.gz) (531K)
  * Packages
      * [Arch Linux](https://www.archlinux.org/packages/?q=chromaprint)
      * [Debian](http://packages.debian.org/chromaprint)

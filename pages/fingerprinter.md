@@ -19,7 +19,7 @@ such as track title, artist name, album name, etc.
 
 ### Download
 
-Latest release &mdash; 0.5.1 (Jan 8, 2012)
+Latest release &mdash; 0.6 (Sep 5, 2012)
 
  * [Source code][src]
  * Packages
@@ -30,7 +30,7 @@ Latest release &mdash; 0.5.1 (Jan 8, 2012)
      * [Gentoo](http://proaudio.tuxfamily.org/wiki/index.php?title=Usage) (Pro-Audio Gentoo overlay)
      * [Ubuntu][ppa]
 
-[src]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.5.1.tar.gz
+[src]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.6.tar.gz
 [win]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.5-win32.zip
 [osx]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.5-mac.dmg
 [ppa]: https://launchpad.net/~luks/+archive/acoustid

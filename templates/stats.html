@@ -148,8 +148,7 @@ $(document).ready(function() {
 			}
 		},
 		series: [
-			{{ data_series('Submissions', daily.submissions) }},
-			{{ data_series('AcoustIDs', daily.tracks, false) }},
+			{{ data_series('AcoustIDs', daily.tracks) }},
 			{{ data_series('MBIDs', daily.mbids, false) }},
 			{{ data_series('PUIDs', daily.puids, false) }}
 		]
