@@ -75,6 +75,15 @@ stats = Table('stats', metadata,
     Column('value', Integer),
 )
 
+stats_lookups = Table('stats_lookups', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('date', Date),
+    Column('hour', Integer),
+    Column('application_id', Integer, ForeignKey('application.id')),
+    Column('count_nohits', Integer),
+    Column('count_hits', Integer),
+)
+
 stats_top_accounts = Table('stats_top_accounts', metadata,
     Column('id', Integer, primary_key=True),
     Column('account_id', Integer, ForeignKey('account.id')),
