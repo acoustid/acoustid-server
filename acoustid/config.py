@@ -154,7 +154,7 @@ class Config(object):
         self.website.read(parser, 'website')
         self.index = IndexConfig()
         self.index.read(parser, 'index')
-        self.redis = IndexConfig()
+        self.redis = RedisConfig()
         self.redis.read(parser, 'redis')
         self.replication = ReplicationConfig()
         self.replication.read(parser, 'replication')
