@@ -38,7 +38,7 @@ existing MusicBrainz user account.
 We need the password to verify that you own the MusicBrainz account. 
 Currently, MusicBrainz doesn't provide a way to do this without knowing the 
 password on our side (OpenID, OAuth or a similar authentication scheme). 
-Since the Acoustid database depends heavily on the MusicBrainz database, 
+Since the AcoustID database depends heavily on the MusicBrainz database, 
 we really wanted to re-use existing user accounts. The only way to do this 
 at the moment is to ask the user for both the username and password. We do 
 not store the password anywhere, it is transmitted to our server over an 

@@ -154,7 +154,7 @@ def check_mb_account(username, password):
     auth_handler.add_password('musicbrainz.org', 'http://musicbrainz.org/',
                               username.encode('utf8'), password.encode('utf8'))
     opener = urllib2.build_opener(auth_handler)
-    opener.addheaders = [('User-Agent', 'Acoustid-Login +http://acoustid.org/login')]
+    opener.addheaders = [('User-Agent', 'AcoustID-Login +http://acoustid.org/login')]
     try:
         opener.open(url, timeout=HTTP_TIMEOUT)
     except StandardError, e:

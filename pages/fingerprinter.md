@@ -6,9 +6,9 @@ Title: Fingerprinter
 
 </div>
 
-Acoustid fingerprinter is a cross-platform GUI application that uses
+AcoustID fingerprinter is a cross-platform GUI application that uses
 [Chromaprint][chp] to submit audio fingerprints from your music collection
-to the Acoustid database. Only tagged audio files are submitted. Files
+to the AcoustID database. Only tagged audio files are submitted. Files
 tagged by MusicBrainz applications such as [Picard][picard] or [Jaikoz][jaikoz]
 are preferred, but it will submit fingerprints for any files that have tags
 such as track title, artist name, album name, etc.
@@ -37,8 +37,8 @@ Latest release &mdash; 0.5.1 (Jan 8, 2012)
 
 ### Alternatives
 
-There are other applications that can submit fingerprints to the Acoustid database.
-You can use them instead of the Acoustid fingerprinter to contribute:
+There are other applications that can submit fingerprints to the AcoustID database.
+You can use them instead of the AcoustID fingerprinter to contribute:
 
  * [Picard][picard]
  * [Jaikoz][jaikoz]

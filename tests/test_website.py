@@ -41,7 +41,7 @@ def test_index_handler(conn):
     handler = IndexHandler.create_from_server(server)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/html; charset=UTF-8', resp.content_type)
-    assert '<h2>Welcome to Acoustid!</h2>' in resp.data
+    assert '<h2>Welcome to AcoustID!</h2>' in resp.data
     assert_equals('200 OK', resp.status)
 
 

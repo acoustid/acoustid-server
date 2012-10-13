@@ -1,8 +1,8 @@
 Title: Database
 
-The Acoustid database includes user-submitted audio fingerprints, their mapping to
+The AcoustID database includes user-submitted audio fingerprints, their mapping to
 MusicBrainz IDs and some supporting tables. It follows the [structure of the
-PostgreSQL database][sql] used by the Acoustid server. Each table is exported in a
+PostgreSQL database][sql] used by the AcoustID server. Each table is exported in a
 separate file with the tab-separated text format used by the 
 [`COPY` command][copy]. At the moment, there are no tools for importing the
 database dump, it has to be done manually.

@@ -6,7 +6,7 @@ The [database of audio fingerprints and metadata][db] is licensed under the
 [![Creative Commons License](http://i.creativecommons.org/l/by-sa/3.0/88x31.png)][cc]
 
 The source code for the server application including this website
-(["Acoustid"][server]) is licensed under the [MIT License][mit]
+(["AcoustID"][server]) is licensed under the [MIT License][mit]
 and the client library for calculating audio fingerprints (["Chromaprint"][fp])
 is licensed under the [GNU Lesser General Public License 2.1][lgpl2].
 

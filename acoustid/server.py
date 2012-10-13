@@ -105,7 +105,7 @@ class GzipRequestMiddleware(object):
 
 
 def make_application(config_path):
-    """Construct a WSGI application for the Acoustid server
+    """Construct a WSGI application for the AcoustID server
 
     :param config_path: path to the server configuration file
     """

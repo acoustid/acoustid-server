@@ -27,7 +27,7 @@ def resolve_track_gid(conn, gid):
 
 def lookup_mbids(conn, track_ids):
     """
-    Lookup MBIDs for the specified Acoustid track IDs.
+    Lookup MBIDs for the specified AcoustID track IDs.
     """
     if not track_ids:
         return {}
@@ -58,7 +58,7 @@ def lookup_meta_ids(conn, track_ids):
 
 def lookup_puids(conn, track_ids):
     """
-    Lookup PUIDs for the specified Acoustid track IDs.
+    Lookup PUIDs for the specified AcoustID track IDs.
     """
     if not track_ids:
         return {}
@@ -143,7 +143,7 @@ def merge_mbids(conn, target_mbid, source_mbids):
 def merge_missing_mbids(conn):
     """
     Lookup which MBIDs has been merged in MusicBrainz and merge then
-    in the Acoustid database as well.
+    in the AcoustID database as well.
     """
     logger.debug("Merging missing MBIDs")
     results = conn.execute("""

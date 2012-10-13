@@ -1,6 +1,6 @@
 Title: Server
 
-Acoustid server is a web application written in Python. It consists of this
+AcoustID server is a web application written in Python. It consists of this
 website and handlers for the [web service](/webservice), which allow users
 to look up and submit fingerprints.
 
