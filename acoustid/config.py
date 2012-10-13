@@ -75,6 +75,19 @@ class IndexConfig(object):
             self.port = parser.getint(section, 'port')
 
 
+class RedisConfig(object):
+
+    def __init__(self):
+        self.host = '127.0.0.1'
+        self.port = 6379
+
+    def read(self, parser, section):
+        if parser.has_option(section, 'host'):
+            self.host = parser.get(section, 'host')
+        if parser.has_option(section, 'port'):
+            self.port = parser.getint(section, 'port')
+
+
 class LoggingConfig(object):
 
     def __init__(self):
@@ -141,6 +154,8 @@ class Config(object):
         self.website.read(parser, 'website')
         self.index = IndexConfig()
         self.index.read(parser, 'index')
+        self.redis = IndexConfig()
+        self.redis.read(parser, 'redis')
         self.replication = ReplicationConfig()
         self.replication.read(parser, 'replication')
 

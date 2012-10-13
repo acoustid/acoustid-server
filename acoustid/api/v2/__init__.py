@@ -5,6 +5,7 @@ import re
 import logging
 import pprint
 import operator
+import datetime
 from acoustid import const
 from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid, lookup_meta_ids
@@ -76,6 +77,7 @@ class APIHandler(Handler):
     def __init__(self, connect=None):
         self._connect = connect
         self.index = None
+        self.redis = None
 
     @cached_property
     def conn(self):
@@ -85,6 +87,7 @@ class APIHandler(Handler):
     def create_from_server(cls, server):
         handler = cls(connect=server.engine.connect)
         handler.index = server.index
+        handler.redis = server.redis
         return handler
 
     def _error(self, code, message, format=DEFAULT_FORMAT, status=400):
@@ -503,6 +506,14 @@ class LookupHandler(APIHandler):
             results.append(result)
         return seen
 
+    def _update_counter(self, application_id, hit):
+        if self.redis is None:
+            return
+        key = '%s:%s:%s' % (datetime.datetime.now().strftime('%Y-%m-%d:%H'),
+                            application_id, 'hit' if hit else 'miss')
+        redis = self.redis.connect()
+        redis.hincrby('lookups', key, 1)
+
     def _handle_internal(self, params):
         import time
         t = time.time()
@@ -533,6 +544,7 @@ class LookupHandler(APIHandler):
             response['results'] = results = []
             result_map = {}
             self._inject_results(results, result_map, all_matches[0])
+            self._update_counter(params.application_id, bool(result_map))
             logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)

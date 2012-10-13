@@ -5,12 +5,22 @@ import sys
 import logging
 import sqlalchemy
 import sqlalchemy.pool
+import redis
 from optparse import OptionParser
 from acoustid.config import Config
 from acoustid.indexclient import IndexClientPool
 from acoustid.utils import LocalSysLogHandler
 
 logger = logging.getLogger(__name__)
+
+
+class RedisPool(object):
+
+    def __init__(self, host=None, port=None):
+        self.pool = redis.ConnectionPool(host=host, port=port)
+
+    def connect(self):
+        return redis.Redis(connection_pool=self.pool)
 
 
 class Script(object):
@@ -26,6 +36,8 @@ class Script(object):
             self.index = IndexClientPool(host=self.config.index.host,
                                          port=self.config.index.port,
                                          recycle=60)
+        self.redis = RedisPool(host=self.config.redis.host,
+                               port=self.config.redis.port)
         self.setup_logging()
 
     def setup_logging(self):

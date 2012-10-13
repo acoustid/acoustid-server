@@ -28,6 +28,9 @@ Dependencies
  * Python-Markdown
    http://www.freewisdom.org/projects/python-markdown/
 
+ * Redis-py
+   https://github.com/andymccurdy/redis-py
+
  * Chromaprint
    http://acoustid.org/chromaprint
 
@@ -41,7 +44,7 @@ On Ubuntu you can install all dependencies using the following command:
  $ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev \
                         python-sqlalchemy python-werkzeug python-jinja2 \
                         python-openid python-markdown python-chromaprint \
-                        python-psycopg2
+                        python-psycopg2 python-redis
 
 Compile and install the included PostgreSQL extension:
 
