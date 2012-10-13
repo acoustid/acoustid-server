@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import datetime
 from sqlalchemy import sql
 from acoustid import tables as schema
 
@@ -54,6 +55,43 @@ def find_lookup_stats(conn):
     for row in conn.execute(query):
         stats.append(dict(row))
     return stats
+
+
+def increment_lookup_counter(redis, application_id, hit):
+    if redis is None:
+        return
+    key = '%s:%s:%s' % (datetime.datetime.now().strftime('%Y-%m-%d:%H'),
+                        application_id, 'hit' if hit else 'miss')
+    try:
+        redis.connect().hincrby('lookups', key, 1)
+    except Exception:
+        logger.exception("Can't update lookup stats for %s" % key)
+
+
+def update_lookup_stats(db, application_id, date, hour, type, count):
+    if type == 'hit':
+        column = schema.stats_lookups.c.count_hits
+    else:
+        column = schema.stats_lookups.c.count_nohits
+    with db.begin():
+        query = sql.select([schema.stats_lookups.c.id]).\
+            where(schema.stats_lookups.c.application_id == id).\
+            where(schema.stats_lookups.c.date == date.date()).\
+            where(schema.stats_lookups.c.hour == date.hour)
+        stats_id = db.execute(query).scalar()
+        if stats_id:
+            stmt = schema.stats_lookups.update().\
+                where(schema.stats_lookups.c.id == stats_id).\
+                values({column: column + count})
+        else:
+            stmt = schema.stats_lookups.insert().\
+                values({
+                    schema.stats_lookups.c.application_id: application_id,
+                    schema.stats_lookups.c.date: date.date(),
+                    schema.stats_lookups.c.hour: date.hour,
+                    column: count,
+                })
+        db.execute(stmt)
 
 
 def find_application_lookup_stats(conn, application_id):

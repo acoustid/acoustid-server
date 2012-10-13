@@ -5,7 +5,6 @@ import re
 import logging
 import pprint
 import operator
-import datetime
 from acoustid import const
 from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid, lookup_meta_ids
@@ -18,6 +17,7 @@ from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
 from acoustid.data.meta import insert_meta, lookup_meta
 from acoustid.data.foreignid import find_or_insert_foreignid
+from acoustid.data.stats import increment_lookup_counter
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
 from acoustid.utils import is_uuid, is_foreignid, is_int
@@ -506,17 +506,6 @@ class LookupHandler(APIHandler):
             results.append(result)
         return seen
 
-    def _update_counter(self, application_id, hit):
-        if self.redis is None:
-            return
-        key = '%s:%s:%s' % (datetime.datetime.now().strftime('%Y-%m-%d:%H'),
-                            application_id, 'hit' if hit else 'miss')
-        try:
-            redis = self.redis.connect()
-            redis.hincrby('lookups', key, 1)
-        except Exception:
-            logger.exception("Can't update lookup stats for %s" % key)
-
     def _handle_internal(self, params):
         import time
         t = time.time()
@@ -547,7 +536,7 @@ class LookupHandler(APIHandler):
             response['results'] = results = []
             result_map = {}
             self._inject_results(results, result_map, all_matches[0])
-            self._update_counter(params.application_id, bool(result_map))
+            increment_lookup_counter(self.redis, params.application_id, bool(result_map))
             logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)
