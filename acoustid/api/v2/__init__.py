@@ -50,6 +50,7 @@ class APIHandlerParams(object):
             raise errors.MissingParameterError('client')
         self.application_id = lookup_application_id_by_apikey(conn, application_apikey)
         if not self.application_id:
+            logger.error("Invalid API key %s", application_apikey)
             raise errors.InvalidAPIKeyError()
         self.application_version = values.get('clientversion')
 
