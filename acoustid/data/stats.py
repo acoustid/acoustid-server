@@ -75,9 +75,9 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
         column = schema.stats_lookups.c.count_nohits
     with db.begin():
         query = sql.select([schema.stats_lookups.c.id]).\
-            where(schema.stats_lookups.c.application_id == id).\
-            where(schema.stats_lookups.c.date == date.date()).\
-            where(schema.stats_lookups.c.hour == date.hour)
+            where(schema.stats_lookups.c.application_id == application_id).\
+            where(schema.stats_lookups.c.date == date).\
+            where(schema.stats_lookups.c.hour == hour)
         stats_id = db.execute(query).scalar()
         if stats_id:
             stmt = schema.stats_lookups.update().\
@@ -87,8 +87,8 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
             stmt = schema.stats_lookups.insert().\
                 values({
                     schema.stats_lookups.c.application_id: application_id,
-                    schema.stats_lookups.c.date: date.date(),
-                    schema.stats_lookups.c.hour: date.hour,
+                    schema.stats_lookups.c.date: date,
+                    schema.stats_lookups.c.hour: hour,
                     column: count,
                 })
         db.execute(stmt)

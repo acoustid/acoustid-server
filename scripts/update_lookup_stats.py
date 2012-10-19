@@ -20,7 +20,7 @@ def main(script, opts, args):
             # nothing touched it since then, so it's safe to delete
             redis.hdel('lookups', key)
         else:
-            update_lookup_stats(db, date, hour, application_id, type, count)
+            update_lookup_stats(db, application_id, date, hour, type, count)
             redis.hincrby('lookups', key, -count)
 
 
