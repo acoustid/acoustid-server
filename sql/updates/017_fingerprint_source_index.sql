@@ -1,0 +1,1 @@
+CREATE INDEX CONCURRENTLY fingerprint_source_idx_submission_id ON fingerprint_source (submission_id);

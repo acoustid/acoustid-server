@@ -17,6 +17,8 @@ CREATE INDEX fingerprint_idx_fingerprint ON fingerprint USING gin (acoustid_extr
 CREATE INDEX fingerprint_idx_length ON fingerprint (length);
 CREATE INDEX fingerprint_idx_track_id ON fingerprint (track_id);
 
+CREATE INDEX fingerprint_source_idx_submission_id ON fingerprint_source (submission_id);
+
 CREATE UNIQUE INDEX track_idx_gid ON track (gid);
 
 CREATE INDEX track_mbid_idx_mbid ON track_mbid (mbid);
