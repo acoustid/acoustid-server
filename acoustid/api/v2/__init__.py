@@ -531,6 +531,7 @@ class LookupHandler(APIHandler):
                 results = []
                 fps.append({'index': p['index'], 'results': results})
                 track_ids = self._inject_results(results, result_map, matches)
+                increment_lookup_counter(self.redis, params.application_id, bool(track_ids))
                 logger.info("Lookup from %s: %s", params.application_id, list(track_ids))
         else:
             response['results'] = results = []
