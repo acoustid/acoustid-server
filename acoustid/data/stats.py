@@ -74,7 +74,7 @@ def update_lookup_avg_time(redis, seconds):
     key = datetime.datetime.now().strftime('%Y-%m-%d:%H:%M')
     try:
         tx = redis.connect().pipeline()
-        tx.hincrbyfloat('lookups.time.seconds', key, seconds)
+        tx.hincrby('lookups.time.ms', key, int(round(1000 * seconds))) # XXX use hincrbyfloat and seconds
         tx.hincrby('lookups.time.count', key, 1)
         tx.execute()
     except Exception:
