@@ -532,13 +532,13 @@ class LookupHandler(APIHandler):
                 fps.append({'index': p['index'], 'results': results})
                 track_ids = self._inject_results(results, result_map, matches)
                 update_lookup_counter(self.redis, params.application_id, bool(track_ids))
-                logger.info("Lookup from %s: %s", params.application_id, list(track_ids))
+                logger.debug("Lookup from %s: %s", params.application_id, list(track_ids))
         else:
             response['results'] = results = []
             result_map = {}
             self._inject_results(results, result_map, all_matches[0])
             update_lookup_counter(self.redis, params.application_id, bool(result_map))
-            logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
+            logger.debug("Lookup from %s: %s", params.application_id, result_map.keys())
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)
         if fingerprints:
