@@ -57,7 +57,7 @@ def find_lookup_stats(conn):
     return stats
 
 
-def increment_lookup_counter(redis, application_id, hit):
+def update_lookup_counter(redis, application_id, hit):
     if redis is None:
         return
     key = '%s:%s:%s' % (datetime.datetime.now().strftime('%Y-%m-%d:%H'),
@@ -66,6 +66,19 @@ def increment_lookup_counter(redis, application_id, hit):
         redis.connect().hincrby('lookups', key, 1)
     except Exception:
         logger.exception("Can't update lookup stats for %s" % key)
+
+
+def update_lookup_avg_time(redis, seconds):
+    if redis is None:
+        return
+    key = datetime.datetime.now().strftime('%Y-%m-%d:%H:%M')
+    try:
+        tx = redis.connect().pipeline()
+        tx.hincrbyfloat('lookups.time.seconds', key, seconds)
+        tx.hincrby('lookups.time.count', key, 1)
+        tx.execute()
+    except Exception:
+        logger.exception("Can't update lookup avg time for %s" % key)
 
 
 def update_lookup_stats(db, application_id, date, hour, type, count):

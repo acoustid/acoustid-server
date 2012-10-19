@@ -17,7 +17,7 @@ from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
 from acoustid.data.meta import insert_meta, lookup_meta
 from acoustid.data.foreignid import find_or_insert_foreignid
-from acoustid.data.stats import increment_lookup_counter
+from acoustid.data.stats import update_lookup_counter, update_lookup_avg_time
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
 from acoustid.utils import is_uuid, is_foreignid, is_int
@@ -531,17 +531,19 @@ class LookupHandler(APIHandler):
                 results = []
                 fps.append({'index': p['index'], 'results': results})
                 track_ids = self._inject_results(results, result_map, matches)
-                increment_lookup_counter(self.redis, params.application_id, bool(track_ids))
+                update_lookup_counter(self.redis, params.application_id, bool(track_ids))
                 logger.info("Lookup from %s: %s", params.application_id, list(track_ids))
         else:
             response['results'] = results = []
             result_map = {}
             self._inject_results(results, result_map, all_matches[0])
-            increment_lookup_counter(self.redis, params.application_id, bool(result_map))
+            update_lookup_counter(self.redis, params.application_id, bool(result_map))
             logger.info("Lookup from %s: %s", params.application_id, result_map.keys())
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)
-        logger.info("Lookup took %s", time.time() - t)
+        if fingerprints:
+            time_per_fp = (time.time() - t) / len(fingerprints)
+            update_lookup_avg_time(self.redis, time_per_fp)
         return response
 
 
