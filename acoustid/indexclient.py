@@ -44,7 +44,7 @@ class IndexClient(object):
             self.close()
 
     def _connect(self):
-        logger.info("Connecting index server at %s:%s", self.host, self.port)
+        logger.debug("Connecting to index server at %s:%s", self.host, self.port)
         try:
             self.sock = socket.create_connection((self.host, self.port), self.socket_timeout)
             self.sock.setblocking(0)
@@ -176,7 +176,7 @@ class IndexClientPool(object):
 
     def _release(self, client):
         if len(self.clients) >= self.max_idle_clients:
-            logger.info("Too many idle connections, closing %s", client)
+            logger.debug("Too many idle connections, closing %s", client)
             client.close()
         else:
             #logger.debug("Checking in connection %s", client)
@@ -188,7 +188,7 @@ class IndexClientPool(object):
             client = self.clients.popleft()
             try:
                 if self.recycle > 0 and client.created + self.recycle < time.time():
-                    logger.info("Recycling connection %s after %d seconds", client, self.recycle)
+                    logger.debug("Recycling connection %s after %d seconds", client, self.recycle)
                     raise IndexClientError()
                 else:
                     client.ping()
