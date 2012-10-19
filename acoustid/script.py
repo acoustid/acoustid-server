@@ -5,7 +5,7 @@ import sys
 import logging
 import sqlalchemy
 import sqlalchemy.pool
-import redis
+from redis import Redis
 from optparse import OptionParser
 from acoustid.config import Config
 from acoustid.indexclient import IndexClientPool
