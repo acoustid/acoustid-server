@@ -14,15 +14,6 @@ from acoustid.utils import LocalSysLogHandler
 logger = logging.getLogger(__name__)
 
 
-class RedisPool(object):
-
-    def __init__(self, host=None, port=None):
-        self.pool = redis.ConnectionPool(host=host, port=port)
-
-    def connect(self):
-        return redis.Redis(connection_pool=self.pool)
-
-
 class Script(object):
 
     def __init__(self, config_path):
@@ -36,7 +27,10 @@ class Script(object):
             self.index = IndexClientPool(host=self.config.index.host,
                                          port=self.config.index.port,
                                          recycle=60)
-        self.redis = RedisPool(host=self.config.redis.host,
+        if not self.config.redis.host:
+            self.redis = None
+        else:
+            self.redis = Redis(host=self.config.redis.host,
                                port=self.config.redis.port)
         self.setup_logging()
 

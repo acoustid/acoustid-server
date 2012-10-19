@@ -63,7 +63,7 @@ def update_lookup_counter(redis, application_id, hit):
     key = '%s:%s:%s' % (datetime.datetime.now().strftime('%Y-%m-%d:%H'),
                         application_id, 'hit' if hit else 'miss')
     try:
-        redis.connect().hincrby('lookups', key, 1)
+        redis.hincrby('lookups', key, 1)
     except Exception:
         logger.exception("Can't update lookup stats for %s" % key)
 
@@ -73,7 +73,7 @@ def update_lookup_avg_time(redis, seconds):
         return
     key = datetime.datetime.now().strftime('%Y-%m-%d:%H:%M')
     try:
-        tx = redis.connect().pipeline()
+        tx = redis.pipeline()
         tx.hincrby('lookups.time.ms', key, int(round(1000 * seconds))) # XXX use hincrbyfloat and seconds
         tx.hincrby('lookups.time.count', key, 1)
         tx.execute()

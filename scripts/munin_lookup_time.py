@@ -18,7 +18,7 @@ def main(script, opts, args):
         print 'time.draw LINE2'
         print 'time.type GAUGE'
         return
-    redis = script.redis.connect()
+    redis = script.redis
     one_minute = datetime.timedelta(minutes=1)
     total_ms = 0.0
     total_count = 0

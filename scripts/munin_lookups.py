@@ -27,7 +27,7 @@ def main(script, opts, args):
         print 'total.min 0'
         return
     today = datetime.date.today().isoformat()
-    redis = script.redis.connect()
+    redis = script.redis
     total = {'hit': 0, 'miss': 0}
     for key, count in redis.hgetall('lookups').iteritems():
         date, hour, application_id, type = key.split(':')

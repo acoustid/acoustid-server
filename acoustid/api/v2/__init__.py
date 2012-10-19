@@ -4,6 +4,7 @@
 import re
 import logging
 import pprint
+import json
 import operator
 from acoustid import const
 from acoustid.handler import Handler, Response
@@ -618,6 +619,7 @@ class SubmitHandler(APIHandler):
                    'disc_no', 'year')
 
     def _handle_internal(self, params):
+        ids = []
         with self.conn.begin():
             source_id = find_or_insert_source(self.conn, params.application_id, params.account_id, params.application_version)
             format_ids = {}
@@ -643,6 +645,9 @@ class SubmitHandler(APIHandler):
                         values['meta_id'] = insert_meta(self.conn, meta_values)
                     if p['foreignid']:
                         values['foreignid_id'] = find_or_insert_foreignid(self.conn, p['foreignid'])
-                    insert_submission(self.conn, values)
+                    id = insert_submission(self.conn, values)
+                    ids.append(id)
+        if self.redis is not None:
+            self.redis.publish('channel.submissions', json.dumps(ids))
         return {}
 
