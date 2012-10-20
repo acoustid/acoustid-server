@@ -12,3 +12,5 @@ if [ "$1" != "--slave" ]; then
 	python $DIR/scripts/update_lookup_stats.py -q -c $DIR/acoustid.conf
 fi
 
+python $DIR/scripts/cleanup_stats.py -q -c $DIR/acoustid.conf
+
