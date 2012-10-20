@@ -174,6 +174,11 @@ class IndexClientPool(object):
         self.clients = deque()
         self.args = kwargs
 
+    def dispose(self):
+        while self.clients:
+            client = self.clients.popleft()
+            client.close()
+
     def _release(self, client):
         if len(self.clients) >= self.max_idle_clients:
             logger.debug("Too many idle connections, closing %s", client)
