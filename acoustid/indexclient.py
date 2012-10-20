@@ -40,7 +40,7 @@ class IndexClient(object):
 
     def __del__(self):
         if self.sock is not None:
-            logging.warn('Deleted without being explicitly closed')
+            logger.warn('Deleted without being explicitly closed')
             self.close()
 
     def _connect(self):
