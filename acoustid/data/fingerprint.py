@@ -110,8 +110,10 @@ class FingerprintSearcher(object):
         return matches
 
     def _get_min_indexed_fp_id(self):
-        query = sql.select([sql.func.min(schema.fingerprint_index_queue.c.fingerprint_id)])
-        return self.db.execute(query).scalar()
+        if self.idx is None:
+            return 0
+        with closing(self.idx.connect()) as idx:
+            return int(idx.get_attribute('max_document_id') or '0')
 
     def search(self, fp, length):
         min_fp_id = 0 if self.idx is None or self.fast else self._get_min_indexed_fp_id()
