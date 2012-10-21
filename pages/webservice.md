@@ -180,7 +180,7 @@ Submissions are processed asynchronously by a background job. However, this
 normally only takes a few seconds, so if your application needs to get the imported
 AcoustIDs back, you can use the `wait` parameter to wait until the
 submissions are imported. It is not guaranteed that the submissions will be
-imported on time, so your application must be to handle the case
+imported on time, so your application must be able to handle the case
 when the submission is still in the "pending" status. You can look up the status
 of the pending submissions later.
 
