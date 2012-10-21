@@ -5,6 +5,7 @@
 
 import json
 import logging
+from contextlib import closing
 from acoustid.script import run_script
 from acoustid.data.submission import import_queued_submissions
 from acoustid.data.fingerprint import update_fingerprint_index
