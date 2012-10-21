@@ -38,6 +38,10 @@ class IndexClient(object):
         self._buffer = ''
         self._connect()
 
+    def __repr__(self):
+        return '<%s(%s, %s) instance at %s>' % (self.__class__.__name__,
+            self.host, self.port, hex(id(self)))
+
     def __del__(self):
         if self.sock is not None:
             logger.warn('Deleted without being explicitly closed')

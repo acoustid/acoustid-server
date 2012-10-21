@@ -107,11 +107,12 @@ def import_submission(conn, submission, index=None):
         return fingerprint
 
 
-def import_queued_submissions(conn, limit=50, index=None, ids=None):
+def import_queued_submissions(conn, index=None, limit=100, ids=None):
     """
     Import the given submission into the main fingerprint database
     """
-    query = schema.submission.select(schema.submission.c.handled == False).order_by(schema.submission.c.id.desc())
+    query = schema.submission.select(schema.submission.c.handled == False).\
+        order_by(schema.submission.c.id.desc())
     if ids is not None:
         query = query.whhere(schema.submission.c.id.in_(ids))
     if limit is not None:
