@@ -173,13 +173,15 @@ def update_fingerprint_index(db, index, limit=1000):
         query = sql.select([
             schema.fingerprint.c.id,
             sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint),
-        ]).where(scalar.fingerprint.c.id > max_id).\
+        ]).where(schema.fingerprint.c.id > max_id).\
             order_by(schema.fingerprint.c.id).limit(limit)
+        in_transaction = False
         for id, fingerprint in db.execute(query):
-            if not index.in_transaction:
+            if not in_transaction:
                 index.begin()
+                in_transaction = True
             logger.debug("Adding fingerprint %s to index %s", id, index)
             index.insert(id, fingerprint)
-        if index.in_transaction:
+        if in_transaction:
             index.commit()
 
