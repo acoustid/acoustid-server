@@ -554,7 +554,7 @@ class SubmissionStatusHandlerParams(APIHandlerParams):
     def parse(self, values, conn):
         super(SubmissionStatusHandlerParams, self).parse(values, conn)
         self._parse_client(values, conn)
-        self.ids = values.getlist('id')
+        self.ids = values.getlist('id', type=int)
 
 
 class SubmissionStatusHandler(APIHandler):
@@ -563,7 +563,7 @@ class SubmissionStatusHandler(APIHandler):
 
     def _handle_internal(self, params):
         response = {'submissions': [{'id': id, 'status': 'pending'} for id in params.ids]}
-        tracks = lookup_submission_status(self.conn, ids)
+        tracks = lookup_submission_status(self.conn, params.ids)
         for submission in response['submissions']:
             id = submission['id']
             track_gid = tracks.get(id)
@@ -626,7 +626,7 @@ class SubmitHandlerParams(APIHandlerParams):
         super(SubmitHandlerParams, self).parse(values, conn)
         self._parse_client(values, conn)
         self._parse_user(values, conn)
-        self.wait = values.get('wait', type=int, default=1)
+        self.wait = values.get('wait', type=int, default=0)
         self.submissions = []
         suffixes = list(iter_args_suffixes(values, 'fingerprint'))
         if not suffixes:
@@ -685,7 +685,7 @@ class SubmitHandler(APIHandler):
 
         tracks = {}
         remaining = min(10, params.wait)
-        while remaining > 0 or not ids:
+        while remaining > 0 and ids:
             time.sleep(0.5) # XXX replace with LISTEN/NOTIFY
             remaining -= 0.5
             tracks = lookup_submission_status(self.conn, ids)

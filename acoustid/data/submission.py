@@ -131,10 +131,10 @@ def lookup_submission_status(db, ids):
     source = schema.fingerprint_source.\
         join(schema.fingerprint).\
         join(schema.track)
-    query = sql.select([schema.fingerprint_source.c.submission_id, schema.track.gid], from_obj=source).\
+    query = sql.select([schema.fingerprint_source.c.submission_id, schema.track.c.gid], from_obj=source).\
         where(schema.fingerprint_source.c.submission_id.in_(ids))
     results = {}
     for id, track_gid in db.execute(query):
-        results[id] = track_id
+        results[id] = track_gid
     return results
 
