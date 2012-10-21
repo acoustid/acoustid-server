@@ -124,3 +124,17 @@ def import_queued_submissions(conn, index=None, limit=100, ids=None):
     logger.debug("Imported %d submissions", count)
     return count
 
+
+def lookup_submission_status(db, ids):
+    if not ids:
+        return {}
+    source = schema.fingerprint_source.\
+        join(schema.fingerprint).\
+        join(schema.track)
+    query = sql.select([schema.fingerprint_source.c.submission_id, schema.track.gid], from_obj=source).\
+        where(schema.fingerprint_source.c.submission_id.in_(ids))
+    results = {}
+    for id, track_gid in db.execute(query):
+        results[id] = track_id
+    return results
+

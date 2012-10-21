@@ -5,12 +5,13 @@ import re
 import logging
 import pprint
 import json
+import time
 import operator
 from acoustid import const
 from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
-from acoustid.data.submission import insert_submission
+from acoustid.data.submission import insert_submission, lookup_submission_status
 from acoustid.data.fingerprint import lookup_fingerprint, decode_fingerprint, FingerprintSearcher
 from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
@@ -548,6 +549,30 @@ class LookupHandler(APIHandler):
         return response
 
 
+class SubmissionStatusHandlerParams(APIHandlerParams):
+
+    def parse(self, values, conn):
+        super(SubmissionStatusHandlerParams, self).parse(values, conn)
+        self._parse_client(values, conn)
+        self.ids = values.getlist('id')
+
+
+class SubmissionStatusHandler(APIHandler):
+
+    params_class = SubmissionStatusHandlerParams
+
+    def _handle_internal(self, params):
+        response = {'submissions': [{'id': id, 'status': 'pending'} for id in params.ids]}
+        tracks = lookup_submission_status(self.conn, ids)
+        for submission in response['submissions']:
+            id = submission['id']
+            track_gid = tracks.get(id)
+            if track_gid is not None:
+                submission['status'] = 'imported'
+                submission['result'] = {'id': track_gid}
+        return response
+
+
 class SubmitHandlerParams(APIHandlerParams):
 
     def _parse_user(self, values, conn):
@@ -568,6 +593,7 @@ class SubmitHandlerParams(APIHandlerParams):
 
     def _parse_submission(self, values, suffix):
         p = {}
+        p['index'] = (suffix or '')[1:]
         p['puid'] = values.get('puid' + suffix)
         if p['puid'] and not is_uuid(p['puid']):
             raise errors.InvalidUUIDError('puid' + suffix)
@@ -600,6 +626,7 @@ class SubmitHandlerParams(APIHandlerParams):
         super(SubmitHandlerParams, self).parse(values, conn)
         self._parse_client(values, conn)
         self._parse_user(values, conn)
+        self.wait = values.get('wait', type=int, default=1)
         self.submissions = []
         suffixes = list(iter_args_suffixes(values, 'fingerprint'))
         if not suffixes:
@@ -619,7 +646,8 @@ class SubmitHandler(APIHandler):
                    'disc_no', 'year')
 
     def _handle_internal(self, params):
-        ids = []
+        response = {'submissions': []}
+        ids = set()
         with self.conn.begin():
             source_id = find_or_insert_source(self.conn, params.application_id, params.account_id, params.application_version)
             format_ids = {}
@@ -646,8 +674,30 @@ class SubmitHandler(APIHandler):
                     if p['foreignid']:
                         values['foreignid_id'] = find_or_insert_foreignid(self.conn, p['foreignid'])
                     id = insert_submission(self.conn, values)
-                    ids.append(id)
+                    ids.add(id)
+                    submission = {'id': id, 'status': 'pending'}
+                    if p['index']:
+                        submission['index'] = p['index']
+                    response['submissions'].append(submission)
+
         if self.redis is not None:
-            self.redis.publish('channel.submissions', json.dumps(ids))
-        return {}
+            self.redis.publish('channel.submissions', json.dumps(list(ids)))
+
+        tracks = {}
+        remaining = min(10, params.wait)
+        while remaining > 0 or not ids:
+            time.sleep(0.5) # XXX replace with LISTEN/NOTIFY
+            remaining -= 0.5
+            tracks = lookup_submission_status(self.conn, ids)
+            if not tracks:
+                continue
+            for submission in response['submissions']:
+                id = submission['id']
+                track_gid = tracks.get(id)
+                if track_gid is not None:
+                    submission['status'] = 'imported'
+                    submission['result'] = {'id': track_gid}
+                    ids.remove(id)
+
+        return response
 
