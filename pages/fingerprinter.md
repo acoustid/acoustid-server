@@ -42,10 +42,15 @@ You can use them instead of the AcoustID fingerprinter to contribute:
 
  * [Picard][picard]
  * [Jaikoz][jaikoz]
+ * [Puddletag][Puddletag]
  * [Quod Libet][ql] with this [plugin][qlp]
+ * [Beets][beets] with this [plugin][beetschroma]
 
 [ql]: http://code.google.com/p/quodlibet/
 [qlp]: http://code.google.com/p/quodlibet/source/browse/plugins/songsmenu/fingerprint.py
+[puddletag]: http://puddletag.sourceforge.net/
+[beets]: http://beets.radbox.org/
+[beetschroma]: http://beets.readthedocs.org/en/latest/plugins/chroma.html
 
 ### Development
 
