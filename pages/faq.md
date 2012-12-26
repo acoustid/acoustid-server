@@ -49,4 +49,5 @@ The server code is [open source][code], so you can check all this by yourself.
 
 [ssl]: http://en.wikipedia.org/wiki/HTTP_Secure
 [auth]: http://en.wikipedia.org/wiki/Digest_access_authentication
-[code]: https://github.com/lalinsky/acoustid-server/blob/master/acoustid/website.py
+[code]: https://bitbucket.org/acoustid/acoustid-server/src/master/acoustid/website.py
+

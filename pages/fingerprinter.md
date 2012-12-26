@@ -30,9 +30,9 @@ Latest release &mdash; 0.6 (Sep 5, 2012)
      * [Gentoo](http://proaudio.tuxfamily.org/wiki/index.php?title=Usage) (Pro-Audio Gentoo overlay)
      * [Ubuntu][ppa]
 
-[src]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.6.tar.gz
-[win]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.5-win32.zip
-[osx]: https://github.com/downloads/lalinsky/acoustid-fingerprinter/acoustid-fingerprinter-0.5-mac.dmg
+[src]: https://bitbucket.org/acoustid/acoustid-fingerprinter/downloads/acoustid-fingerprinter-0.6.tar.gz
+[win]: https://bitbucket.org/acoustid/acoustid-fingerprinter/downloads/acoustid-fingerprinter-0.5-win32.zip
+[osx]: https://bitbucket.org/acoustid/acoustid-fingerprinter/downloads/acoustid-fingerprinter-0.5-mac.dmg
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
 
 ### Alternatives
@@ -49,12 +49,12 @@ You can use them instead of the AcoustID fingerprinter to contribute:
 
 ### Development
 
-You can dowload the development version of the source code from [GitHub][gh].
+You can dowload the development version of the source code from [Bitbucket][bb].
 Either you can use [Git][git] to clone the repository or download a
 zip/tar.gz file with the latest version.
 
 The source code is licensed under the [GPL2+ license][gpl].
 
 [gpl]: http://www.gnu.org/licenses/gpl-2.0.html
-[gh]: https://github.com/lalinsky/acoustid-fingerprinter
+[bb]: https://bitbucket.org/acoustid/acoustid-fingerprinter
 [git]: http://git-scm.com/

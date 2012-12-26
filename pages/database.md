@@ -27,6 +27,6 @@ Once you have the public key imported, you can verify the signature:
 [copy]: http://www.postgresql.org/docs/9.0/static/sql-copy.html
 [cc]: http://creativecommons.org/licenses/by-sa/3.0/
 [pd]: http://creativecommons.org/licenses/publicdomain/
-[sql]: https://github.com/lalinsky/acoustid-server/blob/master/sql/CreateTables.sql
+[sql]: https://bitbucket.org/acoustid/acoustid-server/src/master/sql/CreateTables.sql
 [gpg]: http://www.gnupg.org/
 [pubkey]: http://data.acoustid.org/pubkey.txt
