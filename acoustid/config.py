@@ -129,6 +129,7 @@ class WebSiteConfig(object):
 
 
 class ReplicationConfig(object):
+
     def __init__(self):
         self.import_acoustid = None
         self.import_acoustid_musicbrainz = None
@@ -138,6 +139,22 @@ class ReplicationConfig(object):
             self.import_acoustid = parser.get(section, 'import_acoustid')
         if parser.has_option(section, 'import_acoustid_musicbrainz'):
             self.import_acoustid_musicbrainz = parser.get(section, 'import_acoustid_musicbrainz')
+
+
+class ClusterConfig(object):
+
+    def __init__(self):
+        self.role = 'master'
+        self.base_master_url = None
+        self.secret = None
+
+    def read(self, parser, section):
+        if parser.has_option(section, 'role'):
+            self.role = parser.get(section, 'role')
+        if parser.has_option(section, 'base_master_url'):
+            self.base_master_url = parser.get(section, 'base_master_url')
+        if parser.has_option(section, 'secret'):
+            self.secret = parser.get(section, 'secret')
 
 
 class Config(object):
@@ -158,4 +175,6 @@ class Config(object):
         self.redis.read(parser, 'redis')
         self.replication = ReplicationConfig()
         self.replication.read(parser, 'replication')
+        self.cluster = ClusterConfig()
+        self.cluster.read(parser, 'cluster')
 

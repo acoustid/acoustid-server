@@ -80,6 +80,7 @@ class APIHandler(Handler):
         self._connect = connect
         self.index = None
         self.redis = None
+        self.cluster = None
 
     @cached_property
     def conn(self):
@@ -90,6 +91,7 @@ class APIHandler(Handler):
         handler = cls(connect=server.engine.connect)
         handler.index = server.index
         handler.redis = server.redis
+        handler.cluster = server.config.cluster
         return handler
 
     def _error(self, code, message, format=DEFAULT_FORMAT, status=400):

@@ -18,6 +18,7 @@ ERROR_INVALID_DURATION = 8
 ERROR_INVALID_BITRATE = 9
 ERROR_INVALID_FOREIGNID = 10
 ERROR_INVALID_MAX_DURATION_DIFF = 11
+ERROR_NOT_ALLOWED = 12
 
 
 class WebServiceError(Exception):
@@ -112,4 +113,11 @@ class InvalidMaxDurationDiffError(WebServiceError):
         message = 'parameter "%s" must be between %d and %d' % (name, 1, const.FINGERPRINT_MAX_ALLOWED_LENGTH_DIFF)
         WebServiceError.__init__(self, ERROR_INVALID_MAX_DURATION_DIFF, message)
         self.parameter = name
+
+
+class NotAllowedError(WebServiceError):
+
+    def __init__(self):
+        message = 'not allowed'
+        WebServiceError.__init__(self, ERROR_NOT_ALLOWED, message)
 

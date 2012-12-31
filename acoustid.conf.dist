@@ -6,6 +6,11 @@ name=acoustid
 host=localhost
 port=5432
 
+[cluster]
+role=master
+base_master_url=https://api.acoustid.org/
+secret=XXX
+
 [index]
 host=127.0.0.1
 port=6080

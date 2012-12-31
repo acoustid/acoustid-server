@@ -14,6 +14,7 @@ from acoustid.script import Script
 import api.v1
 import api.v2
 import api.v2.misc
+import api.v2.internal
 
 
 api_url_rules = [
@@ -28,6 +29,9 @@ api_url_rules = [
             Rule('/track/list_by_puid', endpoint=api.v2.misc.TrackListByPUIDHandler),
             Rule('/user/lookup', endpoint=api.v2.misc.UserLookupHandler),
             Rule('/user/create_anonymous', endpoint=api.v2.misc.UserCreateAnonymousHandler),
+            Submount('/internal', [
+                Rule('/update_lookup_stats', endpoint=api.v2.internal.UpdateLookupStatsHandler),
+            ]),
         ]),
     ])
 ]
