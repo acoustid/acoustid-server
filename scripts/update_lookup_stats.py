@@ -11,10 +11,10 @@ from acoustid.script import run_script
 from acoustid.data.stats import update_lookup_stats
 
 
-def call_internal_api(func, **kwargs):
-    url = script.config.cluster.base_master_url.rstrip('/') + '/v2/internal/' + func
+def call_internal_api(config, func, **kwargs):
+    url = config.cluster.base_master_url.rstrip('/') + '/v2/internal/' + func
     data = dict(kwargs)
-    data['secret'] = script.config.cluster.secret
+    data['secret'] = config.cluster.secret
     urllib2.urlopen(url, urllib.urlencode(data))
 
 
@@ -32,8 +32,9 @@ def main(script, opts, args):
             if script.config.cluster.role == 'master':
                 update_lookup_stats(db, application_id, date, hour, type, count)
             else:
-                call_internal_api('update_lookup_stats', date=date, hour=hour,
-                    application_id=application_id, type=type, count=count)
+                call_internal_api(script.config, 'update_lookup_stats',
+                    application_id=application_id, date=date, hour=hour,
+                    type=type, count=count)
             redis.hincrby('lookups', key, -count)
 
 
