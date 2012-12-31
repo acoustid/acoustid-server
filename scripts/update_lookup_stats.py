@@ -4,9 +4,18 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import re
+import urllib
+import urllib2
 from contextlib import closing
 from acoustid.script import run_script
 from acoustid.data.stats import update_lookup_stats
+
+
+def call_internal_api(func, **kwargs):
+    url = script.config.cluster.base_master_url.rstrip('/') + '/v2/internal/' + func
+    data = dict(kwargs)
+    data['secret'] = script.config.cluster.secret
+    urllib2.urlopen(url, urllib.urlencode(data))
 
 
 def main(script, opts, args):
@@ -20,7 +29,11 @@ def main(script, opts, args):
             # nothing touched it since then, so it's safe to delete
             redis.hdel('lookups', key)
         else:
-            update_lookup_stats(db, application_id, date, hour, type, count)
+            if script.config.cluster.role == 'master':
+                update_lookup_stats(db, application_id, date, hour, type, count)
+            else:
+                call_internal_api('update_lookup_stats', date=date, hour=hour,
+                    application_id=application_id, type=type, count=count)
             redis.hincrby('lookups', key, -count)
 
 
