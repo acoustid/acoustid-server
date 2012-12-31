@@ -87,6 +87,7 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
     else:
         column = schema.stats_lookups.c.count_nohits
     with db.begin():
+        db.execute("LOCK TABLE stats_lookups IN EXCLUSIVE MODE")
         query = sql.select([schema.stats_lookups.c.id]).\
             where(schema.stats_lookups.c.application_id == application_id).\
             where(schema.stats_lookups.c.date == date).\
