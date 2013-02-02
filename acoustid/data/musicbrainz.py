@@ -63,10 +63,10 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
         (schema.mb_recording.c.length / 1000).label('recording_duration'),
     ]
     if load_releases:
-        src = src.join(schema.mb_track, schema.mb_recording.c.id == schema.mb_track.c.recording)
-        src = src.join(schema.mb_tracklist, schema.mb_track.c.tracklist == schema.mb_tracklist.c.id)
-        src = src.join(schema.mb_medium, schema.mb_tracklist.c.id == schema.mb_medium.c.tracklist)
-        src = src.join(schema.mb_release, schema.mb_medium.c.release == schema.mb_release.c.id)
+        src = src.outerjoin(schema.mb_track, schema.mb_recording.c.id == schema.mb_track.c.recording)
+        src = src.outerjoin(schema.mb_tracklist, schema.mb_track.c.tracklist == schema.mb_tracklist.c.id)
+        src = src.outerjoin(schema.mb_medium, schema.mb_tracklist.c.id == schema.mb_medium.c.tracklist)
+        src = src.outerjoin(schema.mb_release, schema.mb_medium.c.release == schema.mb_release.c.id)
         src = src.outerjoin(schema.mb_country, schema.mb_release.c.country == schema.mb_country.c.id)
         src = src.outerjoin(schema.mb_medium_format, schema.mb_medium.c.format == schema.mb_medium_format.c.id)
         columns.extend([
@@ -87,7 +87,7 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
             schema.mb_country.c.iso_code.label('release_country'),
         ])
         if load_release_groups:
-            src = src.join(schema.mb_release_group, schema.mb_release.c.release_group == schema.mb_release_group.c.id)
+            src = src.outerjoin(schema.mb_release_group, schema.mb_release.c.release_group == schema.mb_release_group.c.id)
             src = src.outerjoin(schema.mb_release_group_primary_type, schema.mb_release_group.c.type == schema.mb_release_group_primary_type.c.id)
             columns.extend([
                 schema.mb_release_group.c.gid.label('release_group_id'),
@@ -113,7 +113,7 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
     releases = _load_release_meta(conn, release_ids)
     for row in results:
         row['recording_artists'] = artists[row.pop('recording_artist_credit')]
-        if load_releases:
+        if load_releases and row['release_id']:
             row['release_artists'] = artists[row.pop('release_artist_credit')]
             row['track_artists'] = artists[row.pop('track_artist_credit')]
             if load_release_groups:
