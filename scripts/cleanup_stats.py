@@ -19,7 +19,8 @@ def main(script, opts, args):
                 to_delete.append(key)
         if to_delete:
             for table in tables:
-                redis.hdel(table, *to_delete)
+                for field in to_delete:
+                    redis.hdel(table, field)
 
 
 run_script(main)
