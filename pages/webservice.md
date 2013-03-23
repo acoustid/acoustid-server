@@ -445,7 +445,7 @@ Look up the status of two previously submitted fingerprints:
 	<tr>
 		<td>format</td>
 		<td>no</td>
-		<td>json, xml</td>
+		<td>json, jsonp, xml</td>
 		<td>response format</td>
 	</tr>
 	<tr>
@@ -487,7 +487,7 @@ Look up the status of two previously submitted fingerprints:
 	<tr>
 		<td>format</td>
 		<td>no</td>
-		<td>json, xml</td>
+		<td>json, jsonp, xml</td>
 		<td>response format</td>
 	</tr>
 	<tr>
