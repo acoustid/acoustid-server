@@ -410,8 +410,6 @@ class LookupHandler(APIHandler):
         results = {}
         for item in metadata:
             id = item['release_group_id']
-            if id is None:
-                continue
             if id not in results:
                 results[id] = (self.extract_release_group(item, only_id=only_ids), [])
             results[id][1].append(item)
@@ -430,8 +428,6 @@ class LookupHandler(APIHandler):
         results = {}
         for item in metadata:
             id = item['release_id']
-            if id is None:
-                continue
             if id not in results:
                 results[id] = (self.extract_release(item, only_id=only_ids), [])
             results[id][1].append(item)
