@@ -225,7 +225,7 @@ wich is a cluster of fingerprints.
 
 Include MusicBrainz recording IDs (meta=recordingids):
 
-<pre><code><a href="http://api.acoustid.org/v2/lookup?client=8XaBELgH&meta=recordingids&trackid=9ff43b6a-4f16-427c-93c2-92307ca505e0</a></code></pre>
+<pre><code><a href="http://api.acoustid.org/v2/lookup?client=8XaBELgH&meta=recordingids&trackid=9ff43b6a-4f16-427c-93c2-92307ca505e0">http://api.acoustid.org/v2/lookup?client=8XaBELgH&meta=recordingids&trackid=9ff43b6a-4f16-427c-93c2-92307ca505e0</a></code></pre>
 
     {
       "status": "ok",
