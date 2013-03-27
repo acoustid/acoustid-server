@@ -52,127 +52,74 @@ def _load_release_meta(conn, release_ids):
     return result
 
 
-def _load_recordings(conn, recording_ids):
+def lookup_metadata(conn, recording_ids, load_releases=False, load_release_groups=False, load_artists=False):
     if not recording_ids:
         return []
-
+    src = schema.mb_recording
     columns = [
-        schema.mb_recording.c.id.label('_recording_id'),
         schema.mb_recording.c.gid.label('recording_id'),
         schema.mb_recording.c.artist_credit.label('recording_artist_credit'),
         schema.mb_recording.c.name.label('recording_title'),
         (schema.mb_recording.c.length / 1000).label('recording_duration'),
     ]
-
-    condition = schema.mb_recording.c.gid.in_(recording_ids)
-    query = sql.select(columns, condition)
-
-    results = []
-    for row in conn.execute(query):
-        recording = dict(row)
-        recording['release_id'] = None
-        recording['release_group_id'] = None
-        results.append(recording)
-    return results
-
-
-def _load_recording_releases(conn, recordings, load_release_groups):
-    if not recordings:
-        return []
-
-    columns = [
-        schema.mb_track.c.recording.label('_recording_id'),
-        schema.mb_track.c.position.label('track_position'),
-        schema.mb_track.c.name.label('track_title'),
-        schema.mb_track.c.artist_credit.label('track_artist_credit'),
-        (schema.mb_track.c.length / 1000).label('track_duration'),
-        schema.mb_medium.c.position.label('medium_position'),
-        schema.mb_medium_format.c.name.label('medium_format'),
-        schema.mb_tracklist.c.track_count.label('medium_track_count'),
-        schema.mb_release.c.id.label('_release_id'),
-        schema.mb_release.c.gid.label('release_id'),
-        schema.mb_release.c.name.label('release_title'),
-        schema.mb_release.c.artist_credit.label('release_artist_credit'),
-        schema.mb_release.c.date_year.label('release_date_year'),
-        schema.mb_release.c.date_month.label('release_date_month'),
-        schema.mb_release.c.date_day.label('release_date_day'),
-        schema.mb_country.c.iso_code.label('release_country'),
-    ]
-
-    src = schema.mb_track
-    src = src.join(schema.mb_tracklist, schema.mb_track.c.tracklist == schema.mb_tracklist.c.id)
-    src = src.join(schema.mb_medium, schema.mb_tracklist.c.id == schema.mb_medium.c.tracklist)
-    src = src.join(schema.mb_release, schema.mb_medium.c.release == schema.mb_release.c.id)
-    src = src.outerjoin(schema.mb_country, schema.mb_release.c.country == schema.mb_country.c.id)
-    src = src.outerjoin(schema.mb_medium_format, schema.mb_medium.c.format == schema.mb_medium_format.c.id)
-
-    if load_release_groups:
-        src = src.outerjoin(schema.mb_release_group, schema.mb_release.c.release_group == schema.mb_release_group.c.id)
-        src = src.outerjoin(schema.mb_release_group_primary_type, schema.mb_release_group.c.type == schema.mb_release_group_primary_type.c.id)
-        columns.extend([
-            schema.mb_release_group.c.gid.label('release_group_id'),
-            schema.mb_release_group.c.name.label('release_group_title'),
-            schema.mb_release_group.c.artist_credit.label('release_group_artist_credit'),
-            schema.mb_release_group_primary_type.c.name.label('release_group_primary_type'),
-        ])
-
-    recording_row_ids = set([r['_recording_id'] for r in recordings])
-    condition = schema.mb_track.c.recording.in_(recording_row_ids)
-    query = sql.select(columns, condition, from_obj=src)
-
-    releases = {}
-    release_ids = set()
-    for row in conn.execute(query):
-        release_ids.add(row['_release_id'])
-        releases.setdefault(row['_recording_id'], []).append(dict(row))
-
-    release_meta = _load_release_meta(conn, release_ids)
-
-    results = []
-    for recording in recordings:
-        recording_releases = releases.get(recording['_recording_id'])
-        if recording_releases:
-            for release in recording_releases:
-                recording = dict(recording)
-                recording.update(release)
-                recording.update(release_meta[release.pop('_release_id')])
-                results.append(recording)
-        else:
-            results.append(recording)
-    return results
-
-
-def lookup_metadata(conn, recording_ids, load_releases=False,
-                    load_release_groups=False, load_artists=False):
-
-    recordings = _load_recordings(conn, recording_ids)
     if load_releases:
-        recordings = _load_recording_releases(conn, recordings,
-                                              load_release_groups)
-
+        src = src.outerjoin(schema.mb_track, schema.mb_recording.c.id == schema.mb_track.c.recording)
+        src = src.outerjoin(schema.mb_tracklist, schema.mb_track.c.tracklist == schema.mb_tracklist.c.id)
+        src = src.outerjoin(schema.mb_medium, schema.mb_tracklist.c.id == schema.mb_medium.c.tracklist)
+        src = src.outerjoin(schema.mb_release, schema.mb_medium.c.release == schema.mb_release.c.id)
+        src = src.outerjoin(schema.mb_country, schema.mb_release.c.country == schema.mb_country.c.id)
+        src = src.outerjoin(schema.mb_medium_format, schema.mb_medium.c.format == schema.mb_medium_format.c.id)
+        columns.extend([
+            schema.mb_track.c.position.label('track_position'),
+            schema.mb_track.c.name.label('track_title'),
+            schema.mb_track.c.artist_credit.label('track_artist_credit'),
+            (schema.mb_track.c.length / 1000).label('track_duration'),
+            schema.mb_medium.c.position.label('medium_position'),
+            schema.mb_medium_format.c.name.label('medium_format'),
+            schema.mb_tracklist.c.track_count.label('medium_track_count'),
+            schema.mb_release.c.id.label('release_rid'),
+            schema.mb_release.c.gid.label('release_id'),
+            schema.mb_release.c.name.label('release_title'),
+            schema.mb_release.c.artist_credit.label('release_artist_credit'),
+            schema.mb_release.c.date_year.label('release_date_year'),
+            schema.mb_release.c.date_month.label('release_date_month'),
+            schema.mb_release.c.date_day.label('release_date_day'),
+            schema.mb_country.c.iso_code.label('release_country'),
+        ])
+        if load_release_groups:
+            src = src.outerjoin(schema.mb_release_group, schema.mb_release.c.release_group == schema.mb_release_group.c.id)
+            src = src.outerjoin(schema.mb_release_group_primary_type, schema.mb_release_group.c.type == schema.mb_release_group_primary_type.c.id)
+            columns.extend([
+                schema.mb_release_group.c.gid.label('release_group_id'),
+                schema.mb_release_group.c.name.label('release_group_title'),
+                schema.mb_release_group.c.artist_credit.label('release_group_artist_credit'),
+                schema.mb_release_group_primary_type.c.name.label('release_group_primary_type'),
+            ])
+    condition = schema.mb_recording.c.gid.in_(recording_ids)
+    query = sql.select(columns, condition, from_obj=src)
+    results = []
     artist_credit_ids = set()
     release_ids = set()
-    for recording in recordings:
-        artist_credit_ids.add(recording['recording_artist_credit'])
-        if recording['release_id']:
-            release_ids.add(recording['_release_id'])
-            artist_credit_ids.add(recording['release_artist_credit'])
-            artist_credit_ids.add(recording['track_artist_credit'])
-            if recording['release_group_id']:
-                artist_credit_ids.add(recording['release_group_artist_credit'])
-
+    for row in conn.execute(query):
+        results.append(dict(row))
+        artist_credit_ids.add(row['recording_artist_credit'])
+        if load_releases:
+            release_ids.add(row['release_rid'])
+            artist_credit_ids.add(row['release_artist_credit'])
+            artist_credit_ids.add(row['track_artist_credit'])
+            if load_release_groups:
+                artist_credit_ids.add(row['release_group_artist_credit'])
     artists = _load_artists(conn, artist_credit_ids)
-
-    for recording in recordings:
-        del recording['_recording_id']
-        recording['recording_artists'] = artists[recording.pop('recording_artist_credit')]
-        if recording['release_id']:
-            recording['release_artists'] = artists[recording.pop('release_artist_credit')]
-            recording['track_artists'] = artists[recording.pop('track_artist_credit')]
-            if recording['release_group_id']:
-                recording['release_group_artists'] = artists[recording.pop('release_group_artist_credit')]
-
-    return recordings
+    releases = _load_release_meta(conn, release_ids)
+    for row in results:
+        row['recording_artists'] = artists[row.pop('recording_artist_credit')]
+        if load_releases and row['release_id']:
+            row['release_artists'] = artists[row.pop('release_artist_credit')]
+            row['track_artists'] = artists[row.pop('track_artist_credit')]
+            if load_release_groups:
+                row['release_group_artists'] = artists[row.pop('release_group_artist_credit')]
+            row.update(releases[row.pop('release_rid')])
+    return results
 
 
 def lookup_recording_metadata(conn, mbids):
