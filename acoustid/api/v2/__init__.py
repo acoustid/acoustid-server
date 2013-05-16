@@ -244,19 +244,25 @@ class LookupHandler(APIHandler):
             release['medium_count'] = m['release_medium_count']
         if m['release_track_count']:
             release['track_count'] = m['release_track_count']
-        if m['release_country']:
-            release['country'] = m['release_country']
         if m['release_artists']:
             release['artists'] = m['release_artists']
-        date = {}
-        if m['release_date_year']:
-            date['year'] = m['release_date_year']
-        if m['release_date_month']:
-            date['month'] = m['release_date_month']
-        if m['release_date_day']:
-            date['day'] = m['release_date_day']
-        if date:
-            release['date'] = date
+        if m['release_events']:
+            release['releaseevents'] = []
+            for rem in m['release_events']:
+                release_event = {}
+                if rem['release_country']:
+                    release_event['country'] = rem['release_country']
+                date = {}
+                if rem['release_date_year']:
+                    date['year'] = rem['release_date_year']
+                if rem['release_date_month']:
+                    date['month'] = rem['release_date_month']
+                if rem['release_date_day']:
+                    date['day'] = rem['release_date_day']
+                if date:
+                    release_event['date'] = date
+                release['releaseevents'].append(release_event)
+            release.update(release['releaseevents'][0])
         return release
 
     def extract_release_group(self, m, only_id=False):
@@ -445,6 +451,7 @@ class LookupHandler(APIHandler):
                     medium['format'] = item['medium_format']
                 results[medium_pos] = medium
             track = {
+                'id': item['track_id'],
                 'position': item['track_position'],
                 'title': item['track_title'],
                 'artists': item['track_artists'],
