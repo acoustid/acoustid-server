@@ -52,7 +52,7 @@ class Script(object):
 
 
 
-def run_script(func, option_cb=None):
+def run_script(func, option_cb=None, master_only=False):
     parser = OptionParser()
     parser.add_option("-c", "--config", dest="config",
         help="configuration file", metavar="FILE")
@@ -65,14 +65,17 @@ def run_script(func, option_cb=None):
         parser.error('no configuration file')
     script = Script(options.config)
     script.setup_console_logging(options.quiet)
-    logger.debug("Running script %s", sys.argv[0])
-    try:
-        func(script, options, args)
-    except:
-        logger.exception("Script finished %s with an exception", sys.argv[0])
-        raise
+    if master_only and script.config.cluster.role != 'master':
+        logger.debug("Not running script %s on a slave server", sys.argv[0])
     else:
-        logger.debug("Script finished %s successfuly", sys.argv[0])
+        logger.debug("Running script %s", sys.argv[0])
+        try:
+            func(script, options, args)
+        except:
+            logger.exception("Script finished %s with an exception", sys.argv[0])
+            raise
+        else:
+            logger.debug("Script finished %s successfuly", sys.argv[0])
     script.engine.dispose()
     script.index.dispose()
 

@@ -12,5 +12,5 @@ def main(script, opts, args):
     with conn.begin():
         merge_missing_mbids(conn)
 
-run_script(main)
+run_script(main, master_only=True)
 
