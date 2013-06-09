@@ -38,6 +38,7 @@ def main_master(script, opts, args):
         ids = json.loads(message['data'])
         logger.debug('Got notified about %s new submissions', len(ids))
         do_import(script)
+        logger.debug('Waiting for the next event...')
 
 
 def main_slave(script, opts, args):
@@ -48,6 +49,7 @@ def main_slave(script, opts, args):
         do_import(script, index_first=True, only_index=True)
         delay = 60 - time.time() + started
         if delay > 0:
+            logger.debug('Waiting %f seconds...', delay)
             time.sleep(delay)
 
 
