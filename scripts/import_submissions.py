@@ -43,13 +43,13 @@ def main_master(script, opts, args):
 
 def main_slave(script, opts, args):
     logger.info('Importer running in slave mode, only updating the index')
-    # import new fingerprints to the index every 60 seconds
+    # import new fingerprints to the index every 15 seconds
     while True:
         started = time.time()
         do_import(script, index_first=True, only_index=True)
-        delay = 60 - time.time() + started
+        delay = 15 - time.time() + started
         if delay > 0:
-            logger.debug('Waiting %f seconds...', delay)
+            logger.debug('Waiting %d seconds...', delay)
             time.sleep(delay)
 
 
