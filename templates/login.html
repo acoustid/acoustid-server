@@ -7,24 +7,28 @@ $(document).ready(function () {
         var $form = $(this).closest('form');
         $form.find('input[name=login]').val('musicbrainz');
         $form.submit();
+        return false;
     });
     $('.login-google').click(function () {
         var $form = $(this).closest('form');
         $form.find('input.openid').val('https://www.google.com/accounts/o8/id');
         $form.submit();
+        return false;
     });
     $('.login-yahoo').click(function () {
         var $form = $(this).closest('form');
         $form.find('input.openid').val('https://me.yahoo.com');
         $form.submit();
+        return false;
     });
     $('.login-openid').click(function () {
         var $this = $(this), $form = $this.closest('form');
         $this.addClass('active');
         $form.find('.openid-form').show();
         $form.find('.openid-form input.openid').focus();
+        return false;
     });
-})
+});
 </script> 
 
 <h2>Log In</h2> 
