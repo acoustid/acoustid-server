@@ -33,21 +33,5 @@ existing MusicBrainz user account.
 
 [oid]: http://openid.net/
 
-### How can I know you will not do something bad with my MusicBrainz password?
-
-We need the password to verify that you own the MusicBrainz account. 
-Currently, MusicBrainz doesn't provide a way to do this without knowing the 
-password on our side (OpenID, OAuth or a similar authentication scheme). 
-Since the AcoustID database depends heavily on the MusicBrainz database, 
-we really wanted to re-use existing user accounts. The only way to do this 
-at the moment is to ask the user for both the username and password. We do 
-not store the password anywhere, it is transmitted to our server over an 
-[SSL tunnel][ssl] and it's sent to the MusicBrainz web service for
-authentication in a [hashed form][auth]. After it's verified that the 
-username and password match, we only store the username.
-The server code is [open source][code], so you can check all this by yourself.
-
-[ssl]: http://en.wikipedia.org/wiki/HTTP_Secure
-[auth]: http://en.wikipedia.org/wiki/Digest_access_authentication
 [code]: https://bitbucket.org/acoustid/acoustid-server/src/master/acoustid/website.py
 
