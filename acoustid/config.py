@@ -117,6 +117,8 @@ class WebSiteConfig(object):
         self.base_url = 'http://localhost:8080/'
         self.base_https_url = None
         self.secret = None
+        self.mb_oauth_client_id = None
+        self.mb_oauth_client_secret = None
 
     def read(self, parser, section):
         if parser.has_option(section, 'base_url'):
@@ -126,6 +128,10 @@ class WebSiteConfig(object):
         if not self.base_https_url:
             self.base_https_url = self.base_url
         self.secret = parser.get(section, 'secret')
+        if parser.has_option(section, 'mb_oauth_client_id'):
+            self.mb_oauth_client_id = parser.get(section, 'mb_oauth_client_id')
+        if parser.has_option(section, 'mb_oauth_client_secret'):
+            self.mb_oauth_client_secret = parser.get(section, 'mb_oauth_client_secret')
 
 
 class ReplicationConfig(object):

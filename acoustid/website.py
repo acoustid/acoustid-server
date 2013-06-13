@@ -3,6 +3,8 @@
 
 import os
 import re
+import json
+import random
 import logging
 import urlparse
 import urllib
@@ -16,7 +18,7 @@ from acoustid import tables as schema
 from werkzeug import redirect
 from werkzeug.exceptions import NotFound, abort, HTTPException, Forbidden
 from werkzeug.utils import cached_property
-from werkzeug.urls import url_encode
+from werkzeug.urls import url_encode, url_decode
 from werkzeug.contrib.securecookie import SecureCookie
 from acoustid.handler import Handler, Response
 from acoustid.data.track import resolve_track_gid
@@ -148,48 +150,81 @@ class IndexHandler(Handler):
         return PageHandler.create_from_server(server, page='index')
 
 
-def check_mb_account(username, password):
-    url = 'http://musicbrainz.org/ws/2/artist/89ad4ac3-39f7-470e-963a-56509c546377?inc=user-tags'
-    auth_handler = DigestAuthHandler()
-    auth_handler.add_password('musicbrainz.org', 'http://musicbrainz.org/',
-                              username.encode('utf8'), password.encode('utf8'))
-    opener = urllib2.build_opener(auth_handler)
-    opener.addheaders = [('User-Agent', 'AcoustID-Login +http://acoustid.org/login')]
-    try:
-        opener.open(url, timeout=HTTP_TIMEOUT)
-    except StandardError, e:
-        if hasattr(e, 'read'):
-            logger.exception('MB error %s', e.read())
-        else:
-            logger.exception('MB error')
-        return False
-    return True
-
-
 class LoginHandler(WebSiteHandler):
 
     def _handle_musicbrainz_login(self, req, errors):
-        username = req.form.get('mb_user')
-        password = req.form.get('mb_password')
-        if username and password:
-            if check_mb_account(username, password):
-                account_id = lookup_account_id_by_mbuser(self.conn, username)
-                if not account_id:
-                    account_id, account_api_key = insert_account(self.conn, {
-                        'name': username,
-                        'mbuser': username,
-                    })
-                else:
-                    update_account_lastlogin(self.conn, account_id)
-                logger.info("Successfuly identified MusicBrainz user %s (%d)", username, account_id)
-                self.session['id'] = account_id
+        csrf_token = self.session['mb_oauth_csrf_token'] = str(random.random())
+        url = 'https://musicbrainz.org/oauth2/authorize?' + url_encode({
+            'response_type': 'code',
+            'client_id': self.config.mb_oauth_client_id,
+            'redirect_uri': self.login_url,
+            'scope': 'profile',
+            'state': url_encode({
+                'csrf': csrf_token,
+                'return_url': req.values.get('return_url', ''),
+            }),
+        })
+        return redirect(url)
+
+    def _handle_musicbrainz_login_response(self, req, errors):
+        authorization_code = req.args.get('code')
+        state = url_decode(req.args.get('state'))
+
+        csrf_token = state.get('csrf')
+        expected_csrf_token = self.session.pop('mb_oauth_csrf_token', None)
+        if not csrf_token or not expected_csrf_token or csrf_token != expected_csrf_token:
+            errors.append('Invalid CSRF token')
+            return
+
+        opener = urllib2.build_opener()
+
+        url = 'https://musicbrainz.org/oauth2/token'
+        data = url_encode({
+            'grant_type': 'authorization_code',
+            'code': authorization_code,
+            'client_id': self.config.mb_oauth_client_id,
+            'client_secret': self.config.mb_oauth_client_secret,
+            'redirect_uri': self.login_url,
+        })
+
+        try:
+            response = json.load(opener.open(url, data))
+        except StandardError, e:
+            if hasattr(e, 'read'):
+                logger.exception('MB error %s', e.read())
             else:
-                errors.append('Invalid username or password')
+                logger.exception('MB error')
+            errors.append('OAuth authentication failed')
+            return
+
+        opener.addheaders = [('Authorization', 'Bearer ' + response['access_token'])]
+
+        url = 'https://musicbrainz.org/oauth2/userinfo'
+
+        try:
+            response = json.load(opener.open(url, data))
+        except StandardError, e:
+            if hasattr(e, 'read'):
+                logger.exception('MB error 2 %s', e.read())
+            else:
+                logger.exception('MB error 2')
+            errors.append('OAuth authentication failed')
+            return
+
+        username = response['sub']
+        account_id = lookup_account_id_by_mbuser(self.conn, username)
+        if not account_id:
+            account_id, account_api_key = insert_account(self.conn, {
+                'name': username,
+                'mbuser': username,
+            })
         else:
-            if not username:
-                errors.append('Missing username')
-            if not password:
-                errors.append('Missing password')
+            update_account_lastlogin(self.conn, account_id)
+
+        logger.info("Successfuly identified MusicBrainz user %s (%d) -- %r", username, account_id, response)
+        self.session['id'] = account_id
+
+        return state.get('return_url')
 
     def _handle_openid_login(self, req, errors):
         openid_url = req.form.get('openid_identifier')
@@ -253,26 +288,18 @@ class LoginHandler(WebSiteHandler):
 
     def _handle_request(self, req):
         return_url = req.values.get('return_url')
-        errors = {'openid': [], 'mb': []}
+        errors = []
         if 'login' in req.form:
-            if req.form['login'] == 'mb':
-                self._handle_musicbrainz_login(req, errors['mb'])
-                from acoustid.api import serialize_response, errors as _errors, v2 as api_v2
-                if req.form.get('format') in api_v2.FORMATS:
-                    if self.session.get('id'):
-                        info = get_account_details(self.conn, self.session['id'])
-                        response = {'status': 'ok', 'api_key': info['apikey']}
-                        return serialize_response(response, req.form['format'])
-                    else:
-                        e = _errors.InvalidUserAPIKeyError()
-                        response = {'status': 'error', 'error': {'code': e.code, 'message': e.message}}
-                        return serialize_response(response, req.form['format'], status=400)
+            if req.form['login'] == 'musicbrainz':
+                resp = self._handle_musicbrainz_login(req, errors)
             elif req.form['login'] == 'openid':
-                resp = self._handle_openid_login(req, errors['openid'])
-                if resp is not None:
-                    return resp
+                resp = self._handle_openid_login(req, errors)
+            if resp is not None:
+                return resp
         if 'openid.mode' in req.args:
-            self._handle_openid_login_response(req, errors['openid'])
+            self._handle_openid_login_response(req, errors)
+        elif 'code' in req.args and 'state' in req.args:
+            return_url = self._handle_musicbrainz_login_response(req, errors)
         if 'id' in self.session:
             if not return_url or not return_url.startswith(self.config.base_url):
                 return_url = self.config.base_url + 'api-key'
