@@ -163,6 +163,20 @@ class ClusterConfig(object):
             self.secret = parser.get(section, 'secret')
 
 
+class RateLimiterConfig(object):
+
+    def __init__(self):
+        self.ips = {}
+        self.applications = {}
+
+    def read(self, parser, section):
+        for name in parser.options(section):
+            if name.startswith('ip.'):
+                self.ips[name.split('.', 1)[1]] = parser.getfloat(section, name)
+            elif name.startswith('application.'):
+                self.applications[int(name.split('.', 1)[1])] = parser.getfloat(section, name)
+
+
 class Config(object):
 
     def __init__(self, path):
@@ -183,4 +197,6 @@ class Config(object):
         self.replication.read(parser, 'replication')
         self.cluster = ClusterConfig()
         self.cluster.read(parser, 'cluster')
+        self.rate_limiter = RateLimiterConfig()
+        self.rate_limiter.read(parser, 'rate_limiter')
 

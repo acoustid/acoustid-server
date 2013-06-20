@@ -8,6 +8,7 @@ import json
 import time
 import operator
 from acoustid import const
+from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.handler import Handler, Response
 from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
@@ -20,6 +21,7 @@ from acoustid.data.source import find_or_insert_source
 from acoustid.data.meta import insert_meta, lookup_meta
 from acoustid.data.foreignid import find_or_insert_foreignid
 from acoustid.data.stats import update_lookup_counter, update_lookup_avg_time
+from acoustid.ratelimiter import RateLimiter
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
 from acoustid.utils import is_uuid, is_foreignid, is_int
@@ -80,6 +82,7 @@ class APIHandler(Handler):
         self._connect = connect
         self.index = None
         self.redis = None
+        self.config = None
         self.cluster = None
 
     @cached_property
@@ -91,6 +94,7 @@ class APIHandler(Handler):
         handler = cls(connect=server.engine.connect)
         handler.index = server.index
         handler.redis = server.redis
+        handler.config = server.config
         handler.cluster = server.config.cluster
         return handler
 
@@ -109,15 +113,29 @@ class APIHandler(Handler):
         response_data.update(data)
         return serialize_response(response_data, format)
 
+    def _rate_limit(self, user_ip, application_id):
+        ip_rate_limit = self.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
+        if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
+            pass
+            #raise errors.TooManyRequests(ip_rate_limit)
+        if application_id is not None:
+            application_rate_limit = self.config.rate_limiter.applications.get(application_id)
+            if application_rate_limit is not None:
+                if self.rate_limiter.limit('ip', application_id, application_rate_limit):
+                    pass
+                    #raise errors.TooManyRequests(application_rate_limit)
+
     def handle(self, req):
         params = self.params_class()
         if req.access_route:
             self.user_ip = req.access_route[0]
         else:
             self.user_ip = req.remote_addr
+        self.rate_limiter = RateLimiter(self.redis, 'rl')
         try:
             try:
                 params.parse(req.values, self.conn)
+                self._rate_limit(self.user_ip, getattr(params, 'application_id', None))
                 return self._ok(self._handle_internal(params), params.format)
             except errors.WebServiceError:
                 raise

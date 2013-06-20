@@ -19,6 +19,8 @@ ERROR_INVALID_BITRATE = 9
 ERROR_INVALID_FOREIGNID = 10
 ERROR_INVALID_MAX_DURATION_DIFF = 11
 ERROR_NOT_ALLOWED = 12
+ERROR_SERVICE_UNAVAILABLE = 13
+ERROR_TOO_MANY_REQUESTS = 14
 
 
 class WebServiceError(Exception):
@@ -120,4 +122,23 @@ class NotAllowedError(WebServiceError):
     def __init__(self):
         message = 'not allowed'
         WebServiceError.__init__(self, ERROR_NOT_ALLOWED, message)
+
+
+class ServiceUnavailable(WebServiceError):
+
+    status = 503
+
+    def __init__(self):
+        message = 'service currently unavailable, try again later'
+        WebServiceError.__init__(self, ERROR_SERVICE_UNAVAILABLE, message)
+
+
+class TooManyRequests(WebServiceError):
+
+    # status = 429
+    status = 503
+
+    def __init__(self, rate):
+        message = 'rate limit (%f requests per second) exceeded, try again later' % rate
+        WebServiceError.__init__(self, ERROR_TOO_MANY_REQUESTS, message)
 
