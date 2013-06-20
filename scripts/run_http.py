@@ -20,5 +20,5 @@ static_files = {
 host = 'localhost'
 port = 8080
 
-run_simple(host, port, application, use_reloader=True, static_files=static_files)
+run_simple(host, port, application, use_reloader=True, static_files=static_files, processes=5)
 

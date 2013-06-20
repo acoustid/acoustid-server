@@ -692,21 +692,30 @@ class SubmitHandler(APIHandler):
         if self.redis is not None:
             self.redis.publish('channel.submissions', json.dumps(list(ids)))
 
-        tracks = {}
-        remaining = min(10, params.wait)
-        while remaining > 0 and ids:
-            time.sleep(0.5) # XXX replace with LISTEN/NOTIFY
-            remaining -= 0.5
-            tracks = lookup_submission_status(self.conn, ids)
-            if not tracks:
-                continue
-            for submission in response['submissions']:
-                id = submission['id']
-                track_gid = tracks.get(id)
-                if track_gid is not None:
-                    submission['status'] = 'imported'
-                    submission['result'] = {'id': track_gid}
-                    ids.remove(id)
+        clients_waiting_key = 'submission.waiting'
+        clients_waiting = self.redis.incr(clients_waiting_key) - 1
+        try:
+            max_wait = 10
+            self.redis.expire(clients_waiting_key, max_wait)
+            tracks = {}
+            remaining = min(max(0.5, max_wait - 2 ** clients_waiting), params.wait)
+            logger.debug('starting to wait at %f %d', remaining, clients_waiting)
+            while remaining > 0 and ids:
+                logger.debug('waiting %f seconds', remaining)
+                time.sleep(0.5) # XXX replace with LISTEN/NOTIFY
+                remaining -= 0.5
+                tracks = lookup_submission_status(self.conn, ids)
+                if not tracks:
+                    continue
+                for submission in response['submissions']:
+                    id = submission['id']
+                    track_gid = tracks.get(id)
+                    if track_gid is not None:
+                        submission['status'] = 'imported'
+                        submission['result'] = {'id': track_gid}
+                        ids.remove(id)
+        finally:
+            self.redis.decr(clients_waiting_key)
 
         return response
 
