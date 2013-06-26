@@ -121,7 +121,7 @@ class APIHandler(Handler):
         if application_id is not None:
             application_rate_limit = self.config.rate_limiter.applications.get(application_id)
             if application_rate_limit is not None:
-                if self.rate_limiter.limit('ip', application_id, application_rate_limit):
+                if self.rate_limiter.limit('app', application_id, application_rate_limit):
                     pass
                     #raise errors.TooManyRequests(application_rate_limit)
 
