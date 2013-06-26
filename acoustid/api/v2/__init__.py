@@ -716,7 +716,7 @@ class SubmitHandler(APIHandler):
             max_wait = 10
             self.redis.expire(clients_waiting_key, max_wait)
             tracks = {}
-            remaining = min(max(0.5, max_wait - 2 ** clients_waiting), params.wait)
+            remaining = min(max(0, max_wait - 2 ** clients_waiting), params.wait)
             logger.debug('starting to wait at %f %d', remaining, clients_waiting)
             while remaining > 0 and ids:
                 logger.debug('waiting %f seconds', remaining)
