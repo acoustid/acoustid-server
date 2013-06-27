@@ -18,15 +18,21 @@ def _load_artists(conn, artist_credit_ids):
     columns = [
         schema.mb_artist_credit_name.c.name,
         schema.mb_artist_credit_name.c.artist_credit,
+        schema.mb_artist_credit_name.c.join_phrase,
         schema.mb_artist.c.gid
     ]
-    query = sql.select(columns, condition, from_obj=src)
+    query = sql.select(columns, condition, from_obj=src).\
+        order_by(schema.mb_artist_credit_name.c.artist_credit,
+                 schema.mb_artist_credit_name.c.position)
     result = {}
     for row in conn.execute(query):
-        result.setdefault(row['artist_credit'], []).append({
+        ac_data = {
             'id': row['gid'],
-            'name': row['name']
-        })
+            'name': row['name'],
+        }
+        if row['join_phrase']:
+            ac_data['joinphrase'] = row['join_phrase']
+        result.setdefault(row['artist_credit'], []).append(ac_data)
     return result
 
 

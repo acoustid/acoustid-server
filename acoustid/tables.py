@@ -246,6 +246,8 @@ mb_artist_credit_name = Table('s_artist_credit_name', metadata,
     Column('name', String),
     Column('artist_credit', Integer, ForeignKey('musicbrainz.s_artist_credit.id')),
     Column('artist', Integer, ForeignKey('musicbrainz.s_artist.id')),
+    Column('join_phrase', String),
+    Column('position', Integer),
     schema='musicbrainz',
 )
 
