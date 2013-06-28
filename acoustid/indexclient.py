@@ -67,7 +67,7 @@ class IndexClient(object):
             try:
                 ready_to_read, ready_to_write, in_error = select.select([self.sock], [], [self.sock], self.socket_timeout)
             except select.error, e:
-                if e.errno == errno.EINTR:
+                if getattr(e, 'errno', None) == errno.EINTR:
                     continue
                 raise
             if in_error:
