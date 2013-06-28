@@ -20,7 +20,7 @@ def do_import(script, index_first=False, only_index=False):
             update_fingerprint_index(db, script.index)
         if not only_index:
             while True:
-                count = import_queued_submissions(db, script.index)
+                count = import_queued_submissions(db, script.index, limit=10)
                 if not count:
                     break
                 update_fingerprint_index(db, script.index)
