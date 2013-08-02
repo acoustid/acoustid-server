@@ -11,9 +11,9 @@
 
 <p>
     Are you sure you want to {% if not state %}link{% else %}unlink{% endif %}
-    MBID "<a href="http://musicbrainz.org/recording/{{ mbid }}">{{ mbid }}</a>"
+    MBID "<a href="//musicbrainz.org/recording/{{ mbid }}">{{ mbid }}</a>"
     {% if not state %}to{% else %}from{% endif %}
-    track "<a href="http://acoustid.org/track/{{ track_gid }}">{{ track_gid }}</a>"?
+    track "<a href="{{ base_url }}track/{{ track_gid }}">{{ track_gid }}</a>"?
 </p>
 
 <p>Comment:<br /><textarea style="width:80%;height:3em;" name="note"></textarea></p>

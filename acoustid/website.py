@@ -89,9 +89,18 @@ class WebSiteHandler(Handler):
     def conn(self):
         return self.connect()
 
+    def get_url(self, path='', proto=None):
+        if proto is None:
+            proto = 'https' if self.req.is_secure else 'http'
+        if proto == 'https' and not self.config.https:
+            proto = 'http'
+        if proto:
+            proto += ':'
+        return '%s//%s/%s' % (proto, self.config.host, path)
+
     @property
     def login_url(self):
-        return self.config.base_https_url + 'login'
+        return self.get_url('login', proto='https')
 
     @classmethod
     def create_from_server(cls, server, **args):
@@ -101,6 +110,7 @@ class WebSiteHandler(Handler):
 
     def handle(self, req):
         self.session = SecureCookie.load_cookie(req, secret_key=self.config.secret)
+        self.req = req
         try:
             resp = self._handle_request(req)
         except HTTPException, e:
@@ -110,8 +120,8 @@ class WebSiteHandler(Handler):
 
     def render_template(self, name, **params):
         context = {
-            'base_url': self.config.base_url,
-            'base_https_url': self.config.base_https_url or self.config.base_url,
+            'base_url': self.get_url(proto=''),
+            'base_https_url': self.get_url(proto='https'),
             'account_id': self.session.get('id'),
         }
         context.update(params)
@@ -286,6 +296,10 @@ class LoginHandler(WebSiteHandler):
         else:
             errors.append('OpenID verification failed')
 
+    def is_our_url(self, url):
+        parsed = urlparse.urlparse(url)
+        return parsed.netloc == self.config.host
+
     def _handle_request(self, req):
         return_url = req.values.get('return_url')
         errors = []
@@ -301,8 +315,8 @@ class LoginHandler(WebSiteHandler):
         elif 'code' in req.args and 'state' in req.args:
             return_url = self._handle_musicbrainz_login_response(req, errors)
         if 'id' in self.session:
-            if not return_url or not return_url.startswith(self.config.base_url):
-                return_url = self.config.base_url + 'api-key'
+            if not return_url or not self.is_our_url(return_url):
+                return_url = self.get_url('api-key')
             return redirect(return_url)
         return self.render_template('login.html', errors=errors, return_url=return_url)
 
@@ -312,7 +326,7 @@ class LogoutHandler(WebSiteHandler):
     def _handle_request(self, req):
         if 'id' in self.session:
             del self.session['id']
-        return redirect(self.config.base_url)
+        return redirect(self.get_url())
 
 
 class APIKeyHandler(WebSiteHandler):
@@ -329,7 +343,7 @@ class NewAPIKeyHandler(WebSiteHandler):
     def _handle_request(self, req):
         self.require_user(req)
         reset_account_apikey(self.conn, self.session['id'])
-        return redirect(self.config.base_url + 'api-key')
+        return redirect(self.get_url('api-key'))
 
 
 class ApplicationsHandler(WebSiteHandler):
@@ -410,7 +424,7 @@ class NewApplicationHandler(WebSiteHandler):
                     'website': req.form.get('website'),
                     'account_id': self.session['id'],
                 })
-                return redirect(self.config.base_url + 'applications')
+                return redirect(self.get_url('applications'))
         return self.render_template('new-application.html', title=title,
             form=req.form, errors=errors)
 
@@ -449,7 +463,7 @@ class EditApplicationHandler(WebSiteHandler):
                     'website': req.form.get('website'),
                     'account_id': self.session['id'],
                 })
-                return redirect(self.config.base_url + 'applications')
+                return redirect(self.get_url('applications'))
         else:
             form = {}
             form['name'] = application['name']
@@ -656,7 +670,7 @@ class EditToggleTrackMBIDHandler(WebSiteHandler):
         state = bool(req.values.get('state', type=int))
         mbid = req.values.get('mbid')
         if not track_id or not mbid or not track_gid:
-            return redirect(self.config.base_url)
+            return redirect(self.get_url())
         if not is_moderator(self.conn, self.session['id']):
             title = 'MusicBrainz account required'
             return self.render_template('toggle_track_mbid_login.html', title=title)
@@ -665,10 +679,10 @@ class EditToggleTrackMBIDHandler(WebSiteHandler):
                      schema.track_mbid.c.mbid == mbid))
         rows = self.conn.execute(query).fetchall()
         if not rows:
-            return redirect(self.config.base_url)
+            return redirect(self.get_url())
         id, current_state = rows[0]
         if state == current_state:
-            return redirect(self.config.base_url + 'track/%d' % (track_id,))
+            return redirect(self.get_url('track/%d' % (track_id,)))
         if req.form.get('submit'):
             note = req.values.get('note')
             with self.conn.begin():
@@ -677,7 +691,7 @@ class EditToggleTrackMBIDHandler(WebSiteHandler):
                 insert_stmt = schema.track_mbid_change.insert().values(track_mbid_id=id, account_id=self.session['id'],
                                                                        disabled=state, note=note)
                 self.conn.execute(insert_stmt)
-            return redirect(self.config.base_url + 'track/%d' % (track_id,))
+            return redirect(self.get_url('track/%d' % (track_id,)))
         if state:
             title = 'Unlink MBID'
         else:
