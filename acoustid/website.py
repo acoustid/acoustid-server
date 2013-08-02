@@ -255,7 +255,7 @@ class LoginHandler(WebSiteHandler):
                     ax_req.add(ax.AttrInfo('http://axschema.org/namePerson/friendly',
                               alias='nickname'))
                     openid_req.addExtension(ax_req)
-                    realm = self.config.base_https_url.rstrip('/')
+                    realm = self.get_url(proto='https').rstrip('/')
                     url = openid_req.redirectURL(realm, self.login_url + '?' + url_encode({'return_url': req.values.get('return_url')}))
                     return redirect(url)
         else:
