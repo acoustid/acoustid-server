@@ -130,6 +130,7 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
             (schema.mb_track.c.length / 1000).label('track_duration'),
             schema.mb_medium.c.position.label('medium_position'),
             schema.mb_medium.c.track_count.label('medium_track_count'),
+            schema.mb_medium.c.name.label('medium_title'),
             schema.mb_medium_format.c.name.label('medium_format'),
             schema.mb_release.c.id.label('release_rid'),
             schema.mb_release.c.gid.label('release_id'),

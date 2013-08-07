@@ -467,6 +467,8 @@ class LookupHandler(APIHandler):
                 medium['track_count'] = item['medium_track_count']
                 if item['medium_format']:
                     medium['format'] = item['medium_format']
+                if item['medium_title']:
+                    medium['title'] = item['medium_title']
                 results[medium_pos] = medium
             track = {
                 'id': item['track_id'],
