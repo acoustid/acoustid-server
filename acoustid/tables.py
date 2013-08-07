@@ -234,6 +234,12 @@ mb_release_group_primary_type = Table('release_group_primary_type', metadata,
     schema='musicbrainz',
 )
 
+mb_release_group_secondary_type = Table('release_group_secondary_type', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String),
+    schema='musicbrainz',
+)
+
 mb_artist_credit = Table('s_artist_credit', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
@@ -303,6 +309,12 @@ mb_release_group = Table('s_release_group', metadata,
     Column('name', String),
     Column('gid', String),
     Column('type', Integer, ForeignKey('musicbrainz.release_group_primary_type.id')),
+    schema='musicbrainz',
+)
+
+mb_release_group_secondary_type_join = Table('release_group_secondary_type_join', metadata,
+    Column('release_group', Integer, ForeignKey('musicbrainz.release_group.id'), primary_key=True),
+    Column('secondary_type', Integer, ForeignKey('musicbrainz.release_group_secondary_type.id')),
     schema='musicbrainz',
 )
 

@@ -82,6 +82,23 @@ def _load_release_events(conn, release_ids):
     return result
 
 
+def _load_release_group_secondary_types(conn, release_group_ids):
+    if not release_group_ids:
+        return {}
+    src = schema.mb_release_group_secondary_type_join
+    src = src.join(schema.mb_release_group_secondary_type, schema.mb_release_group_secondary_type_join.c.secondary_type == schema.mb_release_group_secondary_type.c.id)
+    condition = schema.mb_release_group_secondary_type_join.c.release_group.in_(release_group_ids)
+    columns = [
+        schema.mb_release_group_secondary_type_join.c.release_group.label('release_group_rid'),
+        schema.mb_release_group_secondary_type.c.name.label('release_group_secondary_type'),
+    ]
+    query = sql.select(columns, condition, from_obj=src)
+    result = {}
+    for row in conn.execute(query):
+        result.setdefault(row['release_group_rid'], []).append(row['release_group_secondary_type'])
+    return result
+
+
 def _load_release_groups(conn, release_group_ids):
     if not release_group_ids:
         return {}
@@ -96,6 +113,7 @@ def _load_release_groups(conn, release_group_ids):
         schema.mb_release_group_primary_type.c.name.label('release_group_primary_type'),
     ]
     query = sql.select(columns, condition, from_obj=src)
+    secondary_types = _load_release_group_secondary_types(conn, release_group_ids)
     result = {}
     for row in conn.execute(query):
         result[row['release_group_rid']] = {
@@ -103,6 +121,7 @@ def _load_release_groups(conn, release_group_ids):
             'release_group_title': row['release_group_title'],
             'release_group_artist_credit': row['release_group_artist_credit'],
             'release_group_primary_type': row['release_group_primary_type'],
+            'release_group_secondary_types': secondary_types.get(row['release_group_rid']),
         }
     return result
 
