@@ -131,6 +131,7 @@ class APIHandler(Handler):
             self.user_ip = req.access_route[0]
         else:
             self.user_ip = req.remote_addr
+        self.user_agent = req.user_agent
         self.rate_limiter = RateLimiter(self.redis, 'rl')
         try:
             try:
@@ -540,6 +541,8 @@ class LookupHandler(APIHandler):
         return seen
 
     def _handle_internal(self, params):
+        self.redis.sadd('ua:%s' % params.application_id, self.user_agent)
+
         import time
         t = time.time()
         searcher = FingerprintSearcher(self.conn, self.index)
