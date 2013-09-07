@@ -629,6 +629,32 @@ class FingerprintHandler(WebSiteHandler):
             fingerprint=fingerprint, track_gid=track_gid)
 
 
+class CompareFingerprintsHandler(WebSiteHandler):
+
+    def _handle_request(self, req):
+        fingerprint_id_1 = int(self.url_args['id_1'])
+        fingerprint_id_2 = int(self.url_args['id_2'])
+        title = 'Compare fingerprints #%s and #%s' % (fingerprint_id_1, fingerprint_id_2)
+        query = sql.select(
+            [schema.fingerprint.c.id,
+             schema.fingerprint.c.length,
+             schema.fingerprint.c.fingerprint,
+             schema.fingerprint.c.track_id,
+             schema.fingerprint.c.submission_count],
+             schema.fingerprint.c.id.in_((fingerprint_id_1, fingerprint_id_2)))
+        fingerprint_1 = None
+        fingerprint_2 = None
+        for fingerprint in self.conn.execute(query):
+            if fingerprint['id'] == fingerprint_id_1:
+                fingerprint_1 = fingerprint
+            elif fingerprint['id'] == fingerprint_id_2:
+                fingerprint_2 = fingerprint
+        if not fingerprint_1 or not fingerprint_2:
+            raise NotFound()
+        return self.render_template('compare_fingerprints.html', title=title,
+            fingerprint_1=fingerprint_1, fingerprint_2=fingerprint_2)
+
+
 class MBIDHandler(WebSiteHandler):
 
     def _handle_request(self, req):

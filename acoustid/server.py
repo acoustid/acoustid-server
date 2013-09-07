@@ -54,6 +54,7 @@ website_url_rules = [
     Rule('/stats', endpoint=website.StatsHandler),
     Rule('/track/<string:id>', endpoint=website.TrackHandler),
     Rule('/fingerprint/<int:id>', endpoint=website.FingerprintHandler),
+    Rule('/fingerprint/<int:id_1>/compare/<int:id_2>', endpoint=website.CompareFingerprintsHandler),
     Rule('/mbid/<string:mbid>', endpoint=website.MBIDHandler),
     Rule('/puid/<string:puid>', endpoint=website.PUIDHandler),
     Rule('/edit/toggle-track-mbid', endpoint=website.EditToggleTrackMBIDHandler),

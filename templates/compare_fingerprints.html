@@ -1,0 +1,45 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>{{ title }}</h2>
+
+<p>
+  <button id="move-up">Move Up</button>
+  <button id="move-down">Move Down</button>
+  Offset: <span id="offset">0</span>
+</p>
+
+<p><canvas style="border: solid 2px #C5C5C5;" id="fp-img" width="32" height="0"></canvas></p>
+
+<p>Back to <a href="{{ base_url }}fingerprint/{{ fingerprint_1.id }}">fingerprint #{{ fingerprint_1.id }}</a> or <a href="{{ base_url }}fingerprint/{{ fingerprint_2.id }}">fingerprint #{{ fingerprint_2.id }}</a></p>
+
+<script type="text/javascript" src="{{ base_url }}static/fputils.js"></script>
+<script type="text/javascript">
+$(document).ready(function () {
+   var fp1 = {{ fingerprint_1.fingerprint }};
+   var fp2 = {{ fingerprint_2.fingerprint }};
+   var canvas = document.getElementById('fp-img');
+   var offset = 0;
+
+   function repaint() {
+       paintFingerprintDiff(canvas, fp1, fp2, offset);
+       $("#offset").text(offset);
+   }
+
+   repaint();
+
+   $('#move-up').click(function () {
+       offset -= 1;
+       repaint();
+   });
+
+   $('#move-down').click(function () {
+       offset += 1;
+       repaint();
+   });
+
+});
+</script>
+
+{% endblock %}
+
