@@ -7,15 +7,15 @@ found in the blog post ["How does Chromaprint work?"][blog2].
 
 ### Download
 
-Latest release &mdash; 0.7 (September 5, 2012)
+Latest release &mdash; 1.0 (September 8, 2013)
 
- * [Source code tarball](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-0.7.tar.gz) (531K)
+ * [Source code tarball](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-1.0.tar.gz) (528.7 KB)
  * Static binaries for the fpcalc tool
-     * [Windows](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-0.6-win32.zip) (695K)
-     * [Mac OS X, 32-bit, 10.4+](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-0.6-osx-i386.tar.gz) (582K)
-     * [Mac OS X, 64-bit, 10.4+](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-0.6-osx-x86_64.tar.gz) (621K)
-     * [Linux, 32-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-0.6-linux-i686.tar.gz) (711K)
-     * [Linux, 64-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-0.6-linux-x86_64.tar.gz) (689K)
+     * [Windows](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.0-win32.zip) (1005.6 KB)
+     * [Mac OS X, 32-bit, 10.4+](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.0-osx-i386.tar.gz) (963.2 KB)
+     * [Mac OS X, 64-bit, 10.4+](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.0-osx-x86_64.tar.gz) (954.7 KB)
+     * [Linux, 32-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.0-linux-i686.tar.gz) (1.1 MB)
+     * [Linux, 64-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.0-linux-x86_64.tar.gz) (1.1 MB)
  * Most Linux distributions have their own binary packages for Chromaprint
 
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
