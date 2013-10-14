@@ -254,7 +254,7 @@ of the pending submissions later.
 
 While you can submit a fingerprint without any metadata, it is not very useful
 to do so. If the file has embedded MusicBrainz tags, please send the MusicBrainz
-track ID. Otherwise you can send the PUID or textual metadata.
+track ID. Otherwise you can send the textual metadata.
 
 #### URL
 
