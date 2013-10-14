@@ -23,10 +23,6 @@
         <td class="r">{{ basic.mbids }}</td>
     </tr>
     <tr>
-        <td>PUIDs</td>
-        <td class="r">{{ basic.puids }}</td>
-    </tr>
-    <tr>
         <td>Contributors</td>
         <td class="r">{{ basic.contributors }}</td>
     </tr>
@@ -39,23 +35,6 @@
 <p><b>Searches</b></p>
 
 <div id="lookups-graph-fp"></div>
-
-<p><b>MusicBrainz database coverage compared to PUIDs</b></p>
-
-<table class="listing">
-    <tr>
-        <td>Recordings identifiable by both PUIDs and AcoustID</td>
-        <td class="r">{{ basic.mbids_both }}</td>
-    </tr>
-    <tr>
-        <td>Recordings identifiable only by PUIDs</td>
-        <td class="r">{{ basic.mbids_onlypuid }}</td>
-    </tr>
-    <tr>
-        <td>Recordings identifiable only by AcoustID</td>
-        <td class="r">{{ basic.mbids_onlyacoustid }}</td>
-    </tr>
-</table>
 
 <p><b>AcoustIDs per the number of linked recordings</b></p>
 
@@ -149,8 +128,7 @@ $(document).ready(function() {
 		},
 		series: [
 			{{ data_series('AcoustIDs', daily.tracks) }},
-			{{ data_series('MBIDs', daily.mbids, false) }},
-			{{ data_series('PUIDs', daily.puids, false) }}
+			{{ data_series('MBIDs', daily.mbids) }},
 		]
 	});
 	chart2 = new Highcharts.Chart({

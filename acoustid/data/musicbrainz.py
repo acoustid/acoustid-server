@@ -254,33 +254,6 @@ def cluster_track_names(names):
             yield i
 
 
-def find_puid_mbids(conn, puid, min_duration, max_duration):
-    """
-    Find MBIDs for MusicBrainz tracks that are linked to the given PUID and
-    have duration within the given range
-    """
-    src = schema.mb_puid
-    src = src.join(schema.mb_recording_puid, schema.mb_recording_puid.c.puid == schema.mb_puid.c.id)
-    src = src.join(schema.mb_recording, schema.mb_recording.c.id == schema.mb_recording_puid.c.recording)
-    src = src.join(schema.mb_artist_credit, schema.mb_artist_credit.c.id == schema.mb_recording.c.artist_credit)
-    condition = sql.and_(
-        schema.mb_puid.c.puid == puid,
-        sql.or_(
-            schema.mb_recording.c.length.between(min_duration * 1000, max_duration * 1000),
-            schema.mb_recording.c.length == None
-        )
-    )
-    columns = [
-        schema.mb_recording.c.gid,
-        schema.mb_recording.c.name,
-        schema.mb_artist_credit.c.name.label('artist')
-    ]
-    query = sql.select(columns, condition, from_obj=src).order_by(schema.mb_recording.c.id)
-    rows = conn.execute(query).fetchall()
-    good_group = cluster_track_names(r['name'] + ' ' + r['artist'] for r in rows)
-    return [rows[i]['gid'] for i in good_group]
-
-
 def resolve_mbid_redirect(conn, mbid):
     src = schema.mb_recording
     src = src.join(schema.mb_recording_gid_redirect, schema.mb_recording_gid_redirect.c.new_id == schema.mb_recording.c.id)

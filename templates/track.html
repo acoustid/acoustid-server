@@ -92,22 +92,5 @@
 </table>
 {% endif %}
 
-{% if puids %}
-<p>Linked PUIDs:</p>
-
-<table class="listing">
-<tr>
-    <th>PUID</th>
-    <th style="width:5em;">Sources</th>
-</tr>
-{% for p in puids %}
-<tr>
-    <td><a href="//musicbrainz.org/puid/{{ p.puid }}">{{ p.puid }}</a></td>
-    <td>{{ p.submission_count }}</td>
-</tr>
-{% endfor %}
-</table>
-{% endif %}
-
 {% endblock %}
 

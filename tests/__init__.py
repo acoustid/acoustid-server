@@ -99,8 +99,6 @@ TABLES = [
     'musicbrainz.recording',
     'musicbrainz.release_name',
     'musicbrainz.release_group',
-    'musicbrainz.puid',
-    'musicbrainz.recording_puid',
     'musicbrainz.clientversion',
     'musicbrainz.tracklist',
 ]
@@ -151,12 +149,6 @@ INSERT INTO musicbrainz.medium_format (id, name) VALUES
 INSERT INTO musicbrainz.medium (id, release, tracklist, position, format) VALUES
     (1, 1, 1, 1, 1),
     (2, 2, 1, 1, 2);
-INSERT INTO musicbrainz.clientversion (id, version) VALUES
-    (1, 'test/1.0');
-INSERT INTO musicbrainz.puid (id, puid, version) VALUES
-    (1, 'c12f1170-db63-4e85-931b-e46094b49085', 1);
-INSERT INTO musicbrainz.recording_puid (puid, recording) VALUES
-    (1, 1), (1, 2), (1, 3);
 '''
 
 

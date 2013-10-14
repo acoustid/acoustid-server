@@ -6,7 +6,7 @@ import uuid
 from sqlalchemy import sql
 from acoustid import tables as schema, const
 from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
-from acoustid.data.musicbrainz import find_puid_mbids, resolve_mbid_redirect
+from acoustid.data.musicbrainz import resolve_mbid_redirect
 
 logger = logging.getLogger(__name__)
 
@@ -56,21 +56,6 @@ def lookup_meta_ids(conn, track_ids):
     return results
 
 
-def lookup_puids(conn, track_ids):
-    """
-    Lookup PUIDs for the specified AcoustID track IDs.
-    """
-    if not track_ids:
-        return {}
-    query = sql.select(
-        [schema.track_puid.c.track_id, schema.track_puid.c.puid],
-        schema.track_puid.c.track_id.in_(track_ids)).order_by(schema.track_puid.c.puid)
-    results = {}
-    for track_id, puid in conn.execute(query):
-        results.setdefault(track_id, []).append(puid)
-    return results
-
-
 def lookup_tracks(conn, mbids):
     if not mbids:
         return {}
@@ -82,20 +67,6 @@ def lookup_tracks(conn, mbids):
     results = {}
     for track_id, track_gid, mbid in conn.execute(query):
         results.setdefault(mbid, []).append({'id': track_id, 'gid': track_gid})
-    return results
-
-
-def lookup_tracks_by_puids(conn, puids):
-    if not puids:
-        return {}
-    query = sql.select(
-        [schema.track_puid.c.track_id, schema.track.c.gid, schema.track_puid.c.puid],
-        schema.track_puid.c.puid.in_(puids),
-        from_obj=schema.track_puid.join(schema.track, schema.track_puid.c.track_id == schema.track.c.id)). \
-        order_by(schema.track_puid.c.track_id)
-    results = {}
-    for track_id, track_gid, puid in conn.execute(query):
-        results.setdefault(puid, []).append({'id': track_id, 'gid': track_gid})
     return results
 
 

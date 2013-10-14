@@ -10,7 +10,7 @@ import operator
 from acoustid import const
 from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.handler import Handler, Response
-from acoustid.data.track import lookup_mbids, lookup_puids, resolve_track_gid, lookup_meta_ids
+from acoustid.data.track import lookup_mbids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.submission import insert_submission, lookup_submission_status
 from acoustid.data.fingerprint import lookup_fingerprint, decode_fingerprint, FingerprintSearcher
@@ -204,11 +204,6 @@ class LookupHandler(APIHandler):
 
     params_class = LookupHandlerParams
     recordings_name = 'recordings'
-
-    def inject_puids(self, meta, result_map):
-        for track_id, puids in lookup_puids(self.conn, self.el_result.keys()).iteritems():
-            for result_el in self.el_result[track_id]:
-                result_el['puids'] = puids
 
     def _inject_recording_ids_internal(self, add=True, add_sources=False):
         el_recording = {}
@@ -526,8 +521,6 @@ class LookupHandler(APIHandler):
             self.inject_release_groups(meta)
         elif 'releases' in meta or 'releaseids' in meta:
             self.inject_releases(meta)
-        if 'puids' in meta:
-            self.inject_puids(meta, result_map)
 
     def _inject_results(self, results, result_map, matches):
         seen = set()

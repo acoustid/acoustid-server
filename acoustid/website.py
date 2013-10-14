@@ -510,24 +510,17 @@ class StatsHandler(WebSiteHandler):
             'fingerprints': stats.get('fingerprint.all', 0),
             'tracks': stats.get('track.all', 0),
             'mbids': stats.get('mbid.all', 0),
-            'puids': stats.get('puid.all', 0),
             'contributors': stats.get('account.active', 0),
-            'mbids_both': stats.get('mbid.both', 0),
-            'mbids_onlypuid': stats.get('mbid.onlypuid', 0),
-            'mbids_onlyacoustid': stats.get('mbid.onlyacoustid', 0),
         }
         track_mbid = self._get_pie_chart(stats, 'track.%dmbids')
         mbid_track = self._get_pie_chart(stats, 'mbid.%dtracks')
         basic['tracks_with_mbid'] = basic['tracks'] - stats.get('track.0mbids', 0)
         basic['tracks_with_mbid_percent'] = percent(basic['tracks_with_mbid'], basic['tracks'])
         top_contributors = find_top_contributors(self.conn)
-        daily_raw = find_daily_stats(self.conn, ['submission.all', 'fingerprint.all', 'track.all', 'mbid.all', 'puid.all'])
+        daily_raw = find_daily_stats(self.conn, ['track.all', 'mbid.all'])
         daily = {
-            'submissions': daily_raw['submission.all'],
-            'fingerprints': daily_raw['fingerprint.all'],
             'tracks': daily_raw['track.all'],
             'mbids': daily_raw['mbid.all'],
-            'puids': daily_raw['puid.all'],
         }
         lookups = find_lookup_stats(self.conn)
         return self.render_template('stats.html', title=title, basic=basic,
@@ -585,11 +578,6 @@ class TrackHandler(WebSiteHandler):
             schema.fingerprint.c.track_id == track_id).order_by(schema.fingerprint.c.length)
         fingerprints = self.conn.execute(query).fetchall()
         query = sql.select(
-            [schema.track_puid.c.puid,
-             schema.track_puid.c.submission_count],
-            schema.track_puid.c.track_id == track_id)
-        puids = list(self.conn.execute(query).fetchall())
-        query = sql.select(
             [schema.track_mbid.c.mbid,
              schema.track_mbid.c.submission_count,
              schema.track_mbid.c.disabled],
@@ -606,7 +594,7 @@ class TrackHandler(WebSiteHandler):
         recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
         moderator = is_moderator(self.conn, self.session.get('id'))
         return self.render_template('track.html', title=title,
-            fingerprints=fingerprints, recordings=recordings, puids=puids,
+            fingerprints=fingerprints, recordings=recordings,
             moderator=moderator, track=track)
 
 
@@ -669,16 +657,6 @@ class MBIDHandler(WebSiteHandler):
         title = 'Recording "%s" by %s' % (metadata['name'], metadata['artist_name'])
         tracks = lookup_tracks(self.conn, [mbid]).get(mbid, [])
         return self.render_template('mbid.html', title=title, tracks=tracks, mbid=mbid)
-
-
-class PUIDHandler(WebSiteHandler):
-
-    def _handle_request(self, req):
-        from acoustid.data.track import lookup_tracks_by_puids
-        puid = self.url_args['puid']
-        title = 'PUID "%s"' % (puid,)
-        tracks = lookup_tracks_by_puids(self.conn, [puid]).get(puid, [])
-        return self.render_template('puid.html', title=title, tracks=tracks, puid=puid)
 
 
 class EditToggleTrackMBIDHandler(WebSiteHandler):

@@ -56,7 +56,6 @@ this key in your application code, each user should provide their own.
  * [Submit](#submit)
  * [Get submission status](#submission_status)
  * [List AcoustIDs by MBID](#list_by_mbid)
- * [List AcoustIDs by PUID](#list_by_puid)
 
 <span id="lookup"></span>
 ### Lookup by fingerprint
@@ -110,7 +109,7 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 	<tr>
 		<td>meta</td>
 		<td>no</td>
-		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, puids, compress, usermeta, sources</td>
+		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources</td>
 		<td>returned metadata</td>
 	</tr>
 </table>
@@ -216,7 +215,7 @@ wich is a cluster of fingerprints.
 	<tr>
 		<td>meta</td>
 		<td>no</td>
-		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, puids, compress, usermeta, sources</td>
+		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources</td>
 		<td>returned metadata</td>
 	</tr>
 </table>
@@ -329,12 +328,6 @@ track ID. Otherwise you can send the PUID or textual metadata.
 		<td>no</td>
 		<td>4e0d8649-1f89-44f3-91af-4c0dbee81f28</td>
 		<td>corresponding MusicBrainz track ID</td>
-	</tr>
-	<tr>
-		<td>puid.#</td>
-		<td>no</td>
-		<td>4c986c91-40e5-d2b2-531e-e77ad4309691</td>
-		<td>corresponding PUID</td>
 	</tr>
 	<tr>
 		<td>track.#</td>
@@ -534,42 +527,6 @@ Look up the status of two previously submitted fingerprints:
 		<td>no</td>
 		<td>0, 1</td>
 		<td>use if you want to lookup multiple MBIDs</td>
-	</tr>
-</table>
-
-<span id="list_by_puid"></span>
-### List AcoustIDs by PUID
-
-#### URL
-
-    http://api.acoustid.org/v2/track/list_by_puid
-
-#### Parameters
-
-<table class="listing">
-	<tr>
-		<th>Name</th>
-		<th>Required</th>
-		<th>Values</th>
-		<th>Description</th>
-	</tr>
-	<tr>
-		<td>format</td>
-		<td>no</td>
-		<td>json, jsonp, xml</td>
-		<td>response format</td>
-	</tr>
-	<tr>
-		<td>jsoncallback</td>
-		<td>no</td>
-		<td>jsonAcoustidApi</td>
-		<td>JSONP callback, only applicable if you select the jsonp format</td>
-	</tr>
-	<tr>
-		<td>puid</td>
-		<td>yes</td>
-		<td>4c986c91-40e5-d2b2-531e-e77ad4309691</td>
-		<td>corresponding PUID</td>
 	</tr>
 </table>
 

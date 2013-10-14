@@ -334,16 +334,3 @@ mb_medium = Table('medium', metadata,
     schema='musicbrainz',
 )
 
-mb_puid = Table('puid', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('puid', String),
-    schema='musicbrainz',
-)
-
-mb_recording_puid = Table('recording_puid', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('puid', Integer, ForeignKey('musicbrainz.puid.id')),
-    Column('recording', Integer, ForeignKey('musicbrainz.recording.id')),
-    schema='musicbrainz',
-)
-

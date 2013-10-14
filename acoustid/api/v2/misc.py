@@ -73,11 +73,6 @@ class TrackListByPUIDHandler(APIHandler):
     def _handle_internal(self, params):
         response = {}
         response['tracks'] = tracks = []
-        query = sql.select([schema.track.c.gid],
-            schema.track_puid.c.puid == params.puid,
-            schema.track_puid.join(schema.track))
-        for row in self.conn.execute(query):
-            tracks.append({'id': row['gid']})
         return response
 
 
