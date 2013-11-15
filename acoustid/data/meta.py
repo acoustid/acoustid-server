@@ -33,6 +33,7 @@ def lookup_meta(conn, meta_ids):
             'track_duration': None,
             'medium_position': row['disc_no'],
             'medium_format': None,
+            'medium_title': None,
             'medium_track_count': None,
             'release_rid': row['id'],
             'release_id': row['id'],
@@ -48,6 +49,7 @@ def lookup_meta(conn, meta_ids):
             'release_group_title': row['album'],
             'release_group_artists': [],
             'release_group_primary_type': None,
+            'release_group_secondary_types': [],
         }
         if row['artist']:
             result['recording_artists'].append(row['artist'])
