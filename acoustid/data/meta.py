@@ -27,6 +27,7 @@ def lookup_meta(conn, meta_ids):
             'recording_title': row['track'],
             'recording_artists': [],
             'recording_duration': None,
+            'track_id': row['id'],
             'track_position': row['track_no'],
             'track_title': row['track'],
             'track_artists': [],
