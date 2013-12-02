@@ -430,7 +430,7 @@ the status of the submission by looking up the ID from the `/v2/submit` call.
 
 #### URL
 
-    http://api.acoustid.org/v2/submision_status
+    http://api.acoustid.org/v2/submission_status
 
 #### Parameters
 
@@ -471,7 +471,7 @@ the status of the submission by looking up the ID from the `/v2/submit` call.
 
 Look up the status of two previously submitted fingerprints:
 
-<pre><code>http://api.acoustid.org/v2/submision_status?client=8XaBELgH&id=123456789&id=1234567890</code></pre>
+<pre><code>http://api.acoustid.org/v2/submission_status?client=8XaBELgH&id=123456789&id=1234567890</code></pre>
 
     {
       "status": "ok",
