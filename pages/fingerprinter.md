@@ -25,7 +25,7 @@ Latest release &mdash; 0.6 (Sep 5, 2012)
  * Packages
      * [Windows][win]
      * [Mac OS X][osx]
-     * [Arch Linux](http://aur.archlinux.org/packages.php?ID=46359)
+     * [Arch Linux](https://aur.archlinux.org/packages/acoustid-fingerprinter/)
      * [Debian](http://packages.debian.org/acoustid-fingerprinter)
      * [Gentoo](http://proaudio.tuxfamily.org/wiki/index.php?title=Usage) (Pro-Audio Gentoo overlay)
      * [Ubuntu][ppa]
