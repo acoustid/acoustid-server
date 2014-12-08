@@ -19,11 +19,31 @@
 </script> 
 <script type="text/javascript" src="/static/jquery-1.10.0.min.js"></script>
 </head> 
-<body> 
+<body style="margin-top:0;"> 
         {# <div style="text-align: center; width:100%; font-weight: bold; font-size:130%; color:red;">The AcoustID website is currently in read-only mode for maintenance.</div> #}
+        <div style="text-align: left; width:100%; font-size: 14px; background-color: #ffefd7; padding:10px; font-weight: bold;">
+
+<div style="width:740px; margin-left:auto; margin-right:auto; position:relative; padding-right:120px;">
+
+Dear users &mdash;
+AcoustID provides free service to an number of open source applications.
+If you are using such an application and find AcoustID useful, please consider donating a
+small amount, to keep it running smoothly and stay free.
+<i>Thank you.</i>
+
+<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top" style="position:absolute; right:10px; top:5px;">
+<input type="hidden" name="cmd" value="_s-xclick">
+<input type="hidden" name="hosted_button_id" value="RRBS25ADWPK2E">
+<input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+<img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+</form>
+
+</div>
+
+	</div>
 	<div id="container"> 
 		<div id="container-inner"> 
-			<h1><a href="{{ base_url }}" title="AcoustID"><span>Acoustid</span></a></h1> 
+			<h1><a href="{{ base_url }}" title="AcoustID"><span>AcoustID</span></a></h1> 
 			<ul id="menu"> 
 				{% if account_id  %}
 				<li><a href="{{ base_url }}api-key"><strong>Get API Key</strong></a></li> 
