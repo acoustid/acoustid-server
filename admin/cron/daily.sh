@@ -8,3 +8,6 @@ PSQL=$DIR/run_psql.sh
 
 $PSQL -q -t -A <$DIR/sql/CollectStats.sql | perl -pe 's{^\s+}{}'
 
+python $DIR/scripts/update_user_agent_stats.py -q -c $DIR/acoustid.conf
+python $DIR/scripts/cleanup_stats.py -q -c $DIR/acoustid.conf
+
