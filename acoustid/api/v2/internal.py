@@ -2,7 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from acoustid.data.stats import update_lookup_stats
+from acoustid.data.stats import update_lookup_stats, update_user_agent_stats
 from acoustid.api import errors
 from acoustid.api.v2 import APIHandler, APIHandlerParams
 from acoustid.handler import Handler, Response
