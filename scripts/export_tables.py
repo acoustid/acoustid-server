@@ -45,8 +45,8 @@ MUSICBRAINZ_TABLES = [
 ]
 
 
-def export_tables(cursor, name, tables):
-    base_path = os.path.join("/tmp/acoustid-export", name)
+def export_tables(cursor, name, tables, data_dir):
+    base_path = os.path.join(data_dir, name)
     os.mkdir(base_path)
     for table, sql in tables:
         path = os.path.join(base_path, table)
@@ -71,7 +71,7 @@ def dump_colums(root, root_name, columns):
                 column_node.text = value.decode('UTF-8')
 
 
-def create_musicbrainz_replication_packet(cursor):
+def create_musicbrainz_replication_packet(cursor, data_dir):
     cursor.execute("""
         UPDATE acoustid_mb_replication_control
         SET current_replication_sequence = current_replication_sequence + 1,
@@ -99,14 +99,14 @@ def create_musicbrainz_replication_packet(cursor):
         keys, values = skytools.parse_logtriga_sql(operation, data.encode('UTF-8'), splitkeys=True)
 	dump_colums(event_node, 'keys', keys)
 	dump_colums(event_node, 'values', values)
-    fp = open('/tmp/acoustid-export/acoustid-musicbrainz-update-%d.xml' % replication_seq, 'w')
+    fp = open(os.path.join(data_dir, 'acoustid-musicbrainz-update-%d.xml' % replication_seq), 'w')
     fp.write(etree.tostring(packet_node, encoding="UTF-8"))
     fp.flush()
     os.fsync(fp.fileno())
     fp.close()
 
 
-def create_replication_packet(cursor):
+def create_replication_packet(cursor, data_dir):
     cursor.execute("""
         UPDATE replication_control
         SET current_replication_sequence = current_replication_sequence + 1,
@@ -134,16 +134,16 @@ def create_replication_packet(cursor):
         keys, values = skytools.parse_logtriga_sql(operation, data.encode('UTF-8'), splitkeys=True)
 	dump_colums(event_node, 'keys', keys)
 	dump_colums(event_node, 'values', values)
-    fp = open('/tmp/acoustid-export/acoustid-update-%d.xml' % replication_seq, 'w')
+    fp = open(os.path.join(data_dir, 'acoustid-update-%d.xml' % replication_seq), 'w')
     fp.write(etree.tostring(packet_node, encoding="UTF-8"))
     fp.flush()
     os.fsync(fp.fileno())
     fp.close()
 
 
-def export_replication(cursor):
-    create_replication_packet(cursor)
-    create_musicbrainz_replication_packet(cursor)
+def export_replication(cursor, data_dir):
+    create_replication_packet(cursor, data_dir)
+    create_musicbrainz_replication_packet(cursor, data_dir)
     cursor.execute("DELETE FROM mirror_queue")
 
 
@@ -154,14 +154,15 @@ def main(script, opts, args):
         conn.connection.rollback()
         conn.connection.set_session(psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
         cursor = conn.connection.cursor()
-        export_replication(cursor)
+        export_replication(cursor, opts.data_dir)
         if opts.full:
-            export_tables(cursor, 'acoustid-dump', CORE_TABLES)
-            export_tables(cursor, 'acoustid-musicbrainz-dump', MUSICBRAINZ_TABLES)
+            export_tables(cursor, 'acoustid-dump', CORE_TABLES, opts.data_dir)
+            export_tables(cursor, 'acoustid-musicbrainz-dump', MUSICBRAINZ_TABLES, opts.data_dir)
         conn.connection.commit()
 
  
 def add_options(parser):
+    parser.add_option("-d", "--dir", dest="data_dir", default="/tmp/acoustid-export", help="directory")
     parser.add_option("-f", "--full", dest="full", action="store_true",
         default=False, help="full export")
 

@@ -8,14 +8,14 @@ LOCKNAME=acoustid-export
 DIR=`dirname $0`/../..
 export PYTHONPATH=$DIR
 
-TEMP_DIR=/tmp/acoustid-export
+TEMP_DIR=/home/acoustid/data/.export
 DATA_DIR=/home/acoustid/data
 TARGET_DIR=$DATA_DIR/fullexport/`date '+%Y-%m-%d'`
 
 rm -rf $TEMP_DIR
 mkdir $TEMP_DIR
 
-$DIR/scripts/export_tables.py -q -c $DIR/acoustid.conf "$@"
+$DIR/scripts/export_tables.py -q -c $DIR/acoustid.conf -d $TEMP_DIR "$@"
 
 cd $TEMP_DIR
 
