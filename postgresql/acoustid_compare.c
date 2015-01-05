@@ -38,8 +38,8 @@ Datum       acoustid_extract_query(PG_FUNCTION_ARGS);
 /* dimension of array */
 #define NDIM 1
 
-/* useful macros for accessing int4 arrays */
-#define ARRPTR(x)  ( (int4 *) ARR_DATA_PTR(x) )
+/* useful macros for accessing int32 arrays */
+#define ARRPTR(x)  ( (int32 *) ARR_DATA_PTR(x) )
 #define ARRNELEMS(x)  ArrayGetNItems(ARR_NDIM(x), ARR_DIMS(x))
 
 /* reject arrays we can't handle; but allow a NULL or empty array */
@@ -84,7 +84,7 @@ popcount_3(uint64_t x)
 
 
 static float4
-match_fingerprints(int4 *a, int asize, int4 *b, int bsize)
+match_fingerprints(int32 *a, int asize, int32 *b, int bsize)
 {
 	int i, j, topcount;
 	int numcounts = asize + bsize + 1;
@@ -116,7 +116,7 @@ match_fingerprints(int4 *a, int asize, int4 *b, int bsize)
 }
 
 static float4
-match_fingerprints2(int4 *a, int asize, int4 *b, int bsize, int maxoffset)
+match_fingerprints2(int32 *a, int asize, int32 *b, int bsize, int maxoffset)
 {
 	int i, topcount, topoffset, size, biterror, minsize, auniq = 0, buniq = 0;
 	int numcounts = asize + bsize + 1;
@@ -248,7 +248,7 @@ acoustid_compare2(PG_FUNCTION_ARGS)
 {
 	ArrayType *a = PG_GETARG_ARRAYTYPE_P(0);
 	ArrayType *b = PG_GETARG_ARRAYTYPE_P(1);
-	int maxoffset = PG_GETARG_INT32(2);
+	int32 maxoffset = PG_GETARG_INT32(2);
 	float4 result;
 
 	CHECKARRVALID(a);
@@ -267,8 +267,8 @@ acoustid_compare2(PG_FUNCTION_ARGS)
 static ArrayType *
 new_intArrayType(int num)
 {
-	ArrayType  *r;
-	int nbytes = ARR_OVERHEAD_NONULLS(1) + sizeof(int) * num;
+	ArrayType *r;
+	int nbytes = ARR_OVERHEAD_NONULLS(1) + sizeof(int32) * num;
 
 	r = (ArrayType *) palloc0(nbytes);
 
@@ -286,7 +286,7 @@ Datum
 acoustid_extract_query(PG_FUNCTION_ARGS)
 {
 	ArrayType *a = PG_GETARG_ARRAYTYPE_P(0), *q;
-	int4 *orig, *query;
+	int32 *orig, *query;
 	int i, j, size, cleansize, querysize;
 
 	CHECKARRVALID(a);
@@ -308,7 +308,7 @@ acoustid_extract_query(PG_FUNCTION_ARGS)
 	query = ARRPTR(q);
 	querysize = 0;
 	for (i = Max(0, Min(cleansize - ACOUSTID_QUERY_LENGTH, ACOUSTID_QUERY_START)); i < size && querysize < ACOUSTID_QUERY_LENGTH; i++) {
-		int4 x = ACOUSTID_QUERY_STRIP(orig[i]);
+		int32 x = ACOUSTID_QUERY_STRIP(orig[i]);
 		if (orig[i] == 627964279) {
 			goto next; // silence
 		}
