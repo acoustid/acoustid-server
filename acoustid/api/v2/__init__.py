@@ -20,7 +20,7 @@ from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.source import find_or_insert_source
 from acoustid.data.meta import insert_meta, lookup_meta
 from acoustid.data.foreignid import find_or_insert_foreignid
-from acoustid.data.stats import update_lookup_counter, update_lookup_avg_time
+from acoustid.data.stats import update_lookup_counter, update_user_agent_counter, update_lookup_avg_time
 from acoustid.ratelimiter import RateLimiter
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
@@ -534,10 +534,9 @@ class LookupHandler(APIHandler):
         return seen
 
     def _handle_internal(self, params):
-        self.redis.sadd('ua:%s' % params.application_id, self.user_agent)
-
         import time
         t = time.time()
+        update_user_agent_counter(self.redis, params.application_id, self.user_agent, self.user_ip)
         searcher = FingerprintSearcher(self.conn, self.index)
         searcher.max_length_diff = params.max_duration_diff
         if params.batch:

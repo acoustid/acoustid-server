@@ -3,6 +3,8 @@
 
 import re
 import syslog
+import urllib
+import urllib2
 from logging import Handler
 from logging.handlers import SysLogHandler
 
@@ -112,3 +114,9 @@ class LocalSysLogHandler(Handler):
         except StandardError:
             self.handleError(record)
 
+
+def call_internal_api(config, func, **kwargs):
+    url = config.cluster.base_master_url.rstrip('/') + '/v2/internal/' + func
+    data = dict(kwargs)
+    data['secret'] = config.cluster.secret
+    urllib2.urlopen(url, urllib.urlencode(data))

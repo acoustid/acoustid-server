@@ -84,6 +84,15 @@ stats_lookups = Table('stats_lookups', metadata,
     Column('count_hits', Integer),
 )
 
+stats_user_agents = Table('stats_user_agents', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('date', Date),
+    Column('application_id', Integer, ForeignKey('application.id')),
+    Column('user_agent', String),
+    Column('ip', String),
+    Column('count', Integer),
+)
+
 stats_top_accounts = Table('stats_top_accounts', metadata,
     Column('id', Integer, primary_key=True),
     Column('account_id', Integer, ForeignKey('account.id')),

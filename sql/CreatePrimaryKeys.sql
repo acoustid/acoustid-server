@@ -22,6 +22,7 @@ ALTER TABLE track_foreignid_source ADD CONSTRAINT track_foreignid_source_pkey PR
 ALTER TABLE submission ADD CONSTRAINT submission_pkey PRIMARY KEY (id);
 ALTER TABLE stats ADD CONSTRAINT stats_pkey PRIMARY KEY (id);
 ALTER TABLE stats_lookups ADD CONSTRAINT stats_lookups_pkey PRIMARY KEY (id);
+ALTER TABLE stats_user_agents ADD CONSTRAINT stats_user_agents_pkey PRIMARY KEY (id);
 ALTER TABLE stats_top_accounts ADD CONSTRAINT stats_top_accounts_pkey PRIMARY KEY (id);
 ALTER TABLE meta ADD CONSTRAINT meta_pkey PRIMARY KEY (id);
 

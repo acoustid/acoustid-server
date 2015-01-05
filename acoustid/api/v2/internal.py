@@ -38,3 +38,31 @@ class UpdateLookupStatsHandler(APIHandler):
                                 params.hour, params.type, params.count)
         return {}
 
+
+class UpdateUserAgentStatsHandlerParams(APIHandlerParams):
+
+    def parse(self, values, conn):
+        super(UpdateUserAgentStatsHandlerParams, self).parse(values, conn)
+        self.secret = values.get('secret')
+        self.application_id = values.get('application_id', type=int)
+        self.date = values.get('date')
+        self.user_agent = values.get('user_agent')
+        self.ip = values.get('ip')
+
+
+class UpdateUserAgentStatsHandler(APIHandler):
+
+    params_class = UpdateUserAgentStatsHandlerParams
+
+    def _handle_internal(self, params):
+        if self.cluster.role != 'master':
+            logger.warning('Trying to call update_user_agent_stats on %s server', self.cluster.role)
+            raise errors.NotAllowedError()
+        if self.cluster.secret != params.secret:
+            logger.warning('Invalid cluster secret')
+            raise errors.NotAllowedError()
+        with self.conn.begin():
+            update_user_agent_stats(self.conn, params.application_id, params.date,
+                                    params.user_agent, params.ip, params.count)
+        return {}
+

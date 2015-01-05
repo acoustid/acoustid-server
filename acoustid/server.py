@@ -31,6 +31,7 @@ api_url_rules = [
             Rule('/user/create_anonymous', endpoint=api.v2.misc.UserCreateAnonymousHandler),
             Submount('/internal', [
                 Rule('/update_lookup_stats', endpoint=api.v2.internal.UpdateLookupStatsHandler),
+                Rule('/update_user_agent_stats', endpoint=api.v2.internal.UpdateUserAgentStatsHandler),
             ]),
         ]),
     ])

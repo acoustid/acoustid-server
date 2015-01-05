@@ -36,5 +36,8 @@ CREATE INDEX track_foreignid_idx_uniq ON track_foreignid (track_id, foreignid_id
 CREATE INDEX stats_idx_date ON stats (date);
 CREATE INDEX stats_idx_name_date ON stats (name, date);
 
+CREATE INDEX stats_lookups_idx_date ON stats_lookups (date);
+CREATE INDEX stats_user_agents_idx_date ON stats_user_agents (date);
+
 CREATE INDEX submission_idx_handled ON submission (id) WHERE handled = false;
 

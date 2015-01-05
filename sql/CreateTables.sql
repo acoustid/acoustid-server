@@ -210,6 +210,15 @@ CREATE TABLE stats_lookups (
     count_hits int NOT NULL default 0
 );
 
+CREATE TABLE stats_user_agents (
+    id serial NOT NULL,
+    date date NOT NULL,
+    application_id int NOT NULL,
+    user_agent varchar NOT NULL,
+    ip varchar NOT NULL,
+    count int NOT NULL default 0
+);
+
 CREATE TABLE stats_top_accounts (
     id serial NOT NULL,
     account_id int NOT NULL,

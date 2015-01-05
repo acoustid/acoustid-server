@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import urllib
 import logging
 import datetime
 from sqlalchemy import sql
@@ -57,15 +58,60 @@ def find_lookup_stats(conn):
     return stats
 
 
+def pack_lookup_stats_key(application_id, type):
+    parts = [
+        datetime.datetime.now().strftime('%Y-%m-%d:%H'),
+        str(application_id),
+        str(type),
+    ]
+    return ':'.join(parts)
+
+
+def unpack_lookup_stats_key(key):
+    parts = key.split(':')
+    if len(parts) >= 4:
+        date, hour, application_id, type = parts[:4]
+        return date, hour, application_id, type
+    raise ValueError('invalid lookup stats key')
+
+
 def update_lookup_counter(redis, application_id, hit):
     if redis is None:
         return
-    key = '%s:%s:%s' % (datetime.datetime.now().strftime('%Y-%m-%d:%H'),
-                        application_id, 'hit' if hit else 'miss')
+    type = 'hit' if hit else 'miss'
+    key = pack_lookup_stats_key(application_id, type)
     try:
         redis.hincrby('lookups', key, 1)
     except Exception:
         logger.exception("Can't update lookup stats for %s" % key)
+
+
+def pack_user_agent_stats_key(application_id, user_agent, ip):
+    parts = [
+        datetime.datetime.now().strftime('%Y-%m-%d'),
+        str(application_id),
+        urllib.quote(str(user_agent)),
+        urllib.quote(str(ip)),
+    ]
+    return ':'.join(parts)
+
+
+def unpack_user_agent_stats_key(key):
+    parts = key.split(':')
+    if len(parts) >= 4:
+        date, application_id, user_agent, ip = parts[:5]
+        return date, application_id, user_agent, ip
+    raise ValueError('invalid lookup user agent stats key')
+
+
+def update_user_agent_counter(redis, application_id, user_agent, ip):
+    if redis is None:
+        return
+    key = pack_user_agent_stats_key(application_id, user_agent, ip)
+    try:
+        redis.hincrby('ua', key, 1)
+    except Exception:
+        logger.exception("Can't update user agent stats for %s" % key)
 
 
 def update_lookup_avg_time(redis, seconds):
@@ -104,6 +150,31 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
                     schema.stats_lookups.c.date: date,
                     schema.stats_lookups.c.hour: hour,
                     column: count,
+                })
+        db.execute(stmt)
+
+
+def update_user_agent_stats(db, application_id, date, hour, user_agent, ip, count):
+    with db.begin():
+        db.execute("LOCK TABLE stats_user_agents IN EXCLUSIVE MODE")
+        query = sql.select([schema.stats_user_agents.c.id]).\
+            where(schema.stats_user_agents.c.application_id == application_id).\
+            where(schema.stats_user_agents.c.date == date).\
+            where(schema.stats_user_agents.c.user_agent == user_agent).\
+            where(schema.stats_user_agents.c.ip == ip)
+        stats_id = db.execute(query).scalar()
+        if stats_id:
+            stmt = schema.stats_user_agents.update().\
+                where(schema.stats_user_agents.c.id == stats_id).\
+                values({schema.stats_user_agents.c.count: schema.stats_user_agents.c.count + count})
+        else:
+            stmt = schema.stats_user_agents.insert().\
+                values({
+                    schema.stats_user_agents.c.application_id: application_id,
+                    schema.stats_user_agents.c.date: date,
+                    schema.stats_user_agents.c.user_agent: user_agent,
+                    schema.stats_user_agents.c.ip: ip,
+                    schema.stats_user_agents.c.count: count,
                 })
         db.execute(stmt)
 
