@@ -48,6 +48,7 @@ class UpdateUserAgentStatsHandlerParams(APIHandlerParams):
         self.date = values.get('date')
         self.user_agent = values.get('user_agent')
         self.ip = values.get('ip')
+        self.count = values.get('count', type=int)
 
 
 class UpdateUserAgentStatsHandler(APIHandler):
