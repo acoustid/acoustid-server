@@ -100,7 +100,7 @@ def unpack_user_agent_stats_key(key):
     parts = key.split(':')
     if len(parts) >= 4:
         date, application_id, user_agent, ip = parts[:5]
-        return date, application_id, user_agent, ip
+        return date, application_id, urllib.unquote(user_agent), urllib.unquote(ip)
     raise ValueError('invalid lookup user agent stats key')
 
 
