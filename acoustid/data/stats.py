@@ -154,7 +154,7 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
         db.execute(stmt)
 
 
-def update_user_agent_stats(db, application_id, date, hour, user_agent, ip, count):
+def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
     with db.begin():
         db.execute("LOCK TABLE stats_user_agents IN EXCLUSIVE MODE")
         query = sql.select([schema.stats_user_agents.c.id]).\
