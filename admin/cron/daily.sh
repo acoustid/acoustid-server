@@ -5,6 +5,7 @@ LOCKNAME=acoustid-daily
 
 DIR=`dirname $0`/../..
 PSQL=$DIR/run_psql.sh
+export PYTHONPATH=$DIR
 
 $PSQL -q -t -A <$DIR/sql/CollectStats.sql | perl -pe 's{^\s+}{}'
 
