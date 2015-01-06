@@ -3,7 +3,6 @@
 # Copyright (C) 2012 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from contextlib import closing
 from acoustid.utils import call_internal_api
 from acoustid.script import run_script
 from acoustid.data.stats import update_lookup_stats
