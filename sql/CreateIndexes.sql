@@ -41,3 +41,6 @@ CREATE INDEX stats_user_agents_idx_date ON stats_user_agents (date);
 
 CREATE INDEX submission_idx_handled ON submission (id) WHERE handled = false;
 
+create index track_mbid_change_idx_track_mbid_id on track_mbid_change (track_mbid_id);
+create index track_mbid_source_idx_track_mbid_id on track_mbid_source (track_mbid_id);
+create index track_mbid_source_idx_source_id on track_mbid_source (source_id);

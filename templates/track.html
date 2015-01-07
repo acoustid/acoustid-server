@@ -8,31 +8,6 @@
     to {{ recordings | length }} MusicBrainz recording(s).
 </p>
 
-{#
-{% if fingerprints[1] %}
-
-<p>Similarity matrix of the track's fingerprints:</p>
-
-<table class="matrix">
-<tr>
-    <th>&nbsp;</th>
-{% for fp1 in fingerprints %}
-    <th title="{{ fp1.id }}">{{ fp1.i  }}</th>
-{% endfor  %}
-</td>
-{% for fp1 in fingerprints %}
-<tr>
-    <th title="{{ fp1.id }}">{{ fp1.i }}</th>
-    {% for fp2 in fingerprints %}
-    <td style="background-color: {{ matrix[fp1.id][fp2.id].color }};" title="{{ fp1.id }} vs {{ fp2.id }}">{{ matrix[fp1.id][fp2.id].value | round(2) }}</td>
-    {% endfor  %}
-</td>
-{% endfor  %}
-</table>
-
-{% endif %}
-#}
-
 {% macro format_length(secs) -%}
 {{ "%d:%02d" | format(secs / 60, secs % 60) }}
 {%- endmacro %}
@@ -68,11 +43,11 @@
     {% endif %}
 </tr>
 {% for rec in recordings %}
-<tr{% if rec.disabled %} class="mbid-disabled"{% endif %}>
+<tr{% if rec.disabled %} class="mbid-disabled"{% endif %} id="{{ rec.mbid }}">
     {% if rec.name %}
     <td><a href="//musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a>{% if rec.comment %}<small> ({{ rec.comment }})</small>{% endif %}</td>
     <td>{{ rec.artist_name }}</td>
-    <td>{{ format_length(rec.length) }}</td>
+    <td>{% if rec.length %}{{ format_length(rec.length) }}{% else %}-{% endif %}</td>
     {% else %}
     <td colspan="3"><i><a href="//musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.mbid }}</a></i></td>
     {% endif %}
@@ -90,6 +65,45 @@
 {% endfor %}
 </tr>
 </table>
+{% endif %}
+
+{% if user_metadata %}
+<p>Additional user-submitted metadata:</p>
+
+<table class="listing">
+<tr>
+    <th>Title</th>
+    <th>Artist</th>
+    <th>Album</th>
+</tr>
+{% for track_meta in user_metadata %}
+<tr>
+    <td>{{ track_meta.meta.track | default("-", true) }}</td>
+    <td>{{ track_meta.meta.artist | default("-", true) }}</td>
+    <td>{{ track_meta.meta.album | default("-", true) }}</td>
+{% endfor %}
+</tr>
+</table>
+{% endif %}
+
+{% if moderator %}
+<p>Editing history:</p>
+
+<ul>
+{% for edit in edits %}
+    <li>
+        <small><i>{{ edit.created.strftime("%b, %d %Y %H:%M:%S") }}</i></small><br />
+        User
+        {% if edit.user.mbuser %}
+        <a href="https://musicbrainz.org/user/{{ edit.user.mbuser }}">{{ edit.user.name }}</a>
+        {% else %}
+        {{ edit.user.name }}
+        {% endif %}
+        {{ 'disabled' if edit.disabled else 'enabled' }}
+        <a href="#{{ edit.track_mbid.mbid }}">{{ edit.track_mbid.mbid }}</a>
+    </li>
+{% endfor %}
+</ul>
 {% endif %}
 
 {% endblock %}

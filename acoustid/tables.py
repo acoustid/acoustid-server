@@ -1,7 +1,6 @@
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean, Date, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 
-
 metadata = MetaData()
 
 account = Table('account', metadata,
@@ -164,6 +163,7 @@ track_mbid_change = Table('track_mbid_change', metadata,
     Column('account_id', Integer, ForeignKey('account.id')),
     Column('disabled', Boolean),
     Column('note', Text),
+    Column('created', DateTime),
 )
 
 track_mbid_flag = Table('track_mbid_flag', metadata,
