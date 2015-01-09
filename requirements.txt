@@ -1,0 +1,8 @@
+SQLAlchemy>=0.9
+psycopg2
+Werkzeug
+Jinja2
+python-openid
+Markdown
+redis
+pyacoustid
