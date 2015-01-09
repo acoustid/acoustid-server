@@ -4,6 +4,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 from acoustid.script import run_script
+from acoustid import tables
 
 
 QUERIES = [
@@ -14,9 +15,7 @@ QUERIES = [
     ('format.all', 'SELECT count(*) FROM format'),
     ('fingerprint.all', 'SELECT count(*) FROM fingerprint'),
     ('track_mbid.all', 'SELECT count(*) FROM track_mbid'),
-    ('track_puid.all', 'SELECT count(*) FROM track_puid'),
-    ('mbid.all', 'SELECT count(DISTINCT mbid) FROM track_mbid)'),
-    ('puid.all', 'SELECT count(DISTINCT puid) FROM track_puid)'),
+    ('mbid.all', 'SELECT count(DISTINCT mbid) FROM track_mbid'),
     ('track.all', 'SELECT count(*) FROM track'),
     ('submission.all', 'SELECT sum(submission_count) FROM account'),
     ('submission.unhandled', 'SELECT count(*) FROM submission WHERE not handled'),
@@ -64,10 +63,10 @@ def main(script, opts, args):
     if script.config.cluster.role != 'master':
         return
 
-    db = script.engine.dbect()
+    db = script.engine.connect()
     with db.begin():
 
-        insert = t.stats.insert()
+        insert = tables.stats.insert()
         for name, query in QUERIES:
             value = db.execute(query).scalar()
             db.execute(insert.values({'name': name, 'value': value}))
