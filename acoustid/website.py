@@ -590,24 +590,24 @@ class TrackHandler(WebSiteHandler):
             recordings.append(recording)
         recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
 
-        #user_metadata = self.db.session.query(TrackMeta).\
-        #    options(joinedload('meta', innerjoin=True)).\
-        #    filter(TrackMeta.track_id == track_id).\
-        #    order_by(TrackMeta.created).all()
+        user_metadata = self.db.session.query(TrackMeta).\
+            options(joinedload('meta', innerjoin=True)).\
+            filter(TrackMeta.track_id == track_id).\
+            order_by(TrackMeta.created).all()
 
-        #edits = self.db.session.query(TrackMBIDChange).\
-        #    options(joinedload('user', innerjoin=True).load_only('mbuser', 'name')).\
-        #    options(joinedload('track_mbid', innerjoin=True).load_only('mbid')).\
-        #    filter(TrackMBIDChange.track_mbid_id.in_(m.id for m in mbids)).\
-        #    order_by(TrackMBIDChange.created.desc()).all()
+        edits = self.db.session.query(TrackMBIDChange).\
+            options(joinedload('account', innerjoin=True).load_only('mbuser', 'name')).\
+            options(joinedload('track_mbid', innerjoin=True).load_only('mbid')).\
+            filter(TrackMBIDChange.track_mbid_id.in_(m.id for m in mbids)).\
+            order_by(TrackMBIDChange.created.desc()).all()
 
         moderator = is_moderator(self.conn, self.session.get('id'))
 
         return self.render_template('track.html', title=title,
             fingerprints=fingerprints, recordings=recordings,
             moderator=moderator, track=track,
-            #edits=edits,
-            #user_metadata=user_metadata,
+            edits=edits,
+            user_metadata=user_metadata,
             )
 
 

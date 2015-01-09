@@ -94,10 +94,10 @@
     <li>
         <small><i>{{ edit.created.strftime("%b, %d %Y %H:%M:%S") }}</i></small><br />
         User
-        {% if edit.user.mbuser %}
-        <a href="https://musicbrainz.org/user/{{ edit.user.mbuser }}">{{ edit.user.name }}</a>
+        {% if edit.account.mbuser %}
+        <a href="https://musicbrainz.org/user/{{ edit.account.mbuser }}">{{ edit.account.name }}</a>
         {% else %}
-        {{ edit.user.name }}
+        {{ edit.account.name }}
         {% endif %}
         {{ 'disabled' if edit.disabled else 'enabled' }}
         <a href="#{{ edit.track_mbid.mbid }}">{{ edit.track_mbid.mbid }}</a>

@@ -1,63 +1,57 @@
 from sqlalchemy.orm import mapper, relationship
+from sqlalchemy.ext.declarative import declarative_base
 from acoustid import tables
 
-# TODO switch to declarative
-
-class Application(object):
-    pass
+Base = declarative_base(metadata=tables.metadata)
 
 
-class User(object):
-    pass
+class Account(Base):
+    __table__ = tables.account
 
 
-class TrackMBID(object):
-    pass
+class Application(Base):
+    __table__ = tables.application
+
+    account = relationship('Account')
 
 
-class TrackMBIDChange(object):
-    pass
+class TrackMBID(Base):
+    __table__ = tables.track_mbid
+
+    track = relationship('Track')
 
 
-class TrackMBIDSource(object):
-    pass
+class TrackMBIDChange(Base):
+    __table__ = tables.track_mbid_change
+
+    track_mbid = relationship('TrackMBID')
+    account = relationship('Account')
 
 
-class Source(object):
-    pass
+class TrackMBIDSource(Base):
+    __table__ = tables.track_mbid_source
+
+    track_mbid = relationship('TrackMBID')
+    source = relationship('Source')
 
 
-class Track(object):
-    pass
+class Source(Base):
+    __table__ = tables.track_mbid_source
+
+    application = relationship('Application')
+    account = relationship('Account')
 
 
-class TrackMeta(object):
-    pass
+class Track(Base):
+    __table__ = tables.track
 
 
-class Meta(object):
-    pass
+class TrackMeta(Base):
+    __table__ = tables.track_meta
+
+    track = relationship('Track')
+    meta = relationship('Meta')
 
 
-mapper(Application, tables.application)
-mapper(User, tables.account)
-mapper(Meta, tables.meta)
-mapper(Track, tables.track)
-mapper(TrackMeta, tables.track_meta, properties={
-    'track': relationship(Track),
-    'meta': relationship(Meta),
-})
-mapper(TrackMBID, tables.track_mbid, properties={
-    'track': relationship(Track),
-})
-mapper(TrackMBIDChange, tables.track_mbid_change, properties={
-    'user': relationship(User),
-    'track_mbid': relationship(TrackMBID),
-})
-mapper(TrackMBIDSource, tables.track_mbid_source, properties={
-    'source': relationship(Source),
-    'track_mbid': relationship(TrackMBID),
-})
-mapper(Source, tables.source, properties={
-    'application': relationship(Application),
-})
+class Meta(Base):
+    __table__ = tables.meta
