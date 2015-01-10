@@ -1,8 +1,10 @@
 #!//usr/bin/env bash
 
-dir=$(dirname $(readlink $0))/../..
-name=$(basename $0 | sed s/acoustid_//)
+DIR=$(dirname $(readlink $0))/../..
+NAME=$(basename $0 | sed s/acoustid_//)
 
-export PYTHONPATH=$dir
-python $dir/scripts/munin_$name.py -q -c $dir/acoustid.conf "$@"
+test -d $DIR/e && source $DIR/e/bin/activate
+export PYTHONPATH=$DIR:$PYTHONPATH
+
+python $DIR/scripts/munin_$NAME.py -q -c $DIR/acoustid.conf "$@"
 

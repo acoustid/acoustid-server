@@ -5,4 +5,5 @@ Jinja2
 python-openid
 Markdown
 redis
-pyacoustid
+pychromaprint>=1.1.1
+mbdata>=2015.01.10

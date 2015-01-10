@@ -6,7 +6,9 @@ LOCKNAME=acoustid-export
 . `dirname $0`/lock.sh
 
 DIR=`dirname $0`/../..
-export PYTHONPATH=$DIR
+
+test -d $DIR/e && source $DIR/e/bin/activate
+export PYTHONPATH=$DIR:$PYTHONPATH
 
 TEMP_DIR=/home/acoustid/data/.export
 DATA_DIR=/home/acoustid/data

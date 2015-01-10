@@ -6,7 +6,9 @@ LOCKNAME=acoustid-hourly
 . `dirname $0`/lock.sh
 
 DIR=`dirname $0`/../..
-export PYTHONPATH=$DIR
+
+test -d $DIR/e && source $DIR/e/bin/activate
+export PYTHONPATH=$DIR:$PYTHONPATH
 
 # randomize the time this script starts at a little
 sleep $(( $RANDOM % 60 ))

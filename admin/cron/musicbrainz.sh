@@ -6,7 +6,9 @@ LOCKNAME=acoustid-musicbrainz
 . `dirname $0`/lock.sh
 
 DIR=`dirname $0`/../..
-export PYTHONPATH=$DIR
+
+test -d $DIR/e && source $DIR/e/bin/activate
+export PYTHONPATH=$DIR:$PYTHONPATH
 
 # update the MusicBrainz database
 test -x $DIR/admin/run-mbslave.sh && $DIR/admin/run-mbslave.sh
