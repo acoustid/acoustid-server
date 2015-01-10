@@ -36,7 +36,7 @@ class TrackMBIDSource(Base):
 
 
 class Source(Base):
-    __table__ = tables.track_mbid_source
+    __table__ = tables.source
 
     application = relationship('Application')
     account = relationship('Account')

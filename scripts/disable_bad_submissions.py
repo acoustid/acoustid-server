@@ -36,9 +36,10 @@ class NameMatcher(object):
                 self.words[word] = sources
 
     def finish(self):
-        scale = 1.0 / sum(self.words.values())
-        for word in self.words.keys():
-            self.words[word] *= scale
+        if self.words:
+            scale = 1.0 / sum(self.words.values())
+            for word in self.words.keys():
+                self.words[word] *= scale
 
     def match(self, name):
         score = 0.0
@@ -166,7 +167,9 @@ def main(script, opts, args):
 
     track_ids = db.session.query(TrackMBID.track_id).\
         filter(TrackMBID.disabled == False).\
-        group_by(TrackMBID.track_id).having(sql.func.count('*') > 10)
+        group_by(TrackMBID.track_id).having(sql.func.count('*') > 1).all()
+
+    random.shuffle(track_ids)
 
     for track_id in track_ids:
         track = db.session.query(Track).get(track_id)
