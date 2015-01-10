@@ -1,56 +1,26 @@
 AcoustID Server
 ===============
 
-Dependencies
-------------
-
- * PostgreSQL 8.4+
-   http://www.postgresql.org/
-
- * Python 2.6+
-   http://www.python.org/
-
- * SQLAlchemy
-   http://www.sqlalchemy.org/
-
- * Psycopg2
-   http://initd.org/psycopg/
-
- * Werkzeug
-   http://werkzeug.pocoo.org/
-
- * Jinja2
-   http://jinja.pocoo.org/
-
- * Python-OpenID
-   http://pypi.python.org/pypi/python-openid/
-
- * Python-Markdown
-   http://www.freewisdom.org/projects/python-markdown/
-
- * Redis-py
-   https://github.com/andymccurdy/redis-py
-
- * Chromaprint
-   http://acoustid.org/chromaprint
-
 Installation
 ------------
 
 On Ubuntu you can install all dependencies using the following command:
 
- $ sudo add-apt-repository ppa:luks/acoustid
- $ sudo apt-get update
- $ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev \
-                        python-sqlalchemy python-werkzeug python-jinja2 \
-                        python-openid python-markdown python-chromaprint \
-                        python-psycopg2 python-redis
+ $ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev python python-dev redis
 
 Compile and install the included PostgreSQL extension:
 
  $ cd postgresql
- $ sudo make install clean
+ $ make
+ $ sudo make install
+ $ make clean
  $ cd ..
+
+Setup Python virtual environment:
+
+ $ virtualenv e
+ $ source e/bin/activate
+ $ pip install -r requirements.txt
 
 Prepare the configuration file:
 
