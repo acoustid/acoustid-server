@@ -6,7 +6,7 @@ Installation
 
 On Ubuntu you can install all dependencies using the following command:
 
- $ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev python python-dev redis
+ $ sudo apt-get install postgresql postgresql-contrib postgresql-server-dev python python-dev python-virtualenv redis
 
 Compile and install the included PostgreSQL extension:
 
