@@ -4,6 +4,7 @@
 import os.path
 import logging
 import ConfigParser
+from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,9 @@ class DatabaseConfig(object):
         if self.password is not None:
             kwargs['password'] = self.password
         return URL('postgresql', **kwargs)
+
+    def create_engine(self, superuser=False):
+        return create_engine(self.create_url(superuser=superuser))
 
     def create_psql_args(self, superuser=False):
         args = []
@@ -111,25 +115,25 @@ class LoggingConfig(object):
 class WebSiteConfig(object):
 
     def __init__(self):
-        root_path = os.path.dirname(__file__) + '/../'
-        self.templates_path = os.path.normpath(root_path + 'templates')
-        self.pages_path = os.path.normpath(root_path + 'pages')
-        self.host = 'localhost:8080'
-        self.https = False
+        self.debug = False
         self.secret = None
         self.mb_oauth_client_id = None
         self.mb_oauth_client_secret = None
+        self.google_oauth_client_id = None
+        self.google_oauth_client_secret = None
 
     def read(self, parser, section):
-        if parser.has_option(section, 'host'):
-            self.host = parser.get(section, 'host')
-        if parser.has_option(section, 'https'):
-            self.https = parser.getboolean(section, 'https')
+        if parser.has_option(section, 'debug'):
+            self.debug = parser.getboolean(section, 'debug')
         self.secret = parser.get(section, 'secret')
         if parser.has_option(section, 'mb_oauth_client_id'):
             self.mb_oauth_client_id = parser.get(section, 'mb_oauth_client_id')
         if parser.has_option(section, 'mb_oauth_client_secret'):
             self.mb_oauth_client_secret = parser.get(section, 'mb_oauth_client_secret')
+        if parser.has_option(section, 'google_oauth_client_id'):
+            self.google_oauth_client_id = parser.get(section, 'google_oauth_client_id')
+        if parser.has_option(section, 'google_oauth_client_secret'):
+            self.google_oauth_client_secret = parser.get(section, 'google_oauth_client_secret')
 
 
 class ReplicationConfig(object):

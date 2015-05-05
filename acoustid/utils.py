@@ -5,8 +5,14 @@ import re
 import syslog
 import urllib
 import urllib2
+import hashlib
+import time
 from logging import Handler
 from logging.handlers import SysLogHandler
+
+
+def generate_api_key(length=10):
+    return re.sub('[/+=]', '', hashlib.sha1(str(time.time())).digest().encode('base64').strip())[:length]
 
 
 def is_uuid(s):

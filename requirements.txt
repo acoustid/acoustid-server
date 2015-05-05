@@ -5,5 +5,8 @@ Jinja2
 python-openid
 Markdown
 redis
+flask
+rauth
+blinker
 pychromaprint>=1.1.1
 mbdata>=2015.01.10

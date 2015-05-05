@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" dir="ltr"> 
 <head> 
-	<title>{% if title %}{{ title }} | {% endif %}AcoustID</title> 
-	<link type="text/css" rel="stylesheet" href="/static/style.css" /> 
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /> 
-<script type="text/javascript"> 
+	<title>{% if title %}{{ title }} | {% endif %}AcoustID</title> 
+	<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}" /> 
+	<script type="text/javascript" src="{{ url_for('static', filename='jquery-1.10.0.min.js') }}"></script>
+	<script type="text/javascript"> 
  
   var _gaq = _gaq || [];
   _gaq.push(['_setAccount', 'UA-18981078-1']);
@@ -16,8 +18,7 @@
     var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
   })();
  
-</script> 
-<script type="text/javascript" src="/static/jquery-1.10.0.min.js"></script>
+	</script> 
 </head> 
 <body style="margin-top:0;"> 
         {# <div style="text-align: center; width:100%; font-weight: bold; font-size:130%; color:red;">The AcoustID website is currently in read-only mode for maintenance.</div> #}
@@ -43,19 +44,19 @@ small amount, to keep it running smoothly and stay free.
 	</div>
 	<div id="container"> 
 		<div id="container-inner"> 
-			<h1><a href="{{ base_url }}" title="AcoustID"><span>AcoustID</span></a></h1> 
+			<h1><a href="{{ url_for('general.index') }}" title="AcoustID"><span>AcoustID</span></a></h1> 
 			<ul id="menu"> 
 				{% if account_id  %}
 				<li><a href="{{ base_url }}api-key"><strong>Get API Key</strong></a></li> 
 				<li><a href="{{ base_url }}applications">Applications</a></li> 
-				<li><a href="{{ base_url }}logout">Log out</a></li> 
+				<li><a href="{{ url_for('user.logout') }}">Log out</a></li> 
 				{% else %}
-				<li><a href="{{ base_https_url }}login"><strong>Get API Key</strong></a></li> 
+				<li><a href="{{ url_for('user.login') }}"><strong>Get API Key</strong></a></li> 
 				{% endif %}
-				<li><a href="{{ base_url }}stats">Statistics</a></li> 
-				<li><a href="{{ base_url }}docs">Documentation</a></li> 
-				<li><a href="{{ base_url }}donate">Donate</a></li> 
-				<li><a href="http://oxygene.sk/category/acoustid/">Blog</a></li> 
+				<li><a href="{{ url_for('stats.stats') }}">Statistics</a></li> 
+				<li><a href="{{ url_for('general.docs') }}">Documentation</a></li> 
+				<li><a href="{{ url_for('general.donate') }}">Donate</a></li> 
+				<li><a href="https://oxygene.sk/category/acoustid/">Blog</a></li> 
 				<li><a href="https://groups.google.com/forum/#!forum/acoustid">Mailing List</a></li> 
 			</ul> 
 			<div id="content"> 
@@ -64,12 +65,13 @@ small amount, to keep it running smoothly and stay free.
 		</div> 
 	</div> 
 	<p id="footer"> 
-		Created by <a href="http://oxygene.sk/lukas/">Lukáš Lalinský</a> |
+		Created by <a href="https://oxygene.sk/">Lukáš Lalinský</a> |
 		<a href="http://status.acoustid.org">Status</a> |
-		<a href="{{ base_url }}license">License</a> |
-		<a href="{{ base_url }}donate">Donate</a> |
-		<a href="{{ base_url }}contact">Contact</a> |
-		<a href="https://twitter.com/acoustid">Twitter</a>
+		<a href="{{ url_for('general.license') }}">License</a> |
+		<a href="{{ url_for('general.donate') }}">Donate</a> |
+		<a href="{{ url_for('general.contact') }}">Contact</a> |
+		<a href="https://twitter.com/acoustid">Twitter</a> |
+		<a href="https://www.facebook.com/acoustid">Facebook</a>
 	</p> 
 </body> 
 </html> 

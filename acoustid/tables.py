@@ -22,6 +22,11 @@ account_openid = Table('account_openid', metadata,
     Column('openid', String, primary_key=True),
 )
 
+account_google = Table('account_google', metadata,
+    Column('account_id', Integer, ForeignKey('account.id'), primary_key=True),
+    Column('google_user_id', String, primary_key=True),
+)
+
 application = Table('application', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
