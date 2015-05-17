@@ -22,7 +22,7 @@
 </tr>
 {% for fp in fingerprints %}
 <tr>
-    <td><a href="{{ base_url }}fingerprint/{{ fp.id }}">{{ fp.id }}</a></td>
+    <td><a href="{{ url_for('.fingerprint', fingerprint_id=fp.id) }}">{{ fp.id }}</a></td>
     <td>{{ format_length(fp.length) }}</td>
     <td>{{ fp.submission_count }}</td>
 {% endfor %}

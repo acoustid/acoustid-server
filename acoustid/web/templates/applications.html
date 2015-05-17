@@ -21,7 +21,7 @@
 <tbody>
 {% for app in applications %}
 	<tr>
-		<td><a href="{{ base_url }}application/{{ app.id }}">{{ app.name }}</a></td>
+		<td><a href="{{ url_for('.application', application_id=app.id) }}">{{ app.name }}</a></td>
 		<td>{{ app.version }}</td>
 		<td><code>{{ app.apikey }}</code></td>
 	</tr>
@@ -38,7 +38,7 @@
 {% endif %}
 
 <p class="center">
-	<a href="{{ base_url }}new-application">Register a new application</a>
+	<a href="{{ url_for('.new_application') }}">Register a new application</a>
 </p>
 
 {% endblock %}

@@ -1,5 +1,5 @@
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean, Date, Text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 
 metadata = MetaData()
 
@@ -40,7 +40,7 @@ application = Table('application', metadata,
 
 track = Table('track', metadata,
     Column('id', Integer, primary_key=True),
-    Column('gid', String),
+    Column('gid', UUID),
     Column('created', DateTime),
     Column('new_id', Integer),
 )
@@ -149,7 +149,7 @@ fingerprint_index_queue = Table('fingerprint_index_queue', metadata,
 track_mbid = Table('track_mbid', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_id', Integer, ForeignKey('track.id')),
-    Column('mbid', String),
+    Column('mbid', UUID),
     Column('created', DateTime),
     Column('submission_count', Integer),
     Column('disabled', Boolean),
@@ -181,7 +181,7 @@ track_mbid_flag = Table('track_mbid_flag', metadata,
 track_puid = Table('track_puid', metadata,
     Column('id', Integer, primary_key=True),
     Column('track_id', Integer, ForeignKey('track.id')),
-    Column('puid', String),
+    Column('puid', UUID),
     Column('created', DateTime),
     Column('submission_count', Integer),
 )
@@ -226,7 +226,7 @@ track_foreignid_source = Table('track_foreignid_source', metadata,
 mb_artist = Table('artist', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
-    Column('gid', String),
+    Column('gid', UUID),
     schema='musicbrainz',
 )
 
@@ -275,21 +275,21 @@ mb_recording = Table('recording', metadata,
     Column('id', Integer, primary_key=True),
     Column('artist_credit', Integer, ForeignKey('musicbrainz.artist_credit.id')),
     Column('name', String),
-    Column('gid', String),
+    Column('gid', UUID),
     Column('comment', String),
     Column('length', Integer),
     schema='musicbrainz',
 )
 
 mb_recording_gid_redirect = Table('recording_gid_redirect', metadata,
-    Column('gid', String, primary_key=True),
+    Column('gid', UUID, primary_key=True),
     Column('new_id', Integer, ForeignKey('musicbrainz.recording.id')),
     schema='musicbrainz',
 )
 
 mb_track = Table('track', metadata,
     Column('id', Integer, primary_key=True),
-    Column('gid', String),
+    Column('gid', UUID),
     Column('position', Integer),
     Column('medium', Integer, ForeignKey('musicbrainz.medium.id')),
     Column('recording', Integer, ForeignKey('musicbrainz.recording.id')),
@@ -303,7 +303,7 @@ mb_release = Table('release', metadata,
     Column('id', Integer, primary_key=True),
     Column('artist_credit', Integer, ForeignKey('musicbrainz.artist_credit.id')),
     Column('name', String),
-    Column('gid', String),
+    Column('gid', UUID),
     Column('release_group', Integer, ForeignKey('musicbrainz.release_group.id')),
     schema='musicbrainz',
 )
@@ -321,7 +321,7 @@ mb_release_group = Table('release_group', metadata,
     Column('id', Integer, primary_key=True),
     Column('artist_credit', Integer, ForeignKey('musicbrainz.artist_credit.id')),
     Column('name', String),
-    Column('gid', String),
+    Column('gid', UUID),
     Column('type', Integer, ForeignKey('musicbrainz.release_group_primary_type.id')),
     schema='musicbrainz',
 )

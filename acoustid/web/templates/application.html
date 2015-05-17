@@ -3,7 +3,7 @@
 
 <h2>Application "{{ app.name }}"</h2>
 
-<p><b>Details</b> (<a href="{{ base_url }}edit/application/{{ app.id }}">edit</a>)</p>
+<p><b>Details</b> (<a href="{{ url_for('.edit_application', application_id=app.id) }}">edit</a>)</p>
 
 <ul>
     <li><b>Version:</b> {{  app.version }}</li>

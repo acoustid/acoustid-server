@@ -7,9 +7,9 @@
 
 <p>Compare with another fingerprint <input id="fp_id" size="6" placeholder="ID"/> <button id="compare">Compare</button></p>
 
-<p>Back to <a href="{{ base_url }}track/{{ track_gid }}">track "{{ track_gid }}"</a></p>
+<p>Back to <a href="{{ url_for('.track', track_id=track_gid) }}">track "{{ track_gid }}"</a></p>
 
-<script type="text/javascript" src="{{ base_url }}static/fputils.js"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='fputils.js') }}"></script>
 <script type="text/javascript">
 $(document).ready(function () {
    var fp = {{ fingerprint.fingerprint }};
@@ -17,13 +17,11 @@ $(document).ready(function () {
    paintFingerprint(canvas, fp);
 
    $('#compare').click(function () {
-       var id1 = {{ fingerprint.id }};
        var id2 = $('#fp_id').val();
-       var url = '{{ base_url }}fingerprint/' + id1 + '/compare/' + id2;
+       var url = '/fingerprint/{{ fingerprint.id }}/compare/' + id2;
        window.location.href = url;
    });
 });
 </script>
 
 {% endblock %}
-

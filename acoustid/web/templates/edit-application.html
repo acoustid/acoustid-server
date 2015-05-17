@@ -7,7 +7,7 @@
 <p class="errors">{% for error in errors %}{{ error }}<br />{% endfor %}</p>
 {% endif %}
 
-<form action="{{ base_https_url }}edit/application/{{ app.id }}" method="POST"> 
+<form action="{{ url_for('.edit_application', application_id=app.id) }}" method="POST"> 
 <p>
 	<small><label for="name_i">Application name:</label></small><br />
  	<input name="name" id="name_i" type="text" class="text" value="{{ form.name }}" /><br />

@@ -47,8 +47,8 @@ small amount, to keep it running smoothly and stay free.
 			<h1><a href="{{ url_for('general.index') }}" title="AcoustID"><span>AcoustID</span></a></h1> 
 			<ul id="menu"> 
 				{% if account_id  %}
-				<li><a href="{{ base_url }}api-key"><strong>Get API Key</strong></a></li> 
-				<li><a href="{{ base_url }}applications">Applications</a></li> 
+				<li><a href="{{ url_for('user.api_key') }}"><strong>Get API Key</strong></a></li> 
+				<li><a href="{{ url_for('applications.applications') }}">Applications</a></li> 
 				<li><a href="{{ url_for('user.logout') }}">Log out</a></li> 
 				{% else %}
 				<li><a href="{{ url_for('user.login') }}"><strong>Get API Key</strong></a></li> 
