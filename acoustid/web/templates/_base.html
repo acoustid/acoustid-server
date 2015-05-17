@@ -48,7 +48,7 @@ small amount, to keep it running smoothly and stay free.
 			<ul id="menu"> 
 				{% if account_id  %}
 				<li><a href="{{ url_for('user.api_key') }}"><strong>Get API Key</strong></a></li> 
-				<li><a href="{{ url_for('applications.applications') }}">Applications</a></li> 
+				<li><a href="{{ url_for('apps.applications') }}">Applications</a></li> 
 				<li><a href="{{ url_for('user.logout') }}">Log out</a></li> 
 				{% else %}
 				<li><a href="{{ url_for('user.login') }}"><strong>Get API Key</strong></a></li> 

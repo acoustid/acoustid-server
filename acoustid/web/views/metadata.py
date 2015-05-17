@@ -139,7 +139,7 @@ def mbid(mbid):
     return render_template('mbid.html', title=title, tracks=tracks, mbid=mbid)
 
 
-@metadata_page.route('/edit/toggle-track-mbid')
+@metadata_page.route('/edit/toggle-track-mbid', methods=['GET', 'POST'])
 def toggle_track_mbid():
     conn = db.session.connection()
     user = require_user()
@@ -169,10 +169,10 @@ def toggle_track_mbid():
     if request.form.get('submit'):
         note = request.values.get('note')
         update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == id).values(disabled=state)
-        self.conn.execute(update_stmt)
-        insert_stmt = schema.track_mbid_change.insert().values(track_mbid_id=id, account_id=self.session['id'],
+        conn.execute(update_stmt)
+        insert_stmt = schema.track_mbid_change.insert().values(track_mbid_id=id, account_id=session['id'],
                                                                disabled=state, note=note)
-        self.conn.execute(insert_stmt)
+        conn.execute(insert_stmt)
         db.session.commit()
         return redirect(url_for('.track', track_id=track_id))
     if state:

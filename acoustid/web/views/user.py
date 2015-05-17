@@ -15,6 +15,8 @@ user_page = Blueprint('user', __name__)
 
 @user_page.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'id' in session:
+        return redirect(url_for('general.index'))
     errors = list(request.args.getlist('error'))
     if request.method == 'POST':
         login_method = request.form.get('login')
@@ -25,17 +27,6 @@ def login():
         elif login_method == 'openid':
             return openid_login()
     return render_template('login.html', errors=errors)
-
-
-def get_musicbrainz_oauth2_service():
-    return OAuth2Service(
-        name='musicbrainz',
-        client_id=current_app.config['MB_OAUTH_CLIENT_ID'],
-        client_secret=current_app.config['MB_OAUTH_CLIENT_SECRET'],
-        base_url='https://musicbrainz.org',
-        authorize_url='https://musicbrainz.org/oauth2/authorize',
-        access_token_url='https://musicbrainz.org/oauth2/token',
-    )
 
 
 def find_or_create_musicbrainz_user(mb_user_name):
@@ -54,27 +45,29 @@ def find_or_create_musicbrainz_user(mb_user_name):
     return user
 
 
-def handle_musicbrainz_oauth2_login(request):
-    musicbrainz = get_musicbrainz_oauth2_service()
-    url = musicbrainz.get_authorize_url(**{
-        'response_type': 'code',
-        'scope': 'profile',
-        'redirect_uri': url_for('.google_login', _external=True),
-    })
-    return redirect(url)
+def handle_musicbrainz_oauth2_login():
+    musicbrainz = OAuth2Service(
+        name='musicbrainz',
+        client_id=current_app.config['MB_OAUTH_CLIENT_ID'],
+        client_secret=current_app.config['MB_OAUTH_CLIENT_SECRET'],
+        base_url='https://musicbrainz.org',
+        authorize_url='https://musicbrainz.org/oauth2/authorize',
+        access_token_url='https://musicbrainz.org/oauth2/token',
+    )
 
-
-@user_page.route('/login/musicbrainz')
-def musicbrainz_login_callback():
     code = request.args.get('code')
     if not code:
-        return redirect(url_for('.login', failed=1))
+        url = musicbrainz.get_authorize_url(**{
+            'response_type': 'code',
+            'scope': 'profile',
+            'redirect_uri': url_for('.musicbrainz_login', _external=True),
+        })
+        return redirect(url)
 
-    musicbrainz = get_musicbrainz_oauth2_service()
     auth_session = musicbrainz.get_auth_session(data={
         'grant_type': 'authorization_code',
         'code': code,
-        'redirect_uri': url_for('.musicbrainz_login_callback', _external=True),
+        'redirect_uri': url_for('.musicbrainz_login', _external=True),
     }, decoder=json.loads)
 
     response = auth_session.get('oauth2/userinfo').json()
@@ -86,6 +79,18 @@ def musicbrainz_login_callback():
     db.session.commit()
 
     return redirect(url_for('general.index'))
+
+
+@user_page.route('/login/musicbrainz')
+def musicbrainz_login():
+    try:
+        response = handle_musicbrainz_oauth2_login()
+        db.session.commit()
+    except Exception:
+        logger.exception('MusicBrainz login failed')
+        db.session.rollback()
+        return redirect(url_for('.login', error='MusicBrainz login failed'))
+    return response
 
 
 def get_openid_realm():
