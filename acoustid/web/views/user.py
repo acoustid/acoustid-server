@@ -1,16 +1,42 @@
 import json
 import base64
+import urllib2
 import logging
 from rauth import OAuth2Service
+from openid import oidutil, fetchers
+from openid.consumer import consumer as openid
+from openid.extensions import ax, sreg
 from flask import Blueprint, render_template, request, redirect, url_for, abort, current_app, session
 from acoustid.web import db
-from acoustid.web.utils import require_user
+from acoustid.web.utils import require_user, is_our_url
 from acoustid.models import Account, AccountOpenID, AccountGoogle
 from acoustid.utils import generate_api_key
+from acoustid.data.account import (
+    lookup_account_id_by_mbuser,
+    lookup_account_id_by_openid,
+    insert_account,
+    get_account_details,
+    reset_account_apikey,
+    update_account_lastlogin,
+    is_moderator,
+)
 
 logger = logging.getLogger(__name__)
 
 user_page = Blueprint('user', __name__)
+
+
+# monkey-patch uidutil.log to use the standard logging framework
+openid_logger = logging.getLogger('openid')
+def log_openid_messages(message, level=0):
+    openid_logger.info(message)
+oidutil.log = log_openid_messages
+
+
+# force the use urllib2 with a timeout
+fetcher = fetchers.Urllib2Fetcher()
+fetcher.urlopen = lambda req: urllib2.urlopen(req, timeout=5)
+fetchers.setDefaultFetcher(fetcher)
 
 
 @user_page.route('/login', methods=['GET', 'POST'])
@@ -26,7 +52,8 @@ def login():
             return google_login()
         elif login_method == 'openid':
             return openid_login()
-    return render_template('login.html', errors=errors)
+    return render_template('login.html', errors=errors,
+        return_url=request.values.get('return_url'))
 
 
 def find_or_create_musicbrainz_user(mb_user_name):
@@ -43,6 +70,14 @@ def find_or_create_musicbrainz_user(mb_user_name):
     db.session.flush()
 
     return user
+
+
+def login_user_and_redirect(user_id):
+    session['id'] = user_id
+    return_url = request.values.get('return_url')
+    if return_url and is_our_url(return_url):
+        return redirect(return_url)
+    return redirect(url_for('general.index'))
 
 
 def handle_musicbrainz_oauth2_login():
@@ -73,12 +108,9 @@ def handle_musicbrainz_oauth2_login():
     response = auth_session.get('oauth2/userinfo').json()
 
     user = find_or_create_musicbrainz_user(response['sub'])
-
     logger.info('MusicBrainz user %s "%s" logged in', user.id, user.name)
-    session['id'] = user.id
-    db.session.commit()
 
-    return redirect(url_for('general.index'))
+    return login_user_and_redirect(user.id)
 
 
 @user_page.route('/login/musicbrainz')
@@ -90,6 +122,84 @@ def musicbrainz_login():
         logger.exception('MusicBrainz login failed')
         db.session.rollback()
         return redirect(url_for('.login', error='MusicBrainz login failed'))
+    return response
+
+
+def handle_openid_login_request():
+    openid_url = request.form['openid_identifier']
+    try:
+        consumer = openid.Consumer(session, None)
+        openid_req = consumer.begin(openid_url)
+    except openid.DiscoveryFailure:
+        logger.exception('Error in OpenID discovery')
+        raise
+    else:
+        if openid_req is None:
+            raise Exception('No OpenID services found for the given URL')
+        else:
+            ax_req = ax.FetchRequest()
+            ax_req.add(ax.AttrInfo('http://schema.openid.net/contact/email',
+                      alias='email'))
+            ax_req.add(ax.AttrInfo('http://axschema.org/namePerson/friendly',
+                      alias='nickname'))
+            openid_req.addExtension(ax_req)
+            url = openid_req.redirectURL(get_openid_realm(),
+                url_for('.openid_login', return_url=request.values.get('return_url'), _external=True))
+            return redirect(url)
+    raise Exception('OpenID login failed')
+
+
+def handle_openid_login_response():
+    conn = db.session.connection()
+    consumer = openid.Consumer(session, None)
+    info = consumer.complete(request.args, request.url)
+    if info.status == openid.SUCCESS:
+        openid_url = info.identity_url
+        values = {}
+        ax_resp = ax.FetchResponse.fromSuccessResponse(info)
+        if ax_resp:
+            attrs = {
+                'email': 'http://schema.openid.net/contact/email',
+                'name': 'http://schema.openid.net/namePerson/friendly',
+            }
+            for name, uri in attrs.iteritems():
+                try:
+                    value = ax_resp.getSingle(uri)
+                    if value:
+                        values[name] = value
+                except KeyError:
+                    pass
+        account_id = lookup_account_id_by_openid(conn, openid_url)
+        if not account_id:
+            account_id, account_api_key = insert_account(conn, {
+                'name': 'OpenID User',
+                'openid': openid_url,
+            })
+        logger.info("Successfuly identified OpenID user %s (%d) with email '%s' and nickname '%s'",
+            openid_url, account_id, values.get('email', ''), values.get('name', ''))
+        return login_user_and_redirect(account_id)
+    elif info.status == openid.CANCEL:
+        raise Exception('OpenID login has been canceled')
+    else:
+        raise Exception('OpenID login failed')
+
+
+def handle_openid_login():
+    if 'openid.mode' in request.args:
+        return handle_openid_login_response()
+    else:
+        return handle_openid_login_request()
+
+
+@user_page.route('/login/openid')
+def openid_login():
+    try:
+        response = handle_openid_login()
+        db.session.commit()
+    except Exception:
+        logger.exception('OpenID login failed')
+        db.session.rollback()
+        return redirect(url_for('.login', error='OpenID login failed'))
     return response
 
 
@@ -162,11 +272,9 @@ def handle_google_oauth2_login():
 
     user = find_or_create_google_user(
         id_token['sub'], id_token.get('openid_id'))
-
-    session['id'] = user.id
     logger.info('Google user %s "%s" logged in', user.id, user.name)
 
-    return redirect(url_for('general.index'))
+    return login_user_and_redirect(user.id)
 
 
 @user_page.route('/login/google')
@@ -200,4 +308,4 @@ def new_api_key():
     user = require_user()
     user.apikey = generate_api_key()
     db.session.commit()
-    return redirect(url_for('user.api_key'))
+    return redirect(url_for('.api_key'))

@@ -32,3 +32,8 @@ def is_valid_url(s):
     if url.scheme in ('http', 'https') and url.netloc:
         return True
     return False
+
+
+def is_our_url(url):
+    parsed = urlparse.urlparse(url)
+    return parsed.netloc == request.host

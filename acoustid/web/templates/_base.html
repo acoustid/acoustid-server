@@ -46,12 +46,10 @@ small amount, to keep it running smoothly and stay free.
 		<div id="container-inner"> 
 			<h1><a href="{{ url_for('general.index') }}" title="AcoustID"><span>AcoustID</span></a></h1> 
 			<ul id="menu"> 
-				{% if account_id  %}
 				<li><a href="{{ url_for('user.api_key') }}"><strong>Get API Key</strong></a></li> 
+				{% if account_id  %}
 				<li><a href="{{ url_for('apps.applications') }}">Applications</a></li> 
 				<li><a href="{{ url_for('user.logout') }}">Log out</a></li> 
-				{% else %}
-				<li><a href="{{ url_for('user.login') }}"><strong>Get API Key</strong></a></li> 
 				{% endif %}
 				<li><a href="{{ url_for('stats.stats') }}">Statistics</a></li> 
 				<li><a href="{{ url_for('general.docs') }}">Documentation</a></li> 
