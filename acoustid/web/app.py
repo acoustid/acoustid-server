@@ -54,5 +54,9 @@ app.register_blueprint(metadata_page)
 app.register_blueprint(stats_page)
 
 if __name__ == "__main__":
+    from werkzeug.contrib.fixers import ProxyFix
+    from werkzeug.serving import run_simple
     script.setup_console_logging()
-    app.run(debug=True, use_reloader=True, extra_files=[config_filename])
+    app.debug = True
+    app = ProxyFix(app)
+    run_simple('127.0.0.1', 5000, app, use_debugger=True, use_reloader=True, extra_files=[config_filename])
