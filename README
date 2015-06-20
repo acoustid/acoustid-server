@@ -64,6 +64,21 @@ Setup a MusicBrainz slave database (without custom extensions):
 
 TODO
 
+
+Development
+-----------
+
+Testing the web application with HTTPS enabled:
+
+ $ ./run_web.sh --ssl
+
+Setup forwarding from the standard HTTPS port 443 to the application port:
+
+ $ sudo redir --lport=443 --cport=5000
+
+Add `127.0.0.1 acoustid.org` to your `/etc/hosts` file and then you can see the
+development version of the application at https://acoustid.org.
+
 Unit Tests
 ----------
 

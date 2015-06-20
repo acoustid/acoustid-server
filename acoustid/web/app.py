@@ -54,9 +54,37 @@ app.register_blueprint(metadata_page)
 app.register_blueprint(stats_page)
 
 if __name__ == "__main__":
-    from werkzeug.contrib.fixers import ProxyFix
+    import argparse
     from werkzeug.serving import run_simple
-    script.setup_console_logging()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--proxy', action='store_true')
+    parser.add_argument('--ssl', action='store_true')
+    parser.add_argument('--ssl-crt')
+    parser.add_argument('--ssl-key')
+    args = parser.parse_args()
+
     app.debug = True
-    app = ProxyFix(app)
-    run_simple('127.0.0.1', 5000, app, use_debugger=True, use_reloader=True, extra_files=[config_filename])
+
+    run_args = {
+        'use_debugger': True,
+        'use_reloader': True,
+        'extra_files': [config_filename],
+    }
+
+    if args.ssl:
+        if args.ssl_crt and args.ssl_key:
+            run_args['ssl_context'] = args.ssl_crt, args.ssl_key
+        else:
+            run_args['ssl_context'] = 'adhoc'
+        #import ssl
+        #context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        #context.load_cert_chain(args.ssl_crt, args.ssl_key)
+        #run_args['ssl_context'] = context
+
+    if args.proxy:
+        from werkzeug.contrib.fixers import ProxyFix
+        app = ProxyFix(app)
+
+    script.setup_console_logging()
+    run_simple('127.0.0.1', 5000, app, **run_args)
