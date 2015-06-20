@@ -34,9 +34,9 @@ Create the PostgreSQL database:
 
 Install extensions into the newly created database:
 
- $ psql -U postgres acoustid <`pg_config --sharedir`/contrib/_int.sql
- $ psql -U postgres acoustid <`pg_config --sharedir`/contrib/pgcrypto.sql
- $ psql -U postgres acoustid <`pg_config --sharedir`/contrib/acoustid.sql
+ $ sudo -u postgres psql acoustid -c 'CREATE EXTENSION intarray;'
+ $ sudo -u postgres psql acoustid -c 'CREATE EXTENSION pgcrypto;'
+ $ sudo -u postgres psql acoustid -c 'CREATE EXTENSION acoustid;'
 
 Create the database structure:
 

@@ -17,7 +17,15 @@ TARGET_DIR=$DATA_DIR/fullexport/`date '+%Y-%m-%d'`
 rm -rf $TEMP_DIR
 mkdir $TEMP_DIR
 
+if [ -e /etc/init.d/slony1 ]; then
+    sudo /etc/init.d/slony1 stop
+fi
+
 $DIR/scripts/export_tables.py -q -c $DIR/acoustid.conf -d $TEMP_DIR "$@"
+
+if [ -e /etc/init.d/slony1 ]; then
+    sudo /etc/init.d/slony1 start
+fi
 
 cd $TEMP_DIR
 
