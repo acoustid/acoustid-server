@@ -9,7 +9,7 @@ from werkzeug.wrappers import Request, Response
 from jinja2 import Environment, FileSystemLoader
 import sqlalchemy
 from acoustid.config import Config
-from acoustid import api, website, handlers
+from acoustid import api, handlers
 from acoustid.script import Script
 import api.v1
 import api.v2
@@ -42,37 +42,13 @@ admin_url_rules = [
     ])
 ]
 
-website_url_rules = [
-    Rule('/', endpoint=website.IndexHandler),
-    Rule('/login', endpoint=website.LoginHandler),
-    Rule('/logout', endpoint=website.LogoutHandler),
-    Rule('/api-key', endpoint=website.APIKeyHandler),
-    Rule('/new-api-key', endpoint=website.NewAPIKeyHandler),
-    Rule('/applications', endpoint=website.ApplicationsHandler),
-    Rule('/application/<int:id>', endpoint=website.ApplicationHandler),
-    Rule('/edit/application/<int:id>', endpoint=website.EditApplicationHandler),
-    Rule('/new-application', endpoint=website.NewApplicationHandler),
-    Rule('/stats', endpoint=website.StatsHandler),
-    Rule('/track/<string:id>', endpoint=website.TrackHandler),
-    Rule('/fingerprint/<int:id>', endpoint=website.FingerprintHandler),
-    Rule('/fingerprint/<int:id_1>/compare/<int:id_2>', endpoint=website.CompareFingerprintsHandler),
-    Rule('/mbid/<string:mbid>', endpoint=website.MBIDHandler),
-    Rule('/edit/toggle-track-mbid', endpoint=website.EditToggleTrackMBIDHandler),
-    Rule('/<path:page>', endpoint=website.PageHandler),
-]
-
 
 class Server(Script):
 
     def __init__(self, config_path):
         super(Server, self).__init__(config_path)
-        url_rules = website_url_rules + api_url_rules + admin_url_rules
+        url_rules = api_url_rules + admin_url_rules
         self.url_map = Map(url_rules, strict_slashes=False)
-        self._setup_website()
-
-    def _setup_website(self):
-        loader = FileSystemLoader(self.config.website.templates_path)
-        self.templates = Environment(loader=loader)
 
     def __call__(self, environ, start_response):
         urls = self.url_map.bind_to_environ(environ)
