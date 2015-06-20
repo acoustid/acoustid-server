@@ -71,7 +71,7 @@ def dump_colums(root, root_name, columns):
                 column_node.text = value.decode('UTF-8')
 
 
-def create_musicbrainz_replication_packet(cursor, data_dir, max_txid):
+def create_musicbrainz_replication_packet(cursor, data_dir):
     cursor.execute("""
         UPDATE acoustid_mb_replication_control
         SET current_replication_sequence = current_replication_sequence + 1,
@@ -81,8 +81,7 @@ def create_musicbrainz_replication_packet(cursor, data_dir, max_txid):
     cursor.execute("""
         SELECT * FROM mirror_queue
         WHERE tblname IN ('recording_acoustid', 'acoustid_mb_replication_control')
-              AND txid <= %s
-        ORDER BY txid, id""", (max_txid,))
+        ORDER BY txid, id""")
     packet_node = etree.Element('packet')
     packet_node.attrib['schema_seq'] = str(schema_seq)
     packet_node.attrib['replication_seq'] = str(replication_seq)
@@ -107,7 +106,7 @@ def create_musicbrainz_replication_packet(cursor, data_dir, max_txid):
     fp.close()
 
 
-def create_replication_packet(cursor, data_dir, max_txid):
+def create_replication_packet(cursor, data_dir):
     cursor.execute("""
         UPDATE replication_control
         SET current_replication_sequence = current_replication_sequence + 1,
@@ -117,8 +116,7 @@ def create_replication_packet(cursor, data_dir, max_txid):
     cursor.execute("""
         SELECT * FROM mirror_queue
         WHERE tblname NOT IN ('recording_acoustid', 'acoustid_mb_replication_control')
-              AND txid <= %s
-        ORDER BY txid, id""", (max_txid,))
+        ORDER BY txid, id""")
     packet_node = etree.Element('packet')
     packet_node.attrib['schema_seq'] = str(schema_seq)
     packet_node.attrib['replication_seq'] = str(replication_seq)
@@ -144,13 +142,9 @@ def create_replication_packet(cursor, data_dir, max_txid):
 
 
 def export_replication(cursor, data_dir):
-    cursor.execute("SELECT min(txid), max(txid) FROM mirror_queue")
-    min_txid, max_txid = cursor.fetchone()
-    new_max_txid = min(max_txid, min_txid + 10 * 1000)
-    create_replication_packet(cursor, data_dir, new_max_txid)
-    create_musicbrainz_replication_packet(cursor, data_dir, new_max_txid)
-    cursor.execute("DELETE FROM mirror_queue WHERE txid <= %s", (new_max_txid,))
-    return new_max_txid == max_txid
+    create_replication_packet(cursor, data_dir)
+    create_musicbrainz_replication_packet(cursor, data_dir)
+    cursor.execute("DELETE FROM mirror_queue")
 
 
 def main(script, opts, args):
@@ -158,16 +152,13 @@ def main(script, opts, args):
     conn.detach()
     with closing(conn):
         conn.connection.rollback()
-        needs_more_iterations = True
-        while needs_more_iterations:
-            conn.connection.set_session(psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
-            cursor = conn.connection.cursor()
-            if export_replication(cursor, opts.data_dir):
-                needs_more_iterations = False
-                if opts.full:
-                    export_tables(cursor, 'acoustid-dump', CORE_TABLES, opts.data_dir)
-                    export_tables(cursor, 'acoustid-musicbrainz-dump', MUSICBRAINZ_TABLES, opts.data_dir)
-            conn.connection.commit()
+        conn.connection.set_session(psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
+        cursor = conn.connection.cursor()
+        export_replication(cursor, opts.data_dir)
+        if opts.full:
+            export_tables(cursor, 'acoustid-dump', CORE_TABLES, opts.data_dir)
+            export_tables(cursor, 'acoustid-musicbrainz-dump', MUSICBRAINZ_TABLES, opts.data_dir)
+        conn.connection.commit()
 
  
 def add_options(parser):

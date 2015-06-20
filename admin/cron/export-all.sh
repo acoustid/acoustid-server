@@ -23,11 +23,9 @@ cd $TEMP_DIR
 
 # publish replication packets
 for NAME in acoustid-update acoustid-musicbrainz-update; do
-	for FNAME in $NAME-*.xml; do
-		bzip2 $FNAME
-		cat ~/.gnupg/passphrase | gpg -a --batch --passphrase-fd 0 --detach-sign $FNAME.bz2
-		mv $FNAME.bz2{,.asc} $DATA_DIR/replication/
-	done
+	bzip2 $NAME-*.xml
+	cat ~/.gnupg/passphrase | gpg -a --batch --passphrase-fd 0 --detach-sign $NAME-*.xml.bz2
+	mv $NAME-*.xml.bz2{,.asc} $DATA_DIR/replication/
 done
 
 # publish data dumps
