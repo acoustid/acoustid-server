@@ -3,6 +3,9 @@ from sqlalchemy.dialects.postgresql import ARRAY, UUID
 
 metadata = MetaData()
 
+import mbdata.config
+mbdata.config.metadata = metadata
+
 account = Table('account', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
@@ -223,91 +226,24 @@ track_foreignid_source = Table('track_foreignid_source', metadata,
     Column('source_id', Integer, ForeignKey('source.id')),
 )
 
-mb_artist = Table('artist', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', String),
-    Column('gid', UUID),
-    schema='musicbrainz',
-)
+import mbdata.models
+mb_area = mbdata.models.Area.__table__
+mb_artist_credit = mbdata.models.ArtistCredit.__table__
+mb_artist_credit_name = mbdata.models.ArtistCreditName.__table__
+mb_artist = mbdata.models.Artist.__table__
+mb_iso_3166_1 = mbdata.models.ISO31661.__table__
+mb_medium_format = mbdata.models.MediumFormat.__table__
+mb_medium = mbdata.models.Medium.__table__
+mb_recording_gid_redirect = mbdata.models.RecordingGIDRedirect.__table__
+mb_recording = mbdata.models.Recording.__table__
+mb_release_group = mbdata.models.ReleaseGroup.__table__
+mb_release_group_primary_type = mbdata.models.ReleaseGroupPrimaryType.__table__
+mb_release_group_secondary_type_join = mbdata.models.ReleaseGroupSecondaryTypeJoin.__table__
+mb_release_group_secondary_type = mbdata.models.ReleaseGroupSecondaryType.__table__
+mb_release = mbdata.models.Release.__table__
+mb_track = mbdata.models.Track.__table__
 
-mb_area = Table('area', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', String),
-    schema='musicbrainz',
-)
-
-mb_iso_3166_1 = Table('iso_3166_1', metadata,
-    Column('area', Integer, ForeignKey('musicbrainz.area.id')),
-    Column('code', String),
-    schema='musicbrainz',
-)
-
-mb_release_group_primary_type = Table('release_group_primary_type', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', String),
-    schema='musicbrainz',
-)
-
-mb_release_group_secondary_type = Table('release_group_secondary_type', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', String),
-    schema='musicbrainz',
-)
-
-mb_artist_credit = Table('artist_credit', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', String),
-    Column('artist_count', Integer),
-    schema='musicbrainz',
-)
-
-mb_artist_credit_name = Table('artist_credit_name', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', String),
-    Column('artist_credit', Integer, ForeignKey('musicbrainz.artist_credit.id')),
-    Column('artist', Integer, ForeignKey('musicbrainz.artist.id')),
-    Column('join_phrase', String),
-    Column('position', Integer),
-    schema='musicbrainz',
-)
-
-mb_recording = Table('recording', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('artist_credit', Integer, ForeignKey('musicbrainz.artist_credit.id')),
-    Column('name', String),
-    Column('gid', UUID),
-    Column('comment', String),
-    Column('length', Integer),
-    schema='musicbrainz',
-)
-
-mb_recording_gid_redirect = Table('recording_gid_redirect', metadata,
-    Column('gid', UUID, primary_key=True),
-    Column('new_id', Integer, ForeignKey('musicbrainz.recording.id')),
-    schema='musicbrainz',
-)
-
-mb_track = Table('track', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('gid', UUID),
-    Column('position', Integer),
-    Column('medium', Integer, ForeignKey('musicbrainz.medium.id')),
-    Column('recording', Integer, ForeignKey('musicbrainz.recording.id')),
-    Column('artist_credit', Integer, ForeignKey('musicbrainz.artist_credit.id')),
-    Column('name', String),
-    Column('length', Integer),
-    schema='musicbrainz',
-)
-
-mb_release = Table('release', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('artist_credit', Integer, ForeignKey('musicbrainz.artist_credit.id')),
-    Column('name', String),
-    Column('gid', UUID),
-    Column('release_group', Integer, ForeignKey('musicbrainz.release_group.id')),
-    schema='musicbrainz',
-)
-
+# XXX either stop using this or define view models in mbdata
 mb_release_country = Table('release_event', metadata,
     Column('release', Integer, ForeignKey('musicbrainz.release.id')),
     Column('country', Integer, ForeignKey('musicbrainz.area.id')),
@@ -316,35 +252,3 @@ mb_release_country = Table('release_event', metadata,
     Column('date_day', Integer),
     schema='musicbrainz',
 )
-
-mb_release_group = Table('release_group', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('artist_credit', Integer, ForeignKey('musicbrainz.artist_credit.id')),
-    Column('name', String),
-    Column('gid', UUID),
-    Column('type', Integer, ForeignKey('musicbrainz.release_group_primary_type.id')),
-    schema='musicbrainz',
-)
-
-mb_release_group_secondary_type_join = Table('release_group_secondary_type_join', metadata,
-    Column('release_group', Integer, ForeignKey('musicbrainz.release_group.id'), primary_key=True),
-    Column('secondary_type', Integer, ForeignKey('musicbrainz.release_group_secondary_type.id')),
-    schema='musicbrainz',
-)
-
-mb_medium_format = Table('medium_format', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', String),
-    schema='musicbrainz',
-)
-
-mb_medium = Table('medium', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('release', Integer, ForeignKey('musicbrainz.release.id')),
-    Column('position', Integer),
-    Column('name', String),
-    Column('format', Integer, ForeignKey('musicbrainz.medium_format.id')),
-    Column('track_count', Integer),
-    schema='musicbrainz',
-)
-
