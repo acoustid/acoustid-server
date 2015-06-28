@@ -1,13 +1,13 @@
 CREATE OR REPLACE FUNCTION generate_api_key() RETURNS varchar
 AS $$
     SELECT substring(regexp_replace(encode(decode(md5(current_timestamp::text || to_hex(ceil(random() * 16777215)::int)),'hex'),'base64'), '[/+=]', '', 'g') from 0 for 9);
-$$ LANGUAGE 'SQL' IMMUTABLE STRICT;
+$$ LANGUAGE sql IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION extract_fp_query(int[]) RETURNS int[]
 AS $$
     SELECT uniq(sort(subarray($1 - 627964279,
 		greatest(0, least(icount($1 - 627964279) - 120, 80)), 120)));
-$$ LANGUAGE 'SQL' IMMUTABLE STRICT;
+$$ LANGUAGE sql IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION update_account_stats() RETURNS void
 AS $$
@@ -33,5 +33,5 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fp_hash(int[]) RETURNS bytea
 AS $$
     SELECT digest($1::text, 'sha1');
-$$ LANGUAGE 'SQL' IMMUTABLE STRICT;
+$$ LANGUAGE sql IMMUTABLE STRICT;
 
