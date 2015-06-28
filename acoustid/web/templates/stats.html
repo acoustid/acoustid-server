@@ -3,82 +3,70 @@
 
 <h2>{{ title }}</h2>
 
-<p><b>Basic statistics</b></p>
+<h3>Basic statistics</h3>
 
-<table class="listing">
+<table class="table">
     <tr>
         <td>AcoustIDs</td>
-        <td class="r">{{ basic.tracks }}</td>
+        <td class="text-right">{{ basic.tracks }}</td>
     </tr>
     <tr>
         <td>Fingerprints</td>
-        <td class="r">{{ basic.fingerprints }}</td>
+        <td class="text-right">{{ basic.fingerprints }}</td>
     </tr>
     <tr>
         <td>Recordings</td>
-        <td class="r">{{ basic.mbids }}</td>
+        <td class="text-right">{{ basic.mbids }}</td>
     </tr>
     <tr>
         <td>Contributors</td>
-        <td class="r">{{ basic.contributors }}</td>
+        <td class="text-right">{{ basic.contributors }}</td>
     </tr>
 </table>
 
-<p><b>Daily additions</b></p>
+<h3>Daily additions</h3>
 
-<div id="graph-fp"></div>
+<div id="chart1" class="chart"></div>
 
-<p><b>Searches</b></p>
+<h3>Searches</h3>
 
-<div id="lookups-graph-fp"></div>
+<div id="chart2" class="chart"></div>
 
-<p><b>AcoustIDs per the number of linked recordings</b></p>
+<h3>AcoustIDs per the number of linked recordings</h3>
 
-<table class="listing">
+<table class="table">
     <tr>
         <td>AcoustIDs with at least 1 recording</td>
-        <td class="r">{{ basic.tracks_with_mbid }}</td>
-        <td class="r">{{ basic.tracks_with_mbid_percent }} %</td>
+        <td class="text-right">{{ basic.tracks_with_mbid }}</td>
+        <td class="text-right">{{ basic.tracks_with_mbid_percent }} %</td>
     </tr>
     {% for t in track_mbid %}
-    <tr class="indent">
-        <td>with {% if t.i == 1 %}1 recording{% elif t.i == 10 %}10 or more recordings{% else %}{{ t.i }} recordings{% endif %}</td>
-        <td class="r">{{ t.count }}</td>
-        <td class="r">{{ t.percent }} %</td>
+    <tr>
+        <td class="indented">with {% if t.i == 1 %}1 recording{% elif t.i == 10 %}10 or more recordings{% else %}{{ t.i }} recordings{% endif %}</td>
+        <td class="narrow text-right">{{ t.count }}</td>
+        <td class="narrow text-right">{{ t.percent }} %</td>
     </tr>
     {% endfor %}
 </table>
 
-<p><b>Recordings per the number of linked AcoustIDs</b></p>
+<h3>Recordings per the number of linked AcoustIDs</h3>
 
-<table class="listing">
+<table class="table">
     <tr>
         <td>Recording with at least 1 AcoustID</td>
-        <td class="r">{{ basic.mbids }}</td>
-        <td class="r">100.00 %</td>
+        <td class="text-right">{{ basic.mbids }}</td>
+        <td class="text-right">100.00 %</td>
     </tr>
     {% for t in mbid_track %}
-    <tr class="indent">
-        <td>with {% if t.i == 1 %}1 AcoustID{% elif t.i == 10 %}10 or more AcoustIDs{% else %}{{ t.i }} AcoustIDs{% endif %}</td>
-        <td class="r">{{ t.count }}</td>
-        <td class="r">{{ t.percent }} %</td>
+    <tr>
+        <td class="indented">with {% if t.i == 1 %}1 AcoustID{% elif t.i == 10 %}10 or more AcoustIDs{% else %}{{ t.i }} AcoustIDs{% endif %}</td>
+        <td class="narrow text-right">{{ t.count }}</td>
+        <td class="narrow text-right">{{ t.percent }} %</td>
     </tr>
     {% endfor %}
 </table>
 
-{% macro data_series(name, data, visible=True)  %}
-{
-    name: '{{ name }}',
-	data: [
-		{% for i in data -%}
-			[Date.UTC({{ i.date.year }}, {{ i.date.month - 1 }}, {{ i.date.day }}), {{ i.value }}]{% if not loop.last %},{% endif %}
-		{%- endfor %}
-	],
-	visible: {{ 'true' if visible else 'false' }}
-}
-{% endmacro %}
-
-{% macro lookup_data_series(name, data, field, visible=True)  %}
+{% macro data_series(name, data, field, visible=True)  %}
 {
     name: '{{ name }}',
 	data: [
@@ -90,77 +78,21 @@
 }
 {% endmacro %}
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js" type="text/javascript"></script>
-<script src="/static/highcharts.js" type="text/javascript"></script>
 <script type="text/javascript">
-var chart1; // globally available
-var chart2; // globally available
-$(document).ready(function() {
-	chart1 = new Highcharts.Chart({
-		chart: {
-			renderTo: 'graph-fp',
-			height: 250,
-			zoomType: 'x',
-			defaultSeriesType: 'line'
-		},
-		title: { text: '' },
-		xAxis: {
-			type: 'datetime',
-			dateTimeLabelFormats: {
-				month: '%e. %b',
-				year: '%b'
-			}
-		},
-		yAxis: {
-			title: { text: '' }
-		},
-		legend: {
-			shadow: false
-		},
-		plotOptions: {
-			line: {
-				lineWidth: 1
-			}
-		},
-		series: [
-			{{ data_series('AcoustIDs', daily.tracks) }},
-			{{ data_series('MBIDs', daily.mbids) }},
-		]
-	});
-	chart2 = new Highcharts.Chart({
-		chart: {
-			renderTo: 'lookups-graph-fp',
-			height: 250,
-			zoomType: 'x',
-			defaultSeriesType: 'line'
-		},
-		title: { text: '' },
-		xAxis: {
-			type: 'datetime',
-			dateTimeLabelFormats: {
-				month: '%e. %b',
-				year: '%b'
-			}
-		},
-		yAxis: {
-			title: { text: '' }
-		},
-		legend: {
-			shadow: false
-		},
-		plotOptions: {
-			line: {
-				lineWidth: 1
-			}
-		},
-		series: [
-			{{ lookup_data_series('All', lookups, 'count') }},
-			{{ lookup_data_series('Hits', lookups, 'count_hits') }},
-			{{ lookup_data_series('Misses', lookups, 'count_nohits') }}
-		]
-	});
-});
+var chart1_series = [
+    {{ data_series('AcoustIDs', daily.tracks, 'value') }},
+    {{ data_series('MBIDs', daily.mbids, 'value') }}
+]; 
+var chart2_series = [
+    {{ data_series('All', lookups, 'count') }},
+    {{ data_series('Hits', lookups, 'count_hits') }},
+    {{ data_series('Misses', lookups, 'count_nohits') }}
+];
 </script>
 
 {% endblock %}
 
+{% block extra_js %}
+<script src="{{ url_for('static', filename='highcharts.js') }}" type="text/javascript"></script>
+<script src="{{ url_for('static', filename='stats.js') }}" type="text/javascript"></script>
+{% endblock %}
