@@ -5,11 +5,23 @@ html {
 
 body {
   font-family: 'DejaVu Sans', 'Verdana', sans;
+  font-size: 14px;
   margin-bottom: 80px;
+  color: #000;
+}
+
+a {
+	color: #0145aa;
+	text-decoration: none;
+}
+
+a:hover {
+	color: #aa0000;
+	text-decoration: underline;
 }
 
 .menu {
-  font-size: 130%;
+  font-size: 16px;
   line-height: 1.7;
 	text-align: center;
 }

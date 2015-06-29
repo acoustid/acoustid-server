@@ -57,7 +57,7 @@ small amount, to keep it running smoothly and stay free.
           <li><a href="{{ url_for('general.docs') }}">Documentation</a></li> 
           <li><a href="{{ url_for('stats.stats') }}">Statistics</a></li> 
           <li><a href="{{ url_for('general.donate') }}">Donate</a></li> 
-          <li><a href="{{ url_for('general.contact') }}">Contact</a></li>
+          <li><a href="{{ url_for('general.contact') }}">Contact Us</a></li>
         </ul> 
       </div>
       <div class="col-sm-9 content">
@@ -65,7 +65,7 @@ small amount, to keep it running smoothly and stay free.
 			</div> 
 		</div> 
 	</div> 
-	<footer class="footer">
+	<div class="footer">
     <div class="container">
       <p class="text-muted">Software created and hosted by <a href="https://oxygene.sk/">Lukáš Lalinský</a>, data crowd-sourced by <a href="{{ url_for('stats.stats') }}">thousands of contributors</a>.</p>
       <p class="text-muted">
@@ -77,7 +77,7 @@ small amount, to keep it running smoothly and stay free.
         <a href="http://status.acoustid.org">API Status</a>
       </p>
     </div>
-	</footer> 
+	</div>
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
   <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
   {% block extra_js %}{% endblock %}
