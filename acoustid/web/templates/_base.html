@@ -7,6 +7,7 @@
   <title>{% if title %}{{ title }} | {% endif %}AcoustID</title> 
   <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
   <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+  {% block extra_css %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='acoustid.css') }}" />
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 	<!--<script type="text/javascript"> 

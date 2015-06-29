@@ -25,19 +25,14 @@ def find_daily_stats(conn, names):
             value - lag(value, 1, 0) over(PARTITION BY name ORDER BY date) AS value
         FROM stats
         WHERE date > now() - INTERVAL '31 day' AND name IN (""" + ",".join(["%s" for i in names]) +  """)
-        ORDER BY name, date
+        ORDER BY date, name
     """
-    stats = {}
-    for name in names:
-        stats[name] = []
-    seen = set()
-    for row in conn.execute(query, tuple(names)).fetchall():
-        name = row['name']
-        if name not in seen:
-            seen.add(name)
-            continue
-        stats[row['name']].append({'date': row['date'], 'value': row['value']})
-    return stats
+    stats = []
+    for date, name, value in conn.execute(query, tuple(names)).fetchall():
+        if not stats or stats[-1]['date'] != date:
+            stats.append({'date': date})
+        stats[-1][name] = value
+    return stats[1:]
 
 
 def find_lookup_stats(conn):
