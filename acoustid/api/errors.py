@@ -21,6 +21,8 @@ ERROR_INVALID_MAX_DURATION_DIFF = 11
 ERROR_NOT_ALLOWED = 12
 ERROR_SERVICE_UNAVAILABLE = 13
 ERROR_TOO_MANY_REQUESTS = 14
+ERROR_INVALID_MUSICBRAINZ_ACCESS_TOKEN = 15
+ERROR_INSECURE_REQUEST = 14
 
 
 class WebServiceError(Exception):
@@ -142,3 +144,16 @@ class TooManyRequests(WebServiceError):
         message = 'rate limit (%f requests per second) exceeded, try again later' % rate
         WebServiceError.__init__(self, ERROR_TOO_MANY_REQUESTS, message)
 
+
+class InvalidMusicBrainzAccessTokenError(WebServiceError):
+
+    def __init__(self):
+        message = 'invalid MusicBrainz access token'
+        WebServiceError.__init__(self, ERROR_INVALID_MUSICBRAINZ_ACCESS_TOKEN, message)
+
+
+class InsecureRequestError(WebServiceError):
+
+    def __init__(self):
+        message = 'only requests over HTTPS are allowed here'
+        WebServiceError.__init__(self, ERROR_INSECURE_REQUEST, message)

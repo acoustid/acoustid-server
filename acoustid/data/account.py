@@ -28,6 +28,11 @@ def get_account_details(conn, id):
     return conn.execute(query).fetchone()
 
 
+def get_account_details_by_mbuser(conn, mbuser):
+    query = schema.account.select(sql.func.lower(schema.account.c.mbuser) == sql.func.lower(mbuser))
+    return conn.execute(query).fetchone()
+
+
 def update_account_lastlogin(conn, id):
     with conn.begin():
         update_stmt = schema.account.update().where(schema.account.c.id == id)

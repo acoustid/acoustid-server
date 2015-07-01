@@ -29,6 +29,7 @@ api_url_rules = [
             Rule('/track/list_by_puid', endpoint=api.v2.misc.TrackListByPUIDHandler),
             Rule('/user/lookup', endpoint=api.v2.misc.UserLookupHandler),
             Rule('/user/create_anonymous', endpoint=api.v2.misc.UserCreateAnonymousHandler),
+            Rule('/user/create_musicbrainz', endpoint=api.v2.misc.UserCreateMusicBrainzHandler),
             Submount('/internal', [
                 Rule('/update_lookup_stats', endpoint=api.v2.internal.UpdateLookupStatsHandler),
                 Rule('/update_user_agent_stats', endpoint=api.v2.internal.UpdateUserAgentStatsHandler),

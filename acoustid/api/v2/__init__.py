@@ -131,6 +131,7 @@ class APIHandler(Handler):
             self.user_ip = req.access_route[0]
         else:
             self.user_ip = req.remote_addr
+        self.is_secure = req.is_secure
         self.user_agent = req.user_agent
         self.rate_limiter = RateLimiter(self.redis, 'rl')
         try:

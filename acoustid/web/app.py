@@ -56,13 +56,19 @@ app.register_blueprint(stats_page)
 if __name__ == "__main__":
     import argparse
     from werkzeug.serving import run_simple
+    from werkzeug.wsgi import DispatcherMiddleware
+    from werkzeug.contrib.fixers import ProxyFix
+    from acoustid.server import make_application as make_api_application
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--proxy', action='store_true')
     parser.add_argument('--ssl', action='store_true')
     parser.add_argument('--ssl-crt')
     parser.add_argument('--ssl-key')
+    parser.add_argument('--api', action='store_true')
     args = parser.parse_args()
+
+    script.setup_console_logging()
 
     app.debug = True
 
@@ -82,9 +88,12 @@ if __name__ == "__main__":
         #context.load_cert_chain(args.ssl_crt, args.ssl_key)
         #run_args['ssl_context'] = context
 
+    if args.api:
+        app = DispatcherMiddleware(app, {
+            '/api': make_api_application(config_filename),
+        })
+
     if args.proxy:
-        from werkzeug.contrib.fixers import ProxyFix
         app = ProxyFix(app)
 
-    script.setup_console_logging()
     run_simple('127.0.0.1', 5000, app, **run_args)
