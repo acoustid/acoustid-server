@@ -2,6 +2,8 @@ import json
 import base64
 import urllib2
 import logging
+import random
+from itsdangerous import URLSafeSerializer
 from rauth import OAuth2Service
 from openid import oidutil, fetchers
 from openid.consumer import consumer as openid
@@ -72,9 +74,10 @@ def find_or_create_musicbrainz_user(mb_user_name):
     return user
 
 
-def login_user_and_redirect(user_id):
+def login_user_and_redirect(user_id, return_url=None):
     session['id'] = user_id
-    return_url = request.values.get('return_url')
+    if not return_url:
+        return_url = request.values.get('return_url')
     if return_url and is_our_url(return_url):
         return redirect(return_url)
     return redirect(url_for('general.index'))
@@ -90,14 +93,35 @@ def handle_musicbrainz_oauth2_login():
         access_token_url='https://musicbrainz.org/oauth2/token',
     )
 
+    serializer = URLSafeSerializer(current_app.config['SECRET_KEY'])
+
     code = request.args.get('code')
     if not code:
+        token = str(random.getrandbits(64))
+        session['mb_login_token'] = token
         url = musicbrainz.get_authorize_url(**{
             'response_type': 'code',
             'scope': 'profile',
             'redirect_uri': url_for('.musicbrainz_login', _external=True),
+            'state': serializer.dumps({
+                'return_url': request.values.get('return_url'),
+                'token': token,
+            }),
         })
         return redirect(url)
+
+    serialized_state = request.args.get('state')
+    if serialized_state:
+        state = serializer.loads(serialized_state)
+    else:
+        state = {}
+
+    token = session.get('mb_login_token')
+    if not token:
+        raise Exception('token not found in session')
+
+    if token != state.get('token'):
+        raise Exception('token from session does not match token from oauth2 state')
 
     auth_session = musicbrainz.get_auth_session(data={
         'grant_type': 'authorization_code',
@@ -110,7 +134,7 @@ def handle_musicbrainz_oauth2_login():
     user = find_or_create_musicbrainz_user(response['sub'])
     logger.info('MusicBrainz user %s "%s" logged in', user.id, user.name)
 
-    return login_user_and_redirect(user.id)
+    return login_user_and_redirect(user.id, return_url=state.get('return_url'))
 
 
 @user_page.route('/login/musicbrainz')
