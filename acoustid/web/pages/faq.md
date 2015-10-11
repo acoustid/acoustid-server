@@ -31,6 +31,7 @@ to do some data cleanup, it's much easier to do if we know the source of
 the data. You can use any [OpenID][oid] provider to log in or you can use your 
 existing MusicBrainz user account.
 
+<span id="api_key_not_working"></span>
 ### Why is my API key not working?
 
 There are two kinds of API keys. The one you see immediately after logging in is
