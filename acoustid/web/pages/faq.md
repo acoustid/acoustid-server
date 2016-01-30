@@ -31,6 +31,18 @@ to do some data cleanup, it's much easier to do if we know the source of
 the data. You can use any [OpenID][oid] provider to log in or you can use your 
 existing MusicBrainz user account.
 
+<span id="api_key_not_working"></span>
+### Why is my API key not working?
+
+There are two kinds of API keys. The one you see immediately after logging in is
+an [user API key](/api-key) that is meant to be entered into an application like
+MusicBrainz Picard for the purpose of identifying yourself or. This is the API
+key that needs to be sent to the "submit" endpoint as the "user" parameter.
+
+If you are developing an new application and need an API key for the "client" parameter,
+you need an [application API key](https://acoustid.org/applications). You need to
+[register your application](https://acoustid.org/new-application) to get one.
+
 [oid]: http://openid.net/
 
 [code]: https://bitbucket.org/acoustid/acoustid-server/src/master/acoustid/website.py
