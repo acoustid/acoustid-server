@@ -3,12 +3,6 @@
 
 <h2>{{ title }}</h2>
 
-<form method="POST" action="{{ url_for('.toggle_track_mbid') }}">
-<input type="hidden" name="mbid" value="{{ mbid }}" />
-<input type="hidden" name="track_id" value="{{ track_id }}" />
-<input type="hidden" name="state" value="{{ '1' if state else '0' }}" />
-<input type="hidden" name="submit" value="1" />
-
 <p>
     Are you sure you want to {% if not state %}link{% else %}unlink{% endif %}
     MBID "<a href="//musicbrainz.org/recording/{{ mbid }}">{{ mbid }}</a>"
@@ -16,9 +10,18 @@
     track "<a href="{{ url_for('.track', track_id=track_gid) }}">{{ track_gid }}</a>"?
 </p>
 
-<p>Comment:<br /><textarea style="width:80%;height:3em;" name="note"></textarea></p>
+<form method="POST" action="{{ url_for('.toggle_track_mbid') }}">
 
-<p><input type="submit" value="Submit" /></p>
+<div class="form-group">
+  <label for="note_i">Comment:</label>
+  <textarea class="form-control" name="note" id="name_i"></textarea>
+</div>
+
+<input type="hidden" name="mbid" value="{{ mbid }}" />
+<input type="hidden" name="track_id" value="{{ track_id }}" />
+<input type="hidden" name="state" value="{{ '1' if state else '0' }}" />
+<input type="hidden" name="submit" value="1" />
+<input type="submit" class="btn btn-default" value="Submit" />
 
 </form>
 

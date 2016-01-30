@@ -5,8 +5,8 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if title %}{{ title }} | {% endif %}AcoustID</title> 
-  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
-  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/{{ bootstrap_version }}/css/bootstrap.min.css">
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/{{ bootstrap_version }}/css/bootstrap-theme.min.css">
   {% block extra_css %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='acoustid.css') }}" />
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
@@ -25,44 +25,61 @@
 	</script> -->
 </head> 
 <body>
-        {# <div style="text-align: center; width:100%; font-weight: bold; font-size:130%; color:red;">The AcoustID website is currently in read-only mode for maintenance.</div> #}
-        {# <div style="text-align: left; width:100%; font-size: 14px; background-color: #ffefd7; padding:10px; font-weight: bold;">
 
-<div style="width:740px; margin-left:auto; margin-right:auto; position:relative; padding-right:120px;">
+{% if show_maintenace_banner %}
+  <div class="maintenance-header">
+    <div class="container">
+      <p>
+        AcoustID is currently in read-only mode for maintenance.
+      </p>
+    </div>
+  </div>
+{% endif %}
 
-Dear users &mdash;
-AcoustID provides free service to a number of open source applications.
-If you are using such an application and find AcoustID useful, please consider donating a
-small amount, to keep it running smoothly and stay free.
-<i>Thank you.</i>
-
-<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top" style="position:absolute; right:10px; top:5px;">
-<input type="hidden" name="cmd" value="_s-xclick">
-<input type="hidden" name="hosted_button_id" value="RRBS25ADWPK2E">
-<input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-<img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
-</form>
-
-</div> #}
+{% if show_donate_banner %}
+  <div class="donate-header">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-10">
+          <p>
+            Dear users &mdash;
+            AcoustID provides free service to a number of open source applications.
+            If you are using such an application and find AcoustID useful, please consider donating a
+            small amount, to keep it running smoothly and stay free.
+            <i>Thank you.</i>
+          </p>
+        </div>
+        <div class="col-md-2">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+            <input type="hidden" name="cmd" value="_s-xclick">
+            <input type="hidden" name="hosted_button_id" value="RRBS25ADWPK2E">
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+            <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
 
 	<div class="container"> 
 		<div class="row"> 
       <div class="col-sm-3 menu">
         <h1><a href="{{ url_for('general.index') }}" title="AcoustID"><img src="{{ url_for('static', filename='acoustid-logo-wo-bg.png') }}" width="180" alt="AcoustID"></a></h1> 
         <ul class="list-unstyled"> 
-          <li><a href="{{ url_for('user.api_key') }}"><strong>Get API Key</strong></a></li> 
+          <li><a href="{{ url_for('user.api_key') }}"><strong>Get API key</strong></a></li> 
+          <li><a href="{{ url_for('general.applications') }}">Applications</a></li> 
+          <li><a href="{{ url_for('stats.stats') }}">Statistics</a></li> 
+          <li><a href="{{ url_for('general.docs') }}">Documentation</a></li> 
+          <li><a href="{{ url_for('general.donate') }}">Donate</a></li> 
+          <li><a href="{{ url_for('general.contact') }}">Contact</a></li>
           {% if account_id  %}
-          <li><a href="{{ url_for('apps.applications') }}">Applications</a></li> 
           <li><a href="{{ url_for('user.logout') }}">Log out</a></li> 
           {% endif %}
-          <li><a href="{{ url_for('general.docs') }}">Documentation</a></li> 
-          <li><a href="{{ url_for('stats.stats') }}">Statistics</a></li> 
-          <li><a href="{{ url_for('general.donate') }}">Donate</a></li> 
-          <li><a href="{{ url_for('general.contact') }}">Contact Us</a></li>
         </ul> 
       </div>
       <div class="col-sm-9 content">
-          {% block content %}{% endblock %}
+        {% block content %}{% endblock %}
 			</div> 
 		</div> 
 	</div> 
@@ -71,16 +88,14 @@ small amount, to keep it running smoothly and stay free.
       <p class="text-muted">Software created and hosted by <a href="https://oxygene.sk/">Lukáš Lalinský</a>, data crowd-sourced by <a href="{{ url_for('stats.stats') }}">thousands of contributors</a>.</p>
       <p class="text-muted">
         <a href="{{ url_for('general.contact') }}">Contact</a> |
-        <a href="https://groups.google.com/forum/#!forum/acoustid">Mailing List</a> |
         <a href="https://oxygene.sk/category/acoustid/">Blog</a> |
         <a href="https://twitter.com/acoustid">Twitter</a> |
-        <a href="https://www.facebook.com/acoustid">Facebook</a> |
-        <a href="http://status.acoustid.org">API Status</a>
+        <a href="https://www.facebook.com/acoustid">Facebook</a>
       </p>
     </div>
 	</div>
-  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-  <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/{{ jquery_version }}/jquery.min.js"></script>
+  <script src="//maxcdn.bootstrapcdn.com/bootstrap/{{ bootstrap_version }}/js/bootstrap.min.js"></script>
   {% block extra_js %}{% endblock %}
 </body> 
 </html> 

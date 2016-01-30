@@ -9,7 +9,7 @@
 
 <p><small>Please log in with an account from one of these providers:</small></p>
 
-<form action="{{ url_for('.login') }}" method="POST"> 
+<form action="{{ url_for('.login') }}" method="POST"  class="form-inline"> 
 
 <p>
     <a class="login-block login-musicbrainz" href="#"><span>Log in with MusicBrainz</span></a>
@@ -19,7 +19,8 @@
 </p>
 
 <p class="openid-form" style="display:none">
-    <input name="openid_identifier" type="text" class="openid" /> <input type="submit" value="Log in" />
+    <input name="openid_identifier" type="text" class="openid form-control" />
+    <input type="submit" value="Log in" class="btn btn-default" />
 </p>
 
 <input type="hidden" name="return_url" value="{{ return_url }}" /> 

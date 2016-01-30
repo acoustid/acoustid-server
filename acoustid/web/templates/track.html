@@ -14,7 +14,7 @@
 
 <p>Fingerprints:</p>
 
-<table class="listing">
+<table class="table">
 <tr>
     <th>ID</th>
     <th style="width:5em;">Length</th>
@@ -32,7 +32,7 @@
 {% if recordings %}
 <p>Linked MusicBrainz recordings:</p>
 
-<table class="listing">
+<table class="table">
 <tr>
     <th>Title</th>
     <th>Artist</th>
@@ -53,13 +53,13 @@
     {% endif %}
     <td>{{ rec.submission_count }}</td>
     {% if moderator %}
-    <td>
-    <form action="/edit/toggle-track-mbid" method="POST" style="display:inline">
-        <input type="hidden" name="state" value="{{0 if rec.disabled else 1}}" />
-        <input type="hidden" name="track_id" value="{{track.id}}" />
-        <input type="hidden" name="mbid" value="{{rec.mbid}}" />
-        <input type="submit" value="{{'Enable' if rec.disabled else 'Disable'}}" />
-    </form>
+    <td class="text-right">
+      <form action="/edit/toggle-track-mbid" method="POST" style="display: inline">
+          <input type="hidden" name="state" value="{{0 if rec.disabled else 1}}" />
+          <input type="hidden" name="track_id" value="{{track.id}}" />
+          <input type="hidden" name="mbid" value="{{rec.mbid}}" />
+          <input type="submit" class="btn btn-xs btn-default" value="{{'Enable' if rec.disabled else 'Disable'}}" />
+      </form>
     </td>
     {% endif %}
 {% endfor %}
@@ -70,7 +70,7 @@
 {% if user_metadata %}
 <p>Additional user-submitted metadata:</p>
 
-<table class="listing">
+<table class="table">
 <tr>
     <th>Title</th>
     <th>Artist</th>
@@ -89,7 +89,7 @@
 {% if moderator and edits %}
 <p>Editing history:</p>
 
-<ul>
+<ul class="list-unstyled">
 {% for edit in edits %}
     <li>
         <small><i>{{ edit.created.strftime("%b, %d %Y %H:%M:%S") }}</i></small><br />

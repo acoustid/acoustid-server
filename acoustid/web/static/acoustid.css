@@ -38,7 +38,17 @@ a:hover {
 .content td,
 .content th,
 .content li {
-  line-height: 1.7;
+  line-height: 1.8;
+}
+
+.content h2 {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.content h3 {
+  font-size: 15px;
+  font-weight: bold;
 }
 
 .login-block {
@@ -107,4 +117,31 @@ a:hover {
 
 .footer p:last-child {
   margin-bottom: 15px;
+}
+
+.maintenance-header {
+  font-size: 14px;
+  background-color: #ffdfd7;
+  font-weight: bold;
+}
+
+.donate-header {
+  font-size: 14px;
+  background-color: #ffefd7;
+  font-weight: bold;
+}
+
+.maintenance-header p,
+.donate-header p,
+.donate-header form {
+  margin: 10px;
+}
+
+.list-nopadding {
+  padding-left: 1.5em;
+}
+
+.mbid-disabled td {
+    text-decoration: line-through;
+    opacity: 0.5;
 }

@@ -3,82 +3,65 @@
 
 <h2>Application "{{ app.name }}"</h2>
 
-<p><b>Details</b> (<a href="{{ url_for('.edit_application', application_id=app.id) }}">edit</a>)</p>
+<h3>Details</h3>
 
 <ul>
-    <li><b>Version:</b> {{  app.version }}</li>
-    <li><b>Email:</b> {% if app.email %}<a href="mailto:{{ app.email }}">{{ app.email }}</a>{% else %}none{% endif %}</li>
-    <li><b>Website:</b> {% if app.website %}<a href="{{ app.website }}">{{ app.website }}</a>{% else %}none{% endif %}</li>
+  <li><b>API key:</b> <code>{{ app.apikey }}</code></li>
+  <li><b>Version:</b> {{ app.version }}</li>
+  <li><b>Email:</b> {% if app.email %}<a href="mailto:{{ app.email }}">{{ app.email }}</a>{% else %}none{% endif %}</li>
+  <li><b>Website:</b> {% if app.website %}<a href="{{ app.website }}">{{ app.website }}</a>{% else %}none{% endif %}</li>
 </ul>
 
-<p><b>Searches during the last 30 days</b></p>
+<p>
+  <a class="btn btn-default" href="{{ url_for('.edit_application', application_id=app.id) }}">Edit details</a>
+</p>
 
-<div id="lookups-graph-fp"></div>
+{% if lookups %}
+<h3>Searches during the last 30 days</h3>
+<div id="chart-searches" class="chart"></div>
+{% endif %}
 
-<p><b>Searches per month</b></p>
-
-<table class="listing">
-    {% for m in monthly_stats %}
-    <tr>
-        <td>{{ m.month.strftime('%B %Y') }}</td>
-        <td class="r">{{ m.lookups }}</td>
-    </tr>
-    {% endfor %}
+{% if monthly_stats %}
+<h3>Searches per month</h3>
+<table class="table">
+  {% for m in monthly_stats %}
+  <tr>
+    <td>{{ m.month.strftime('%B %Y') }}</td>
+    <td class="text-right">{{ m.lookups }}</td>
+  </tr>
+  {% endfor %}
 </table>
-
-{% macro lookup_data_series(name, data, field, visible=True)  %}
-{
-    name: '{{ name }}',
-	data: [
-		{% for i in data -%}
-			[Date.UTC({{ i.date.year }}, {{ i.date.month - 1 }}, {{ i.date.day }}), {{ i[field] }}]{% if not loop.last %},{% endif %}
-		{%- endfor %}
-	],
-	visible: {{ 'true' if visible else 'false' }}
-}
-{% endmacro %}
-
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js" type="text/javascript"></script>
-<script src="/static/highcharts.js" type="text/javascript"></script>
-<script type="text/javascript">
-var chart1; // globally available
-var chart2; // globally available
-$(document).ready(function() {
-	chart2 = new Highcharts.Chart({
-		chart: {
-			renderTo: 'lookups-graph-fp',
-			height: 250,
-			zoomType: 'x',
-			defaultSeriesType: 'line'
-		},
-		title: { text: '' },
-		xAxis: {
-			type: 'datetime',
-			dateTimeLabelFormats: {
-				month: '%e. %b',
-				year: '%b'
-			}
-		},
-		yAxis: {
-			title: { text: '' }
-		},
-		legend: {
-			shadow: false
-		},
-		plotOptions: {
-			line: {
-				lineWidth: 1
-			}
-		},
-		series: [
-			{{ lookup_data_series('All', lookups, 'count') }},
-			{{ lookup_data_series('Hits', lookups, 'count_hits') }},
-			{{ lookup_data_series('Misses', lookups, 'count_nohits') }}
-		]
-	});
-});
-</script>
-
+{% endif %}
 
 {% endblock %}
 
+{% block extra_css %}
+{% if lookups %}
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/morris.js/{{ morris_js_version }}/morris.css">
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if lookups %}
+<script src="//cdnjs.cloudflare.com/ajax/libs/raphael/{{ raphael_js_version }}/raphael-min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/morris.js/{{ morris_js_version }}/morris.min.js"></script>
+<script>
+$(document).ready(function() {
+
+  new Morris.Line({
+    element: 'chart-searches',
+    data: {{ lookups_json|safe }},
+    xkey: 'date',
+    ykeys: ['count', 'count_hits', 'count_nohits'],
+    xLabels: 'day',
+    xLabelFormat: function (x) { return x.toDateString(); },
+    labels: ['All', 'Hits', 'Misses'],
+    lineColors: ['#4572A7', '#AA4643', '#89A54E', '#80699B', '#3D96AE', '#DB843D', '#92A8CD', '#A47D7C', '#B5CA92'],
+    hideHover: 'auto',
+    resize: true
+  });
+
+});
+</script>
+{% endif %}
+{% endblock %}

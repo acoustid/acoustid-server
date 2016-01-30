@@ -12,7 +12,7 @@ on integration with the [MusicBrainz][mb] music metadata database. There is a lo
 way to go to reach the goal, but you can help by submitting more fingerprints,
 helping developing the software or just spreading the word.
 
-[mb]: http://musicbrainz.org/
+[mb]: https://musicbrainz.org/
 
 ### Can the service identify short audio snippets?
 
@@ -40,8 +40,8 @@ MusicBrainz Picard for the purpose of identifying yourself or. This is the API
 key that needs to be sent to the "submit" endpoint as the "user" parameter.
 
 If you are developing an new application and need an API key for the "client" parameter,
-you need an [application API key](https://acoustid.org/applications). You need to
-[register your application](https://acoustid.org/new-application) to get one.
+you need an [application API key](/my-applications). You need to
+[register your application](/new-application) to get one.
 
 [oid]: http://openid.net/
 

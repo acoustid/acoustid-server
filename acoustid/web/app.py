@@ -1,4 +1,5 @@
 import os
+import datetime
 import pickle
 from flask import Flask, request, request_tearing_down, session
 from flask.sessions import SecureCookieSessionInterface
@@ -34,8 +35,19 @@ app.session_interface = SecureCookieSessionInterface()
 app.session_interface.serializer = pickle
 
 @app.context_processor
-def inject_account_id():
-    return dict(account_id=session.get('id'))
+def inject_common_values():
+    show_donate_banner = False
+    if datetime.date.today().month in (11, 12):
+        show_donate_banner = True
+    return dict(
+        account_id=session.get('id'),
+        show_maintenace_banner=config.website.maintenance,
+        show_donate_banner=show_donate_banner,
+        morris_js_version='0.5.1',
+        raphael_js_version='2.1.4',
+        bootstrap_version='3.3.6',
+        jquery_version='1.12.0',
+    )
 
 def get_flask_request_scope():
     return id(request._get_current_object())
@@ -83,10 +95,6 @@ if __name__ == "__main__":
             run_args['ssl_context'] = args.ssl_crt, args.ssl_key
         else:
             run_args['ssl_context'] = 'adhoc'
-        #import ssl
-        #context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        #context.load_cert_chain(args.ssl_crt, args.ssl_key)
-        #run_args['ssl_context'] = context
 
     if args.api:
         app = DispatcherMiddleware(app, {

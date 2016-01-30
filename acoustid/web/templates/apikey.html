@@ -8,13 +8,12 @@
 	fingerprints. The following key can be used in any AcoustID-enabled application:
 </p>
 
-<p class="center">
+<p>
 	<code style="padding: 0.4em; border: solid 1px #b2b2b2; font-size: 140%;">{{ apikey }}</code>
 </p>
 
-<p class="center">
-	<a href="{{ url_for('user.new_api_key') }}">Generate a new API key</a>
+<p>
+	<a class="btn btn-default" href="{{ url_for('user.new_api_key') }}">Generate a new API key</a>
 </p>
 
 {% endblock %}
-
