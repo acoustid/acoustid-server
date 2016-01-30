@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import json
 from flask import Blueprint, render_template, request, redirect, url_for, abort, current_app
 from acoustid.web import db
 from acoustid.data.stats import (
@@ -43,6 +44,12 @@ def prepare_pie_chart_data(stats, pattern):
     return track_mbid
 
 
+def prepare_chart_data(stats):
+    for item in stats:
+        item['date'] = item['date'].strftime('%Y-%m-%d')
+    return stats
+
+
 @stats_page.route('/stats')
 def stats():
     title = 'Statistics'
@@ -58,12 +65,9 @@ def stats():
     mbid_track = prepare_pie_chart_data(stats, 'mbid.%dtracks')
     basic['tracks_with_mbid'] = basic['tracks'] - stats.get('track.0mbids', 0)
     basic['tracks_with_mbid_percent'] = percent(basic['tracks_with_mbid'], basic['tracks'])
-    daily_raw = find_daily_stats(db.session.connection(), ['track.all', 'mbid.all'])
-    daily = {
-        'tracks': daily_raw['track.all'],
-        'mbids': daily_raw['mbid.all'],
-    }
+    additions = find_daily_stats(db.session.connection(), ['track.all', 'mbid.all'])
     lookups = find_lookup_stats(db.session.connection())
     return render_template('stats.html', title=title, basic=basic,
         track_mbid=track_mbid, mbid_track=mbid_track,
-        daily=daily, lookups=lookups)
+        additions_json=json.dumps(prepare_chart_data(additions)),
+        lookups_json=json.dumps(prepare_chart_data(lookups)))

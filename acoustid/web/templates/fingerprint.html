@@ -1,6 +1,5 @@
 {% extends "_base.html" %}
 {% block content %}
-
 <h2>{{ title }}</h2>
 
 <p><canvas style="border: solid 2px #C5C5C5;" id="fp-img" width="32" height="0"></canvas></p>
@@ -8,7 +7,9 @@
 <p>Compare with another fingerprint <input id="fp_id" size="6" placeholder="ID"/> <button id="compare">Compare</button></p>
 
 <p>Back to <a href="{{ url_for('.track', track_id=track_gid) }}">track "{{ track_gid }}"</a></p>
+{% endblock %}
 
+{% block extra_js %}
 <script type="text/javascript" src="{{ url_for('static', filename='fputils.js') }}"></script>
 <script type="text/javascript">
 $(document).ready(function () {
@@ -23,5 +24,4 @@ $(document).ready(function () {
    });
 });
 </script>
-
 {% endblock %}

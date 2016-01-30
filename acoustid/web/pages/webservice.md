@@ -69,7 +69,7 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 
 #### Parameters
 
-<table class="listing">
+<table class="table">
 	<tr>
 		<th>Name</th>
 		<th>Required</th>
@@ -181,7 +181,7 @@ wich is a cluster of fingerprints.
 
 #### Parameters
 
-<table class="listing">
+<table class="table">
 	<tr>
 		<th>Name</th>
 		<th>Required</th>
@@ -262,7 +262,7 @@ track ID. Otherwise you can send the textual metadata.
 
 #### Parameters
 
-<table class="listing">
+<table class="table">
 	<tr>
 		<th>Name</th>
 		<th>Required</th>
@@ -434,7 +434,7 @@ the status of the submission by looking up the ID from the `/v2/submit` call.
 
 #### Parameters
 
-<table class="listing">
+<table class="table">
 	<tr>
 		<th>Name</th>
 		<th>Required</th>
@@ -497,7 +497,7 @@ Look up the status of two previously submitted fingerprints:
 
 #### Parameters
 
-<table class="listing">
+<table class="table">
 	<tr>
 		<th>Name</th>
 		<th>Required</th>

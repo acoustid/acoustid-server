@@ -175,8 +175,7 @@ pre {
 	padding: 0.5em;
 	border: solid 2px #C5C5C5;
 	overflow: auto;
-	line-height: 1.3;
-}
+	line-height: 1.3;text-right}
 
 table.listing {
 	margin-top: 0;

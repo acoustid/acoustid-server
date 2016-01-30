@@ -121,6 +121,7 @@ class WebSiteConfig(object):
         self.mb_oauth_client_secret = None
         self.google_oauth_client_id = None
         self.google_oauth_client_secret = None
+        self.maintenance = False
 
     def read(self, parser, section):
         if parser.has_option(section, 'debug'):
@@ -134,6 +135,8 @@ class WebSiteConfig(object):
             self.google_oauth_client_id = parser.get(section, 'google_oauth_client_id')
         if parser.has_option(section, 'google_oauth_client_secret'):
             self.google_oauth_client_secret = parser.get(section, 'google_oauth_client_secret')
+        if parser.has_option(section, 'maintenance'):
+            self.maintenance = parser.getboolean(section, 'maintenance')
 
 
 class ReplicationConfig(object):

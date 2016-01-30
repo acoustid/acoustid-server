@@ -10,7 +10,7 @@
 	So far you've registered the following applications:
 </p>
 
-<table class="apps">
+<table class="table">
 <thead>
 	<tr>
 		<th>Name</th>
@@ -37,8 +37,8 @@
 
 {% endif %}
 
-<p class="center">
-	<a href="{{ url_for('.new_application') }}">Register a new application</a>
+<p>
+  <a class="btn btn-default" href="{{ url_for('.new_application') }}">Register a new application</a>
 </p>
 
 {% endblock %}
