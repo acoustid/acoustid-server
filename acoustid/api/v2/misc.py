@@ -2,9 +2,13 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import requests
 from sqlalchemy import sql
 from acoustid import tables as schema
-from acoustid.data.account import insert_account, lookup_account_id_by_apikey
+from acoustid.data.account import (
+    insert_account, lookup_account_id_by_apikey,
+    get_account_details_by_mbuser,
+)
 from acoustid.api import errors
 from acoustid.api.v2 import APIHandler, APIHandlerParams
 from acoustid.handler import Handler, Response
@@ -74,6 +78,39 @@ class TrackListByPUIDHandler(APIHandler):
         response = {}
         response['tracks'] = tracks = []
         return response
+
+
+class UserCreateMusicBrainzHandlerParams(APIHandlerParams):
+
+    def parse(self, values, conn):
+        super(UserCreateMusicBrainzHandlerParams, self).parse(values, conn)
+        self.access_token = values.get('access_token')
+        if not self.access_token:
+            raise errors.MissingParameterError('access_token')
+
+
+class UserCreateMusicBrainzHandler(APIHandler):
+
+    params_class = UserCreateMusicBrainzHandlerParams
+
+    def _handle_internal(self, params):
+        if not self.is_secure:
+            raise errors.InsecureRequestError()
+        resp = requests.get('https://musicbrainz.org/oauth2/userinfo',
+            params={'access_token': params.access_token})
+        if resp.status_code != requests.codes.ok:
+            raise errors.InvalidMusicBrainzAccessTokenError()
+        mbuser = resp.json()['sub']
+        account = get_account_details_by_mbuser(self.conn, mbuser)
+        if account is not None:
+            api_key = account['apikey']
+        else:
+            id, api_key = insert_account(self.conn, {
+                'name': mbuser,
+                'mbuser': mbuser,
+                'created_from': self.user_ip,
+            })
+        return {'user': {'apikey': api_key}}
 
 
 class UserCreateAnonymousHandlerParams(APIHandlerParams):
