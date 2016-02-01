@@ -102,3 +102,5 @@ need to do this more than once, so the next time you can run the test suite
 without the database setup code:
 
     SKIP_DB_SETUP=1 nosetests -v
+
+Test
