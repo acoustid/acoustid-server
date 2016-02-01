@@ -10,12 +10,6 @@ to the [MusicBrainz][mb] metadata
 database using their [unique identifiers][mbid], and an [web service][webservice]
 that enables applications to quickly search in the fingerprint database.
 
-All software components used in AcoustID are open source and the
-full database can be downloaded and used with very little
-restrictions (we just ask that you contribute any improvements back).
-The audio identification service can be used for free in non-commercial
-applications.
-
 <div class="row">
 
 <div class="col-sm-6">
@@ -39,7 +33,7 @@ applications.
 </div>
 
 <div class="col-sm-6">
-<h3>Application developers</h3>
+<h3>Developers</h3>
 
 <p>
     If you are developing an application that needs to identify

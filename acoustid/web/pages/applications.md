@@ -2,7 +2,7 @@ Title: Applications
 
 On this page you can find a selection of applications that use AcoustID. This is not a complete list.
 
-If you have created an application that use AcoustID and would like to be listed here, please [contact us](/contact).
+If you have created an application that uses AcoustID and would like to be listed here, please [contact us](/contact).
 
 ### MusicBrainz Picard
 

@@ -12,7 +12,7 @@
 {{ "%d:%02d" | format(secs / 60, secs % 60) }}
 {%- endmacro %}
 
-<p>Fingerprints:</p>
+<h3>Fingerprints</h3>
 
 <table class="table">
 <tr>
@@ -30,7 +30,7 @@
 </table>
 
 {% if recordings %}
-<p>Linked MusicBrainz recordings:</p>
+<h3>Linked MusicBrainz recordings</h3>
 
 <table class="table">
 <tr>
@@ -68,7 +68,7 @@
 {% endif %}
 
 {% if user_metadata %}
-<p>Additional user-submitted metadata:</p>
+<h3>Additional user-submitted metadata</h3>
 
 <table class="table">
 <tr>
@@ -87,7 +87,7 @@
 {% endif %}
 
 {% if moderator and edits %}
-<p>Editing history:</p>
+<h3>Editing history</h3>
 
 <ul class="list-unstyled">
 {% for edit in edits %}

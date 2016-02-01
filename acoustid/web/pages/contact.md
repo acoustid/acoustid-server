@@ -1,4 +1,4 @@
-Title: Contact Us
+Title: Contact us
 
 If you have a general question about the project or need help, the best place
 to ask your question is our public [mailing list][]. You can use the Google Groups

@@ -4,10 +4,26 @@ html {
 }
 
 body {
-  font-family: 'DejaVu Sans', 'Verdana', sans;
+  font-family: 'Open Sans', sans;
+  font-weight: 400;
   font-size: 14px;
   margin-bottom: 80px;
-  color: #000;
+}
+
+@media (min-width: 768px) {
+  .container {
+    width: 750px;
+  }
+}
+@media (min-width: 992px) {
+  .container {
+    width: 860px;
+  }
+}
+@media (min-width: 1200px) {
+  .container {
+    width: 920px;
+  }
 }
 
 a {
@@ -20,14 +36,50 @@ a:hover {
 	text-decoration: underline;
 }
 
-.menu {
-  font-size: 16px;
-  line-height: 1.7;
-	text-align: center;
+.navbar {
+  margin-bottom: 10px;
 }
 
-.menu h1 {
-  margin-bottom: 30px;
+.navbar-default {
+  border: none;
+  background-color: inherit;
+}
+
+.navbar-brand {
+  padding: 13px 15px 13px 15px;
+}
+
+.navbar-brand a {
+	text-decoration: none;
+}
+
+.navbar-default .navbar-brand img {
+  height: 24px;
+}
+
+.navbar-default .navbar-brand small {
+  font-size: 0.7em;
+  padding-left: 1em;
+}
+
+.navbar-nav > li > a {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.navbar-default .navbar-nav > .open > a,
+.navbar-default .navbar-nav > li > a {
+	color: #0145aa;
+  font-weight: 600;
+}
+
+.navbar-default .navbar-nav > .open > a:hover,
+.navbar-default .navbar-nav > .open > a:focus,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus,
+.navbar-default .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus {
+	color: #a00;
 }
 
 .content {
@@ -41,14 +93,24 @@ a:hover {
   line-height: 1.8;
 }
 
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6
+{
+  font-family: 'Roboto', sans;
+  font-weight: 300;
+  margin-bottom: 0.7em;
+}
+
 .content h2 {
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 26px;
 }
 
 .content h3 {
-  font-size: 15px;
-  font-weight: bold;
+  font-size: 18px;
 }
 
 .login-block {
@@ -134,7 +196,7 @@ a:hover {
 .maintenance-header p,
 .donate-header p,
 .donate-header form {
-  margin: 10px;
+  margin: 10px 0;
 }
 
 .list-nopadding {
