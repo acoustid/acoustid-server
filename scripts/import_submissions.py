@@ -35,7 +35,11 @@ def main_master(script, opts, args):
     channel = script.redis.pubsub()
     channel.subscribe('channel.submissions')
     for message in channel.listen():
-        ids = json.loads(message['data'])
+        try:
+            ids = json.loads(message['data'])
+        except Exception:
+            logger.exception('Invalid notification message: %r', message)
+            ids = []
         logger.debug('Got notified about %s new submissions', len(ids))
         do_import(script)
         logger.debug('Waiting for the next event...')
