@@ -22,6 +22,12 @@ can use AcoustID to help with automatic music collection organization.
 
 [Homepage](http://beets.io/)
 
+### Metatogger
+
+Metatogger is a free audio file tagging application for Windows that uses uses AcoustID for automatic tagging.
+
+[Homepage](http://www.luminescence-software.org/metatogger.html)
+
 ### MusicBee
 
 MusicBee is a free music collection manager and player for Windows.
