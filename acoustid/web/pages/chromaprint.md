@@ -7,16 +7,16 @@ found in the blog post ["How does Chromaprint work?"][blog2].
 
 ### Download
 
-Latest release &mdash; 1.1 (November 23, 2013)
+Latest release &mdash; 1.3 (February 2, 2015)
 
- * [Source code tarball](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-1.1.tar.gz) (529.6 KB)
+ * [Source code tarball](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-1.3.tar.gz) (525 KB)
  * Static binaries for the `fpcalc` tool
-   * [Windows, 32-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.1-win-i686.zip) (972.3 KB)
-   * [Windows, 64-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.1-win-x86_64.zip) (996.4 KB)
-   * [Mac OS X, 32-bit, 10.4+](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.1-osx-i386.tar.gz) (901.2 KB)
-   * [Mac OS X, 64-bit, 10.4+](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.1-osx-x86_64.tar.gz) (891.1 KB)
-   * [Linux, 32-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.1-linux-i686.tar.gz) (1011.4 KB)
-   * [Linux, 64-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.1-linux-x86_64.tar.gz) (998.9 KB)
+   * [Windows, 32-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.3-win-i686.zip) (1 MB)
+   * [Windows, 64-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.3-win-x86_64.zip) (1 MB)
+   * [Mac OS X, 32-bit, 10.4+](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.3-osx-i386.tar.gz) (964 KB)
+   * [Mac OS X, 64-bit, 10.4+](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.3-osx-x86_64.tar.gz) (944 KB)
+   * [Linux, 32-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.3-linux-i686.tar.gz) (1 MB)
+   * [Linux, 64-bit](https://bitbucket.org/acoustid/chromaprint/downloads/chromaprint-fpcalc-1.3-linux-x86_64.tar.gz) (1 MB)
  * Most Linux distributions have their own binary packages for Chromaprint
 
 [ppa]: https://launchpad.net/~luks/+archive/acoustid
