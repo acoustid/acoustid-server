@@ -4,8 +4,8 @@
 <h2>{{ title }}</h2>
 
 <p>
-  <button id="move-up">Move Up</button>
-  <button id="move-down">Move Down</button>
+  <button class="btn btn-default" id="move-up">Move Up</button>
+  <button class="btn btn-default" id="move-down">Move Down</button>
   Offset: <span id="offset">0</span>
 </p>
 
@@ -16,6 +16,9 @@
   or <a href="{{ url_for('.fingerprint', fingerprint_id=fingerprint_2.id) }}">fingerprint #{{ fingerprint_2.id }}</a>
 </p>
 
+{% endblock %}
+
+{% block extra_js %}
 <script type="text/javascript" src="{{ url_for('static', filename='fputils.js') }}"></script>
 <script type="text/javascript">
 $(document).ready(function () {
@@ -43,6 +46,4 @@ $(document).ready(function () {
 
 });
 </script>
-
 {% endblock %}
-
