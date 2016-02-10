@@ -8,10 +8,17 @@ def main(script, opts, args):
     from acoustid.tables import metadata
     with script.engine.connect() as conn:
         with conn.begin():
-            old_metadata = MetaData(conn)
-            old_metadata.reflect()
-            old_metadata.drop_all()
-#            metadata.create_all(conn)
+            if opts.drop:
+                old_metadata = MetaData(conn)
+                old_metadata.reflect()
+                old_metadata.drop_all()
+            if opts.create:
+                metadata.create_all(conn)
 
 
-run_script(main)
+def add_options(parser):
+    parser.add_option("-D", "--drop", action="store_true", default=False)
+    parser.add_option("-C", "--create", action="store_true", default=False)
+
+
+run_script(main, add_options)

@@ -77,7 +77,7 @@ You can use the provided `Vagrantfile` to quickly set up a development instance:
 
 Create an empty database:
 
-    ./admin/dev/create_dev_db.py -c acoustid.conf
+    ./admin/dev/create_dev_db.py -c acoustid.conf --drop --create
 
 You can start the web application like this:
  
