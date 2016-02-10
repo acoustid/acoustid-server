@@ -1,9 +1,9 @@
+/.vagrant
+/e
+/build
+/acoustid.conf
+/acoustid-test.conf
 *.pyc
-acoustid.conf
-acoustid-test.conf
 *.swp
 *.so
 *.o
-.coverage
-postgresql/acoustid.sql
-

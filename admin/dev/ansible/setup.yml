@@ -1,0 +1,69 @@
+- hosts: all
+  tasks:
+
+    - apt: name={{ item }} state=absent
+      with_items:
+        - chef
+        - chef-zero
+        - puppet
+        - puppet-common
+
+    - apt: name={{ item }} state=installed
+      with_items:
+        - postgresql-9.3
+        - postgresql-contrib-9.3
+        - postgresql-server-dev-9.3
+        - python-dev
+        - python-virtualenv
+        - python-psycopg2
+        - python-openssl
+        - redis-server
+        - libchromaprint0
+        - git
+
+    - lineinfile:
+        dest=/etc/postgresql/9.3/main/postgresql.conf
+        regexp='^#?listen_addresses = .*'
+        line='listen_addresses = \'*\''
+      notify: restart postgresql
+
+    - copy: src=pg_hba.conf dest=/etc/postgresql/9.3/main/pg_hba.conf
+      notify: restart postgresql
+
+    - meta: flush_handlers
+
+    - include: build_pg_acoustid.yml
+
+    - include: create_db.yml
+      with_items:
+        - acoustid
+        - acoustid_test
+
+    - pip:
+        requirements=/vagrant/{{ item }}
+        virtualenv=/vagrant/e
+        virtualenv_site_packages=yes
+      with_items:
+        - requirements.txt
+        - test_requirements.txt
+      become_user: vagrant
+
+    - lineinfile:
+        dest=/home/vagrant/.bashrc
+        line='source /vagrant/e/bin/activate'
+      become_user: vagrant
+
+    - lineinfile:
+        dest=/home/vagrant/.bashrc
+        line='export PYTHONPATH=$PYTHONPATH:/vagrant'
+      become_user: vagrant
+
+    - lineinfile:
+        dest=/home/vagrant/.bashrc
+        line='cd /vagrant'
+      become_user: vagrant
+
+  handlers:
+
+   - name: restart postgresql
+     service: name=postgresql state=restarted

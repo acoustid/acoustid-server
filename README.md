@@ -70,7 +70,16 @@ TODO
 Development
 -----------
 
-Normally, you can start the web application like this:
+You can use the provided `Vagrantfile` to quickly set up a development instance:
+
+    vagrant up
+    vagrant ssh
+
+Create an empty database:
+
+    ./admin/dev/create_dev_db.py -c acoustid.conf
+
+You can start the web application like this:
  
     ./run_web.sh
 

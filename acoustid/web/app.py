@@ -78,6 +78,8 @@ if __name__ == "__main__":
     parser.add_argument('--ssl-crt')
     parser.add_argument('--ssl-key')
     parser.add_argument('--api', action='store_true')
+    parser.add_argument('--host', '-H', default='127.0.0.1')
+    parser.add_argument('--port', '-p', default=5000, type=int)
     args = parser.parse_args()
 
     script.setup_console_logging()
@@ -104,4 +106,4 @@ if __name__ == "__main__":
     if args.proxy:
         app = ProxyFix(app)
 
-    run_simple('127.0.0.1', 5000, app, **run_args)
+    run_simple(args.host, args.port, app, **run_args)

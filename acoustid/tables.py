@@ -1,10 +1,16 @@
-from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean, Date, Text
+from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, DateTime, Boolean, Date, Text, DDL, event
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 
 metadata = MetaData()
 
 import mbdata.config
 mbdata.config.metadata = metadata
+
+import mbdata.utils
+mbdata.utils.patch_model_schemas(mbdata.utils.SINGLE_MUSICBRAINZ_SCHEMA)
+
+event.listen(metadata, 'before_create', DDL('CREATE SCHEMA IF NOT EXISTS musicbrainz'))
+
 
 account = Table('account', metadata,
     Column('id', Integer, primary_key=True),
