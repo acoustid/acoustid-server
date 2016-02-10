@@ -15,11 +15,11 @@ acoustid_config = acoustid.config.Config(os.path.join(os.path.dirname(__file__),
 
 
 def include_object(obj, name, type, reflected, compare_to):
-    if type == "table" and not obj.schema:
-        return True
-    if type == "column" and not obj.table.schema:
-        return True
-    return False
+    if type == "table" and obj.schema == "musicbrainz":
+        return False
+    if type == "column" and not obj.table.schema == "musicbrainz":
+        return False
+    return True
 
 
 def run_migrations_offline():
