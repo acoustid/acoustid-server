@@ -1,0 +1,9 @@
+- git:
+    repo=https://bitbucket.org/acoustid/pg_acoustid.git
+    dest=/tmp/pg_acoustid
+  register: pg_acoustid_git
+
+- command: make install clean
+  args:
+    chdir: /tmp/pg_acoustid
+  when: pg_acoustid_git.changed

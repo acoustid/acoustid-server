@@ -35,8 +35,8 @@ class DatabaseConfig(object):
             kwargs['password'] = self.password
         return URL('postgresql', **kwargs)
 
-    def create_engine(self, superuser=False):
-        return create_engine(self.create_url(superuser=superuser))
+    def create_engine(self, superuser=False, **kwargs):
+        return create_engine(self.create_url(superuser=superuser), **kwargs)
 
     def create_psql_args(self, superuser=False):
         args = []
