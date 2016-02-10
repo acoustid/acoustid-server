@@ -32,7 +32,7 @@ def application(application_id):
     """, (application_id,)).fetchone()
     if application is None:
         abort(404)
-    if user.id != application['account_id']:
+    if user.id != application['account_id'] and not user.is_admin:
         abort(404)
     monthly_stats = conn.execute("""
         SELECT

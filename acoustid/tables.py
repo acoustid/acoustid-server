@@ -46,6 +46,7 @@ account = Table('account', metadata,
     Column('application_id', Integer, ForeignKey('application.id')),
     Column('application_version', String),
     Column('created_from', INET),
+    Column('is_admin', Boolean, default=False, server_default=sql.false(), nullable=False),
     Index('account_idx_mbuser', 'mbuser', unique=True),
     Index('account_idx_apikey', 'apikey', unique=True),
 )
