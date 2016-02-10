@@ -24,7 +24,7 @@ class AccountGoogle(Base):
 class Application(Base):
     __table__ = tables.application
 
-    account = relationship('Account')
+    account = relationship('Account', foreign_keys=[tables.application.c.account_id])
 
 
 class TrackMBID(Base):
