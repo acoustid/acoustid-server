@@ -4,6 +4,7 @@
 import logging
 from sqlalchemy import sql
 from acoustid import tables as schema
+from acoustid.utils import generate_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def insert_account(conn, data):
             'application_id': data.get('application_id'),
             'application_version': data.get('application_version'),
             'lastlogin': sql.text('now()'),
-            'apikey': sql.text('generate_api_key()'),
+            'apikey': generate_api_key(),
         }).returning(schema.account.c.id, schema.account.c.apikey)
         id, api_key = conn.execute(insert_stmt).fetchone()
         if 'openid' in data:
@@ -70,7 +71,7 @@ def reset_account_apikey(conn, id):
     with conn.begin():
         update_stmt = schema.account.update().where(
             schema.account.c.id == id)
-        update_stmt = update_stmt.values(apikey=sql.text('generate_api_key()'))
+        update_stmt = update_stmt.values(apikey=generate_api_key())
         conn.execute(update_stmt)
     logger.debug("Reset API key for account %r", id)
 

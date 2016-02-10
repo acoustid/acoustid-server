@@ -4,6 +4,7 @@
 import logging
 from sqlalchemy import sql
 from acoustid import tables as schema
+from acoustid.utils import generate_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ def insert_application(conn, data):
             'email': data.get('email'),
             'website': data.get('website'),
             'account_id': data['account_id'],
-            'apikey': sql.text('generate_api_key()'),
+            'apikey': generate_api_key(),
         })
         id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted application %r with data %r", id, data)

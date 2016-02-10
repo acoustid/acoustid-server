@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, UUID, INET
 metadata = MetaData(naming_convention={
     'fk': '%(table_name)s_fk_%(column_0_name)s',
     'ix': '%(table_name)s_idx_%(column_0_name)s',
+    'pk': '%(table_name)s_pkey',
 })
 
 import mbdata.config
@@ -20,67 +21,6 @@ mbdata.config.schemas = mbdata.utils.SINGLE_MUSICBRAINZ_SCHEMA
 sqlalchemy.event.listen(
     metadata, 'before_create',
     DDL('CREATE SCHEMA IF NOT EXISTS musicbrainz'),
-)
-
-sqlalchemy.event.listen(
-    metadata, 'before_create',
-    DDL('''
-CREATE OR REPLACE FUNCTION generate_api_key() RETURNS varchar
-    LANGUAGE sql IMMUTABLE STRICT
-    AS $_$
-    SELECT substring(regexp_replace(encode(decode(md5(current_timestamp::text || to_hex(ceil(random() * 16777215)::int)),'hex'),'base64'), '[/+=]', '', 'g') from 0 for 9);
-$_$
-''')
-)
-
-sqlalchemy.event.listen(
-    metadata, 'before_create',
-    DDL('''
-CREATE OR REPLACE FUNCTION fp_hash(integer[]) RETURNS bytea
-    LANGUAGE sql IMMUTABLE STRICT
-    AS $_$
-    SELECT digest($1::text, 'sha1');
-$_$
-''')
-)
-
-sqlalchemy.event.listen(
-    metadata, 'before_create',
-    DDL('''
-CREATE OR REPLACE FUNCTION extract_fp_query(integer[]) RETURNS integer[]
-    LANGUAGE sql IMMUTABLE STRICT
-    AS $_$
-    SELECT uniq(sort(subarray($1 - 627964279,
-		greatest(0, least(icount($1 - 627964279) - 120, 80)), 120)));
-$_$
-''')
-)
-
-sqlalchemy.event.listen(
-    metadata, 'before_create',
-    DDL('''
-CREATE OR REPLACE FUNCTION update_account_stats() RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    last_time timestamp with time zone;
-    curr_time timestamp with time zone;
-    rec record;
-BEGIN
-    SELECT last_updated INTO last_time FROM account_stats_control;
-    SELECT max(created) INTO curr_time FROM submission;
-    FOR rec IN SELECT so.account_id, count(*) AS count FROM submission su
-        JOIN source so ON su.source_id = so.id
-        WHERE last_time < su.created AND su.created <= curr_time
-        GROUP BY so.account_id
-    LOOP
-        UPDATE account SET submission_count = submission_count + rec.count
-        WHERE id = rec.account_id;
-    END LOOP;
-    UPDATE account_stats_control SET last_updated = curr_time;
-END;
-$$
-''')
 )
 
 def create_replication_control_table(name):

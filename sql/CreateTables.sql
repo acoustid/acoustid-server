@@ -1,240 +1,231 @@
-BEGIN;
-
-
-CREATE TABLE replication_control (
-    id                              SERIAL,
-    current_schema_sequence         INTEGER NOT NULL,
-    current_replication_sequence    INTEGER,
-    last_replication_date           TIMESTAMP WITH TIME ZONE
-);
-
 CREATE TABLE account (
-    id serial NOT NULL,
-    name varchar NOT NULL,
-    apikey varchar NOT NULL,
-    mbuser varchar,
-    anonymous boolean DEFAULT false,
-    created timestamp with time zone DEFAULT current_timestamp,
-    lastlogin timestamp with time zone,
-    submission_count int NOT NULL DEFAULT 0,
-    application_id int,
-    application_version varchar,
-    created_from inet
+	id SERIAL NOT NULL, 
+	name VARCHAR NOT NULL, 
+	apikey VARCHAR NOT NULL, 
+	mbuser VARCHAR, 
+	anonymous BOOLEAN DEFAULT false, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	lastlogin TIMESTAMP WITH TIME ZONE, 
+	submission_count INTEGER DEFAULT 0 NOT NULL, 
+	application_id INTEGER, 
+	application_version VARCHAR, 
+	created_from INET
 );
-
-CREATE TABLE account_stats_control (
-    id serial NOT NULL,
-    last_updated timestamp with time zone NOT NULL
+CREATE TABLE account_google (
+	google_user_id VARCHAR NOT NULL, 
+	account_id INTEGER NOT NULL
 );
-
 CREATE TABLE account_openid (
-    openid varchar NOT NULL,
-    account_id int NOT NULL
+	openid VARCHAR NOT NULL, 
+	account_id INTEGER NOT NULL
 );
-
+CREATE TABLE account_stats_control (
+	id SERIAL NOT NULL, 
+	last_updated TIMESTAMP WITH TIME ZONE NOT NULL
+);
+CREATE TABLE acoustid_mb_replication_control (
+	id SERIAL NOT NULL, 
+	current_schema_sequence INTEGER NOT NULL, 
+	current_replication_sequence INTEGER, 
+	last_replication_date TIMESTAMP WITH TIME ZONE
+);
 CREATE TABLE application (
-    id serial NOT NULL,
-    name varchar NOT NULL,
-    version varchar NOT NULL,
-    apikey varchar NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp,
-    active boolean DEFAULT true,
-    account_id int NOT NULL,
-    email varchar,
-    website varchar
+	id SERIAL NOT NULL, 
+	name VARCHAR NOT NULL, 
+	version VARCHAR NOT NULL, 
+	apikey VARCHAR NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	active BOOLEAN DEFAULT true, 
+	account_id INTEGER NOT NULL, 
+	email VARCHAR, 
+	website VARCHAR
 );
-
-CREATE TABLE format (
-    id serial NOT NULL,
-    name varchar NOT NULL
-);
-
-CREATE TABLE source (
-    id serial NOT NULL,
-    application_id int NOT NULL,
-    account_id int NOT NULL,
-    version varchar
-);
-
 CREATE TABLE fingerprint (
-    id serial NOT NULL,
-    fingerprint int[] NOT NULL,
-    length smallint NOT NULL CHECK (length > 0),
-    bitrate smallint CHECK (bitrate > 0),
-    format_id int,
-    created timestamp with time zone NOT NULL DEFAULT current_timestamp,
-    track_id int NOT NULL,
-    submission_count int NOT NULL
+	id SERIAL NOT NULL, 
+	fingerprint INTEGER[] NOT NULL, 
+	length SMALLINT NOT NULL CHECK (length>0), 
+	bitrate SMALLINT CHECK (bitrate>0), 
+	format_id INTEGER, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	track_id INTEGER NOT NULL, 
+	submission_count INTEGER NOT NULL
 );
-
-CREATE TABLE fingerprint_source (
-    id serial NOT NULL,
-    fingerprint_id int NOT NULL,
-    submission_id int NOT NULL,
-    source_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
-);
-
 CREATE TABLE fingerprint_index_queue (
-    fingerprint_id int NOT NULL
+	fingerprint_id INTEGER NOT NULL
 );
-
-CREATE TABLE track (
-    id serial NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp,
-    new_id int,
-    gid uuid NOT NULL
+CREATE TABLE fingerprint_source (
+	id SERIAL NOT NULL, 
+	fingerprint_id INTEGER NOT NULL, 
+	submission_id INTEGER NOT NULL, 
+	source_id INTEGER NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
-
-CREATE TABLE track_mbid (
-    track_id int NOT NULL,
-    mbid uuid NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp,
-    id serial NOT NULL,
-    submission_count int NOT NULL,
-    disabled boolean NOT NULL DEFAULT false
-);
-
-CREATE TABLE track_mbid_source (
-    id serial NOT NULL,
-    track_mbid_id int NOT NULL,
-    submission_id int,
-    source_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
-);
-
-CREATE TABLE track_mbid_change (
-    id serial NOT NULL,
-    track_mbid_id int NOT NULL,
-    account_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp,
-    disabled boolean NOT NULL,
-    note text
-);
-
-CREATE TABLE track_mbid_flag (
-    id serial NOT NULL,
-    track_mbid_id int NOT NULL,
-    account_id int NOT NULL,
-    handled boolean NOT NULL DEFAULT false,
-    created timestamp with time zone DEFAULT current_timestamp
-);
-
-CREATE TABLE track_puid (
-    track_id int NOT NULL,
-    puid uuid NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp,
-    id serial NOT NULL,
-    submission_count int NOT NULL
-);
-
-CREATE TABLE track_puid_source (
-    id serial NOT NULL,
-    track_puid_id int NOT NULL,
-    submission_id int NOT NULL,
-    source_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
-);
-
-CREATE TABLE foreignid_vendor (
-    id serial NOT NULL,
-    name varchar NOT NULL
-);
-
 CREATE TABLE foreignid (
-    id serial NOT NULL,
-    vendor_id int NOT NULL,
-    name text NOT NULL
+	id SERIAL NOT NULL, 
+	vendor_id INTEGER NOT NULL, 
+	name TEXT NOT NULL
 );
-
-CREATE TABLE track_foreignid (
-    id serial NOT NULL,
-    track_id int NOT NULL,
-    foreignid_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp,
-    submission_count int NOT NULL
+CREATE TABLE foreignid_vendor (
+	id SERIAL NOT NULL, 
+	name VARCHAR NOT NULL
 );
-
-CREATE TABLE track_foreignid_source (
-    id serial NOT NULL,
-    track_foreignid_id int NOT NULL,
-    submission_id int NOT NULL,
-    source_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
+CREATE TABLE format (
+	id SERIAL NOT NULL, 
+	name VARCHAR NOT NULL
 );
-
-CREATE TABLE track_meta (
-    id serial NOT NULL,
-    track_id int NOT NULL,
-    meta_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp,
-    submission_count int NOT NULL
-);
-
-CREATE TABLE track_meta_source (
-    id serial NOT NULL,
-    track_meta_id int NOT NULL,
-    submission_id int NOT NULL,
-    source_id int NOT NULL,
-    created timestamp with time zone DEFAULT current_timestamp
-);
-
-CREATE TABLE submission (
-    id serial NOT NULL,
-    fingerprint int[] NOT NULL,
-    length smallint NOT NULL CHECK (length > 0),
-    bitrate smallint CHECK (bitrate > 0),
-    format_id int,
-    created timestamp with time zone NOT NULL DEFAULT current_timestamp,
-    source_id int NOT NULL,
-    mbid uuid,
-    handled boolean DEFAULT false,
-    puid uuid,
-    meta_id int,
-    foreignid_id int
-);
-
-CREATE TABLE stats (
-    id serial NOT NULL,
-    name varchar NOT NULL,
-    date date NOT NULL DEFAULT current_date,
-    value int NOT NULL
-);
-
-CREATE TABLE stats_lookups (
-    id serial NOT NULL,
-    date date NOT NULL,
-    hour int NOT NULL,
-    application_id int NOT NULL,
-    count_nohits int NOT NULL DEFAULT 0,
-    count_hits int NOT NULL default 0
-);
-
-CREATE TABLE stats_user_agents (
-    id serial NOT NULL,
-    date date NOT NULL,
-    application_id int NOT NULL,
-    user_agent varchar NOT NULL,
-    ip varchar NOT NULL,
-    count int NOT NULL default 0
-);
-
-CREATE TABLE stats_top_accounts (
-    id serial NOT NULL,
-    account_id int NOT NULL,
-    count int NOT NULL
-);
-
 CREATE TABLE meta (
-    id serial NOT NULL,
-    track varchar,
-    artist varchar,
-    album varchar,
-    album_artist varchar,
-    track_no int,
-    disc_no int,
-    year int
+	id SERIAL NOT NULL, 
+	track VARCHAR, 
+	artist VARCHAR, 
+	album VARCHAR, 
+	album_artist VARCHAR, 
+	track_no INTEGER, 
+	disc_no INTEGER, 
+	year INTEGER
 );
-
-COMMIT;
-
+CREATE TABLE mirror_queue (
+	id SERIAL NOT NULL, 
+	txid BIGINT DEFAULT txid_current() NOT NULL, 
+	tblname VARCHAR NOT NULL, 
+	op CHAR(1) NOT NULL CHECK (op = ANY (ARRAY['I'::bpchar, 'U'::bpchar, 'D'::bpchar])), 
+	data TEXT NOT NULL
+);
+CREATE TABLE recording_acoustid (
+	id INTEGER NOT NULL, 
+	acoustid UUID NOT NULL, 
+	recording UUID NOT NULL, 
+	disabled BOOLEAN DEFAULT false NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	updated TIMESTAMP WITH TIME ZONE
+);
+CREATE TABLE replication_control (
+	id SERIAL NOT NULL, 
+	current_schema_sequence INTEGER NOT NULL, 
+	current_replication_sequence INTEGER, 
+	last_replication_date TIMESTAMP WITH TIME ZONE
+);
+CREATE TABLE source (
+	id SERIAL NOT NULL, 
+	application_id INTEGER NOT NULL, 
+	account_id INTEGER NOT NULL, 
+	version VARCHAR
+);
+CREATE TABLE stats (
+	id SERIAL NOT NULL, 
+	name VARCHAR NOT NULL, 
+	date DATE DEFAULT CURRENT_DATE NOT NULL, 
+	value INTEGER NOT NULL
+);
+CREATE TABLE stats_lookups (
+	id SERIAL NOT NULL, 
+	date DATE NOT NULL, 
+	hour INTEGER NOT NULL, 
+	application_id INTEGER NOT NULL, 
+	count_nohits INTEGER DEFAULT 0 NOT NULL, 
+	count_hits INTEGER DEFAULT 0 NOT NULL
+);
+CREATE TABLE stats_top_accounts (
+	id SERIAL NOT NULL, 
+	account_id INTEGER NOT NULL, 
+	count INTEGER NOT NULL
+);
+CREATE TABLE stats_user_agents (
+	id SERIAL NOT NULL, 
+	date DATE NOT NULL, 
+	application_id INTEGER NOT NULL, 
+	user_agent VARCHAR NOT NULL, 
+	ip VARCHAR NOT NULL, 
+	count INTEGER DEFAULT 0 NOT NULL
+);
+CREATE TABLE submission (
+	id SERIAL NOT NULL, 
+	fingerprint INTEGER[] NOT NULL, 
+	length SMALLINT NOT NULL CHECK (length>0), 
+	bitrate SMALLINT CHECK (bitrate>0), 
+	format_id INTEGER, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	source_id INTEGER NOT NULL, 
+	mbid UUID, 
+	handled BOOLEAN DEFAULT false, 
+	puid UUID, 
+	meta_id INTEGER, 
+	foreignid_id INTEGER
+);
+CREATE TABLE track (
+	id SERIAL NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	new_id INTEGER, 
+	gid UUID NOT NULL
+);
+CREATE TABLE track_foreignid (
+	id SERIAL NOT NULL, 
+	track_id INTEGER NOT NULL, 
+	foreignid_id INTEGER NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	submission_count INTEGER NOT NULL
+);
+CREATE TABLE track_foreignid_source (
+	id SERIAL NOT NULL, 
+	track_foreignid_id INTEGER NOT NULL, 
+	submission_id INTEGER NOT NULL, 
+	source_id INTEGER NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+CREATE TABLE track_mbid (
+	track_id INTEGER NOT NULL, 
+	mbid UUID NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	id SERIAL NOT NULL, 
+	submission_count INTEGER NOT NULL, 
+	disabled BOOLEAN DEFAULT false NOT NULL
+);
+CREATE TABLE track_mbid_change (
+	id SERIAL NOT NULL, 
+	track_mbid_id INTEGER NOT NULL, 
+	account_id INTEGER NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	disabled BOOLEAN NOT NULL, 
+	note TEXT
+);
+CREATE TABLE track_mbid_flag (
+	id SERIAL NOT NULL, 
+	track_mbid_id INTEGER NOT NULL, 
+	account_id INTEGER NOT NULL, 
+	handled BOOLEAN DEFAULT false NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+CREATE TABLE track_mbid_source (
+	id SERIAL NOT NULL, 
+	track_mbid_id INTEGER NOT NULL, 
+	submission_id INTEGER, 
+	source_id INTEGER NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+CREATE TABLE track_meta (
+	id SERIAL NOT NULL, 
+	track_id INTEGER NOT NULL, 
+	meta_id INTEGER NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	submission_count INTEGER NOT NULL
+);
+CREATE TABLE track_meta_source (
+	id SERIAL NOT NULL, 
+	track_meta_id INTEGER NOT NULL, 
+	submission_id INTEGER NOT NULL, 
+	source_id INTEGER NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+CREATE TABLE track_puid (
+	track_id INTEGER NOT NULL, 
+	puid UUID NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+	id SERIAL NOT NULL, 
+	submission_count INTEGER NOT NULL
+);
+CREATE TABLE track_puid_source (
+	id SERIAL NOT NULL, 
+	track_puid_id INTEGER NOT NULL, 
+	submission_id INTEGER NOT NULL, 
+	source_id INTEGER NOT NULL, 
+	created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);

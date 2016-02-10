@@ -43,7 +43,6 @@ Install extensions into the newly created database:
 Create the database structure:
 
     ./run_psql.sh <sql/CreateTables.sql
-    ./run_psql.sh <sql/CreateFunctions.sql
     ./run_psql.sh <sql/CreatePrimaryKeys.sql
     ./run_psql.sh <sql/CreateFKConstraints.sql
     ./run_psql.sh <sql/CreateIndexes.sql
