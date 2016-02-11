@@ -14,9 +14,7 @@ metadata = MetaData(naming_convention={
 })
 
 import mbdata.config
-import mbdata.utils
-mbdata.config.metadata = metadata
-mbdata.config.schemas = mbdata.utils.SINGLE_MUSICBRAINZ_SCHEMA
+mbdata.config.configure(metadata=metadata, schema='musicbrainz')
 
 sqlalchemy.event.listen(
     metadata, 'before_create',
