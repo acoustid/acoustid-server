@@ -1,0 +1,50 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<h2>Application statistics</h2>
+
+<p>
+Show for
+{% set comma = joiner(", ") %}
+{% for m in last_months -%}
+    {{- comma() -}}
+    {%- if m == month -%}
+    <b>{{ m.strftime("%B, %Y") }}</b>
+    {%- else -%}
+    <a href="{{ url_for("admin.stats_apps", month=m.strftime("%Y-%m")) }}">{{ m.strftime("%B, %Y") }}</a>
+    {%- endif -%}
+{%- endfor %}
+</p>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Application</th>
+      <th>Version</th>
+      <th class="text-right" style="width:8em">Hits</th>
+      <th class="text-right" style="width:8em">Misses</th>
+      <th class="text-right" style="width:8em">Requests</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for app, counts in stats %}
+    <tr>
+      <td><a href="{{ url_for("apps.application", application_id=app.id) }}">{{ app.name }}</a></td>
+      <td>{{ app.version }}</td>
+      <td class="text-right text-good">{{ (100 * counts.hits / counts.all) | round(1) }}%</td>
+      <td class="text-right text-bad">{{ (100 - 100 * counts.hits / counts.all) | round(1) }}%</td>
+      <td class="text-right">
+      {% if counts.all > 1000000 %}
+        <span title="{{ counts.all }}">{{ (counts.all / 1000000) | round(1) }}M</span>
+      {% elif counts.all > 1000 %}
+        <span title="{{ counts.all }}">{{ (counts.all / 1000) | round(1) }}K</span>
+      {% else %}
+        {{ counts.all }}
+      {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

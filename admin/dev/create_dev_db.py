@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 
 import os
+import logging
 import alembic
 import alembic.config
 import sqlalchemy
 import sqlalchemy.orm
 from acoustid.tables import metadata
 from acoustid.script import run_script
-from mbdata.sample_data import create_sample_data
+from acoustid.sample_data import create_sample_data
+from mbdata.sample_data import create_sample_data as create_sample_musicbrainz_data
 
 
 def main(script, opts, args):
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
     with script.engine.connect() as conn:
         with conn.begin():
             if opts.drop:
@@ -21,7 +24,8 @@ def main(script, opts, args):
             if opts.create:
                 metadata.create_all(conn)
                 if not opts.empty:
-                    session = sqlalchemy.orm.Session(conn, autoflush=True)
+                    session = sqlalchemy.orm.Session(conn)
+                    create_sample_musicbrainz_data(session)
                     create_sample_data(session)
         if opts.create:
             alembic_cfg = alembic.config.Config(os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"))

@@ -67,3 +67,9 @@ class TrackMeta(Base):
 
 class Meta(Base):
     __table__ = tables.meta
+
+
+class StatsLookups(Base):
+    __table__ = tables.stats_lookups
+
+    application = relationship('Application')

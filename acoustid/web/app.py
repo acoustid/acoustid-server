@@ -11,6 +11,7 @@ from acoustid.web.views.user import user_page
 from acoustid.web.views.apps import apps_page
 from acoustid.web.views.metadata import metadata_page
 from acoustid.web.views.stats import stats_page
+from acoustid.web.views.admin import admin_page
 
 config_filename = os.environ['ACOUSTID_CONFIG']
 
@@ -64,6 +65,7 @@ app.register_blueprint(user_page)
 app.register_blueprint(apps_page)
 app.register_blueprint(metadata_page)
 app.register_blueprint(stats_page)
+app.register_blueprint(admin_page)
 
 if __name__ == "__main__":
     import argparse

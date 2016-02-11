@@ -12,9 +12,11 @@
   <li><b>Website:</b> {% if app.website %}<a href="{{ app.website }}">{{ app.website }}</a>{% else %}none{% endif %}</li>
 </ul>
 
+{% if app.account_id == session.id %}
 <p>
   <a class="btn btn-default" href="{{ url_for('.edit_application', application_id=app.id) }}">Edit details</a>
 </p>
+{% endif %}
 
 {% if lookups %}
 <h3>Searches during the last 30 days</h3>

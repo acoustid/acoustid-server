@@ -21,6 +21,13 @@ def require_user():
     return account
 
 
+def require_admin():
+    account = require_user()
+    if not account.is_admin:
+        raise abort(404)
+    return account
+
+
 def is_valid_email(s):
     if re.match(r'^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$', s, re.I):
         return True
