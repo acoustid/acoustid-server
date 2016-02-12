@@ -93,7 +93,22 @@ Then setup forwarding from the standard HTTPS port 443 to the application port:
 Add `127.0.0.1 acoustid.org` to your `/etc/hosts` file and then you can see the
 development version of the application at https://acoustid.org.
 
-Unit Tests
+Database migrations
+-------------------
+
+Upgrading the database schema online:
+
+    alembic upgrade head
+
+Upgrading the database schema offline:
+
+    alembic upgrade <previous-rev>:head --sql
+
+Generating a new database schema change:
+
+    alembic revision --autogenerate -m "my message"
+
+Unit tests
 ----------
 
 Before you can run the test suite, you need to create a configuration file
