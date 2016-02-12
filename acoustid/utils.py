@@ -7,12 +7,35 @@ import urllib
 import urllib2
 import hashlib
 import time
+import datetime
+import hmac
+import base64
 from logging import Handler
 from logging.handlers import SysLogHandler
 
 
 def generate_api_key(length=10):
     return re.sub('[/+=]', '', hashlib.sha1(str(time.time())).digest().encode('base64').strip())[:length]
+
+
+def generate_demo_client_api_key(secret, day=None):
+    if day is None:
+        day = datetime.date.today()
+    key = '{}:demo-client-api-key'.format(secret)
+    message = '{:x}'.format(day.toordinal())
+    api_key = list(base64.urlsafe_b64encode(hmac.new(key, message).digest()[:8]).rstrip('='))
+    api_key[-2] = 'A'
+    return ''.join(api_key)
+
+
+def check_demo_client_api_key(secret, api_key, max_age=7):
+    if len(api_key) == 11 and api_key[-2] == 'A':
+        day = datetime.date.today()
+        for i in range(max_age):
+            if api_key == generate_demo_client_api_key(secret, day):
+                return True
+            day += datetime.timedelta(days=1)
+    return False
 
 
 def is_uuid(s):

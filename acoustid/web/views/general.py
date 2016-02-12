@@ -1,7 +1,10 @@
 import os
+import hmac
+import itsdangerous
 import markdown.util
 from markdown import Markdown
-from flask import Blueprint, render_template, current_app, redirect, url_for
+from flask import Blueprint, render_template, render_template_string, current_app, redirect, url_for
+from acoustid.utils import generate_demo_client_api_key
 
 general_page = Blueprint('general', __name__)
 
@@ -25,10 +28,11 @@ class MarkdownFlaskUrlProcessor(markdown.util.Processor):
                 stack.append(child)
 
 
-def render_page(name):
+def render_page(name, **context):
     path = os.path.join('pages', name)
     with current_app.open_resource(path) as file:
         text = file.read().decode('utf8')
+        text = render_template_string(text, **context)
         md = Markdown(extensions=['meta'])
         md.treeprocessors["flask_links"] = MarkdownFlaskUrlProcessor(md)
         html = md.convert(text)
@@ -52,6 +56,11 @@ add_page_route('faq')
 add_page_route('fingerprinter')
 add_page_route('license')
 add_page_route('server')
-add_page_route('webservice')
 add_page_route('applications')
 add_page_route('about')
+
+
+@general_page.route('/webservice')
+def webservice():
+    return render_page('webservice.md',
+        client_api_key=generate_demo_client_api_key(current_app.config['SECRET_KEY']))

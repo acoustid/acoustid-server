@@ -119,6 +119,11 @@ a:hover {
   font-size: 18px;
 }
 
+.content h4 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
 .login-block {
     display: inline-block;
     width: 100px;

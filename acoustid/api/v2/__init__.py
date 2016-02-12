@@ -24,7 +24,7 @@ from acoustid.data.stats import update_lookup_counter, update_user_agent_counter
 from acoustid.ratelimiter import RateLimiter
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
-from acoustid.utils import is_uuid, is_foreignid, is_int
+from acoustid.utils import is_uuid, is_foreignid, is_int, check_demo_client_api_key
 from acoustid.api import serialize_response, errors
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FORMAT = 'json'
 FORMATS = set(['xml', 'json', 'jsonp'])
+
+DEMO_APPLICATION_ID = 2
 
 
 def iter_args_suffixes(args, *prefixes):
@@ -49,14 +51,20 @@ def iter_args_suffixes(args, *prefixes):
 
 class APIHandlerParams(object):
 
+    def __init__(self, config):
+        self.config = config
+
     def _parse_client(self, values, conn):
         application_apikey = values.get('client')
         if not application_apikey:
             raise errors.MissingParameterError('client')
         self.application_id = lookup_application_id_by_apikey(conn, application_apikey)
         if not self.application_id:
-            logger.error("Invalid API key %s", application_apikey)
-            raise errors.InvalidAPIKeyError()
+            if check_demo_client_api_key(self.config.website.secret, application_apikey):
+                self.application_id = DEMO_APPLICATION_ID
+            else:
+                logger.error("Invalid API key %s", application_apikey)
+                raise errors.InvalidAPIKeyError()
         self.application_version = values.get('clientversion')
 
     def _parse_format(self, values):
@@ -116,17 +124,17 @@ class APIHandler(Handler):
     def _rate_limit(self, user_ip, application_id):
         ip_rate_limit = self.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
         if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
-            pass
-            #raise errors.TooManyRequests(ip_rate_limit)
+            if application_id == DEMO_APPLICATION_ID:
+                raise errors.TooManyRequests(ip_rate_limit)
         if application_id is not None:
             application_rate_limit = self.config.rate_limiter.applications.get(application_id)
             if application_rate_limit is not None:
                 if self.rate_limiter.limit('app', application_id, application_rate_limit):
-                    pass
-                    #raise errors.TooManyRequests(application_rate_limit)
+                    if application_id == DEMO_APPLICATION_ID:
+                        raise errors.TooManyRequests(application_rate_limit)
 
     def handle(self, req):
-        params = self.params_class()
+        params = self.params_class(self.config)
         if req.access_route:
             self.user_ip = req.access_route[0]
         else:

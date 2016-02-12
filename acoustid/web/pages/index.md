@@ -52,8 +52,8 @@ that enables applications to quickly search in the fingerprint database.
 
 </div>
 
-[db]: /database
-[chromaprint]: /chromaprint
-[webservice]: /webservice
+[db]: flask:general.database
+[chromaprint]: flask:general.chromaprint
+[webservice]: flask:general.webservice
 [mb]: //musicbrainz.org/
 [mbid]: //musicbrainz.org/doc/MusicBrainz_Identifier
