@@ -2,7 +2,14 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from acoustid.data.stats import update_lookup_stats, update_user_agent_stats
+from acoustid.data.stats import (
+    update_lookup_stats,
+    update_user_agent_stats,
+    find_application_lookup_stats_multi,
+)
+from acoustid.data.application import (
+    find_applications_by_apikeys,
+)
 from acoustid.api import errors
 from acoustid.api.v2 import APIHandler, APIHandlerParams
 from acoustid.handler import Handler, Response
@@ -67,3 +74,30 @@ class UpdateUserAgentStatsHandler(APIHandler):
                                     params.user_agent, params.ip, params.count)
         return {}
 
+
+class LookupStatsHandlerParams(APIHandlerParams):
+
+    def parse(self, values, conn):
+        super(LookupStatsHandlerParams, self).parse(values, conn)
+        self.secret = values.get('secret')
+        apikeys = values.getlist('client')
+        if not apikeys:
+            raise errors.InvalidAPIKeyError()
+        self.applications = find_applications_by_apikeys(conn, apikeys)
+        if not self.applications:
+            raise errors.InvalidAPIKeyError()
+
+
+class LookupStatsHandler(APIHandler):
+
+    params_class = LookupStatsHandlerParams
+
+    def _handle_internal(self, params):
+        if self.cluster.secret != params.secret:
+            logger.warning('Invalid cluster secret')
+            raise errors.NotAllowedError()
+        application_ids = dict((app['id'], app['apikey']) for app in params.applications)
+        stats = find_application_lookup_stats_multi(self.conn, application_ids.keys())
+        for entry in stats:
+            entry['date'] = entry['date'].strftime('%Y-%m-%d')
+        return {'stats': stats}

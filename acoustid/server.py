@@ -33,6 +33,7 @@ api_url_rules = [
             Submount('/internal', [
                 Rule('/update_lookup_stats', endpoint=api.v2.internal.UpdateLookupStatsHandler),
                 Rule('/update_user_agent_stats', endpoint=api.v2.internal.UpdateUserAgentStatsHandler),
+                Rule('/lookup_stats', endpoint=api.v2.internal.LookupStatsHandler),
             ]),
         ]),
     ])

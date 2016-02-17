@@ -20,6 +20,11 @@ def find_applications_by_account(conn, account_id):
     return [dict(i) for i in conn.execute(query).fetchall()]
 
 
+def find_applications_by_apikeys(conn, apikeys):
+    query = schema.application.select(schema.application.c.apikey.in_(apikeys))
+    return [dict(i) for i in conn.execute(query).fetchall()]
+
+
 def insert_application(conn, data):
     """
     Insert a new application into the database

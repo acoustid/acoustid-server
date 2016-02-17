@@ -174,7 +174,7 @@ def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
         db.execute(stmt)
 
 
-def find_application_lookup_stats(conn, application_id):
+def find_application_lookup_stats_multi(conn, application_ids):
     query = """
         SELECT
             date,
@@ -183,15 +183,19 @@ def find_application_lookup_stats(conn, application_id):
             sum(count_hits) + sum(count_nohits) AS count
         FROM stats_lookups
         WHERE
-            application_id = %s AND
+            application_id IN ({ids}) AND
             date > now() - INTERVAL '30 day' AND date < date(now())
         GROUP BY date
         ORDER BY date
-    """
+    """.format(ids=",".join(["%s"] * len(application_ids)))
     stats = []
-    for row in conn.execute(query, (application_id,)):
+    for row in conn.execute(query, application_ids):
         stats.append(dict(row))
     return stats
+
+
+def find_application_lookup_stats(conn, application_id):
+    return find_application_lookup_stats_multi(conn, (application_id,))
 
 
 def find_top_contributors(conn):
