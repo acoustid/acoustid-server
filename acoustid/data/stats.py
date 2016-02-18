@@ -174,24 +174,28 @@ def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
         db.execute(stmt)
 
 
-def find_application_lookup_stats_multi(conn, application_ids):
-    query = """
-        SELECT
-            date,
-            sum(count_hits) AS count_hits,
-            sum(count_nohits) AS count_nohits,
-            sum(count_hits) + sum(count_nohits) AS count
-        FROM stats_lookups
-        WHERE
-            application_id IN ({ids}) AND
-            date > now() - INTERVAL '30 day' AND date < date(now())
-        GROUP BY date
-        ORDER BY date
-    """.format(ids=",".join(["%s"] * len(application_ids)))
-    stats = []
-    for row in conn.execute(query, application_ids):
-        stats.append(dict(row))
-    return stats
+def find_application_lookup_stats_multi(conn, application_ids, from_date=None, to_date=None, days=30):
+    query = sql.select([
+        schema.stats_lookups.c.date,
+        sql.func.sum(schema.stats_lookups.c.count_hits).label('count_hits'),
+        sql.func.sum(schema.stats_lookups.c.count_nohits).label('count_nohits'),
+        sql.func.sum(schema.stats_lookups.c.count_hits + schema.stats_lookups.c.count_nohits).label('count'),
+    ], from_obj=schema.stats_lookups).group_by(schema.stats_lookups.c.date)
+
+    if to_date is not None:
+        query = query.where(schema.stats_lookups.c.date <= to_date)
+    else:
+        query = query.where(schema.stats_lookups.c.date < sql.func.date(sql.func.now()))
+
+    if from_date is not None:
+        query = query.where(schema.stats_lookups.c.date >= from_date)
+    else:
+        query = query.where(schema.stats_lookups.c.date > (sql.func.date(sql.func.now()) - datetime.timedelta(days=days)))
+
+    if application_ids:
+        query = query.where(schema.stats_lookups.c.application_id.in_(application_ids))
+
+    return [dict(row) for row in conn.execute(query)]
 
 
 def find_application_lookup_stats(conn, application_id):

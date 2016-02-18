@@ -8,4 +8,3 @@ class DatabaseContext(object):
 
     def __init__(self, bind):
         self.session = Session(bind=bind)
-

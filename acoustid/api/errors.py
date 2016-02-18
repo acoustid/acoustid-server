@@ -22,7 +22,8 @@ ERROR_NOT_ALLOWED = 12
 ERROR_SERVICE_UNAVAILABLE = 13
 ERROR_TOO_MANY_REQUESTS = 14
 ERROR_INVALID_MUSICBRAINZ_ACCESS_TOKEN = 15
-ERROR_INSECURE_REQUEST = 14
+ERROR_INSECURE_REQUEST = 16
+ERROR_UNKNOWN_APPLICATION = 17
 
 
 class WebServiceError(Exception):
@@ -157,3 +158,10 @@ class InsecureRequestError(WebServiceError):
     def __init__(self):
         message = 'only requests over HTTPS are allowed here'
         WebServiceError.__init__(self, ERROR_INSECURE_REQUEST, message)
+
+
+class UnknownApplicationError(WebServiceError):
+
+    def __init__(self):
+        message = 'unknown application'
+        WebServiceError.__init__(self, ERROR_UNKNOWN_APPLICATION, message)
