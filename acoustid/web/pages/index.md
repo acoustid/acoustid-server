@@ -40,6 +40,8 @@ that enables applications to quickly search in the fingerprint database.
     unknown audio files, you can use AcoustID to help with that.
     The service is completely free for non-commercial applications,
     all you need to do is register your application.
+    You can also use the service in commercial applications via
+    <a href="https://acoustid.biz">AcoustID OÜ</a>.
 </p>
 
 <ul class="list-nopadding">
