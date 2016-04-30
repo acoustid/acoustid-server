@@ -9,10 +9,9 @@ Remember that this is an open source project, with hopes to provide free and
 useful service. Please respect the following guidelines when integrating it
 into your application.
 
- * **No commercial usage** — This service is provided for free to non-commercial
-   users. If you would like to use it in a commercial application or
-   if you are not sure whether you qualify as a non-commercial user, please 
-   <a href="mailto:info@acoustid.org">contact us</a> first.
+ * **No commercial usage** — This service is provided for free for non-commercial
+   use only. If you would like to use the service in a commercial application,
+   please sign up [here](https://acoustid.biz/).
  * **Rate limiting** — Do not make more than 3 requests per second.
  * **Don't do anything illegal** — Don't use this service in connection with
    any illegal products or services.
