@@ -3,6 +3,7 @@
 # Copyright (C) 2012 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import time
 from acoustid.utils import call_internal_api
 from acoustid.script import run_script
 from acoustid.data.stats import update_lookup_stats
@@ -25,6 +26,7 @@ def main(script, opts, args):
                 call_internal_api(script.config, 'update_lookup_stats',
                     application_id=application_id, date=date, hour=hour,
                     type=type, count=count)
+                time.sleep(0.5)
             redis.hincrby('lookups', key, -count)
 
 
