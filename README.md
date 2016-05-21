@@ -80,7 +80,7 @@ Create an empty database:
 
 You can start the web application like this:
  
-    ./run_web.sh
+    ./run_web.sh --host=0.0.0.0
 
 If you want to test it with HTTP enabled, use this:
 

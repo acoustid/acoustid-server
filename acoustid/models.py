@@ -65,6 +65,11 @@ class TrackMeta(Base):
     meta = relationship('Meta')
 
 
+class Fingerprint(Base):
+    __table__ = tables.fingerprint
+    track = relationship('Track')
+
+
 class Meta(Base):
     __table__ = tables.meta
 

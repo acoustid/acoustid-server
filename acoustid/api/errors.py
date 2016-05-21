@@ -24,6 +24,7 @@ ERROR_TOO_MANY_REQUESTS = 14
 ERROR_INVALID_MUSICBRAINZ_ACCESS_TOKEN = 15
 ERROR_INSECURE_REQUEST = 16
 ERROR_UNKNOWN_APPLICATION = 17
+ERROR_FINGERPRINT_NOT_FOUND = 18
 
 
 class WebServiceError(Exception):
@@ -165,3 +166,12 @@ class UnknownApplicationError(WebServiceError):
     def __init__(self):
         message = 'unknown application'
         WebServiceError.__init__(self, ERROR_UNKNOWN_APPLICATION, message)
+
+
+class FingerprintNotFoundError(WebServiceError):
+
+    status = 404
+
+    def __init__(self):
+        message = 'fingerprint not found'
+        WebServiceError.__init__(self, ERROR_FINGERPRINT_NOT_FOUND, message)

@@ -160,3 +160,30 @@ class UserLookupHandler(APIHandler):
     def _handle_internal(self, params):
         return {'user': {'apikey': params.account_apikey}}
 
+
+class GetFingerprintHandlerParams(APIHandlerParams):
+
+    def parse(self, values, conn):
+        super(GetFingerprintHandlerParams, self).parse(values, conn)
+        self.fingerprint_id = values.get('id', type=int)
+        if not self.fingerprint_id:
+            raise errors.MissingParameterError('id')
+
+
+class GetFingerprintHandler(APIHandler):
+
+    params_class = GetFingerprintHandlerParams
+
+    def _handle_internal(self, params):
+        from acoustid.db import DatabaseContext
+        from acoustid.models import Fingerprint
+        with DatabaseContext(self.conn) as db:
+            fingerprint = db.session.query(Fingerprint).filter_by(id=params.fingerprint_id).first()
+            if fingerprint is None:
+                raise errors.FingerprintNotFoundError()
+            return {'fingerprint': {
+                'id': fingerprint.id,
+                'hashes': fingerprint.fingerprint,
+                'duration': fingerprint.length,
+            }}
+
