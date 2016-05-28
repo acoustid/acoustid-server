@@ -20,9 +20,9 @@ QUERIES = [
     ('track.all', 'SELECT count(*) FROM track'),
     ('submission.all', 'SELECT sum(submission_count) FROM account'),
     ('submission.unhandled', 'SELECT count(*) FROM submission WHERE not handled'),
-    ('mbid.onlyacoustid', 'SELECT count(distinct mbid) FROM track_mbid tm JOIN musicbrainz.recording r ON r.gid=tm.mbid LEFT JOIN musicbrainz.recording_puid rp ON rp.recording=r.id WHERE rp.recording IS NULL'),
-    ('mbid.onlypuid', 'SELECT count(distinct r.gid) FROM musicbrainz.recording r JOIN musicbrainz.recording_puid rp ON rp.recording=r.id LEFT JOIN track_mbid tm ON tm.mbid=r.gid WHERE tm.mbid IS NULL'),
-    ('mbid.both', 'SELECT count(distinct r.gid) FROM musicbrainz.recording r JOIN musicbrainz.recording_puid rp ON rp.recording=r.id JOIN track_mbid tm ON tm.mbid=r.gid'),
+#    ('mbid.onlyacoustid', 'SELECT count(distinct mbid) FROM track_mbid tm JOIN musicbrainz.recording r ON r.gid=tm.mbid LEFT JOIN musicbrainz.recording_puid rp ON rp.recording=r.id WHERE rp.recording IS NULL'),
+#    ('mbid.onlypuid', 'SELECT count(distinct r.gid) FROM musicbrainz.recording r JOIN musicbrainz.recording_puid rp ON rp.recording=r.id LEFT JOIN track_mbid tm ON tm.mbid=r.gid WHERE tm.mbid IS NULL'),
+#    ('mbid.both', 'SELECT count(distinct r.gid) FROM musicbrainz.recording r JOIN musicbrainz.recording_puid rp ON rp.recording=r.id JOIN track_mbid tm ON tm.mbid=r.gid'),
 ]
 
 
