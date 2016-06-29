@@ -58,7 +58,7 @@ class APIHandlerParams(object):
         application_apikey = values.get('client')
         if not application_apikey:
             raise errors.MissingParameterError('client')
-        self.application_id = lookup_application_id_by_apikey(conn, application_apikey)
+        self.application_id = lookup_application_id_by_apikey(conn, application_apikey, only_active=True)
         if not self.application_id:
             if check_demo_client_api_key(self.config.website.secret, application_apikey):
                 self.application_id = DEMO_APPLICATION_ID

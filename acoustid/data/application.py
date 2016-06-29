@@ -9,8 +9,10 @@ from acoustid.utils import generate_api_key
 logger = logging.getLogger(__name__)
 
 
-def lookup_application_id_by_apikey(conn, apikey):
+def lookup_application_id_by_apikey(conn, apikey, only_active=False):
     query = sql.select([schema.application.c.id], schema.application.c.apikey == apikey)
+    if only_active:
+        query = query.where(schema.application.c.active == True)
     return conn.execute(query).scalar()
 
 
