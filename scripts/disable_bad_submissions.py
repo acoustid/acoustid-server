@@ -9,10 +9,10 @@ import datetime
 import logging
 import random
 from sqlalchemy import sql, orm
-from mbdata.models import Recording
 from acoustid.db import DatabaseContext
 from acoustid.models import Application, Track, TrackMBID, TrackMBIDSource, TrackMBIDChange, Source, Account
 from acoustid.script import run_script
+from mbdata.models import Recording
 
 SK_ID = 342
 
