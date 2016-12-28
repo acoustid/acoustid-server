@@ -1,6 +1,7 @@
 import os
 import hmac
 import itsdangerous
+import requests
 import markdown.util
 from markdown import Markdown
 from flask import Blueprint, render_template, render_template_string, current_app, redirect, url_for
@@ -47,7 +48,6 @@ def add_page_route(name, path=None):
 
 
 add_page_route('index', '/')
-add_page_route('chromaprint')
 add_page_route('contact')
 add_page_route('database')
 add_page_route('docs')
@@ -64,3 +64,18 @@ add_page_route('about')
 def webservice():
     return render_page('webservice.md',
         client_api_key=generate_demo_client_api_key(current_app.config['SECRET_KEY']))
+
+
+def get_latest_chromaprint_release():
+    rv = requests.get('https://api.github.com/repos/acoustid/chromaprint/releases?per_page=1')
+    rv.raise_for_status()
+    releases = rv.json()
+    if not releases:
+        return None
+    return releases[0]
+
+
+@general_page.route('/chromaprint')
+def chromaprint():
+    release = get_latest_chromaprint_release()
+    return render_page('chromaprint.md', release=release)

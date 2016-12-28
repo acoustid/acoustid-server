@@ -8,7 +8,7 @@
         - puppet
         - puppet-common
 
-    - apt: name={{ item }} state=installed
+    - apt: name={{ item }} state=installed update_cache=yes
       with_items:
         - postgresql-9.3
         - postgresql-contrib-9.3
