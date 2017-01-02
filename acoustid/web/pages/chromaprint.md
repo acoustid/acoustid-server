@@ -12,7 +12,7 @@ found in the blog post ["How does Chromaprint work?"][blog2].
 Latest release &mdash; {{ release.name | replace('Chromaprint', '') }} ({{ release.published_at[:10] }})
 
 {% for asset in release.assets %}
-* [{{ asset.name }}]({{ asset.url }}) ({{ asset.size | filesizeformat }})
+* [{{ asset.name }}]({{ asset.browser_download_url }}) ({{ asset.size | filesizeformat }})
 {%- endfor %}
 
 Most Linux distributions also have their own packages for Chromaprint.
