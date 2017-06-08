@@ -52,5 +52,5 @@ You will need a C++ compiler and [CMake](https://cmake.org/) to build the librar
 See the [README](https://github.com/acoustid/chromaprint/blob/master/README.md) file for more details on building the library.
 
 [blog1]: http://oxygene.sk/lukas/2010/07/introducing-chromaprint/
-[blog2]: http://oxygene.sk/lukas/2011/01/how-does-chromaprint-work/
+[blog2]: https://oxygene.sk/2011/01/how-does-chromaprint-work/
 [git]: http://git-scm.com/
