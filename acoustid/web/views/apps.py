@@ -63,6 +63,8 @@ def new_application():
         if not version:
             errors.append('Missing version number')
         email = request.form.get('email')
+        if not email:
+            errors.append('Missing email address')
         if email and not is_valid_email(email):
             errors.append('Invalid email address')
         website = request.form.get('website')
