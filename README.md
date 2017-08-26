@@ -1,6 +1,9 @@
 AcoustID Server
 ===============
 
+This software is only meant to run on [acoustid.org](https://acoustid.org). Running it on your own server is not supported.
+It's possible, but you need to understand the system well enough and even then it's probably not going to be useful to you.
+
 Installation
 ------------
 
