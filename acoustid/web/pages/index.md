@@ -3,7 +3,7 @@ Title: Welcome to AcoustID!
 AcoustID is a project providing complete audio identification
 service, based entirely on open source software.
 
-It that consists of a [client library][chromaprint] for generating
+It consists of a [client library][chromaprint] for generating
 compact fingerprints from audio files, a large crowd-sourced
 [database of audio fingerprints][db], many of which are linked
 to the [MusicBrainz][mb] metadata
@@ -17,7 +17,7 @@ that enables applications to quickly search in the fingerprint database.
 
 <p>
     If you have an unknown music file, one of the applications using
-    AcoustID will very likely be able to tell you what song is it,
+    AcoustID will very likely be able to tell you what song it is,
     who wrote it, and a lot more. In case AcoustID doesn't recognize
     the song yet, you can help by submitting it to the database, so
     that the next person trying to identify the same song will

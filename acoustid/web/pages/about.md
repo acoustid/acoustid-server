@@ -3,7 +3,7 @@ Title: About the AcoustID project
 AcoustID is a project providing complete audio identification service,
 based entirely on open source software.
 
-It that consists of a [client library](/chromaprint) for generating
+It consists of a [client library](/chromaprint) for generating
 compact fingerprints from audio files, a large crowd-sourced
 [database of audio fingerprints](/database), many of which are linked
 to the [MusicBrainz][mb] metadata
