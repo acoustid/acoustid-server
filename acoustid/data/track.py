@@ -74,7 +74,7 @@ def merge_mbids(conn, target_mbid, source_mbids):
     """
     Merge the specified MBIDs.
     """
-    logger.info("Merging MBIDs %s into %s", ', '.join(source_mbids), target_mbid)
+    logger.warning("Merging MBIDs %r into %r", source_mbids, target_mbid)
     with conn.begin():
         query = sql.select(
             [
@@ -125,7 +125,7 @@ def merge_missing_mbids(conn):
     """)
     merge = {}
     for old_mbid, new_mbid in results:
-        merge.setdefault(new_mbid, []).append(old_mbid)
+        merge.setdefault(str(new_mbid), []).append(str(old_mbid))
     for new_mbid, old_mbids in merge.iteritems():
         merge_mbids(conn, new_mbid, old_mbids)
 
