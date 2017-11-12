@@ -8,11 +8,20 @@
         - puppet
         - puppet-common
 
+    - name: add pgdg repo key
+      apt_key: url=https://www.postgresql.org/media/keys/ACCC4CF8.asc id=ACCC4CF8
+
+    - name: setup pgdg repo
+      apt_repository:
+        repo: deb http://apt.postgresql.org/pub/repos/apt/ {{ ansible_lsb.codename }}-pgdg main
+        filename: pgdg
+        update_cache: yes
+
     - apt: name={{ item }} state=installed update_cache=yes
       with_items:
-        - postgresql-9.3
-        - postgresql-contrib-9.3
-        - postgresql-server-dev-9.3
+        - postgresql-10
+        - postgresql-contrib-10
+        - postgresql-server-dev-10
         - python-dev
         - python-virtualenv
         - python-psycopg2
@@ -22,12 +31,12 @@
         - git
 
     - lineinfile:
-        dest=/etc/postgresql/9.3/main/postgresql.conf
+        dest=/etc/postgresql/10/main/postgresql.conf
         regexp='^#?listen_addresses = .*'
         line='listen_addresses = \'*\''
       notify: restart postgresql
 
-    - copy: src=pg_hba.conf dest=/etc/postgresql/9.3/main/pg_hba.conf
+    - copy: src=pg_hba.conf dest=/etc/postgresql/10/main/pg_hba.conf
       notify: restart postgresql
 
     - meta: flush_handlers
