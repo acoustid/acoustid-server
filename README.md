@@ -116,8 +116,7 @@ Unit tests
 
 Before you can run the test suite, you need to create a configuration file
 called acoustid-test.conf. This should use a separate database from the
-one you use for development, but it should have the same structure. The
-simplest way to create it is to copy your development database.
+one you use for development, but it should have the same structure.
 
 You can then run the test suite like this:
 

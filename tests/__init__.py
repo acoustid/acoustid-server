@@ -10,7 +10,9 @@ import sqlalchemy
 import sqlalchemy.pool
 from contextlib import closing
 from nose.tools import *
+from acoustid.script import Script
 from acoustid.config import Config
+from acoustid.tables import metadata
 
 TEST_2_LENGTH = 320
 TEST_2_FP = 'AQABVtuUZFGShAqO-h9OHD96SvhwBVNCKQnOIYmiIc-ENwF7TDe8Hr0W_AjhvRCP2sfT4DTS7zjyOYeqaI-RSxee5RmaWzhOHnlcaB6HnPgpdE-DkWIH2ysYG_Eh9zJCyfCXGOdw-EGoD2p69IavWOhzMD-a9tBx9FgPVz2qNDvQH3744ISIXRKeHto5_MhyeMtxc-COnYJ_lHLwRAgPvShz_Hga4zd8HD9UKXWOPP3xRLmGnlbQHKfxGPeRvAt6UngMvcF-gkpRi0bUZjGaH6FUHb_xGDt6aHmM__ghfkmH70B4fWiuCj8y8uj3oImZY8d3NFWWHuGF-3hCPEd_uEOyE_nw4w8ueXi24znCHOHxSWtw9BnSBzrSHF2Y4S0e_EioZoh9XMGfo2dqNMeP80aQPM5xGT9efMeTYL-KIqmHdDraHs-P8IcYjoj0I7_Q43iJ9BF64nSKKth2SjG-cvCHH-2OL8txHsUt9HhF4LiK5j16lAf1FkjvQiN55FSOkkOPkmj4GK-OH80eIeyh98HhE_qhPwjzKAV-HJ2OZkd4Q_vhp0d_6Id-_IeWW9CKoP3RKM-Bo3mOfvhxND_6HMgZ6EfXHB-8Q8-iok1znOi-ozmx54P2Dg5V_PCgLxy8KiH6C0cbHU3Ebtiho9Rxw8er47tw7jgRNxl84ziPJ-B1_DiNNClzaGSCvMGPGxePMD5qZYEuAwdTXYSYcIkmodc2nMqg_WgqBk_yBdVx0vCjQD8uhNRxXTgvVFSOSOmx61C1KMaNsFwM93h-PBdmFm8o45nxDabx48cTbGl4hHuhasjSwPtxPvAV1A7yQMukREERR-nxL8j-EbWYQ8sj4joABQQmjQhkjLFCKSAo4QoxYiQwQhgmkGjCKGAIMMA4BIwQwjhAFMBUCCUAYEIxpYxUCDlEjJYOScSMgsIIAgADwjKEFBAUCkMEMYAagoARzAAHCDCIISKANkgYYBiQwgDDjHEMIGWZFUBQLhgohBGkhECOMEAMIYghogTgQghgiSLCYUegAsJApIQjxABNDFWCa6AIAQ4Q4KgAgIABgGDCMNGIMgQJRQAQTACpgBNIJkUcBMkpoKAgXCjAgAAGKIcYIVAYbZgwggkEmKLEiYGYAYQQShFAAAQBFEEAEuEIgwYRQoARnBkAmAGMEAGFGIgQBigCwAkABEIA'
@@ -40,8 +42,7 @@ TEST_1_LENGTH = TEST_1A_LENGTH
 TEST_1_FP = TEST_1A_FP
 TEST_1_FP_RAW = TEST_1A_FP_RAW
 
-config = None
-engine = None
+script = None
 
 SEQUENCES = [
     ('account', 'id'),
@@ -117,38 +118,6 @@ INSERT INTO track (id, gid) VALUES
     (3, '30e66c45-f761-490a-b1bd-55763e8b59be'),
     (4, '014e973b-368e-42bf-b619-84cab14c4af6');
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 1);
-
-INSERT INTO musicbrainz.artist_name (id, name) VALUES
-    (1, 'Artist A');
-INSERT INTO musicbrainz.artist (id, name, sort_name, gid) VALUES
-    (1, 1, 1, 'a64796c0-4da4-11e0-bf81-0025225356f3');
-INSERT INTO musicbrainz.artist_credit (id, name, artist_count) VALUES
-    (1, 1, 1);
-INSERT INTO musicbrainz.artist_credit_name (artist_credit, name, position, artist) VALUES
-    (1, 1, 1, 1);
-INSERT INTO musicbrainz.track_name (id, name) VALUES
-    (1, 'Track A'), (2, 'Track B');
-INSERT INTO musicbrainz.recording (id, artist_credit, name, gid, length) VALUES
-    (1, 1, 1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 123000),
-    (2, 1, 2, '6d885000-4dad-11e0-98ed-0025225356f3', 456000),
-    (3, 1, 1, '8d77b21e-2b41-4751-a88f-a2ab37cbd41c', 456000);
-INSERT INTO musicbrainz.tracklist (id, track_count)
-    VALUES (1, 2);
-INSERT INTO musicbrainz.track (id, artist_credit, name, recording, length, position, tracklist) VALUES
-    (1, 1, 1, 1, 123000, 1, 1),
-    (2, 1, 2, 2, 456000, 2, 1);
-INSERT INTO musicbrainz.release_name (id, name) VALUES
-    (1, 'Release Group A'), (2, 'Album A');
-INSERT INTO musicbrainz.release_group (id, artist_credit, name, gid) VALUES
-    (1, 1, 1, '83a6c956-e340-48be-b604-72bfc28016fc');
-INSERT INTO musicbrainz.release (id, artist_credit, name, gid, release_group) VALUES
-    (1, 1, 2, 'dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23', 1),
-    (2, 1, 2, '1d4d546f-e2ec-4553-8df7-9004298924d5', 1);
-INSERT INTO musicbrainz.medium_format (id, name) VALUES
-    (1, 'CD'), (2, 'DVD');
-INSERT INTO musicbrainz.medium (id, release, tracklist, position, format) VALUES
-    (1, 1, 1, 1, 1),
-    (2, 2, 1, 1, 2);
 '''
 
 
@@ -170,7 +139,7 @@ def prepare_database(conn, sql, params=None):
 
 def with_database(func):
     def wrapper(*args, **kwargs):
-        with closing(engine.connect()) as conn:
+        with closing(script.engine.connect()) as conn:
             prepare_sequences(conn)
             trans = conn.begin()
             try:
@@ -182,18 +151,16 @@ def with_database(func):
 
 
 def setup():
-    global config, engine
+    global script
     config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid-test.conf'
-    config = Config(config_path)
-    for logger_name, level in sorted(config.logging.levels.items()):
-        logging.getLogger(logger_name).setLevel(level)
-    engine = sqlalchemy.create_engine(config.database.create_url(),
-        poolclass=sqlalchemy.pool.AssertionPool)
+    script = Script(config_path, tests=True)
     if not os.environ.get('SKIP_DB_SETUP'):
-        with closing(engine.connect()) as conn:
-            for table in TABLES:
-                conn.execute("TRUNCATE TABLE %s CASCADE" % (table,))
-            prepare_database(conn, BASE_SQL)
+        with closing(script.engine.connect()) as conn:
+            with conn.begin():
+                metadata.create_all(conn)
+                for table in reversed(metadata.sorted_tables):
+                    conn.execute(table.delete())
+                prepare_database(conn, BASE_SQL)
 
 
 def assert_dict_equals(d1, d2, msg=None):

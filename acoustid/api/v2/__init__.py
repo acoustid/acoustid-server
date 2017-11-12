@@ -24,7 +24,7 @@ from acoustid.data.stats import update_lookup_counter, update_user_agent_counter
 from acoustid.ratelimiter import RateLimiter
 from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
-from acoustid.utils import is_uuid, is_foreignid, is_int, check_demo_client_api_key
+from acoustid.utils import is_uuid, is_foreignid, is_int, check_demo_client_api_key, provider
 from acoustid.api import serialize_response, errors
 
 logger = logging.getLogger(__name__)
@@ -98,8 +98,12 @@ class APIHandler(Handler):
         return self._connect()
 
     @classmethod
-    def create_from_server(cls, server):
-        handler = cls(connect=server.engine.connect)
+    def create_from_server(cls, server, conn=None):
+        if conn is not None:
+            connect = provider(conn)
+        else:
+            connect = server.engine.connect
+        handler = cls(connect=connect)
         handler.index = server.index
         handler.redis = server.redis
         handler.config = server.config
@@ -122,6 +126,8 @@ class APIHandler(Handler):
         return serialize_response(response_data, format)
 
     def _rate_limit(self, user_ip, application_id):
+        if self.config is None:
+            return
         ip_rate_limit = self.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
         if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
             if application_id == DEMO_APPLICATION_ID:

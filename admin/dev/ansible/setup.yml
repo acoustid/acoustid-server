@@ -50,7 +50,7 @@
 
     - pip:
         requirements=/vagrant/{{ item }}
-        virtualenv=/vagrant/e
+        virtualenv=/tmp/e
         virtualenv_site_packages=yes
       with_items:
         - requirements.txt
@@ -59,7 +59,7 @@
 
     - lineinfile:
         dest=/home/vagrant/.bashrc
-        line='source /vagrant/e/bin/activate'
+        line='source /tmp/e/bin/activate'
       become_user: vagrant
 
     - lineinfile:

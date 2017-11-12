@@ -16,11 +16,13 @@ logger = logging.getLogger(__name__)
 
 class Script(object):
 
-    def __init__(self, config_path):
+    def __init__(self, config_path, tests=False):
         self.config = Config(config_path)
-        #self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
-        #    poolclass=sqlalchemy.pool.AssertionPool)
-        self.engine = sqlalchemy.create_engine(self.config.database.create_url())
+        if tests:
+            self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
+                poolclass=sqlalchemy.pool.AssertionPool)
+        else:
+            self.engine = sqlalchemy.create_engine(self.config.database.create_url())
         if not self.config.index.host:
             self.index = None
         else:

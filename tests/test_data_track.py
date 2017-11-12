@@ -1,7 +1,9 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import unittest
 from nose.tools import *
+from uuid import UUID
 from tests import (
     prepare_database, with_database,
     TEST_1_FP_RAW,
@@ -43,7 +45,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+        (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
     assert_equals(expected_rows, rows)
     rows = conn.execute("SELECT track_mbid_id, submission_id, source_id FROM track_mbid_source ORDER BY track_mbid_id, submission_id, source_id").fetchall()
@@ -70,7 +72,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
     merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+        (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
     assert_equals(expected_rows, rows)
 
@@ -85,7 +87,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+        (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
     assert_equals(expected_rows, rows)
 
@@ -100,13 +102,16 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     merge_mbids(conn, '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, True),
+        (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, True),
     ]
     assert_equals(expected_rows, rows)
 
 
 @with_database
 def test_merge_missing_mbids(conn):
+    from sqlalchemy.orm import Session
+    from mbdata.sample_data import create_sample_data
+    create_sample_data(Session(conn))
     prepare_database(conn, """
 TRUNCATE track_mbid CASCADE;
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 1);
@@ -116,18 +121,19 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, 'd575d506-4
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f3', 1);
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f3', 1);
 INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
-    (1, 'd575d506-4da4-11e0-b951-0025225356f3'),
-    (2, '5d0290a6-4dad-11e0-a47a-0025225356f3'),
-    (99, 'b44dfb2a-4dad-11e0-bae4-0025225356f3');
+    (7134047, 'd575d506-4da4-11e0-b951-0025225356f3'),
+    (7134048, '5d0290a6-4dad-11e0-a47a-0025225356f3'),
+    (7134049, 'b44dfb2a-4dad-11e0-bae4-0025225356f3');
 """)
     merge_missing_mbids(conn)
     rows = conn.execute("SELECT track_id, mbid FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3'),
-        (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3'),
-        (2, 'b81f83ee-4da4-11e0-9ed8-0025225356f3'),
-        (3, '97edb73c-4dac-11e0-9096-0025225356f3'),
-        (4, '6d885000-4dad-11e0-98ed-0025225356f3'),
+        (1, UUID('77ef7468-e8f8-4447-9c7e-52b11272c6cc')),
+        (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3')),
+        (1, UUID('b81f83ee-4da4-11e0-9ed8-0025225356f3')),
+        (2, UUID('77ef7468-e8f8-4447-9c7e-52b11272c6cc')),
+        (3, UUID('97edb73c-4dac-11e0-9096-0025225356f3')),
+        (4, UUID('e6d2be9c-06b7-4a64-911d-076ad4e79c6f')),
     ]
     assert_equals(expected_rows, rows)
 
@@ -167,16 +173,16 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
     assert_equals([(1, 3), (2, 3)], rows)
     rows = conn.execute("SELECT id, track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected = [
-        (5, 3, '5d0290a6-4dad-11e0-a47a-0025225356f3', 30),
-        (1, 3, '97edb73c-4dac-11e0-9096-0025225356f3', 35),
-        (2, 3, 'd575d506-4da4-11e0-b951-0025225356f3', 65)
+        (5, 3, UUID('5d0290a6-4dad-11e0-a47a-0025225356f3'), 30),
+        (1, 3, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 35),
+        (2, 3, UUID('d575d506-4da4-11e0-b951-0025225356f3'), 65)
     ]
     assert_equals(expected, rows)
     rows = conn.execute("SELECT track_id, puid, submission_count FROM track_puid ORDER BY track_id, puid").fetchall()
     expected = [
-        (3, '5d0290a6-4dad-11e0-a47a-0025225356f4', 30),
-        (3, '97edb73c-4dac-11e0-9096-0025225356f4', 35),
-        (3, 'd575d506-4da4-11e0-b951-0025225356f4', 65)
+        (3, UUID('5d0290a6-4dad-11e0-a47a-0025225356f4'), 30),
+        (3, UUID('97edb73c-4dac-11e0-9096-0025225356f4'), 35),
+        (3, UUID('d575d506-4da4-11e0-b951-0025225356f4'), 65)
     ]
     assert_equals(expected, rows)
     rows = conn.execute("SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id").fetchall()
@@ -196,7 +202,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, '97edb73c-4
     merge_tracks(conn, 1, [2])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+        (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
     assert_equals(expected_rows, rows)
 
@@ -211,7 +217,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '
     merge_tracks(conn, 1, [2])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, False),
+        (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
     assert_equals(expected_rows, rows)
 
@@ -226,7 +232,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '
     merge_tracks(conn, 1, [2])
     rows = conn.execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
-        (1, '97edb73c-4dac-11e0-9096-0025225356f3', 20, True),
+        (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, True),
     ]
     assert_equals(expected_rows, rows)
 
