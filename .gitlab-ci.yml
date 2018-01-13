@@ -1,0 +1,10 @@
+stages:
+  - build
+
+build:
+  stage: build
+  script:
+    - docker login -u $QUAY_USER -p $QUAY_PASSWORD quay.io
+    - ./ci/build-image.sh
+  tags:
+    - docker-host
