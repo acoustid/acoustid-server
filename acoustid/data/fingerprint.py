@@ -170,6 +170,7 @@ def inc_fingerprint_submission_count(conn, id, submission_id=None, source_id=Non
 def update_fingerprint_index(db, index, limit=1000):
     with closing(index.connect()) as index:
         max_id = int(index.get_attribute('max_document_id') or '0')
+        last_id = max_id
         query = sql.select([
             schema.fingerprint.c.id,
             sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint),
@@ -182,6 +183,8 @@ def update_fingerprint_index(db, index, limit=1000):
                 in_transaction = True
             logger.debug("Adding fingerprint %s to index %s", id, index)
             index.insert(id, fingerprint)
+            last_id = id
         if in_transaction:
             index.commit()
+            logger.info("Updated index %s up to fingerprint %s", index, last_id)
 
