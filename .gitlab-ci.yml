@@ -1,11 +1,5 @@
-services:
-  - docker:dind
-
 stages:
   - build
-
-before_script:
-  - docker info
 
 build:
   stage: build
