@@ -1,5 +1,11 @@
+services:
+  - docker:dind
+
 stages:
   - build
+
+before_script:
+  - docker info
 
 build:
   stage: build
@@ -7,4 +13,4 @@ build:
     - docker login -u $QUAY_USER -p $QUAY_PASSWORD quay.io
     - ./ci/build-image.sh
   tags:
-    - docker-host
+    - docker
