@@ -1,7 +1,7 @@
 FROM ubuntu:xenial as builder
 
 RUN apt-get update && \
-    apt-get install -y python python-pip python-virtualenv python-dev libchromaprint0 libchromaprint-tools git
+    apt-get install -y python python-pip python-virtualenv python-dev libchromaprint0 libchromaprint-tools git libpq-dev
 
 ADD requirements.txt /tmp/requirements.txt
 
