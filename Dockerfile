@@ -14,7 +14,7 @@ RUN (cd /tmp/acoustid-server/ && git archive --format=tar HEAD) | (cd /opt/acous
 FROM ubuntu:xenial
 
 RUN apt-get update && \
-    apt-get install -y python libchromaprint0 libchromaprint-tools
+    apt-get install -y python libchromaprint0 libchromaprint-tools uwsgi
 
 WORKDIR /opt/acoustid/server/
 COPY --from=builder /opt/acoustid/server/ .
