@@ -19,7 +19,6 @@ from acoustid.data.account import (
 )
 from acoustid.api import errors
 from acoustid.api.v2 import APIHandler, APIHandlerParams
-from acoustid.handler import Handler, Response
 
 logger = logging.getLogger(__name__)
 

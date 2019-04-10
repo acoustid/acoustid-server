@@ -56,7 +56,6 @@ class Script(object):
         logging.getLogger().addHandler(handler)
 
 
-
 def run_script(func, option_cb=None, master_only=False):
     parser = OptionParser()
     parser.add_option("-c", "--config", dest="config",
@@ -76,7 +75,7 @@ def run_script(func, option_cb=None, master_only=False):
         logger.debug("Running script %s", sys.argv[0])
         try:
             func(script, options, args)
-        except:
+        except Exception:
             logger.exception("Script finished %s with an exception", sys.argv[0])
             raise
         else:

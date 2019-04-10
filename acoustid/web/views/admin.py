@@ -2,7 +2,7 @@ import logging
 import datetime
 from sqlalchemy import sql
 from sqlalchemy.orm.query import Bundle
-from flask import Blueprint, render_template, request, redirect, url_for, abort, current_app, session
+from flask import Blueprint, render_template, request
 from acoustid.web import db
 from acoustid.web.utils import require_admin
 from acoustid.models import Application, StatsLookups
@@ -39,11 +39,10 @@ def stats_apps():
     counts = Bundle('counts',
         sql.func.sum(StatsLookups.count_hits).label('hits'),
         sql.func.sum(StatsLookups.count_nohits).label('misses'),
-        sql.func.sum(StatsLookups.count_nohits + StatsLookups.count_hits).label('all'),
-    )
+        sql.func.sum(StatsLookups.count_nohits + StatsLookups.count_hits).label('all'))
     stats = db.session.query(Application, counts).join(StatsLookups.application).filter(
         StatsLookups.date >= sql.func.date_trunc('month', month),
-        StatsLookups.date <  sql.func.date_trunc('month', month) + sql.text("INTERVAL '1 month'")
+        StatsLookups.date < sql.func.date_trunc('month', month) + sql.text("INTERVAL '1 month'")
     ).group_by(Application.id).order_by(counts.c.all.desc()).all()
 
     return render_template('admin_stats_apps.html', stats=stats, last_months=last_months, month=month)

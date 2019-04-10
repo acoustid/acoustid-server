@@ -3,17 +3,16 @@
 
 import re
 import logging
-import pprint
 import json
 import time
 import operator
 from acoustid import const
 from acoustid.const import MAX_REQUESTS_PER_SECOND
-from acoustid.handler import Handler, Response
+from acoustid.handler import Handler
 from acoustid.data.track import lookup_mbids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.submission import insert_submission, lookup_submission_status
-from acoustid.data.fingerprint import lookup_fingerprint, decode_fingerprint, FingerprintSearcher
+from acoustid.data.fingerprint import decode_fingerprint, FingerprintSearcher
 from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
@@ -22,9 +21,8 @@ from acoustid.data.meta import insert_meta, lookup_meta
 from acoustid.data.foreignid import find_or_insert_foreignid
 from acoustid.data.stats import update_lookup_counter, update_user_agent_counter, update_lookup_avg_time
 from acoustid.ratelimiter import RateLimiter
-from werkzeug.exceptions import HTTPException, abort
 from werkzeug.utils import cached_property
-from acoustid.utils import is_uuid, is_foreignid, is_int, check_demo_client_api_key, provider
+from acoustid.utils import is_uuid, is_foreignid, check_demo_client_api_key, provider
 from acoustid.api import serialize_response, errors
 
 logger = logging.getLogger(__name__)
@@ -70,11 +68,11 @@ class APIHandlerParams(object):
     def _parse_format(self, values):
         self.format = values.get('format', DEFAULT_FORMAT)
         if self.format not in FORMATS:
-            self.format = DEFAULT_FORMAT # used for the error response
+            self.format = DEFAULT_FORMAT  # used for the error response
             raise errors.UnknownFormatError(self.format)
         if self.format == 'jsonp':
             callback = values.get('jsoncallback', 'jsonAcoustidApi')
-            if not re.match('^[$A-Za-z_][0-9A-Za-z_]*(\.[$A-Za-z_][0-9A-Za-z_]*)*$', callback):
+            if not re.match(r'^[$A-Za-z_][0-9A-Za-z_]*(\.[$A-Za-z_][0-9A-Za-z_]*)*$', callback):
                 callback = 'jsonAcoustidApi'
             self.format = '%s:%s' % (self.format, callback)
 
@@ -734,7 +732,7 @@ class SubmitHandler(APIHandler):
             logger.debug('starting to wait at %f %d', remaining, clients_waiting)
             while remaining > 0 and ids:
                 logger.debug('waiting %f seconds', remaining)
-                time.sleep(0.5) # XXX replace with LISTEN/NOTIFY
+                time.sleep(0.5)  # XXX replace with LISTEN/NOTIFY
                 remaining -= 0.5
                 tracks = lookup_submission_status(self.conn, ids)
                 if not tracks:

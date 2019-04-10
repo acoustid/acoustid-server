@@ -5,8 +5,7 @@ import logging
 import uuid
 from sqlalchemy import sql
 from acoustid import tables as schema, const
-from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
-from acoustid.data.musicbrainz import resolve_mbid_redirect
+from acoustid.data.fingerprint import FingerprintSearcher
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +318,6 @@ def find_track_duplicates(conn, fingerprint, index=None):
             logger.debug("Not matched itself!")
             return
         logged = False
-        match = matches[0]
         all_track_ids = set()
         possible_track_ids = set()
         for m in matches:
@@ -338,9 +336,7 @@ def find_track_duplicates(conn, fingerprint, index=None):
                 if len(group) > 1:
                     target_track_id = min(group)
                     group.remove(target_track_id)
-                    #logger.debug("Would like to merge tracks %r into %d", list(group), target_track_id)
                     merge_tracks(conn, target_track_id, list(group))
-                    #raise Exception(1)
                     break
         conn.execute("INSERT INTO fingerprint_deduplicate (id) VALUES (%s)", fingerprint['id'])
 
@@ -349,4 +345,3 @@ def find_duplicates(conn, limit=50, index=None):
     query = "SELECT f.id, fingerprint, length FROM fingerprint f LEFT JOIN fingerprint_deduplicate d ON f.id=d.id WHERE d.id IS NULL ORDER BY f.id LIMIT 1000"
     for fingerprint in conn.execute(query):
         find_track_duplicates(conn, fingerprint, index=index)
-

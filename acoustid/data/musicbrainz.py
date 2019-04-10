@@ -86,7 +86,9 @@ def _load_release_group_secondary_types(conn, release_group_ids):
     if not release_group_ids:
         return {}
     src = schema.mb_release_group_secondary_type_join
-    src = src.join(schema.mb_release_group_secondary_type, schema.mb_release_group_secondary_type_join.c.secondary_type == schema.mb_release_group_secondary_type.c.id)
+    src = src.join(
+        schema.mb_release_group_secondary_type,
+        schema.mb_release_group_secondary_type_join.c.secondary_type == schema.mb_release_group_secondary_type.c.id)
     condition = schema.mb_release_group_secondary_type_join.c.release_group.in_(release_group_ids)
     columns = [
         schema.mb_release_group_secondary_type_join.c.release_group.label('release_group_rid'),
@@ -225,7 +227,7 @@ def lookup_recording_metadata(conn, mbids):
 
 
 def cluster_track_names(names):
-    tokenized_names = [set([i.lower() for i in re.findall("(\w+)", n)]) for n in names]
+    tokenized_names = [set([i.lower() for i in re.findall(r"(\w+)", n)]) for n in names]
     stats = {}
     for tokens in tokenized_names:
         for token in tokens:
@@ -262,4 +264,3 @@ def resolve_mbid_redirect(conn, mbid):
     query = sql.select(columns, condition, from_obj=src)
     new_mbid = conn.execute(query).scalar()
     return new_mbid or mbid
-

@@ -2,7 +2,6 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from sqlalchemy import sql
 from acoustid import tables as schema
 
 logger = logging.getLogger(__name__)
@@ -14,6 +13,7 @@ def insert_meta(conn, values):
         id = conn.execute(insert_stmt).inserted_primary_key[0]
         logger.debug("Inserted meta %d with values %r", id, values)
     return id
+
 
 def lookup_meta(conn, meta_ids):
     if not meta_ids:
@@ -62,4 +62,3 @@ def lookup_meta(conn, meta_ids):
             result['release_group_artists'].append(row['album_artist'])
         results.append(result)
     return results
-

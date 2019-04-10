@@ -20,4 +20,3 @@ def find_or_insert_format(conn, name):
             id = conn.execute(insert_stmt).inserted_primary_key[0]
             logger.info("Inserted format %d with name %s", id, name)
     return id
-

@@ -3,13 +3,12 @@
 
 import logging
 import json
-from flask import Blueprint, render_template, request, redirect, url_for, abort, current_app
+from flask import Blueprint, render_template
 from acoustid.web import db
 from acoustid.data.stats import (
     find_current_stats,
     find_daily_stats,
     find_lookup_stats,
-    find_application_lookup_stats,
 )
 
 logger = logging.getLogger(__name__)

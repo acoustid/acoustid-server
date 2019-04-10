@@ -1,17 +1,15 @@
-import json
-import base64
 import logging
-from flask import Blueprint, render_template, request, redirect, url_for, abort, current_app, session
+from flask import Blueprint, render_template, request, redirect, url_for, abort, session
 from acoustid.web import db
 from acoustid.web.utils import require_user
 from acoustid.models import TrackMBIDChange, TrackMeta
 from acoustid.data.track import resolve_track_gid
 from acoustid.data.musicbrainz import lookup_recording_metadata
 from acoustid.data.account import is_moderator
-from acoustid.utils import generate_api_key, is_uuid
+from acoustid.utils import is_uuid
 from acoustid import tables as schema
 from sqlalchemy import sql
-from sqlalchemy.orm import joinedload, load_only
+from sqlalchemy.orm import joinedload
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +76,7 @@ def track(track_id):
         fingerprints=fingerprints, recordings=recordings,
         moderator=moderator, track=track,
         edits=edits,
-        user_metadata=user_metadata,
-        )
+        user_metadata=user_metadata)
 
 
 @metadata_page.route('/fingerprint/<int:fingerprint_id>')
@@ -110,7 +107,7 @@ def compare_fingerprints(fingerprint_id_1, fingerprint_id_2):
          schema.fingerprint.c.fingerprint,
          schema.fingerprint.c.track_id,
          schema.fingerprint.c.submission_count],
-         schema.fingerprint.c.id.in_((fingerprint_id_1, fingerprint_id_2)))
+        schema.fingerprint.c.id.in_((fingerprint_id_1, fingerprint_id_2)))
     fingerprint_1 = None
     fingerprint_2 = None
     for fingerprint in conn.execute(query):

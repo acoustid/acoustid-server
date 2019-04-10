@@ -1,6 +1,6 @@
 import logging
 import json
-from flask import Blueprint, render_template, request, redirect, url_for, abort, current_app, session
+from flask import Blueprint, render_template, request, redirect, url_for, abort
 from acoustid.web import db
 from acoustid.web.utils import require_user, is_valid_email, is_valid_url
 from acoustid.data.application import find_applications_by_account, insert_application, update_application
@@ -82,7 +82,6 @@ def new_application():
             return redirect(url_for('.applications'))
     return render_template('new-application.html', title=title,
         form=request.form, errors=errors)
-
 
 
 @apps_page.route('/application/<application_id>/edit', methods=['GET', 'POST'])

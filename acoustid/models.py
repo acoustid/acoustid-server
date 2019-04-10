@@ -1,4 +1,4 @@
-from sqlalchemy.orm import mapper, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from acoustid import tables
 

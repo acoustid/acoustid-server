@@ -33,4 +33,3 @@ class RateLimiter(object):
 
         logger.debug("Key %s:%s had %s requests in the last %s seconds (rate %f)", bucket, key, count, self.interval, float(count) / self.interval)
         return False
-

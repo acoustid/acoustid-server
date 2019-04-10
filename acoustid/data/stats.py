@@ -24,7 +24,7 @@ def find_daily_stats(conn, names):
             date, name,
             value - lag(value, 1, 0) over(PARTITION BY name ORDER BY date) AS value
         FROM stats
-        WHERE date > now() - INTERVAL '31 day' AND name IN (""" + ",".join(["%s" for i in names]) +  """)
+        WHERE date > now() - INTERVAL '31 day' AND name IN (""" + ",".join(["%s" for i in names]) + """)
         ORDER BY date, name
     """
     stats = []
@@ -115,7 +115,7 @@ def update_lookup_avg_time(redis, seconds):
     key = datetime.datetime.now().strftime('%Y-%m-%d:%H:%M')
     try:
         tx = redis.pipeline()
-        tx.hincrby('lookups.time.ms', key, int(round(1000 * seconds))) # XXX use hincrbyfloat and seconds
+        tx.hincrby('lookups.time.ms', key, int(round(1000 * seconds)))  # XXX use hincrbyfloat and seconds
         tx.hincrby('lookups.time.count', key, 1)
         tx.execute()
     except Exception:
@@ -241,6 +241,3 @@ def find_all_contributors(conn):
             'count': row[schema.account.c.submission_count],
         })
     return results
-
-
-

@@ -5,10 +5,8 @@ import gzip
 from cStringIO import StringIO
 from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount
-from werkzeug.wrappers import Request, Response
-from jinja2 import Environment, FileSystemLoader
-import sqlalchemy
-from acoustid import api, handlers
+from werkzeug.wrappers import Request
+from acoustid import api
 from acoustid.script import Script
 import api.v1
 import api.v2

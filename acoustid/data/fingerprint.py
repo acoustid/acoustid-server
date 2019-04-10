@@ -1,7 +1,6 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-import time
 import logging
 import chromaprint
 from contextlib import closing
@@ -77,7 +76,7 @@ class FingerprintSearcher(object):
         columns = [f.c.id, f.c.track_id, schema.track.c.gid.label('track_gid'), f.c.score]
         src = f.join(schema.track, schema.track.c.id == f.c.track_id)
         return sql.select(columns, f.c.score > self.min_score, src,
-                           order_by=[f.c.score.desc(), f.c.id])
+                          order_by=[f.c.score.desc(), f.c.id])
 
     def _search_index(self, fp, length):
         # index search
@@ -88,7 +87,7 @@ class FingerprintSearcher(object):
             results = idx.search(fp_query)
             if not results:
                 return []
-            min_score = results[0].score * 0.1 # at least 10% of the top score
+            min_score = results[0].score * 0.1  # at least 10% of the top score
             candidate_ids = [r.id for r in results if r.score > min_score]
             if not candidate_ids:
                 return []

@@ -2,8 +2,6 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from acoustid.handler import Handler
-from acoustid.data.fingerprint import decode_fingerprint
 from acoustid.api import v2, serialize_response, errors
 
 logger = logging.getLogger(__name__)

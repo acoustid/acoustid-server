@@ -15,7 +15,7 @@ def str_to_bool(x):
 
 
 def read_env_item(obj, key, name, convert=None):
-    value is None
+    value = None
     if name in os.environ:
         value = os.environ[name]
     if name + '_FILE' in os.environ:
@@ -87,6 +87,7 @@ class DatabaseConfig(object):
         read_env_item(self, 'port', 'ACOUSTID_POSTGRES_PORT', convert=int)
         read_env_item(self, 'user', 'ACOUSTID_POSTGRES_USER')
         read_env_item(self, 'password', 'ACOUSTID_POSTGRES_PASSWORD')
+
 
 class IndexConfig(object):
 

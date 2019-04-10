@@ -23,4 +23,3 @@ def find_or_insert_source(conn, application_id, account_id, version=None):
             id = conn.execute(insert_stmt).inserted_primary_key[0]
             logger.info("Inserted source %d with account %d and application %d (%s)", id, account_id, application_id, version)
     return id
-

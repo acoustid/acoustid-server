@@ -1,6 +1,3 @@
-from werkzeug.wrappers import Response
-
-
 class Handler(object):
 
     @classmethod
@@ -9,4 +6,3 @@ class Handler(object):
 
     def handle(self, req):
         raise NotImplementedError(self.handle)
-

@@ -89,7 +89,7 @@ class IndexClient(object):
             if time.time() > deadline:
                 raise IndexClientError("read timeout exceeded")
         line = self._buffer[:pos]
-        self._buffer = self._buffer[pos+len(CRLF):]
+        self._buffer = self._buffer[pos + len(CRLF):]
         return line
 
     def _request(self, request, timeout=None):
@@ -100,7 +100,7 @@ class IndexClient(object):
         raise IndexClientError(line)
 
     def ping(self):
-        line = self._request('echo', timeout=1.0)
+        self._request('echo', timeout=1.0)
         return True
 
     def get_attribute(self, name):
@@ -126,7 +126,7 @@ class IndexClient(object):
     def commit(self):
         if not self.in_transaction:
             raise IndexClientError('called commit() without a transaction')
-        self._request('commit', timeout=60.0*10)
+        self._request('commit', timeout=60.0 * 10)
         self.in_transaction = False
 
     def rollback(self):
@@ -136,8 +136,8 @@ class IndexClient(object):
         self.in_transaction = False
 
     def insert(self, id, fingerprint):
-        #logger.debug("Inserting %s %s", id, fingerprint)
-        return self._request('insert %d %s' % (id, encode_fp(fingerprint)), timeout=60.0*10)
+        # logger.debug("Inserting %s %s", id, fingerprint)
+        return self._request('insert %d %s' % (id, encode_fp(fingerprint)), timeout=60.0 * 10)
 
     def close(self):
         try:
@@ -188,7 +188,7 @@ class IndexClientPool(object):
             logger.debug("Too many idle connections, closing %s", client)
             client.close()
         else:
-            #logger.debug("Checking in connection %s", client)
+            # logger.debug("Checking in connection %s", client)
             self.clients.append(client)
 
     def connect(self):
@@ -206,6 +206,6 @@ class IndexClientPool(object):
                 client = None
         if client is None:
             client = IndexClient(**self.args)
-        #logger.debug("Checking out connection %s", client)
+        # logger.debug("Checking out connection %s", client)
         return IndexClientWrapper(self, client)
 

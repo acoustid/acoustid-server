@@ -4,6 +4,7 @@ import xml.sax
 from xml.sax import ContentHandler
 from xml.sax.handler import ErrorHandler
 
+
 class Rule(object):
     def __init__(self):
         self._storedAttrs = None
@@ -63,7 +64,7 @@ class Digester(ContentHandler):
             rslot = self._rules[path] = []
         rslot.append(rule)
 
-    def parse(self, input, errorHandler = ErrorHandler()):
+    def parse(self, input, errorHandler=ErrorHandler()):
         xml.sax.parse(input, self, errorHandler)
 
     def pop(self):
@@ -118,4 +119,3 @@ class Digester(ContentHandler):
         self._path.pop()
         if len(self._cdata) > 0:
             self._cdata = []
-

@@ -1,6 +1,4 @@
 import os
-import hmac
-import itsdangerous
 import requests
 import markdown.util
 from markdown import Markdown

@@ -35,6 +35,7 @@ app.acoustid_config = config
 app.session_interface = SecureCookieSessionInterface()
 app.session_interface.serializer = pickle
 
+
 @app.context_processor
 def inject_common_values():
     show_donate_banner = False
@@ -50,12 +51,15 @@ def inject_common_values():
         jquery_version='1.12.0',
     )
 
+
 def get_flask_request_scope():
     return id(request._get_current_object())
+
 
 @request_tearing_down.connect
 def close_db_session(sender, **kwargs):
     db.session.close()
+
 
 db.session_factory.configure(bind=config.database.create_engine())
 db.session = scoped_session(db.session_factory, scopefunc=get_flask_request_scope)

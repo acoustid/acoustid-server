@@ -11,8 +11,7 @@ from acoustid.data.account import (
 )
 from acoustid.api import errors
 from acoustid.api.v2 import APIHandler, APIHandlerParams
-from acoustid.handler import Handler, Response
-from acoustid.utils import is_uuid, is_foreignid
+from acoustid.utils import is_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class TrackListByMBIDHandlerParams(APIHandlerParams):
         if not self.mbids:
             raise errors.MissingParameterError('mbid')
         if not all(map(is_uuid, self.mbids)):
-            raise errors.InvalidUUIDError('mbid' + suffix)
+            raise errors.InvalidUUIDError('mbid')
 
 
 class TrackListByMBIDHandler(APIHandler):
@@ -76,7 +75,7 @@ class TrackListByPUIDHandler(APIHandler):
 
     def _handle_internal(self, params):
         response = {}
-        response['tracks'] = tracks = []
+        response['tracks'] = []
         return response
 
 

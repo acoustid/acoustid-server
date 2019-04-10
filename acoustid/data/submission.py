@@ -4,9 +4,12 @@
 import logging
 from sqlalchemy import sql
 from acoustid import tables as schema, const
-from acoustid.data.fingerprint import lookup_fingerprint, insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
+from acoustid.data.fingerprint import insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
 from acoustid.data.musicbrainz import resolve_mbid_redirect
-from acoustid.data.track import insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta, can_add_fp_to_track, can_merge_tracks, insert_track_foreignid
+from acoustid.data.track import (
+    insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta,
+    can_add_fp_to_track, can_merge_tracks, insert_track_foreignid,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +47,7 @@ def import_submission(conn, submission, index=None):
         if submission['mbid']:
             mbids.append(resolve_mbid_redirect(conn, submission['mbid']))
         logger.info("Importing submission %d with MBIDs %s",
-            submission['id'], ', '.join(mbids))
+                    submission['id'], ', '.join(mbids))
         num_unique_items = len(set(submission['fingerprint']))
         if num_unique_items < const.FINGERPRINT_MIN_UNIQUE_ITEMS:
             logger.info("Skipping, has only %d unique items", num_unique_items)
@@ -65,7 +68,6 @@ def import_submission(conn, submission, index=None):
             'format_id': submission['format_id'],
         }
         if matches:
-            match = matches[0]
             all_track_ids = set()
             possible_track_ids = set()
             for m in matches:
@@ -133,4 +135,3 @@ def lookup_submission_status(db, ids):
     for id, track_gid in db.execute(query):
         results[id] = track_gid
     return results
-

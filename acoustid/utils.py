@@ -11,7 +11,6 @@ import datetime
 import hmac
 import base64
 from logging import Handler
-from logging.handlers import SysLogHandler
 
 
 def generate_api_key(length=10):
@@ -89,24 +88,24 @@ class LocalSysLogHandler(Handler):
     """
 
     facility_names = {
-        "auth":     syslog.LOG_AUTH,
-        "cron":     syslog.LOG_CRON,
-        "daemon":   syslog.LOG_DAEMON,
-        "kern":     syslog.LOG_KERN,
-        "lpr":      syslog.LOG_LPR,
-        "mail":     syslog.LOG_MAIL,
-        "news":     syslog.LOG_NEWS,
-        "syslog":   syslog.LOG_SYSLOG,
-        "user":     syslog.LOG_USER,
-        "uucp":     syslog.LOG_UUCP,
-        "local0":   syslog.LOG_LOCAL0,
-        "local1":   syslog.LOG_LOCAL1,
-        "local2":   syslog.LOG_LOCAL2,
-        "local3":   syslog.LOG_LOCAL3,
-        "local4":   syslog.LOG_LOCAL4,
-        "local5":   syslog.LOG_LOCAL5,
-        "local6":   syslog.LOG_LOCAL6,
-        "local7":   syslog.LOG_LOCAL7,
+        "auth": syslog.LOG_AUTH,
+        "cron": syslog.LOG_CRON,
+        "daemon": syslog.LOG_DAEMON,
+        "kern": syslog.LOG_KERN,
+        "lpr": syslog.LOG_LPR,
+        "mail": syslog.LOG_MAIL,
+        "news": syslog.LOG_NEWS,
+        "syslog": syslog.LOG_SYSLOG,
+        "user": syslog.LOG_USER,
+        "uucp": syslog.LOG_UUCP,
+        "local0": syslog.LOG_LOCAL0,
+        "local1": syslog.LOG_LOCAL1,
+        "local2": syslog.LOG_LOCAL2,
+        "local3": syslog.LOG_LOCAL3,
+        "local4": syslog.LOG_LOCAL4,
+        "local5": syslog.LOG_LOCAL5,
+        "local6": syslog.LOG_LOCAL6,
+        "local7": syslog.LOG_LOCAL7,
     }
 
     priority_map = {

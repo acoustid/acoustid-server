@@ -3,7 +3,7 @@ from sqlalchemy import (
     MetaData, Table, Column, Index,
     ForeignKey, CheckConstraint,
     Integer, String, DateTime, Boolean, Date, Text, SmallInteger, BigInteger, CHAR,
-    DDL, event, sql,
+    DDL, sql,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID, INET
 
@@ -13,13 +13,14 @@ metadata = MetaData(naming_convention={
     'pk': '%(table_name)s_pkey',
 })
 
-import mbdata.config
+import mbdata.config  # noqa: E402
 mbdata.config.configure(metadata=metadata, schema='musicbrainz')
 
 sqlalchemy.event.listen(
     metadata, 'before_create',
     DDL('CREATE SCHEMA IF NOT EXISTS musicbrainz'),
 )
+
 
 def create_replication_control_table(name):
     return Table(name, metadata,
@@ -28,6 +29,7 @@ def create_replication_control_table(name):
         Column('current_replication_sequence', Integer),
         Column('last_replication_date', DateTime(timezone=True)),
     )
+
 
 replication_control = create_replication_control_table('replication_control')
 acoustid_mb_replication_control = create_replication_control_table('acoustid_mb_replication_control')
@@ -308,7 +310,7 @@ mirror_queue = Table('mirror_queue', metadata,
     Column('data', Text, nullable=False),
 )
 
-import mbdata.models
+import mbdata.models  # noqa: E402
 mb_area = mbdata.models.Area.__table__
 mb_artist_credit = mbdata.models.ArtistCredit.__table__
 mb_artist_credit_name = mbdata.models.ArtistCreditName.__table__

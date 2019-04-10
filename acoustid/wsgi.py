@@ -5,7 +5,8 @@
 # uwsgi -w acoustid.wsgi --pythonpath ~/acoustid/ --env ACOUSTID_CONFIG=~/acoustid/acoustid.conf --http :9090
 # uwsgi -w acoustid.wsgi --pythonpath ~/acoustid/ --env ACOUSTID_CONFIG=~/acoustid/acoustid.conf -M -L --socket 127.0.0.1:1717
 
-import os, sys
+import os
+import sys
 
 base_dir = os.path.join(os.path.dirname(__file__), '..')
 
@@ -15,5 +16,5 @@ if os.path.exists(activate_this):
 
 sys.path.insert(0, base_dir)
 
-from acoustid.server import make_application
+from acoustid.server import make_application  # noqa: E402
 application = make_application(os.environ['ACOUSTID_CONFIG'])

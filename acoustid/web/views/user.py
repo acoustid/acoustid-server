@@ -7,20 +7,15 @@ from itsdangerous import URLSafeSerializer
 from rauth import OAuth2Service
 from openid import oidutil, fetchers
 from openid.consumer import consumer as openid
-from openid.extensions import ax, sreg
-from flask import Blueprint, render_template, request, redirect, url_for, abort, current_app, session
+from openid.extensions import ax
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
 from acoustid.web import db
 from acoustid.web.utils import require_user, is_our_url
 from acoustid.models import Account, AccountOpenID, AccountGoogle
 from acoustid.utils import generate_api_key
 from acoustid.data.account import (
-    lookup_account_id_by_mbuser,
     lookup_account_id_by_openid,
     insert_account,
-    get_account_details,
-    reset_account_apikey,
-    update_account_lastlogin,
-    is_moderator,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,8 +25,12 @@ user_page = Blueprint('user', __name__)
 
 # monkey-patch uidutil.log to use the standard logging framework
 openid_logger = logging.getLogger('openid')
+
+
 def log_openid_messages(message, level=0):
     openid_logger.info(message)
+
+
 oidutil.log = log_openid_messages
 
 
