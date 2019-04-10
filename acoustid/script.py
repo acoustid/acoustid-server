@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 class Script(object):
 
     def __init__(self, config_path, tests=False):
-        self.config = Config(config_path)
+        self.config = Config()
+        if config_path:
+            self.config.read(config_path)
+        self.config.read_env()
         if tests:
             self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
                 poolclass=sqlalchemy.pool.AssertionPool)

@@ -13,7 +13,7 @@ from acoustid.web.views.metadata import metadata_page
 from acoustid.web.views.stats import stats_page
 from acoustid.web.views.admin import admin_page
 
-config_filename = os.environ['ACOUSTID_CONFIG']
+config_filename = os.environ.get('ACOUSTID_CONFIG')
 
 script = Script(config_filename)
 script.setup_logging()

@@ -10,6 +10,22 @@ from sqlalchemy.engine.url import URL
 logger = logging.getLogger(__name__)
 
 
+def str_to_bool(x):
+    return x.lower() in ('1', 'on', 'true')
+
+
+def read_env_item(obj, key, name, convert=None):
+    value is None
+    if name in os.environ:
+        value = os.environ[name]
+    if name + '_FILE' in os.environ:
+        value = open(os.environ[name + '_FILE']).read().strip()
+    if value is not None:
+        if convert is not None:
+            value = convert(value)
+        setattr(obj, key, value)
+
+
 class DatabaseConfig(object):
 
     def __init__(self):
@@ -65,6 +81,12 @@ class DatabaseConfig(object):
         if parser.has_option(section, 'password'):
             self.password = parser.get(section, 'password')
 
+    def read_env(self):
+        read_env_item(self, 'name', 'ACOUSTID_POSTGRES_DB')
+        read_env_item(self, 'host', 'ACOUSTID_POSTGRES_HOST')
+        read_env_item(self, 'port', 'ACOUSTID_POSTGRES_PORT', convert=int)
+        read_env_item(self, 'user', 'ACOUSTID_POSTGRES_USER')
+        read_env_item(self, 'password', 'ACOUSTID_POSTGRES_PASSWORD')
 
 class IndexConfig(object):
 
@@ -78,6 +100,10 @@ class IndexConfig(object):
         if parser.has_option(section, 'port'):
             self.port = parser.getint(section, 'port')
 
+    def read_env(self):
+        read_env_item(self, 'host', 'ACOUSTID_INDEX_HOST')
+        read_env_item(self, 'port', 'ACOUSTID_INDEX_PORT', convert=int)
+
 
 class RedisConfig(object):
 
@@ -90,6 +116,10 @@ class RedisConfig(object):
             self.host = parser.get(section, 'host')
         if parser.has_option(section, 'port'):
             self.port = parser.getint(section, 'port')
+
+    def read_env(self):
+        read_env_item(self, 'host', 'ACOUSTID_REDIS_HOST')
+        read_env_item(self, 'port', 'ACOUSTID_REDIS_PORT', convert=int)
 
 
 class LoggingConfig(object):
@@ -110,6 +140,9 @@ class LoggingConfig(object):
             self.syslog = parser.getboolean(section, 'syslog')
         if parser.has_option(section, 'syslog_facility'):
             self.syslog_facility = parser.get(section, 'syslog_facility')
+
+    def read_env(self):
+        pass  # XXX
 
 
 class WebSiteConfig(object):
@@ -138,6 +171,14 @@ class WebSiteConfig(object):
         if parser.has_option(section, 'maintenance'):
             self.maintenance = parser.getboolean(section, 'maintenance')
 
+    def read_env(self):
+        read_env_item(self, 'debug', 'ACOUSTID_DEBUG', convert=str_to_bool)
+        read_env_item(self, 'maintenance', 'ACOUSTID_MAINTENANCE', convert=str_to_bool)
+        read_env_item(self, 'mb_oauth_client_id', 'ACOUSTID_MB_OAUTH_CLIENT_ID')
+        read_env_item(self, 'mb_oauth_client_secret', 'ACOUSTID_MB_OAUTH_CLIENT_SECRET')
+        read_env_item(self, 'google_oauth_client_id', 'ACOUSTID_GOOGLE_OAUTH_CLIENT_ID')
+        read_env_item(self, 'google_oauth_client_secret', 'ACOUSTID_GOOGLE_OAUTH_CLIENT_SECRET')
+
 
 class ReplicationConfig(object):
 
@@ -150,6 +191,9 @@ class ReplicationConfig(object):
             self.import_acoustid = parser.get(section, 'import_acoustid')
         if parser.has_option(section, 'import_acoustid_musicbrainz'):
             self.import_acoustid_musicbrainz = parser.get(section, 'import_acoustid_musicbrainz')
+
+    def read_env(self):
+        pass  # XXX
 
 
 class ClusterConfig(object):
@@ -167,6 +211,11 @@ class ClusterConfig(object):
         if parser.has_option(section, 'secret'):
             self.secret = parser.get(section, 'secret')
 
+    def read_env(self):
+        read_env_item(self, 'role', 'ACOUSTID_CLUSTER_ROLE')
+        read_env_item(self, 'base_master_url', 'ACOUSTID_CLUSTER_BASE_MASTER_URL')
+        read_env_item(self, 'secret', 'ACOUSTID_CLUSTER_SECRET')
+
 
 class RateLimiterConfig(object):
 
@@ -181,27 +230,41 @@ class RateLimiterConfig(object):
             elif name.startswith('application.'):
                 self.applications[int(name.split('.', 1)[1])] = parser.getfloat(section, name)
 
+    def read_env(self):
+        pass  # XXX
+
 
 class Config(object):
 
     def __init__(self, path):
         logger.info("Loading configuration file %s", path)
+        self.database = DatabaseConfig()
+        self.logging = LoggingConfig()
+        self.website = WebSiteConfig()
+        self.index = IndexConfig()
+        self.redis = RedisConfig()
+        self.replication = ReplicationConfig()
+        self.cluster = ClusterConfig()
+        self.rate_limiter = RateLimiterConfig()
+
+    def read(self, path):
         parser = ConfigParser.RawConfigParser()
         parser.read(path)
-        self.database = DatabaseConfig()
         self.database.read(parser, 'database')
-        self.logging = LoggingConfig()
         self.logging.read(parser, 'logging')
-        self.website = WebSiteConfig()
         self.website.read(parser, 'website')
-        self.index = IndexConfig()
         self.index.read(parser, 'index')
-        self.redis = RedisConfig()
         self.redis.read(parser, 'redis')
-        self.replication = ReplicationConfig()
         self.replication.read(parser, 'replication')
-        self.cluster = ClusterConfig()
         self.cluster.read(parser, 'cluster')
-        self.rate_limiter = RateLimiterConfig()
         self.rate_limiter.read(parser, 'rate_limiter')
 
+    def read_env(self):
+        self.database.read_env()
+        self.logging.read_env()
+        self.website.read_env()
+        self.index.read_env()
+        self.redis.read_env()
+        self.replication.read_env()
+        self.cluster.read_env()
+        self.rate_limiter.read_env()

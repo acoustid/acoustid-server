@@ -13,7 +13,9 @@ target_metadata = acoustid.tables.metadata
 import acoustid.config
 acoustid_config_filename = os.environ.get('ACOUSTID_CONFIG',
     os.path.join(os.path.dirname(__file__), '..', 'acoustid.conf'))
-acoustid_config = acoustid.config.Config(acoustid_config_filename)
+acoustid_config = acoustid.config.Config()
+acoustid_config.read(acoustid_config_filename)
+acoustid_config.read_env()
 
 def include_object(obj, name, type, reflected, compare_to):
     if type == "table" and obj.schema == "musicbrainz":

@@ -8,7 +8,6 @@ from werkzeug.routing import Map, Rule, Submount
 from werkzeug.wrappers import Request, Response
 from jinja2 import Environment, FileSystemLoader
 import sqlalchemy
-from acoustid.config import Config
 from acoustid import api, handlers
 from acoustid.script import Script
 import api.v1
