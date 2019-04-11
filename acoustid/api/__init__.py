@@ -4,7 +4,7 @@
 import logging
 import json
 import xml.etree.cElementTree as etree
-from acoustid.handler import Response
+from werkzeug.wrappers import Response
 from acoustid.utils import singular
 
 logger = logging.getLogger(__name__)

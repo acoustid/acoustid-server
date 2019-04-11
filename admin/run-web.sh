@@ -15,6 +15,7 @@ exec uwsgi \
   --harakiri-verbose \
   --max-requests 500 \
   --post-buffering 1 \
+  --need-app \
   --virtualenv /opt/acoustid/server/venv \
   --python-path /opt/acoustid/server \
   --module acoustid.web.app:app
