@@ -19,7 +19,6 @@ exec uwsgi \
   --static-map /static=/opt/acoustid/server/acoustid/web/static \
   --static-map /favicon.ico=/opt/acoustid/server/acoustid/web/static/favicon.ico \
   --static-map /robots.txt=/opt/acoustid/server/acoustid/web/static/robots.txt \
-  --static-cache-paths 3600 \
   --offload-threads 4 \
   --virtualenv /opt/acoustid/server/venv \
   --python-path /opt/acoustid/server \
