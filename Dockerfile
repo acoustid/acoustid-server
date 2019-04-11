@@ -14,7 +14,7 @@ RUN (cd /tmp/acoustid-server/ && git archive --format=tar HEAD) | (cd /opt/acous
 FROM ubuntu:18.04
 
 RUN apt-get update && \
-    apt-get install -y python libchromaprint1 libchromaprint-tools uwsgi uwsgi-plugin-python dumb-init
+    apt-get install -y python libchromaprint1 libchromaprint-tools uwsgi uwsgi-plugin-python dumb-init libpq5
 
 WORKDIR /opt/acoustid/server/
 COPY --from=builder /opt/acoustid/server/ .
