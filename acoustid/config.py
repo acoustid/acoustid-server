@@ -237,8 +237,7 @@ class RateLimiterConfig(object):
 
 class Config(object):
 
-    def __init__(self, path):
-        logger.info("Loading configuration file %s", path)
+    def __init__(self):
         self.database = DatabaseConfig()
         self.logging = LoggingConfig()
         self.website = WebSiteConfig()
@@ -249,6 +248,7 @@ class Config(object):
         self.rate_limiter = RateLimiterConfig()
 
     def read(self, path):
+        logger.info("Loading configuration file %s", path)
         parser = ConfigParser.RawConfigParser()
         parser.read(path)
         self.database.read(parser, 'database')
