@@ -4,9 +4,8 @@ exec uwsgi \
   --plugins python \
   --plugins ping \
   --socket 0.0.0.0:3031 \
-  --socket /var/run/acoustid/uwsgi-acoustid-server-web.sock \
   --chmod-socket \
-  --pidfile /var/run/acoustid/uwsgi-acoustid-server-web.pid \
+  --pidfile /tmp/uwsgi-acoustid-server-web.pid \
   --master \
   --disable-logging \
   --log-date \
