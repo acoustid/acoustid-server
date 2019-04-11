@@ -3,6 +3,7 @@
 /build
 /acoustid.conf
 /acoustid-test.conf
+/.tox
 *.pyc
 *.swp
 *.so

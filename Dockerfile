@@ -14,10 +14,12 @@ RUN (cd /tmp/acoustid-server/ && git archive --format=tar HEAD) | (cd /opt/acous
 FROM ubuntu:xenial
 
 RUN apt-get update && \
-    apt-get install -y python libchromaprint0 libchromaprint-tools uwsgi
+    apt-get install -y python libchromaprint0 libchromaprint-tools uwsgi dumb-init
 
 WORKDIR /opt/acoustid/server/
 COPY --from=builder /opt/acoustid/server/ .
 
 RUN useradd -ms /bin/bash acoustid
 USER acoustid
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
