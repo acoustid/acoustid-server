@@ -12,6 +12,5 @@ requests
 pyopenssl
 ndg-httpsclient
 pyasn1
-pychromaprint>=1.1.1
 mbdata>=2016.02.11
 alembic>=0.8.4

@@ -3,7 +3,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-import chromaprint
+from acoustid import chromaprint
 from acoustid.script import run_script
 from acoustid.data.track import find_duplicates
 from acoustid.data.fingerprint import FingerprintSearcher

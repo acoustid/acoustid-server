@@ -2,10 +2,9 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-import chromaprint
 from contextlib import closing
 from sqlalchemy import sql
-from acoustid import tables as schema, const
+from acoustid import tables as schema, const, chromaprint
 from acoustid.indexclient import IndexClientError
 
 logger = logging.getLogger(__name__)
