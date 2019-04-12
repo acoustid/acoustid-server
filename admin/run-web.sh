@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-exec /opt/acoustid/server/venv/bin/uwsgi \
+exec /opt/acoustid/server.venv/bin/uwsgi \
   --plugins python \
   --plugins ping \
   --http-socket 0.0.0.0:3031 \
@@ -20,6 +20,6 @@ exec /opt/acoustid/server/venv/bin/uwsgi \
   --static-map /favicon.ico=/opt/acoustid/server/acoustid/web/static/favicon.ico \
   --static-map /robots.txt=/opt/acoustid/server/acoustid/web/static/robots.txt \
   --offload-threads 4 \
-  --virtualenv /opt/acoustid/server/venv \
+  --virtualenv /opt/acoustid/server.venv \
   --python-path /opt/acoustid/server \
   --module acoustid.web.app:app

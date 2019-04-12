@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-exec /opt/acoustid/server/venv/bin/uwsgi \
+exec /opt/acoustid/server.venv/bin/uwsgi \
   --plugins python \
   --plugins ping \
   --http-socket 0.0.0.0:3031 \
@@ -16,6 +16,6 @@ exec /opt/acoustid/server/venv/bin/uwsgi \
   --max-requests 500 \
   --post-buffering 1 \
   --need-app \
-  --virtualenv /opt/acoustid/server/venv \
+  --virtualenv /opt/acoustid/server.venv \
   --python-path /opt/acoustid/server \
   --module acoustid.wsgi
