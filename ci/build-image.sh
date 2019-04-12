@@ -11,7 +11,8 @@ else
   VERSION=$CI_COMMIT_REF_SLUG
 fi
 
-docker build -t $IMAGE:$VERSION .
+docker pull $IMAGE:master
+docker build --cache-from=$IMAGE:master -t $IMAGE:$VERSION .
 docker push $IMAGE:$VERSION
 
 if [ -n "$CI_COMMIT_TAG" ]
