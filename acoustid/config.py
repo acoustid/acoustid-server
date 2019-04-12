@@ -156,6 +156,7 @@ class WebSiteConfig(object):
         self.google_oauth_client_id = None
         self.google_oauth_client_secret = None
         self.maintenance = False
+        self.shutdown_delay = 0
 
     def read(self, parser, section):
         if parser.has_option(section, 'debug'):
@@ -171,6 +172,8 @@ class WebSiteConfig(object):
             self.google_oauth_client_secret = parser.get(section, 'google_oauth_client_secret')
         if parser.has_option(section, 'maintenance'):
             self.maintenance = parser.getboolean(section, 'maintenance')
+        if parser.has_option(section, 'shutdown_delay'):
+            self.shutdown_delay = parser.getint(section, 'shutdown_delay')
 
     def read_env(self):
         read_env_item(self, 'debug', 'ACOUSTID_DEBUG', convert=str_to_bool)
@@ -179,6 +182,7 @@ class WebSiteConfig(object):
         read_env_item(self, 'mb_oauth_client_secret', 'ACOUSTID_MB_OAUTH_CLIENT_SECRET')
         read_env_item(self, 'google_oauth_client_id', 'ACOUSTID_GOOGLE_OAUTH_CLIENT_ID')
         read_env_item(self, 'google_oauth_client_secret', 'ACOUSTID_GOOGLE_OAUTH_CLIENT_SECRET')
+        read_env_item(self, 'shutdown_delay', 'ACOUSTID_SHUTDOWN_DELAY')
 
 
 class ReplicationConfig(object):

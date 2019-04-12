@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import sys
+import time
 import logging
 import sqlalchemy
 import sqlalchemy.pool
@@ -39,6 +40,10 @@ class Script(object):
             self.redis = Redis(host=self.config.redis.host,
                                port=self.config.redis.port)
         self.setup_logging()
+
+    def atexit(self):
+        self.shutdown = True
+        time.sleep(self.config.website.shutdown_delay)
 
     def setup_logging(self):
         for logger_name, level in sorted(self.config.logging.levels.items()):

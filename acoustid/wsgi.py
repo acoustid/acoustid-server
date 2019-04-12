@@ -7,6 +7,10 @@
 
 import os
 import sys
+try:
+    import uwsgi
+except ImportError:
+    uwsgi = None
 
 base_dir = os.path.join(os.path.dirname(__file__), '..')
 
@@ -17,4 +21,7 @@ if os.path.exists(activate_this):
 sys.path.insert(0, base_dir)
 
 from acoustid.server import make_application  # noqa: E402
-application = make_application(os.environ['ACOUSTID_CONFIG'])
+server, application = make_application(os.environ['ACOUSTID_CONFIG'])
+
+if uwsgi is not None:
+    uwsgi.atexit = server.atexit

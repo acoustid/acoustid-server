@@ -12,11 +12,18 @@ from acoustid.web.views.apps import apps_page
 from acoustid.web.views.metadata import metadata_page
 from acoustid.web.views.stats import stats_page
 from acoustid.web.views.admin import admin_page
+try:
+    import uwsgi
+except ImportError:
+    uwsgi = None
 
 config_filename = os.environ.get('ACOUSTID_CONFIG')
 
 script = Script(config_filename)
 script.setup_logging()
+
+if uwsgi is not None:
+    uwsgi.atexit = script.atexit
 
 config = script.config
 
@@ -113,7 +120,7 @@ if __name__ == "__main__":
 
     if args.api:
         app = DispatcherMiddleware(app, {
-            '/api': make_api_application(config_filename),
+            '/api': make_api_application(config_filename)[1],
         })
 
     if args.proxy:

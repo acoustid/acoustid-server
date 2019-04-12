@@ -8,7 +8,7 @@ from acoustid.server import make_application
 logging.basicConfig(level=logging.DEBUG)
 
 config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid.conf'
-application = make_application(config_path)
+server, application = make_application(config_path)
 
 # server static files
 static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))

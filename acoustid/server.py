@@ -95,6 +95,6 @@ def make_application(config_path):
 
     :param config_path: path to the server configuration file
     """
-    app = Server(config_path)
-    app = GzipRequestMiddleware(app)
-    return app
+    server = Server(config_path)
+    app = GzipRequestMiddleware(server)
+    return server, app
