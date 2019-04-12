@@ -61,6 +61,12 @@ def close_db_session(sender, **kwargs):
     db.session.close()
 
 
+@app.route('/_health')
+def health():
+    from acoustid.api import get_health_response
+    return get_health_response(script, request)
+
+
 db.session_factory.configure(bind=config.database.create_engine())
 db.session = scoped_session(db.session_factory, scopefunc=get_flask_request_scope)
 
@@ -70,6 +76,7 @@ app.register_blueprint(apps_page)
 app.register_blueprint(metadata_page)
 app.register_blueprint(stats_page)
 app.register_blueprint(admin_page)
+
 
 if __name__ == "__main__":
     import argparse

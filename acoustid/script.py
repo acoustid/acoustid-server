@@ -21,6 +21,7 @@ class Script(object):
         if config_path:
             self.config.read(config_path)
         self.config.read_env()
+        self.shutdown = False
         if tests:
             self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
                 poolclass=sqlalchemy.pool.AssertionPool)
