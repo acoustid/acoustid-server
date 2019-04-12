@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-exec uwsgi \
+exec /opt/acoustid/server/venv/bin/uwsgi \
   --plugins python \
   --plugins ping \
-  --socket 0.0.0.0:3031 \
+  --http-socket 0.0.0.0:3031 \
   --chmod-socket \
   --pidfile /tmp/uwsgi-acoustid-server-web.pid \
   --master \
