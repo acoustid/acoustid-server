@@ -3,7 +3,7 @@
 exec /opt/acoustid/server.venv/bin/uwsgi \
   --plugins python \
   --plugins ping \
-  --http-socket 0.0.0.0:3031 \
+  --http-socket 0.0.0.0:3032 \
   --chmod-socket \
   --pidfile /tmp/uwsgi-acoustid-server-web.pid \
   --master \

@@ -1,0 +1,10 @@
+ARG IMAGE=quay.io/acoustid/acoustid-server
+ARG VERSION=master
+FROM ${IMAGE}:${VERSION}
+
+EXPOSE 3031
+
+HEALTHCHECK --interval=5m --timeout=3s \
+  CMD curl -f http://localhost:3031/_health || exit 1
+
+CMD ["/opt/acoustid/server/admin/run-api.sh"]

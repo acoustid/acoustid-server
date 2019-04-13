@@ -1,10 +1,10 @@
-FROM ubuntu:18.04 as builder
+FROM ubuntu:18.04
 
 RUN apt-get update && \
     apt-get install -y \
         python python-pip python-virtualenv python-dev \
         libchromaprint1 libchromaprint-tools libpq-dev \
-        dumb-init
+        dumb-init curl
 
 ADD requirements.txt /tmp/requirements.txt
 
