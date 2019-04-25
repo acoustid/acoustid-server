@@ -62,13 +62,15 @@ def serialize_response(data, format, **kwargs):
         return serialize_xml(data, **kwargs)
 
 
-def get_health_response(script, req):
+def get_health_response(script, req, require_master=False):
+    if require_master and script.config.cluster.role != 'master':
+        return Response('not the master server', content_type='text/plain', status=503)
     if script.shutdown:
         return Response('shutdown in process', content_type='text/plain', status=503)
     return Response('ok', content_type='text/plain', status=200)
 
 
-class HealthHandler(object):
+class ReadOnlyHealthHandler(object):
 
     def __init__(self, server):
         self.server = server
@@ -79,3 +81,9 @@ class HealthHandler(object):
 
     def handle(self, req):
         return get_health_response(self.server, req)
+
+
+class HealthHandler(ReadOnlyHealthHandler):
+
+    def handle(self, req):
+        return get_health_response(self.server, req, require_master=True)

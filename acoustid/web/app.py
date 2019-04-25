@@ -71,7 +71,7 @@ def close_db_session(sender, **kwargs):
 @app.route('/_health')
 def health():
     from acoustid.api import get_health_response
-    return get_health_response(script, request)
+    return get_health_response(script, request, require_master=True)
 
 
 db.session_factory.configure(bind=config.database.create_engine())
