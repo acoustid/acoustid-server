@@ -9,17 +9,18 @@ Installation
 
 On Ubuntu you can install all dependencies using the following commands (as root):
 
-    sudo apt-get install postgresql postgresql-contrib
-    sudo apt-get install redis-server
     sudo apt-get install python python-dev python-virtualenv
 
-You will also need one custom PostgreSQL extension:
+Start the required services using Docker:
 
-    echo "deb http://deb.oxygene.sk/ubuntu `lsb_release -c -s` main" | sudo tee /etc/apt/sources.list.d/oxygene.list
-    sudo apt-get update
-    sudo apt-get install postgresql-9.X-acoustid
+    docker-compose up -d
 
-(You can also compile it yourself from [sources](https://bitbucket.org/acoustid/pg_acoustid).)
+If you can't use Docker, you will need to install PostgreSQL and Redis from packages:
+
+    sudo apt-get install postgresql postgresql-contrib
+    sudo apt-get install redis-server
+
+And you will also neeed to compile the [pg\_acoustid](https://bitbucket.org/acoustid/pg_acoustid) extension yourself. It's easier to use the ready-made Docker images.
 
 Setup Python virtual environment:
 
