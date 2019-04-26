@@ -26,6 +26,7 @@ Setup Python virtual environment:
     virtualenv e
     source e/bin/activate
     pip install -r requirements.txt
+    pip install -r requirements_dev.txt
 
 Prepare the configuration file:
 
