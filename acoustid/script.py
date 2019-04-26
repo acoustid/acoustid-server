@@ -61,9 +61,6 @@ class Script(object):
             handler.setLevel(logging.ERROR)
         logging.getLogger().addHandler(handler)
 
-    def is_master(self):
-        return self.config.cluster.role == 'master'
-
 
 def run_script(func, option_cb=None, master_only=False):
     parser = OptionParser()
