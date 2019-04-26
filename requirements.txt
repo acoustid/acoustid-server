@@ -12,6 +12,6 @@ requests
 pyopenssl
 ndg-httpsclient
 pyasn1
-mbdata>=2016.02.11
+mbdata==2019.4.26
 alembic>=0.8.4
 uwsgi

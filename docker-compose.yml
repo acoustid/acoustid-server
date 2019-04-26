@@ -1,0 +1,16 @@
+version: "3"
+services:
+  redis:
+    image: redis
+    ports:
+      - "127.0.0.1:6379:6379"
+  postgres:
+    image: quay.io/acoustid/postgresql:master
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./ci/create_db.sql:/docker-entrypoint-initdb.d/10_create_db.sql
+    environment:
+      POSTGRES_USER: acoustid
+      POSTGRES_PASSWORD: acoustid
+      POSTGRES_DB: postgres
