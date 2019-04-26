@@ -129,6 +129,13 @@ def merge_missing_mbids(conn):
         merge_mbids(conn, new_mbid, old_mbids)
 
 
+def merge_missing_mbids_script(script):
+    if script.is_master():
+        db = script.engine.connect()
+        with db.begin():
+            merge_missing_mbids(db)
+
+
 def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
     name = name_with_id.replace('_id', '')
     tab = schema.metadata.tables['track_%s' % name]

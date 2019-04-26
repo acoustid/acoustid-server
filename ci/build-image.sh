@@ -17,7 +17,7 @@ docker pull $IMAGE:$PREV_VERSION
 docker build --cache-from=$IMAGE:$PREV_VERSION -t $IMAGE:$VERSION .
 docker push $IMAGE:$VERSION
 
-for name in api web import
+for name in api web import cron
 do
     docker build -t $IMAGE:$VERSION-$name -f Dockerfile.$name --build-arg IMAGE=$IMAGE --build-arg VERSION=$VERSION .
     docker push $IMAGE:$VERSION-$name
