@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright (C) 2015 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
