@@ -1,9 +1,20 @@
 stages:
+  - pre-test
   - test
   - build
 
+build-docker-compose:
+  stage: pre-test
+  script:
+    - cd admin/ci/
+    - docker build -f Dockerfile.docker -t quay.io/acoustid/docker-compose:stable .
+    - docker login -u $QUAY_USER -p $QUAY_PASSWORD quay.io
+    - docker push quay.io/acoustid/docker-compose:stable
+  tags:
+    - docker
+
 test:
-  image: tiangolo/docker-with-compose
+  image: quay.io/acoustid/docker-compose:stable
   stage: test
   script:
     - ./admin/ci/run-all.sh
