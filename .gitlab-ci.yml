@@ -5,7 +5,7 @@ stages:
 test:
   stage: test
   script:
-    - ./ci/run-all.sh
+    - ./admin/ci/run-all.sh
   tags:
     - docker
 
@@ -13,6 +13,6 @@ build:
   stage: build
   script:
     - docker login -u $QUAY_USER -p $QUAY_PASSWORD quay.io
-    - ./ci/build-image.sh
+    - ./admin/ci/build-image.sh
   tags:
     - docker
