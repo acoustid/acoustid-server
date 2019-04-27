@@ -14,5 +14,4 @@ export PYTHONPATH=$DIR:$PYTHONPATH
 test -x $DIR/admin/run-mbslave.sh && $DIR/admin/run-mbslave.sh
 
 # fix merged MBIDs
-$DIR/scripts/merge_missing_mbids.py -q -c $DIR/acoustid.conf
-
+# $DIR/scripts/merge_missing_mbids.py -q -c $DIR/acoustid.conf
