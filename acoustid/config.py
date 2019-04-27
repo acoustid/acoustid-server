@@ -81,12 +81,12 @@ class DatabaseConfig(object):
         if parser.has_option(section, 'password'):
             self.password = parser.get(section, 'password')
 
-    def read_env(self):
-        read_env_item(self, 'name', 'ACOUSTID_POSTGRES_DB')
-        read_env_item(self, 'host', 'ACOUSTID_POSTGRES_HOST')
-        read_env_item(self, 'port', 'ACOUSTID_POSTGRES_PORT', convert=int)
-        read_env_item(self, 'user', 'ACOUSTID_POSTGRES_USER')
-        read_env_item(self, 'password', 'ACOUSTID_POSTGRES_PASSWORD')
+    def read_env(self, prefix):
+        read_env_item(self, 'name', prefix + 'POSTGRES_DB')
+        read_env_item(self, 'host', prefix + 'POSTGRES_HOST')
+        read_env_item(self, 'port', prefix + 'POSTGRES_PORT', convert=int)
+        read_env_item(self, 'user', prefix + 'POSTGRES_USER')
+        read_env_item(self, 'password', prefix + 'POSTGRES_PASSWORD')
 
 
 class IndexConfig(object):
@@ -101,9 +101,9 @@ class IndexConfig(object):
         if parser.has_option(section, 'port'):
             self.port = parser.getint(section, 'port')
 
-    def read_env(self):
-        read_env_item(self, 'host', 'ACOUSTID_INDEX_HOST')
-        read_env_item(self, 'port', 'ACOUSTID_INDEX_PORT', convert=int)
+    def read_env(self, prefix):
+        read_env_item(self, 'host', prefix + 'INDEX_HOST')
+        read_env_item(self, 'port', prefix + 'INDEX_PORT', convert=int)
 
 
 class RedisConfig(object):
@@ -118,9 +118,9 @@ class RedisConfig(object):
         if parser.has_option(section, 'port'):
             self.port = parser.getint(section, 'port')
 
-    def read_env(self):
-        read_env_item(self, 'host', 'ACOUSTID_REDIS_HOST')
-        read_env_item(self, 'port', 'ACOUSTID_REDIS_PORT', convert=int)
+    def read_env(self, prefix):
+        read_env_item(self, 'host', prefix + 'REDIS_HOST')
+        read_env_item(self, 'port', prefix + 'REDIS_PORT', convert=int)
 
 
 class LoggingConfig(object):
@@ -142,7 +142,7 @@ class LoggingConfig(object):
         if parser.has_option(section, 'syslog_facility'):
             self.syslog_facility = parser.get(section, 'syslog_facility')
 
-    def read_env(self):
+    def read_env(self, prefix):
         pass  # XXX
 
 
@@ -175,14 +175,14 @@ class WebSiteConfig(object):
         if parser.has_option(section, 'shutdown_delay'):
             self.shutdown_delay = parser.getint(section, 'shutdown_delay')
 
-    def read_env(self):
-        read_env_item(self, 'debug', 'ACOUSTID_DEBUG', convert=str_to_bool)
-        read_env_item(self, 'maintenance', 'ACOUSTID_MAINTENANCE', convert=str_to_bool)
-        read_env_item(self, 'mb_oauth_client_id', 'ACOUSTID_MB_OAUTH_CLIENT_ID')
-        read_env_item(self, 'mb_oauth_client_secret', 'ACOUSTID_MB_OAUTH_CLIENT_SECRET')
-        read_env_item(self, 'google_oauth_client_id', 'ACOUSTID_GOOGLE_OAUTH_CLIENT_ID')
-        read_env_item(self, 'google_oauth_client_secret', 'ACOUSTID_GOOGLE_OAUTH_CLIENT_SECRET')
-        read_env_item(self, 'shutdown_delay', 'ACOUSTID_SHUTDOWN_DELAY')
+    def read_env(self, prefix):
+        read_env_item(self, 'debug', prefix + 'DEBUG', convert=str_to_bool)
+        read_env_item(self, 'maintenance', prefix + 'MAINTENANCE', convert=str_to_bool)
+        read_env_item(self, 'mb_oauth_client_id', prefix + 'MB_OAUTH_CLIENT_ID')
+        read_env_item(self, 'mb_oauth_client_secret', prefix + 'MB_OAUTH_CLIENT_SECRET')
+        read_env_item(self, 'google_oauth_client_id', prefix + 'GOOGLE_OAUTH_CLIENT_ID')
+        read_env_item(self, 'google_oauth_client_secret', prefix + 'GOOGLE_OAUTH_CLIENT_SECRET')
+        read_env_item(self, 'shutdown_delay', prefix + 'SHUTDOWN_DELAY')
 
 
 class ReplicationConfig(object):
@@ -197,7 +197,7 @@ class ReplicationConfig(object):
         if parser.has_option(section, 'import_acoustid_musicbrainz'):
             self.import_acoustid_musicbrainz = parser.get(section, 'import_acoustid_musicbrainz')
 
-    def read_env(self):
+    def read_env(self, prefix):
         pass  # XXX
 
 
@@ -216,10 +216,10 @@ class ClusterConfig(object):
         if parser.has_option(section, 'secret'):
             self.secret = parser.get(section, 'secret')
 
-    def read_env(self):
-        read_env_item(self, 'role', 'ACOUSTID_CLUSTER_ROLE')
-        read_env_item(self, 'base_master_url', 'ACOUSTID_CLUSTER_BASE_MASTER_URL')
-        read_env_item(self, 'secret', 'ACOUSTID_CLUSTER_SECRET')
+    def read_env(self, prefix):
+        read_env_item(self, 'role', prefix + 'CLUSTER_ROLE')
+        read_env_item(self, 'base_master_url', prefix + 'CLUSTER_BASE_MASTER_URL')
+        read_env_item(self, 'secret', prefix + 'CLUSTER_SECRET')
 
 
 class RateLimiterConfig(object):
@@ -235,7 +235,7 @@ class RateLimiterConfig(object):
             elif name.startswith('application.'):
                 self.applications[int(name.split('.', 1)[1])] = parser.getfloat(section, name)
 
-    def read_env(self):
+    def read_env(self, prefix):
         pass  # XXX
 
 
@@ -264,12 +264,16 @@ class Config(object):
         self.cluster.read(parser, 'cluster')
         self.rate_limiter.read(parser, 'rate_limiter')
 
-    def read_env(self):
-        self.database.read_env()
-        self.logging.read_env()
-        self.website.read_env()
-        self.index.read_env()
-        self.redis.read_env()
-        self.replication.read_env()
-        self.cluster.read_env()
-        self.rate_limiter.read_env()
+    def read_env(self, tests=False):
+        if tests:
+            prefix = 'ACOUSTID_TEST_'
+        else:
+            prefix = 'ACOUSTID_'
+        self.database.read_env(prefix)
+        self.logging.read_env(prefix)
+        self.website.read_env(prefix)
+        self.index.read_env(prefix)
+        self.redis.read_env(prefix)
+        self.replication.read_env(prefix)
+        self.cluster.read_env(prefix)
+        self.rate_limiter.read_env(prefix)

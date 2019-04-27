@@ -1,0 +1,27 @@
+version: "3"
+services:
+
+  redis:
+    image: redis
+
+  postgres:
+    image: quay.io/acoustid/postgresql:master
+    volumes:
+      - ./create_db.sql:/docker-entrypoint-initdb.d/10_create_db.sql
+    environment:
+      POSTGRES_USER: acoustid
+      POSTGRES_PASSWORD: acoustid
+      POSTGRES_DB: postgres
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.tests
+    volumes:
+      - ..:/build/acoustid-server
+    environment:
+      ACOUSTID_TEST_POSTGRES_HOST: postgres
+      ACOUSTID_TEST_REDIS_HOST: redis
+    depends_on:
+      - redis
+      - postgres

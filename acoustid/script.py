@@ -21,7 +21,7 @@ class Script(object):
         self.config = Config()
         if config_path:
             self.config.read(config_path)
-        self.config.read_env()
+        self.config.read_env(tests=tests)
         self.shutdown = False
         if tests:
             self.engine = sqlalchemy.create_engine(self.config.database.create_url(),

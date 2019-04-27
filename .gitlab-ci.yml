@@ -1,5 +1,13 @@
 stages:
+  - test
   - build
+
+test:
+  stage: test
+  script:
+    - ./ci/run-all.sh
+  tags:
+    - docker
 
 build:
   stage: build
