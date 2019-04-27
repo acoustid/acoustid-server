@@ -11,9 +11,5 @@ RUN curl -L -o /wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-
 COPY run-tests.sh /
 RUN chmod +rx /run-tests.sh /wait-for-it.sh
 
-ARG gitlab_uid=1000
-RUN useradd --create-home --uid $gitlab_uid gitlab
-USER gitlab
-
 CMD ["/run-tests.sh"]
 
