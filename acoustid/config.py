@@ -182,7 +182,7 @@ class WebSiteConfig(object):
         read_env_item(self, 'mb_oauth_client_secret', prefix + 'MB_OAUTH_CLIENT_SECRET')
         read_env_item(self, 'google_oauth_client_id', prefix + 'GOOGLE_OAUTH_CLIENT_ID')
         read_env_item(self, 'google_oauth_client_secret', prefix + 'GOOGLE_OAUTH_CLIENT_SECRET')
-        read_env_item(self, 'shutdown_delay', prefix + 'SHUTDOWN_DELAY')
+        read_env_item(self, 'shutdown_delay', prefix + 'SHUTDOWN_DELAY', convert=int)
 
 
 class ReplicationConfig(object):
