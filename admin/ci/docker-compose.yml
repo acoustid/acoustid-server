@@ -5,9 +5,9 @@ services:
     image: redis
 
   postgres:
-    image: quay.io/acoustid/postgresql:master
-    volumes:
-      - ./admin/ci/create_db.sql:/docker-entrypoint-initdb.d/10_create_db.sql
+    build:
+      context: ./admin/ci/
+      dockerfile: Dockerfile.tests_postgresql
     environment:
       POSTGRES_USER: acoustid
       POSTGRES_PASSWORD: acoustid
