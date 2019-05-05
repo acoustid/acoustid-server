@@ -4,7 +4,7 @@ FROM ${IMAGE}:${VERSION}
 
 EXPOSE 3031
 
-HEALTHCHECK --interval=5m --timeout=3s \
+HEALTHCHECK --start-period=10s \
   CMD curl -qf http://localhost:3031/_health || exit 1
 
 CMD ["/opt/acoustid/server/admin/run-api.sh"]
