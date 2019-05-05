@@ -75,7 +75,7 @@ def health():
 
 
 @app.route('/_health_docker')
-def health():
+def health_docker():
     from acoustid.api import get_health_response
     return get_health_response(script, request)
 
