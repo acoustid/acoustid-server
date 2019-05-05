@@ -13,13 +13,13 @@ build-docker-compose:
   tags:
     - docker
 
-#test:
-#  image: quay.io/acoustid/docker-compose:stable
-#  stage: test
-#  script:
-#    - ./admin/ci/run-all.sh
-#  tags:
-#    - docker
+test:
+  image: quay.io/acoustid/docker-compose:stable
+  stage: test
+  script:
+    - ./admin/ci/run-all.sh
+  tags:
+    - docker
 
 build:
   stage: build
