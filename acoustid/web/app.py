@@ -74,6 +74,12 @@ def health():
     return get_health_response(script, request, require_master=True)
 
 
+@app.route('/_health_docker')
+def health():
+    from acoustid.api import get_health_response
+    return get_health_response(script, request)
+
+
 db.session_factory.configure(bind=config.database.create_engine())
 db.session = scoped_session(db.session_factory, scopefunc=get_flask_request_scope)
 

@@ -17,6 +17,7 @@ import api.v2.internal
 api_url_rules = [
     Rule('/_health', endpoint=api.HealthHandler),
     Rule('/_health_ro', endpoint=api.ReadOnlyHealthHandler),
+    Rule('/_health_docker', endpoint=api.ReadOnlyHealthHandler),
     Submount('/ws', [
         Rule('/lookup', endpoint=api.v1.LookupHandler),
         Rule('/submit', endpoint=api.v1.SubmitHandler),
