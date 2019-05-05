@@ -15,10 +15,10 @@ services:
 
   tests:
     build:
-      context: ./admin/ci
+      context: .
       dockerfile: Dockerfile.tests
     volumes:
-      - .:/build/acoustid-server
+      - ../..:/build/acoustid-server
     environment:
       ACOUSTID_TEST_POSTGRES_HOST: postgres
       ACOUSTID_TEST_REDIS_HOST: redis
