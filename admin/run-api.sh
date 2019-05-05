@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
 exec /opt/acoustid/server.venv/bin/uwsgi \
-  --plugins python \
-  --plugins ping \
   --http-socket 0.0.0.0:3031 \
   --chmod-socket \
   --pidfile /tmp/uwsgi-acoustid-server-api.pid \
