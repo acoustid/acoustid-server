@@ -6,6 +6,7 @@ from cStringIO import StringIO
 from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount
 from werkzeug.wrappers import Request
+from werkzeug.contrib.fixers import ProxyFix
 from acoustid import api
 from acoustid.script import Script
 import api.v1
@@ -99,4 +100,5 @@ def make_application(config_path):
     """
     server = Server(config_path)
     app = GzipRequestMiddleware(server)
+    app = ProxyFix(app)
     return server, app

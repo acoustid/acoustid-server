@@ -3,6 +3,7 @@ import datetime
 import pickle
 from flask import Flask, request, request_tearing_down, session
 from flask.sessions import SecureCookieSessionInterface
+from werkzeug.contrib.fixers import ProxyFix
 from sqlalchemy.orm import scoped_session
 from acoustid.script import Script
 from acoustid.web import db
@@ -37,6 +38,8 @@ app.config.update(
     GOOGLE_OAUTH_CLIENT_SECRET=config.website.google_oauth_client_secret,
 )
 app.acoustid_config = config
+
+app.wsgi_app = ProxyFix(app.wsgi_app)
 
 # can't use json because of python-openid
 app.session_interface = SecureCookieSessionInterface()
@@ -95,11 +98,9 @@ if __name__ == "__main__":
     import argparse
     from werkzeug.serving import run_simple
     from werkzeug.wsgi import DispatcherMiddleware
-    from werkzeug.contrib.fixers import ProxyFix
     from acoustid.server import make_application as make_api_application
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--proxy', action='store_true')
     parser.add_argument('--ssl', action='store_true')
     parser.add_argument('--ssl-crt')
     parser.add_argument('--ssl-key')
@@ -128,8 +129,5 @@ if __name__ == "__main__":
         app = DispatcherMiddleware(app, {
             '/api': make_api_application(config_filename)[1],
         })
-
-    if args.proxy:
-        app = ProxyFix(app)
 
     run_simple(args.host, args.port, app, **run_args)
