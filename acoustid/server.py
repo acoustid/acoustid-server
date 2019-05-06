@@ -19,29 +19,27 @@ api_url_rules = [
     Rule('/_health', endpoint=api.HealthHandler),
     Rule('/_health_ro', endpoint=api.ReadOnlyHealthHandler),
     Rule('/_health_docker', endpoint=api.ReadOnlyHealthHandler),
-    Submount('/ws', [
-        Rule('/lookup', endpoint=api.v1.LookupHandler),
-        Rule('/submit', endpoint=api.v1.SubmitHandler),
-        Submount('/v2', [
-            Rule('/lookup', endpoint=api.v2.LookupHandler),
-            Rule('/submit', endpoint=api.v2.SubmitHandler),
-            Rule('/submission_status', endpoint=api.v2.SubmissionStatusHandler),
-            Rule('/fingerprint', endpoint=api.v2.misc.GetFingerprintHandler),
-            Rule('/track/list_by_mbid', endpoint=api.v2.misc.TrackListByMBIDHandler),
-            Rule('/track/list_by_puid', endpoint=api.v2.misc.TrackListByPUIDHandler),
-            Rule('/user/lookup', endpoint=api.v2.misc.UserLookupHandler),
-            Rule('/user/create_anonymous', endpoint=api.v2.misc.UserCreateAnonymousHandler),
-            Rule('/user/create_musicbrainz', endpoint=api.v2.misc.UserCreateMusicBrainzHandler),
-            Submount('/internal', [
-                Rule('/update_lookup_stats', endpoint=api.v2.internal.UpdateLookupStatsHandler),
-                Rule('/update_user_agent_stats', endpoint=api.v2.internal.UpdateUserAgentStatsHandler),
-                Rule('/lookup_stats', endpoint=api.v2.internal.LookupStatsHandler),
-                Rule('/create_account', endpoint=api.v2.internal.CreateAccountHandler),
-                Rule('/create_application', endpoint=api.v2.internal.CreateApplicationHandler),
-                Rule('/update_application_status', endpoint=api.v2.internal.UpdateApplicationStatusHandler),
-            ]),
+    Rule('/lookup', endpoint=api.v1.LookupHandler),
+    Rule('/submit', endpoint=api.v1.SubmitHandler),
+    Submount('/v2', [
+        Rule('/lookup', endpoint=api.v2.LookupHandler),
+        Rule('/submit', endpoint=api.v2.SubmitHandler),
+        Rule('/submission_status', endpoint=api.v2.SubmissionStatusHandler),
+        Rule('/fingerprint', endpoint=api.v2.misc.GetFingerprintHandler),
+        Rule('/track/list_by_mbid', endpoint=api.v2.misc.TrackListByMBIDHandler),
+        Rule('/track/list_by_puid', endpoint=api.v2.misc.TrackListByPUIDHandler),
+        Rule('/user/lookup', endpoint=api.v2.misc.UserLookupHandler),
+        Rule('/user/create_anonymous', endpoint=api.v2.misc.UserCreateAnonymousHandler),
+        Rule('/user/create_musicbrainz', endpoint=api.v2.misc.UserCreateMusicBrainzHandler),
+        Submount('/internal', [
+            Rule('/update_lookup_stats', endpoint=api.v2.internal.UpdateLookupStatsHandler),
+            Rule('/update_user_agent_stats', endpoint=api.v2.internal.UpdateUserAgentStatsHandler),
+            Rule('/lookup_stats', endpoint=api.v2.internal.LookupStatsHandler),
+            Rule('/create_account', endpoint=api.v2.internal.CreateAccountHandler),
+            Rule('/create_application', endpoint=api.v2.internal.CreateApplicationHandler),
+            Rule('/update_application_status', endpoint=api.v2.internal.UpdateApplicationStatusHandler),
         ]),
-    ])
+    ]),
 ]
 
 admin_url_rules = [
