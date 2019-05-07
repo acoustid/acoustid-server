@@ -8,10 +8,9 @@ exec /opt/acoustid/server.venv/bin/uwsgi \
   --disable-logging \
   --log-date \
   --buffer-size 10240 \
-  --workers 5 \
-  --harakiri 30 \
+  --workers 4 \
+  --harakiri 60 \
   --harakiri-verbose \
-  --max-requests 500 \
   --post-buffering 1 \
   --need-app \
   --virtualenv /opt/acoustid/server.venv \
