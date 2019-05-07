@@ -163,6 +163,12 @@ def setup():
                 prepare_database(conn, BASE_SQL)
 
 
+def make_web_application():
+    from acoustid.web.app import make_application
+    config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid-test.conf'
+    return make_application(config_path)
+
+
 def assert_dict_equals(d1, d2, msg=None):
     if d1 != d2:
         standardMsg = '%s != %s' % (repr(d1), repr(d2))

@@ -487,10 +487,10 @@ def test_submit_handler_with_meta(conn):
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
     submission = conn.execute(query).fetchone()
     assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
-    assert_equals(1, submission['meta_id'])
-    row = conn.execute("SELECT * FROM meta WHERE id=1").fetchone()
+    assert_equals(3, submission['meta_id'])
+    row = conn.execute("SELECT * FROM meta WHERE id=%s", submission['meta_id']).fetchone()
     expected = {
-        'id': 1,
+        'id': submission['meta_id'],
         'track': 'Voodoo People',
         'artist': 'The Prodigy',
         'album': 'Music For The Jitled People',

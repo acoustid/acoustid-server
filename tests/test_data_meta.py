@@ -17,10 +17,10 @@ def test_insert_meta(conn):
         'disc_no': 3,
         'year': 2030
     })
-    assert_equals(1, id)
-    row = conn.execute("SELECT * FROM meta WHERE id=1").fetchone()
+    assert_equals(3, id)
+    row = conn.execute("SELECT * FROM meta WHERE id=%s", id).fetchone()
     expected = {
-        'id': 1,
+        'id': id,
         'track': 'Voodoo People',
         'artist': 'The Prodigy',
         'album': 'Music For The Jitled People',
