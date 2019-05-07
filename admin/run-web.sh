@@ -19,4 +19,4 @@ exec /opt/acoustid/server.venv/bin/uwsgi \
   --static-map /robots.txt=/opt/acoustid/server/acoustid/web/static/robots.txt \
   --virtualenv /opt/acoustid/server.venv \
   --python-path /opt/acoustid/server \
-  --module acoustid.web.app:app
+  --module 'acoustid.web.app:make_application()'
