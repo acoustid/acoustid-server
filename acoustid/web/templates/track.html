@@ -75,12 +75,14 @@
     <th>Title</th>
     <th>Artist</th>
     <th>Album</th>
+    <th style="width:5em;">Sources</th>
 </tr>
-{% for track_meta in user_metadata %}
+{% for track, artist, album, submission_count in user_metadata %}
 <tr>
-    <td>{{ track_meta.meta.track | default("-", true) }}</td>
-    <td>{{ track_meta.meta.artist | default("-", true) }}</td>
-    <td>{{ track_meta.meta.album | default("-", true) }}</td>
+    <td>{{ track | default("-", true) }}</td>
+    <td>{{ artist | default("-", true) }}</td>
+    <td>{{ album | default("-", true) }}</td>
+    <td>{{ submission_count }}</td>
 {% endfor %}
 </tr>
 </table>

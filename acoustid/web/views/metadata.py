@@ -2,7 +2,7 @@ import logging
 from flask import Blueprint, render_template, request, redirect, url_for, abort, session
 from acoustid.web import db
 from acoustid.web.utils import require_user
-from acoustid.models import TrackMBIDChange, TrackMeta
+from acoustid.models import TrackMBIDChange, TrackMeta, Meta
 from acoustid.data.track import resolve_track_gid
 from acoustid.data.musicbrainz import lookup_recording_metadata
 from acoustid.data.account import is_moderator
@@ -59,10 +59,14 @@ def track(track_id):
         recordings.append(recording)
     recordings.sort(key=lambda r: r.get('name', r.get('mbid')))
 
-    user_metadata = db.session.query(TrackMeta).\
-        options(joinedload('meta', innerjoin=True)).\
-        filter(TrackMeta.track_id == track_id).\
-        order_by(TrackMeta.created).all()
+    user_metadata = (
+        db.session.query(Meta.track, Meta.artist, Meta.album, sql.func.sum(TrackMeta.submission_count))
+        .select_from(TrackMeta).join(Meta)
+        .filter(TrackMeta.track_id == track_id)
+        .group_by(Meta.track, Meta.artist, Meta.album)
+        .order_by(sql.func.min(TrackMeta.created))
+        .all()
+    )
 
     edits = db.session.query(TrackMBIDChange).\
         options(joinedload('account', innerjoin=True).load_only('mbuser', 'name')).\
