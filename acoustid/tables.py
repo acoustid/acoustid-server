@@ -118,7 +118,7 @@ submission = Table('submission', metadata,
     Column('foreignid_id', Integer, ForeignKey('foreignid.id')),
 )
 
-Index('submission_idx_handled', submission.c.id, postgresql_where=submission.c.handled == False)
+Index('submission_idx_handled', submission.c.id, postgresql_where=submission.c.handled == False)  # noqa: E712
 
 stats = Table('stats', metadata,
     Column('id', Integer, primary_key=True),

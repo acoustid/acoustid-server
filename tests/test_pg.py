@@ -1,11 +1,10 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import *
+from nose.tools import assert_true
 from sqlalchemy import sql
-from tests import prepare_database, with_database, TEST_1A_FP_RAW, TEST_1B_FP_RAW, TEST_1C_FP_RAW, TEST_1D_FP_RAW, TEST_2_FP_RAW
+from tests import with_database, TEST_1A_FP_RAW, TEST_1B_FP_RAW, TEST_1C_FP_RAW, TEST_1D_FP_RAW, TEST_2_FP_RAW
 from acoustid import const
-from acoustid.data.fingerprint import insert_fingerprint
 
 
 @with_database
@@ -51,6 +50,3 @@ def test_match_different(conn):
     query = sql.select([sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_2_FP_RAW, 80)])
     score = conn.execute(query).scalar()
     assert_true(score < const.TRACK_MERGE_THRESHOLD)
-
-
-

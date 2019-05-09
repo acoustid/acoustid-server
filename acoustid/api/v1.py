@@ -71,4 +71,3 @@ class SubmitHandlerParams(v2.SubmitHandlerParams):
 class SubmitHandler(v2.SubmitHandler):
 
     params_class = SubmitHandlerParams
-

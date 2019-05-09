@@ -32,4 +32,3 @@ def find_or_insert_foreignid(conn, full_name):
             id = conn.execute(insert_stmt).inserted_primary_key[0]
             logger.info("Inserted foreign ID %d with name %s", id, full_name)
     return id
-

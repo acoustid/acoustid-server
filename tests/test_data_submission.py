@@ -1,7 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import *
+from nose.tools import assert_equals, assert_false, assert_true
 from tests import (
     prepare_database, with_database,
     TEST_1_FP_RAW,
@@ -25,7 +25,7 @@ from acoustid.data.submission import insert_submission, import_submission, impor
 @with_database
 def test_insert_submission(conn):
     id = insert_submission(conn, {
-        'fingerprint': [1,2,3,4,5,6],
+        'fingerprint': [1, 2, 3, 4, 5, 6],
         'length': 123,
         'bitrate': 192,
         'source_id': 1,
@@ -37,7 +37,7 @@ def test_insert_submission(conn):
         FROM submission WHERE id=%s
     """, (id,)).fetchall()
     expected_rows = [
-        ([1,2,3,4,5,6], 123, 192, 1),
+        ([1, 2, 3, 4, 5, 6], 123, 192, 1),
     ]
     assert_equals(expected_rows, rows)
 
@@ -322,4 +322,3 @@ def test_import_queued_submissions(conn):
     assert_equals(2, count)
     count = conn.execute("SELECT count(*) FROM track WHERE id IN (5,6,7)").scalar()
     assert_equals(2, count)
-

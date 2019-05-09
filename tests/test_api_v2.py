@@ -3,9 +3,10 @@
 
 import json
 import unittest
-from nose.tools import *
+from nose.tools import assert_equals, assert_raises, assert_true
 import tests
-from tests import (prepare_database, with_database, assert_json_equals,
+from tests import (
+    prepare_database, with_database, assert_json_equals,
     TEST_1_LENGTH,
     TEST_1_FP,
     TEST_1_FP_RAW,
@@ -31,6 +32,7 @@ from acoustid.api.v2.misc import (
     UserLookupHandler,
 )
 from acoustid.utils import provider
+
 
 def test_ok():
     handler = APIHandler()
@@ -233,8 +235,8 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
                         },
                     },
                     "artists": [{
-                            "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
-                            "name": "Artist A",
+                        "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
+                        "name": "Artist A",
                     }],
                 }, {
                     "title": "Track A",
@@ -250,8 +252,8 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
                         },
                     },
                     "artists": [{
-                            "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
-                            "name": "Artist A",
+                        "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
+                        "name": "Artist A",
                     }],
                 }],
             }],
@@ -307,7 +309,8 @@ def test_submit_handler_params(conn):
     params = SubmitHandlerParams(tests.script.config)
     assert_raises(errors.MissingParameterError, params.parse, values, conn)
     # wrong foreign id
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'foreignid': 'aaa',
         'duration': str(TEST_1_LENGTH),
         'fingerprint': TEST_1_FP,
@@ -317,7 +320,8 @@ def test_submit_handler_params(conn):
     params = SubmitHandlerParams(tests.script.config)
     assert_raises(errors.InvalidForeignIDError, params.parse, values, conn)
     # wrong mbid
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': '4d814cb1-20ec-494f-996f-xxxxxxxxxxxx',
         'duration': str(TEST_1_LENGTH),
         'fingerprint': TEST_1_FP,
@@ -327,7 +331,8 @@ def test_submit_handler_params(conn):
     params = SubmitHandlerParams(tests.script.config)
     assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
     # one wrong mbid, one good
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-xxxxxxxxxxxx', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
         'duration': str(TEST_1_LENGTH),
         'fingerprint': TEST_1_FP,
@@ -337,7 +342,8 @@ def test_submit_handler_params(conn):
     params = SubmitHandlerParams(tests.script.config)
     assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
     # wrong puid
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'puid': '4d814cb1-20ec-494f-996f-xxxxxxxxxxxx',
         'duration': str(TEST_1_LENGTH),
         'fingerprint': TEST_1_FP,
@@ -347,7 +353,8 @@ def test_submit_handler_params(conn):
     params = SubmitHandlerParams(tests.script.config)
     assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
     # empty fingerprint
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
         'puid': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
         'duration': str(TEST_1_LENGTH),
@@ -358,7 +365,8 @@ def test_submit_handler_params(conn):
     params = SubmitHandlerParams(tests.script.config)
     assert_raises(errors.MissingParameterError, params.parse, values, conn)
     # missing duration
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
         'puid': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
         'fingerprint': TEST_1_FP,
@@ -368,7 +376,8 @@ def test_submit_handler_params(conn):
     params = SubmitHandlerParams(tests.script.config)
     assert_raises(errors.MissingParameterError, params.parse, values, conn)
     # all ok (single submission)
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid': ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'],
         'puid': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
         'foreignid': 'foo:123',
@@ -388,7 +397,8 @@ def test_submit_handler_params(conn):
     assert_equals(192, params.submissions[0]['bitrate'])
     assert_equals('MP3', params.submissions[0]['format'])
     # all ok (multiple submissions)
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid.0': '4d814cb1-20ec-494f-996f-f31ca8a49784',
         'puid.0': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
         'duration.0': str(TEST_1_LENGTH),
@@ -418,7 +428,8 @@ def test_submit_handler_params(conn):
     assert_equals(500, params.submissions[1]['bitrate'])
     assert_equals('FLAC', params.submissions[1]['format'])
     # one incorrect, one correct
-    values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = MultiDict({
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'mbid.0': '4d814cb1-20ec-494f-996f-f31ca8a49784',
         'puid.0': '4e823498-c77d-4bfb-b6cc-85b05c2783cf',
         'duration.0': str(TEST_1_LENGTH),
@@ -466,7 +477,8 @@ def test_submit_handler(conn):
 
 @with_database
 def test_submit_handler_with_meta(conn):
-    values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
+    values = {
+        'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
         'mbid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'fileformat': 'FLAC',
         'track': 'Voodoo People',
@@ -580,8 +592,8 @@ def test_user_lookup_handler(conn):
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     assert_equals('200 OK', resp.status)
     data = json.loads(resp.data)
-    assert_equal('ok', data['status'])
-    assert_equal('user1key', data['user']['apikey'])
+    assert_equals('ok', data['status'])
+    assert_equals('user1key', data['user']['apikey'])
 
 
 @with_database
@@ -593,6 +605,5 @@ def test_user_lookup_handler_missing(conn):
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     assert_equals('400 BAD REQUEST', resp.status)
     data = json.loads(resp.data)
-    assert_equal('error', data['status'])
-    assert_equal(6, data['error']['code'])
-
+    assert_equals('error', data['status'])
+    assert_equals(6, data['error']['code'])

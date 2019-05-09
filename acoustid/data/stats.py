@@ -229,7 +229,7 @@ def find_all_contributors(conn):
         schema.account.c.submission_count,
     ])
     query = query.where(schema.account.c.submission_count > 0)
-    query = query.where(schema.account.c.anonymous == False)
+    query = query.where(schema.account.c.anonymous == False)  # noqa: F712
     query = query.order_by(schema.account.c.submission_count.desc(),
                            schema.account.c.name,
                            schema.account.c.id)

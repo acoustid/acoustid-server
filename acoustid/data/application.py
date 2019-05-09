@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def lookup_application_id_by_apikey(conn, apikey, only_active=False):
     query = sql.select([schema.application.c.id], schema.application.c.apikey == apikey)
     if only_active:
-        query = query.where(schema.application.c.active == True)
+        query = query.where(schema.application.c.active == True)  # noqa: F712
     return conn.execute(query).scalar()
 
 

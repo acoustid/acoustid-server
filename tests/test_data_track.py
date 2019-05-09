@@ -1,28 +1,20 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-import unittest
-from nose.tools import *
+from nose.tools import assert_equals
 from uuid import UUID
 from tests import (
     prepare_database, with_database,
-    TEST_1_FP_RAW,
-    TEST_1_LENGTH,
     TEST_1A_FP_RAW,
     TEST_1A_LENGTH,
     TEST_1B_FP_RAW,
     TEST_1B_LENGTH,
-    TEST_1C_FP_RAW,
-    TEST_1C_LENGTH,
-    TEST_1D_FP_RAW,
-    TEST_1D_LENGTH,
     TEST_2_FP_RAW,
     TEST_2_LENGTH,
 )
 from acoustid.data.track import (
     merge_missing_mbids, insert_track, merge_tracks,
     merge_mbids,
-    calculate_fingerprint_similarity_matrix,
     can_merge_tracks,
     can_add_fp_to_track,
 )
@@ -247,7 +239,7 @@ INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH,
               fp3=TEST_2_FP_RAW, len3=TEST_2_LENGTH))
     groups = can_merge_tracks(conn, [1, 2, 3])
-    assert_equal([set([1, 2])], groups)
+    assert_equals([set([1, 2])], groups)
 
 
 @with_database
@@ -257,9 +249,8 @@ INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
     VALUES (%(fp1)s, %(len1)s, 1, 1);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH))
     res = can_add_fp_to_track(conn, 1, TEST_2_FP_RAW, TEST_2_LENGTH)
-    assert_equal(False, res)
+    assert_equals(False, res)
     res = can_add_fp_to_track(conn, 1, TEST_1B_FP_RAW, TEST_1B_LENGTH + 20)
-    assert_equal(False, res)
+    assert_equals(False, res)
     res = can_add_fp_to_track(conn, 1, TEST_1B_FP_RAW, TEST_1B_LENGTH)
-    assert_equal(True, res)
-
+    assert_equals(True, res)

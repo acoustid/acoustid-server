@@ -748,4 +748,3 @@ class SubmitHandler(APIHandler):
             self.redis.decr(clients_waiting_key)
 
         return response
-

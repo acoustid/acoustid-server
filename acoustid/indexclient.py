@@ -208,4 +208,3 @@ class IndexClientPool(object):
             client = IndexClient(**self.args)
         # logger.debug("Checking out connection %s", client)
         return IndexClientWrapper(self, client)
-

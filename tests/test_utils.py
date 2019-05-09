@@ -1,7 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import *
+from nose.tools import assert_equals, assert_raises, assert_true, assert_false
 from acoustid.utils import singular, is_uuid, provider, is_foreignid
 
 
@@ -26,4 +26,3 @@ def test_is_foreignid():
 
 def test_provider():
     assert_equals('foo', provider('foo')())
-

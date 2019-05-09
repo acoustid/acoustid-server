@@ -1,8 +1,8 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import *
-from tests import prepare_database, with_database
+from nose.tools import assert_equals
+from tests import with_database
 from acoustid.data.source import find_or_insert_source
 
 
@@ -27,4 +27,3 @@ def test_find_or_insert_source(conn):
         (3, 2, 1),
     ]
     assert_equals(expected_rows, rows)
-

@@ -185,4 +185,3 @@ def update_fingerprint_index(db, index, limit=1000):
         if in_transaction:
             index.commit()
             logger.info("Updated index %s up to fingerprint %s", index, last_id)
-

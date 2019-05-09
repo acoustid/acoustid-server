@@ -1,6 +1,5 @@
 from nose.tools import assert_equal
 from acoustid.web import db
-from flask import request_finished
 from tests import make_web_application
 
 app = None
