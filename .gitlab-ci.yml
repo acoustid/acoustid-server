@@ -5,7 +5,7 @@ stages:
 
 services:
   - redis
-  - name: quay.io/acoustid/postgresql
+  - name: quay.io/acoustid/postgresql:master
     alias: postgres
 
 variables:
