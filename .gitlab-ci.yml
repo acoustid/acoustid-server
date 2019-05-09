@@ -3,6 +3,19 @@ stages:
   - test
   - build
 
+services:
+  - redis
+  - name: quay.io/acoustid/postgresql
+    alias: postgres
+
+environment:
+  POSTGRES_USER: acoustid
+  POSTGRES_PASSWORD: acoustid
+  POSTGRES_DB: acoustid_test
+  ACOUSTID_TEST_POSTGRES_HOST: postgres
+  ACOUSTID_TEST_REDIS_HOST: redis
+
+
 # build-docker-compose:
 #   stage: pre-test
 #   script:
