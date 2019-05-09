@@ -1,7 +1,7 @@
 import os
 import datetime
 import pickle
-from flask import Flask, request, request_tearing_down, session
+from flask import Flask, request, session
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.contrib.fixers import ProxyFix
 from sqlalchemy.orm import scoped_session
@@ -72,9 +72,9 @@ def make_application(config_filename=None):
         except RuntimeError:
             return 0
 
-    @request_tearing_down.connect
-    def close_db_session(sender, **kwargs):
-        db.session.close()
+    @app.teardown_request
+    def close_db_session(*args, **kwargs):
+        db.session.remove()
 
     @app.route('/_health')
     def health():
