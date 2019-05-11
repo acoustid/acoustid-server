@@ -11,6 +11,7 @@ certifi==2019.3.9         # via requests
 cffi==1.12.3              # via cryptography
 chardet==3.0.4            # via requests
 click==7.0                # via flask
+contextlib2==0.5.5        # via raven
 cryptography==2.6.1       # via pyopenssl
 enum34==1.1.6             # via cryptography
 flask==1.0.2
@@ -31,6 +32,7 @@ python-dateutil==2.8.0    # via alembic
 python-editor==1.0.4      # via alembic
 python-openid==2.2.5
 rauth==0.7.3
+raven[flask]==6.10.0
 redis==3.2.1
 requests==2.21.0
 schedule==0.6.0

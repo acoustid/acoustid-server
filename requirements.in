@@ -16,3 +16,4 @@ mbdata==2019.4.26
 alembic>=0.8.4
 uwsgi
 schedule
+raven[flask]

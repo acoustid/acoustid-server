@@ -185,6 +185,23 @@ class WebSiteConfig(object):
         read_env_item(self, 'shutdown_delay', prefix + 'SHUTDOWN_DELAY', convert=int)
 
 
+class SentryConfig(object):
+
+    def __init__(self):
+        self.web_dsn = ''
+        self.api_dsn = ''
+
+    def read(self, parser, section):
+        if parser.has_option(section, 'web_dsn'):
+            self.web_dsn = parser.get(section, 'web_dsn')
+        if parser.has_option(section, 'api_dsn'):
+            self.api_dsn = parser.get(section, 'web_dsn')
+
+    def read_env(self, prefix):
+        read_env_item(self, 'web_dsn', prefix + 'SENTRY_WEB_DSN')
+        read_env_item(self, 'api_dsn', prefix + 'SENTRY_WEB_DSN')
+
+
 class ReplicationConfig(object):
 
     def __init__(self):
@@ -209,6 +226,8 @@ class ClusterConfig(object):
         self.secret = None
 
     def read(self, parser, section):
+        if parser.has_section(section):
+            return
         if parser.has_option(section, 'role'):
             self.role = parser.get(section, 'role')
         if parser.has_option(section, 'base_master_url'):
@@ -250,6 +269,7 @@ class Config(object):
         self.replication = ReplicationConfig()
         self.cluster = ClusterConfig()
         self.rate_limiter = RateLimiterConfig()
+        self.sentry = SentryConfig()
 
     def read(self, path):
         logger.info("Loading configuration file %s", path)
@@ -263,6 +283,7 @@ class Config(object):
         self.replication.read(parser, 'replication')
         self.cluster.read(parser, 'cluster')
         self.rate_limiter.read(parser, 'rate_limiter')
+        self.sentry.read(parser, 'sentry')
 
     def read_env(self, tests=False):
         if tests:
@@ -277,3 +298,4 @@ class Config(object):
         self.replication.read_env(prefix)
         self.cluster.read_env(prefix)
         self.rate_limiter.read_env(prefix)
+        self.sentry.read_env(prefix)

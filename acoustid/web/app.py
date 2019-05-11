@@ -3,6 +3,7 @@ import datetime
 import pickle
 from flask import Flask, request, session
 from flask.sessions import SecureCookieSessionInterface
+from raven.contrib.flask import Sentry
 from werkzeug.contrib.fixers import ProxyFix
 from sqlalchemy.orm import scoped_session
 from acoustid.script import Script
@@ -17,6 +18,9 @@ try:
     import uwsgi
 except ImportError:
     uwsgi = None
+
+
+sentry = Sentry()
 
 
 def make_application(config_filename=None):
@@ -46,6 +50,8 @@ def make_application(config_filename=None):
     app.acoustid_config_filename = config_filename
 
     app.wsgi_app = ProxyFix(app.wsgi_app)
+
+    sentry.init_app(app, dsn=config.sentry.web_dsn)
 
     # can't use json because of python-openid
     app.session_interface = SecureCookieSessionInterface()
