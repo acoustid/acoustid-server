@@ -7,14 +7,14 @@ build-test-image:
   stage: pre-test
   script:
     - cd admin/ci/
-    - docker build -f Dockerfile.tests -t $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_NAME .
+    - docker build -f Dockerfile.tests -t $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG .
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker push $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_NAME
+    - docker push $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG
   tags:
     - docker
 
 test:
-  image: $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_NAME
+  image: $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG
   stage: test
   services:
     - redis
@@ -27,6 +27,10 @@ test:
     ACOUSTID_TEST_POSTGRES_HOST: postgres
     ACOUSTID_TEST_REDIS_HOST: redis
     ACOUSTID_TEST_FULL_DB_SETUP: 1
+  cache:
+    key: $CI_JOB_NAME-$CI_COMMIT_REF_SLUG
+    paths:
+      - pip-cache/
   script:
     - ./admin/ci/run-tests.sh
   tags:
