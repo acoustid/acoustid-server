@@ -64,7 +64,7 @@ class Server(Script):
                 handler_class, args = urls.match()
                 handler = handler_class.create_from_server(self, **args)
                 response = handler.handle(Request(environ))
-            except HTTPException, e:
+            except HTTPException as e:
                 return e(environ, start_response)
             return response(environ, start_response)
         finally:

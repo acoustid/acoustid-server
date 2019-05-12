@@ -66,7 +66,7 @@ class IndexClient(object):
         while pos == -1:
             try:
                 ready_to_read, ready_to_write, in_error = select.select([self.sock], [], [self.sock], self.socket_timeout)
-            except select.error, e:
+            except select.error as e:
                 if getattr(e, 'errno', None) == errno.EINTR:
                     continue
                 raise
@@ -76,7 +76,7 @@ class IndexClient(object):
                 while True:
                     try:
                         data = self.sock.recv(1024)
-                    except socket.error, e:
+                    except socket.error as e:
                         if e.errno == errno.EINTR:
                             continue
                         if e.errno == errno.EAGAIN:

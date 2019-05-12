@@ -18,3 +18,4 @@ uwsgi
 schedule
 sentry-sdk[flask]
 typing
+six

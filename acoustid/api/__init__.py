@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import six
 import logging
 import json
 import xml.etree.cElementTree as etree
@@ -16,13 +17,13 @@ def _serialize_xml_node(parent, data):
     elif isinstance(data, list):
         _serialize_xml_list(parent, data)
     else:
-        parent.text = unicode(data)
+        parent.text = six.text_type(data)
 
 
 def _serialize_xml_dict(parent, data):
     for name, value in data.iteritems():
         if name.startswith('@'):
-            parent.attrib[name[1:]] = unicode(value)
+            parent.attrib[name[1:]] = six.text_type(value)
         else:
             elem = etree.SubElement(parent, name)
             _serialize_xml_node(elem, value)
@@ -43,7 +44,7 @@ def serialize_xml(data, **kwargs):
 
 
 def serialize_json(data, callback=None, **kwargs):
-    res = json.dumps(data)
+    res = json.dumps(data, sort_keys=True)
     if callback:
         res = '%s(%s)' % (callback, res)
         mime = 'application/javascript; charset=UTF-8'

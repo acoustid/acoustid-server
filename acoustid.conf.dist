@@ -20,7 +20,7 @@ host=127.0.0.1
 port=6379
 
 [logging]
-level=WARN
+level=WARNING
 #level.sqlalchemy=INFO
 #syslog=no
 #syslog_facility=local1

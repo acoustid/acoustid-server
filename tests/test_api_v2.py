@@ -38,8 +38,8 @@ def test_ok():
     handler = APIHandler()
     resp = handler._ok({'tracks': [{'id': 1, 'name': 'Track 1'}]}, 'json')
     assert_equals('application/json; charset=UTF-8', resp.content_type)
-    expected = '{"status": "ok", "tracks": [{"id": 1, "name": "Track 1"}]}'
-    assert_equals(expected, resp.data)
+    expected = {"status": "ok", "tracks": [{"id": 1, "name": "Track 1"}]}
+    assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
 
 
@@ -47,13 +47,13 @@ def test_error():
     handler = APIHandler()
     resp = handler._error(123, 'something is wrong', 'json')
     assert_equals('application/json; charset=UTF-8', resp.content_type)
-    expected = '{"status": "error", "error": {"message": "something is wrong", "code": 123}}'
-    assert_equals(expected, resp.data)
+    expected = {"status": "error", "error": {"message": "something is wrong", "code": 123}}
+    assert_json_equals(expected, resp.data)
     assert_equals('400 BAD REQUEST', resp.status)
     resp = handler._error(234, 'oops', 'json', status=500)
     assert_equals('application/json; charset=UTF-8', resp.content_type)
-    expected = '{"status": "error", "error": {"message": "oops", "code": 234}}'
-    assert_equals(expected, resp.data)
+    expected = {"status": "error", "error": {"message": "oops", "code": 234}}
+    assert_json_equals(expected, resp.data)
     assert_equals('500 INTERNAL SERVER ERROR', resp.status)
 
 

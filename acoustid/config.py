@@ -3,7 +3,7 @@
 
 import os.path
 import logging
-import ConfigParser
+from six.moves import configparser as ConfigParser
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 
@@ -123,6 +123,16 @@ class RedisConfig(object):
         read_env_item(self, 'port', prefix + 'REDIS_PORT', convert=int)
 
 
+def get_logging_level_names():
+    try:
+        return logging._levelNames
+    except AttributeError:
+        level_names = {}
+        for value, name in logging._levelToName.items():
+            level_names[name] = value
+        return level_names
+
+
 class LoggingConfig(object):
 
     def __init__(self):
@@ -131,7 +141,8 @@ class LoggingConfig(object):
         self.syslog_facility = None
 
     def read(self, parser, section):
-        from logging import _levelNames as level_names
+        level_names = get_logging_level_names()
+        print(level_names)
         for name in parser.options(section):
             if name == 'level':
                 self.levels[''] = level_names[parser.get(section, name)]

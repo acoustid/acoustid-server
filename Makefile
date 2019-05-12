@@ -11,7 +11,7 @@ sync-reqs:
 	e/bin/pip-sync requirements.txt requirements_dev.txt
 
 lint:
-	tox -e flake8,mypy
+	tox -e flake8,mypy-py2,mypy-py3
 
 check:
 	tox

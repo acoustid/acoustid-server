@@ -3,13 +3,14 @@
 
 import re
 import syslog
-import urllib
-import urllib2
 import hashlib
 import time
 import datetime
 import hmac
 import base64
+import six
+from six.moves.urllib.request import urlopen
+from six.moves.urllib.parse import urlencode
 from logging import Handler
 
 
@@ -119,7 +120,7 @@ class LocalSysLogHandler(Handler):
     def __init__(self, ident=None, facility=syslog.LOG_USER, log_pid=False):
         Handler.__init__(self)
         self.facility = facility
-        if isinstance(facility, basestring):
+        if isinstance(facility, six.string_types):
             self.facility = self.facility_names[facility]
         options = 0
         if log_pid:
@@ -134,7 +135,7 @@ class LocalSysLogHandler(Handler):
     def emit(self, record):
         try:
             msg = self.format(record)
-            if isinstance(msg, unicode):
+            if isinstance(msg, six.text_type):
                 msg = msg.encode('utf-8')
             priority = self.priority_map[record.levelname]
             for m in msg.splitlines():
@@ -147,4 +148,4 @@ def call_internal_api(config, func, **kwargs):
     url = config.cluster.base_master_url.rstrip('/') + '/v2/internal/' + func
     data = dict(kwargs)
     data['secret'] = config.cluster.secret
-    urllib2.urlopen(url, urllib.urlencode(data))
+    urlopen(url, urlencode(data))
