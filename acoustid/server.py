@@ -2,6 +2,8 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import gzip
+import sentry_sdk
+from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 from cStringIO import StringIO
 from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount
@@ -70,6 +72,9 @@ class Server(Script):
             if handler is not None and 'conn' in handler.__dict__:
                 handler.__dict__['conn'].close()
 
+    def setup_sentry(self):
+        sentry_sdk.init(self.config.sentry.api_dsn)
+
 
 class GzipRequestMiddleware(object):
     """WSGI middleware to handle GZip-compressed HTTP requests bodies
@@ -97,6 +102,8 @@ def make_application(config_path):
     :param config_path: path to the server configuration file
     """
     server = Server(config_path)
+    server.setup_sentry()
     app = GzipRequestMiddleware(server)
     app = ProxyFix(app)
+    app = SentryWsgiMiddleware(app)
     return server, app

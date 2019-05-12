@@ -6,6 +6,7 @@ import time
 import logging
 import sqlalchemy
 import sqlalchemy.pool
+import sentry_sdk
 from redis import Redis
 from optparse import OptionParser
 from acoustid.config import Config
@@ -61,6 +62,9 @@ class Script(object):
             handler.setLevel(logging.ERROR)
         logging.getLogger().addHandler(handler)
 
+    def setup_sentry(self):
+        sentry_sdk.init(self.config.sentry.script_dsn)
+
 
 def run_script(func, option_cb=None, master_only=False):
     parser = OptionParser()
@@ -75,6 +79,7 @@ def run_script(func, option_cb=None, master_only=False):
         parser.error('no configuration file')
     script = Script(options.config)
     script.setup_console_logging(options.quiet)
+    script.setup_sentry()
     if master_only and script.config.cluster.role != 'master':
         logger.debug("Not running script %s on a slave server", sys.argv[0])
     else:

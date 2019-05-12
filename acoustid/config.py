@@ -190,16 +190,22 @@ class SentryConfig(object):
     def __init__(self):
         self.web_dsn = ''
         self.api_dsn = ''
+        self.script_dsn = ''
 
     def read(self, parser, section):
+        if parser.has_section(section):
+            return
         if parser.has_option(section, 'web_dsn'):
             self.web_dsn = parser.get(section, 'web_dsn')
         if parser.has_option(section, 'api_dsn'):
             self.api_dsn = parser.get(section, 'web_dsn')
+        if parser.has_option(section, 'script_dsn'):
+            self.script_dsn = parser.get(section, 'web_dsn')
 
     def read_env(self, prefix):
         read_env_item(self, 'web_dsn', prefix + 'SENTRY_WEB_DSN')
         read_env_item(self, 'api_dsn', prefix + 'SENTRY_WEB_DSN')
+        read_env_item(self, 'script_dsn', prefix + 'SENTRY_SCRIPT_DSN')
 
 
 class ReplicationConfig(object):
