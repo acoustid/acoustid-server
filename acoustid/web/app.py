@@ -21,11 +21,11 @@ except ImportError:
     uwsgi = None
 
 
-def make_application(config_filename=None):
+def make_application(config_filename=None, tests=False):
     if config_filename is None:
         config_filename = os.environ.get('ACOUSTID_CONFIG')
 
-    script = Script(config_filename)
+    script = Script(config_filename, tests=tests)
     script.setup_logging()
 
     if uwsgi is not None:
