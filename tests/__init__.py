@@ -157,6 +157,11 @@ def setup():
     if not os.environ.get('SKIP_DB_SETUP'):
         with closing(script.engine.connect()) as conn:
             with conn.begin():
+                if os.environ.get('ACOUSTID_TEST_FULL_DB_SETUP'):
+                    conn.execute('CREATE EXTENSION intarray')
+                    conn.execute('CREATE EXTENSION pgcrypto')
+                    conn.execute('CREATE EXTENSION cube')
+                    conn.execute('CREATE EXTENSION acoustid')
                 metadata.create_all(conn)
                 for table in reversed(metadata.sorted_tables):
                     conn.execute(table.delete())

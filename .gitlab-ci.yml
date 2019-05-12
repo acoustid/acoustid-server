@@ -3,18 +3,6 @@ stages:
   - test
   - build
 
-services:
-  - redis
-  - name: quay.io/acoustid/postgresql:master
-    alias: postgres
-
-variables:
-  POSTGRES_USER: acoustid
-  POSTGRES_PASSWORD: acoustid
-  POSTGRES_DB: acoustid_test
-  ACOUSTID_TEST_POSTGRES_HOST: postgres
-  ACOUSTID_TEST_REDIS_HOST: redis
-
 build-test-image:
   stage: pre-test
   script:
@@ -28,6 +16,17 @@ build-test-image:
 test:
   image: $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_NAME
   stage: test
+  services:
+    - redis
+    - name: quay.io/acoustid/postgresql:master
+      alias: postgres
+  variables:
+    POSTGRES_USER: acoustid
+    POSTGRES_PASSWORD: acoustid
+    POSTGRES_DB: acoustid_test
+    ACOUSTID_TEST_POSTGRES_HOST: postgres
+    ACOUSTID_TEST_REDIS_HOST: redis
+    ACOUSTID_TEST_FULL_DB_SETUP: 1
   script:
     - ./admin/ci/run-tests.sh
   tags:
