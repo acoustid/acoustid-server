@@ -7,9 +7,4 @@ RUN apt-get update && \
         python-tox curl
 
 RUN curl -L -o /wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
-
-COPY run-tests.sh /
-RUN chmod +rx /run-tests.sh /wait-for-it.sh
-
-CMD ["/run-tests.sh"]
-
+RUN chmod +rx /wait-for-it.sh
