@@ -140,4 +140,4 @@ if __name__ == "__main__":
             '/api': make_api_application(app.acoustid_config_filename)[1],
         })
 
-    run_simple(args.host, args.port, app, **run_args)
+    run_simple(args.host, args.port, app, **run_args)  # type: ignore

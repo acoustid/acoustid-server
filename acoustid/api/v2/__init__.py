@@ -6,6 +6,7 @@ import logging
 import json
 import time
 import operator
+from typing import Type
 from acoustid import const
 from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.handler import Handler
@@ -82,7 +83,7 @@ class APIHandlerParams(object):
 
 class APIHandler(Handler):
 
-    params_class = None
+    params_class = None  # type: Type[APIHandlerParams]
 
     def __init__(self, connect=None):
         self._connect = connect

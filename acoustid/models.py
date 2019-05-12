@@ -1,8 +1,9 @@
+from typing import Any
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from acoustid import tables
 
-Base = declarative_base(metadata=tables.metadata)
+Base = declarative_base(metadata=tables.metadata)  # type: Any
 
 
 class Account(Base):

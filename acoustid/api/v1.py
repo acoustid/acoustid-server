@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+from typing import Type
 from acoustid.api import v2, serialize_response, errors
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class APIHandlerParams(v2.APIHandlerParams):
 
 class APIHandler(v2.APIHandler):
 
-    params_class = None
+    params_class = None  # type: Type[APIHandlerParams]
 
     def _error(self, code, message, format=FORMAT, status=400):
         assert format == FORMAT

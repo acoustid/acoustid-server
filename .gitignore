@@ -1,4 +1,5 @@
 /.vagrant
+/.mypy_cache
 /e
 /build
 /acoustid.conf

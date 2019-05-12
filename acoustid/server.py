@@ -9,37 +9,36 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount
 from werkzeug.wrappers import Request
 from werkzeug.contrib.fixers import ProxyFix
-from acoustid import api
 from acoustid.script import Script
-import api.v1
-import api.v2
-import api.v2.misc
-import api.v2.internal
+import acoustid.api.v1
+import acoustid.api.v2
+import acoustid.api.v2.misc
+import acoustid.api.v2.internal
 
 
 api_url_rules = [
-    Rule('/_health', endpoint=api.HealthHandler),
-    Rule('/_health_ro', endpoint=api.ReadOnlyHealthHandler),
-    Rule('/_health_docker', endpoint=api.ReadOnlyHealthHandler),
-    Rule('/lookup', endpoint=api.v1.LookupHandler),
-    Rule('/submit', endpoint=api.v1.SubmitHandler),
+    Rule('/_health', endpoint=acoustid.api.HealthHandler),
+    Rule('/_health_ro', endpoint=acoustid.api.ReadOnlyHealthHandler),
+    Rule('/_health_docker', endpoint=acoustid.api.ReadOnlyHealthHandler),
+    Rule('/lookup', endpoint=acoustid.api.v1.LookupHandler),
+    Rule('/submit', endpoint=acoustid.api.v1.SubmitHandler),
     Submount('/v2', [
-        Rule('/lookup', endpoint=api.v2.LookupHandler),
-        Rule('/submit', endpoint=api.v2.SubmitHandler),
-        Rule('/submission_status', endpoint=api.v2.SubmissionStatusHandler),
-        Rule('/fingerprint', endpoint=api.v2.misc.GetFingerprintHandler),
-        Rule('/track/list_by_mbid', endpoint=api.v2.misc.TrackListByMBIDHandler),
-        Rule('/track/list_by_puid', endpoint=api.v2.misc.TrackListByPUIDHandler),
-        Rule('/user/lookup', endpoint=api.v2.misc.UserLookupHandler),
-        Rule('/user/create_anonymous', endpoint=api.v2.misc.UserCreateAnonymousHandler),
-        Rule('/user/create_musicbrainz', endpoint=api.v2.misc.UserCreateMusicBrainzHandler),
+        Rule('/lookup', endpoint=acoustid.api.v2.LookupHandler),
+        Rule('/submit', endpoint=acoustid.api.v2.SubmitHandler),
+        Rule('/submission_status', endpoint=acoustid.api.v2.SubmissionStatusHandler),
+        Rule('/fingerprint', endpoint=acoustid.api.v2.misc.GetFingerprintHandler),
+        Rule('/track/list_by_mbid', endpoint=acoustid.api.v2.misc.TrackListByMBIDHandler),
+        Rule('/track/list_by_puid', endpoint=acoustid.api.v2.misc.TrackListByPUIDHandler),
+        Rule('/user/lookup', endpoint=acoustid.api.v2.misc.UserLookupHandler),
+        Rule('/user/create_anonymous', endpoint=acoustid.api.v2.misc.UserCreateAnonymousHandler),
+        Rule('/user/create_musicbrainz', endpoint=acoustid.api.v2.misc.UserCreateMusicBrainzHandler),
         Submount('/internal', [
-            Rule('/update_lookup_stats', endpoint=api.v2.internal.UpdateLookupStatsHandler),
-            Rule('/update_user_agent_stats', endpoint=api.v2.internal.UpdateUserAgentStatsHandler),
-            Rule('/lookup_stats', endpoint=api.v2.internal.LookupStatsHandler),
-            Rule('/create_account', endpoint=api.v2.internal.CreateAccountHandler),
-            Rule('/create_application', endpoint=api.v2.internal.CreateApplicationHandler),
-            Rule('/update_application_status', endpoint=api.v2.internal.UpdateApplicationStatusHandler),
+            Rule('/update_lookup_stats', endpoint=acoustid.api.v2.internal.UpdateLookupStatsHandler),
+            Rule('/update_user_agent_stats', endpoint=acoustid.api.v2.internal.UpdateUserAgentStatsHandler),
+            Rule('/lookup_stats', endpoint=acoustid.api.v2.internal.LookupStatsHandler),
+            Rule('/create_account', endpoint=acoustid.api.v2.internal.CreateAccountHandler),
+            Rule('/create_application', endpoint=acoustid.api.v2.internal.CreateApplicationHandler),
+            Rule('/update_application_status', endpoint=acoustid.api.v2.internal.UpdateApplicationStatusHandler),
         ]),
     ]),
 ]

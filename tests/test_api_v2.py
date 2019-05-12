@@ -156,7 +156,7 @@ def test_apihandler_ws_error(conn):
 
 
 @with_database
-@unittest.skip
+@unittest.skip("disabled")
 def test_lookup_handler(conn):
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
     builder = EnvironBuilder(method='POST', data=values)

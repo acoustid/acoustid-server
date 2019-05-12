@@ -17,3 +17,4 @@ alembic>=0.8.4
 uwsgi
 schedule
 sentry-sdk[flask]
+typing

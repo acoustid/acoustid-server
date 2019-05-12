@@ -82,7 +82,7 @@ def test_lookup_handler_params(conn):
 
 
 @with_database
-@unittest.skip
+@unittest.skip("disabled")
 def lookup_handler(conn):
     values = {'client': 'app1key', 'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
     builder = EnvironBuilder(method='POST', data=values)

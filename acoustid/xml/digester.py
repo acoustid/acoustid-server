@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import xml.sax
-from xml.sax import ContentHandler
-from xml.sax.handler import ErrorHandler
+from xml.sax.handler import ContentHandler, ErrorHandler
 
 
 class Rule(object):
