@@ -8,6 +8,5 @@ set -ex
 #source /etc/os-release
 #export PIP_CACHE_DIR=/cache/pip-$ID-$VERSION_ID-$(uname -m)
 
-cd /build/acoustid-server
 ls -l
 tox --recreate
