@@ -34,4 +34,4 @@ def main(script, opt, args):
     schedule = create_schedule(script)
     while True:
         schedule.run_pending()
-        time.sleep(schedule.idle_seconds())
+        time.sleep(schedule.idle_seconds)
