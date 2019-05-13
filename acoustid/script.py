@@ -12,6 +12,7 @@ from optparse import OptionParser
 from acoustid.config import Config
 from acoustid.indexclient import IndexClientPool
 from acoustid.utils import LocalSysLogHandler
+from acoustid._release import GIT_RELEASE
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class Script(object):
         logging.getLogger().addHandler(handler)
 
     def setup_sentry(self):
-        sentry_sdk.init(self.config.sentry.script_dsn)
+        sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE)
 
 
 def run_script(func, option_cb=None, master_only=False):

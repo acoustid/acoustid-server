@@ -15,6 +15,7 @@ from acoustid.web.views.apps import apps_page
 from acoustid.web.views.metadata import metadata_page
 from acoustid.web.views.stats import stats_page
 from acoustid.web.views.admin import admin_page
+from acoustid._release import GIT_RELEASE
 try:
     import uwsgi
 except ImportError:
@@ -49,7 +50,11 @@ def make_application(config_filename=None, tests=False):
 
     app.wsgi_app = ProxyFix(app.wsgi_app)
 
-    sentry_sdk.init(config.sentry.web_dsn, integrations=[FlaskIntegration()])
+    sentry_sdk.init(
+        config.sentry.web_dsn,
+        release=GIT_RELEASE,
+        integrations=[FlaskIntegration()]
+    )
 
     # can't use json because of python-openid
     app.session_interface = SecureCookieSessionInterface()

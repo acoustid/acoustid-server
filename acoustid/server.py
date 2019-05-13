@@ -10,6 +10,7 @@ from werkzeug.routing import Map, Rule, Submount
 from werkzeug.wrappers import Request
 from werkzeug.contrib.fixers import ProxyFix
 from acoustid.script import Script
+from acoustid._release import GIT_RELEASE
 import acoustid.api.v1
 import acoustid.api.v2
 import acoustid.api.v2.misc
@@ -72,7 +73,7 @@ class Server(Script):
                 handler.__dict__['conn'].close()
 
     def setup_sentry(self):
-        sentry_sdk.init(self.config.sentry.api_dsn)
+        sentry_sdk.init(self.config.sentry.api_dsn, release=GIT_RELEASE)
 
 
 class GzipRequestMiddleware(object):
