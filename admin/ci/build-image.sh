@@ -15,7 +15,7 @@ else
   GIT_RELEASE=$CI_COMMIT_SHORT_SHA
 fi
 
-echo "GIT_RELEASE = '$GIT_RELEASE'" > ../../acoustid/_release.py
+echo "GIT_RELEASE = '$GIT_RELEASE'" > acoustid/_release.py
 
 docker pull $IMAGE:$PREV_VERSION
 docker build --cache-from=$IMAGE:$PREV_VERSION -t $IMAGE:$VERSION .
