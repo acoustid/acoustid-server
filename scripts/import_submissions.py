@@ -35,6 +35,8 @@ def main_master(script, opts, args):
     channel = script.redis.pubsub()
     channel.subscribe('channel.submissions')
     for message in channel.listen():
+        if message['type'] != 'message':
+            continue
         try:
             ids = json.loads(message['data'])
         except Exception:
