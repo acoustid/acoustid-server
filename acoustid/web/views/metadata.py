@@ -24,9 +24,15 @@ def track(track_id):
         track_gid = track_id
         track_id = resolve_track_gid(conn, track_id)
     else:
-        track_id = int(track_id)
+        try:
+            track_id = int(track_id)
+        except ValueError:
+            track_id = None
         query = sql.select([schema.track.c.gid], schema.track.c.id == track_id)
         track_gid = conn.execute(query).scalar()
+
+    if track_id is None or track_gid is None:
+        abort(404)
 
     title = 'Track "%s"' % (track_gid,)
     track = {
