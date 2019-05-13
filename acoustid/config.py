@@ -142,7 +142,6 @@ class LoggingConfig(object):
 
     def read(self, parser, section):
         level_names = get_logging_level_names()
-        print(level_names)
         for name in parser.options(section):
             if name == 'level':
                 self.levels[''] = level_names[parser.get(section, name)]
