@@ -21,12 +21,12 @@ def wrap_job(func, script):
 def create_schedule(script):
     schedule = Scheduler()
     # hourly jobs
-    schedule.every(55).to(65).minute.do(wrap_job, merge_missing_mbids_main, script)
-    schedule.every(55).to(65).minute.do(wrap_job, update_lookup_stats_main, script)
+    schedule.every(55).to(65).minutes.do(wrap_job, merge_missing_mbids_main, script)
+    schedule.every(55).to(65).minutes.do(wrap_job, update_lookup_stats_main, script)
     # daily jobs
-    schedule.every(23).to(25).hour.do(wrap_job, update_stats_main, script)
-    schedule.every(23).to(25).hour.do(wrap_job, update_user_agent_stats_main, script)
-    schedule.every(23).to(25).hour.do(wrap_job, cleanup_perf_stats_main, script)
+    schedule.every(23).to(25).hours.do(wrap_job, update_stats_main, script)
+    schedule.every(23).to(25).hours.do(wrap_job, update_user_agent_stats_main, script)
+    schedule.every(23).to(25).hours.do(wrap_job, cleanup_perf_stats_main, script)
     return schedule
 
 
