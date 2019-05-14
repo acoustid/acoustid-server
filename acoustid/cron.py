@@ -13,25 +13,25 @@ from acoustid.scripts.merge_missing_mbids import main as merge_missing_mbids_mai
 logger = logging.getLogger(__name__)
 
 
-def wrap_job(func, script):
-    logger.info('Running %s', func.__name__)
-    func(script)
+def create_schedule(script, opt, args):
 
+    def wrap_job(func):
+        logger.info('Running %s', func.__name__)
+        func(script, opt, args)
 
-def create_schedule(script):
     schedule = Scheduler()
     # hourly jobs
-    schedule.every(55).to(65).minutes.do(wrap_job, merge_missing_mbids_main, script)
-    schedule.every(55).to(65).minutes.do(wrap_job, update_lookup_stats_main, script)
+    schedule.every(55).to(65).minutes.do(wrap_job, merge_missing_mbids_main)
+    schedule.every(55).to(65).minutes.do(wrap_job, update_lookup_stats_main)
     # daily jobs
-    schedule.every(23).to(25).hours.do(wrap_job, update_stats_main, script)
-    schedule.every(23).to(25).hours.do(wrap_job, update_user_agent_stats_main, script)
-    schedule.every(23).to(25).hours.do(wrap_job, cleanup_perf_stats_main, script)
+    schedule.every(23).to(25).hours.do(wrap_job, update_stats_main)
+    schedule.every(23).to(25).hours.do(wrap_job, update_user_agent_stats_main)
+    schedule.every(23).to(25).hours.do(wrap_job, cleanup_perf_stats_main)
     return schedule
 
 
 def main(script, opt, args):
-    schedule = create_schedule(script)
+    schedule = create_schedule(script, opt, args)
     while True:
         schedule.run_pending()
         time.sleep(schedule.idle_seconds)
