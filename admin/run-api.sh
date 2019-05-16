@@ -12,6 +12,7 @@ exec /opt/acoustid/server.venv/bin/uwsgi \
   --harakiri 60 \
   --harakiri-verbose \
   --post-buffering 1 \
+  --enable-threads \
   --need-app \
   --virtualenv /opt/acoustid/server.venv \
   --python-path /opt/acoustid/server \

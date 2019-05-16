@@ -13,6 +13,7 @@ exec /opt/acoustid/server.venv/bin/uwsgi \
   --harakiri 60 \
   --harakiri-verbose \
   --post-buffering 1 \
+  --enable-threads \
   --need-app \
   --static-map /static=/opt/acoustid/server/acoustid/web/static \
   --static-map /favicon.ico=/opt/acoustid/server/acoustid/web/static/favicon.ico \
