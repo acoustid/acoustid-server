@@ -103,6 +103,15 @@ def replace_double_slashes(app):
     return wrapped_app
 
 
+def add_cors_headers(app):
+    def wrapped_app(environ, start_response):
+        def start_response_with_cors_headers(status, headers, exc_info=None):
+            headers.append(('Access-Control-Allow-Origin', '*'))
+            return start_response(status, headers, exc_info)
+        return app(environ, start_response_with_cors_headers)
+    return wrapped_app
+
+
 def make_application(config_path):
     """Construct a WSGI application for the AcoustID server
 
@@ -114,4 +123,5 @@ def make_application(config_path):
     app = ProxyFix(app)
     app = SentryWsgiMiddleware(app)
     app = replace_double_slashes(app)
+    app = add_cors_headers(app)
     return server, app

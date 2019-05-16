@@ -5,7 +5,7 @@ from nose.tools import assert_equals
 import gzip
 import wsgiref.util
 from cStringIO import StringIO
-from acoustid.server import GzipRequestMiddleware, replace_double_slashes
+from acoustid.server import GzipRequestMiddleware, replace_double_slashes, add_cors_headers
 
 
 def test_gzip_request_middleware():
@@ -34,3 +34,17 @@ def test_replace_double_slashes():
     wsgiref.util.setup_testing_defaults(environ)
     mw = replace_double_slashes(app)
     mw(environ, None)
+
+
+def test_add_cors_headers():
+    def app(environ, start_response):
+        start_response(200, [])
+    gzcontent = StringIO()
+    environ = {}
+    wsgiref.util.setup_testing_defaults(environ)
+    mw = add_cors_headers(app)
+    def start_response(status, headers, exc_info=None):
+        h = dict(headers)
+        print(h)
+        assert_equals(h['Access-Control-Allow-Origin'], '*')
+    mw(environ, start_response)
