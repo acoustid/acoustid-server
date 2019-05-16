@@ -3,7 +3,7 @@ FROM ubuntu:16.04
 RUN apt-get update && \
     apt-get install -y \
         python python-pip python-virtualenv python-dev \
-        libchromaprint1 libchromaprint-tools libpq-dev \
+        libchromaprint0 libchromaprint-tools libpq-dev \
         dumb-init curl
 
 ADD requirements.txt /tmp/requirements.txt
