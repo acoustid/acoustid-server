@@ -12,7 +12,7 @@ RUN curl -o /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/
 ADD requirements.txt /tmp/requirements.txt
 
 RUN virtualenv /opt/acoustid/server.venv && \
-    /opt/acoustid/server.venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
+    /opt/acoustid/server.venv/bin/pip install --no-binary :all: --no-cache-dir -r /tmp/requirements.txt
 
 RUN useradd -ms /bin/bash acoustid
 USER acoustid
