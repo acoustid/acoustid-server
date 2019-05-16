@@ -3,8 +3,9 @@
 
 from nose.tools import assert_equals
 import gzip
+import wsgiref.util
 from cStringIO import StringIO
-from acoustid.server import GzipRequestMiddleware
+from acoustid.server import GzipRequestMiddleware, replace_double_slashes
 
 
 def test_gzip_request_middleware():
@@ -20,5 +21,16 @@ def test_gzip_request_middleware():
         'CONTENT_LENGTH': len(data),
         'wsgi.input': StringIO(data),
     }
+    wsgiref.util.setup_testing_defaults(environ)
     mw = GzipRequestMiddleware(app)
+    mw(environ, None)
+
+
+def test_replace_double_slashes():
+    def app(environ, start_response):
+        assert_equals('/v2/user/lookup', environ['PATH_INFO'])
+    gzcontent = StringIO()
+    environ = {'PATH_INFO': '/v2//user//lookup'}
+    wsgiref.util.setup_testing_defaults(environ)
+    mw = replace_double_slashes(app)
     mw(environ, None)

@@ -96,6 +96,13 @@ class GzipRequestMiddleware(object):
         return self.app(environ, start_response)
 
 
+def replace_double_slashes(app):
+    def wrapped_app(environ, start_response):
+        environ['PATH_INFO'] = environ['PATH_INFO'].replace('//', '/')
+        return app(environ, start_response)
+    return wrapped_app
+
+
 def make_application(config_path):
     """Construct a WSGI application for the AcoustID server
 
@@ -106,4 +113,5 @@ def make_application(config_path):
     app = GzipRequestMiddleware(server)
     app = ProxyFix(app)
     app = SentryWsgiMiddleware(app)
+    app = replace_double_slashes(app)
     return server, app
