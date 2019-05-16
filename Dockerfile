@@ -21,4 +21,4 @@ WORKDIR /opt/acoustid/server/
 
 COPY ./ /opt/acoustid/server/
 
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
