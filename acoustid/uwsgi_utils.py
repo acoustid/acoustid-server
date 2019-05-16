@@ -105,7 +105,7 @@ def run_uwsgi(config, args):
 def common_uwsgi_args(config, workers=1):
     # type: (Config, int) -> List[six.text_type]
     args = [
-      "uwsgi",
+      os.path.join(sys.prefix, "bin", "uwsgi"),
       "--die-on-term",
       "--chmod-socket",
       "--master",
