@@ -13,11 +13,11 @@ from acoustid.scripts.merge_missing_mbids import main as merge_missing_mbids_mai
 logger = logging.getLogger(__name__)
 
 
-def create_schedule(script, opt, args):
+def create_schedule(script):
 
     def wrap_job(func):
         logger.info('Running %s', func.__name__)
-        func(script, opt, args)
+        func(script, None, None)
 
     schedule = Scheduler()
     # hourly jobs
@@ -30,8 +30,8 @@ def create_schedule(script, opt, args):
     return schedule
 
 
-def run_cron(script, opt, args):
-    schedule = create_schedule(script, opt, args)
+def run_cron(script):
+    schedule = create_schedule(script)
     while True:
         schedule.run_pending()
         time.sleep(schedule.idle_seconds)

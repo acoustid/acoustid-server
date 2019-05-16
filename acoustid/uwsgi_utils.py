@@ -129,7 +129,7 @@ def common_uwsgi_args(config, workers=1):
 
 def run_api_app(config, workers=1):
     # type: (Config, int) -> int
-    args = common_uwsgi_args(config) + [
+    args = common_uwsgi_args(config, workers=workers) + [
       "--http-socket", "0.0.0.0:3031",
       "--module", "acoustid.wsgi",
     ]
@@ -139,7 +139,7 @@ def run_api_app(config, workers=1):
 def run_web_app(config, workers=1):
     # type: (Config, int) -> int
     static_dir = os.path.join(os.path.dirname(__file__), 'web', 'static')
-    args = common_uwsgi_args(config) + [
+    args = common_uwsgi_args(config, workers=workers) + [
       "--http-socket", "0.0.0.0:3032",
       "--module", "acoustid.web.app:make_application()",
       "--static-map", "/static={}".format(static_dir),

@@ -2,6 +2,7 @@ import click
 from acoustid.script import Script
 from acoustid.uwsgi_utils import run_web_app, run_api_app
 from acoustid.cron import run_cron
+from acoustid.scripts.import_submissions import run_import
 
 
 @click.group()
@@ -43,7 +44,17 @@ def run_cron_cmd(config):
     script = Script(config)
     script.setup_console_logging()
     script.setup_sentry()
-    run_cron(script, None, None)
+    run_cron(script)
+
+
+@run.command('import')
+@click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
+def run_import_cmd(config):
+    """Run import."""
+    script = Script(config)
+    script.setup_console_logging()
+    script.setup_sentry()
+    run_import(script)
 
 
 def main():
