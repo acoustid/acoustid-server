@@ -29,7 +29,6 @@ def test_gzip_request_middleware():
 def test_replace_double_slashes():
     def app(environ, start_response):
         assert_equals('/v2/user/lookup', environ['PATH_INFO'])
-    gzcontent = StringIO()
     environ = {'PATH_INFO': '/v2//user//lookup'}
     wsgiref.util.setup_testing_defaults(environ)
     mw = replace_double_slashes(app)
@@ -39,12 +38,13 @@ def test_replace_double_slashes():
 def test_add_cors_headers():
     def app(environ, start_response):
         start_response(200, [])
-    gzcontent = StringIO()
-    environ = {}
-    wsgiref.util.setup_testing_defaults(environ)
-    mw = add_cors_headers(app)
+
     def start_response(status, headers, exc_info=None):
         h = dict(headers)
         print(h)
         assert_equals(h['Access-Control-Allow-Origin'], '*')
+
+    environ = {}
+    wsgiref.util.setup_testing_defaults(environ)
+    mw = add_cors_headers(app)
     mw(environ, start_response)
