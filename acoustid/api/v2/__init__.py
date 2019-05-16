@@ -62,7 +62,7 @@ class APIHandlerParams(object):
             if check_demo_client_api_key(self.config.website.secret, application_apikey):
                 self.application_id = DEMO_APPLICATION_ID
             else:
-                logger.error("Invalid API key %s", application_apikey)
+                logger.warning("Invalid API key %s", application_apikey)
                 raise errors.InvalidAPIKeyError()
         self.application_version = values.get('clientversion')
 
@@ -158,7 +158,7 @@ class APIHandler(Handler):
                 logger.exception('Error while handling API request')
                 raise errors.InternalError()
         except errors.WebServiceError as e:
-            logger.error("WS error: %s", e.message)
+            logger.warning("WS error: %s", e.message)
             return self._error(e.code, e.message, params.format, status=e.status)
 
 
