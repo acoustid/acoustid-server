@@ -7,4 +7,4 @@ EXPOSE 3032
 HEALTHCHECK --start-period=10s \
   CMD curl -qf http://localhost:3032/_health_docker || exit 1
 
-CMD ["/opt/acoustid/server/admin/run-web.sh"]
+CMD ["/opt/acoustid/server/admin/docker/run-web.sh"]

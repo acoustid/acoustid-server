@@ -6,13 +6,7 @@
 # uwsgi -w acoustid.wsgi --pythonpath ~/acoustid/ --env ACOUSTID_CONFIG=~/acoustid/acoustid.conf -M -L --socket 127.0.0.1:1717
 
 import os
-try:
-    import uwsgi
-except ImportError:
-    uwsgi = None
+from acoustid.server import make_application
 
-from acoustid.server import make_application  # noqa: E402
+
 server, application = make_application(os.environ['ACOUSTID_CONFIG'])
-
-if uwsgi is not None:
-    uwsgi.atexit = server.atexit

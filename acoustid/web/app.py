@@ -16,10 +16,6 @@ from acoustid.web.views.metadata import metadata_page
 from acoustid.web.views.stats import stats_page
 from acoustid.web.views.admin import admin_page
 from acoustid._release import GIT_RELEASE
-try:
-    import uwsgi
-except ImportError:
-    uwsgi = None
 
 
 def make_application(config_filename=None, tests=False):
@@ -28,9 +24,6 @@ def make_application(config_filename=None, tests=False):
 
     script = Script(config_filename, tests=tests)
     script.setup_logging()
-
-    if uwsgi is not None:
-        uwsgi.atexit = script.atexit
 
     config = script.config
 

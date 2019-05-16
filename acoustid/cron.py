@@ -30,7 +30,7 @@ def create_schedule(script, opt, args):
     return schedule
 
 
-def main(script, opt, args):
+def run_cron(script, opt, args):
     schedule = create_schedule(script, opt, args)
     while True:
         schedule.run_pending()

@@ -19,3 +19,5 @@ schedule
 sentry-sdk[flask]
 typing
 six
+subprocess32; python_version < "3.2"
+click

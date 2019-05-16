@@ -11,7 +11,7 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - ./ci/create_db.sql:/docker-entrypoint-initdb.d/10_create_db.sql
+      - ./admin/ci/create_db.sql:/docker-entrypoint-initdb.d/10_create_db.sql
     environment:
       POSTGRES_USER: acoustid
       POSTGRES_PASSWORD: acoustid

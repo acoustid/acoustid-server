@@ -2,7 +2,6 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import sys
-import time
 import logging
 import sqlalchemy
 import sqlalchemy.pool
@@ -24,7 +23,6 @@ class Script(object):
         if config_path:
             self.config.read(config_path)
         self.config.read_env(tests=tests)
-        self.shutdown = False
         if tests:
             self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
                 poolclass=sqlalchemy.pool.AssertionPool)
@@ -41,11 +39,8 @@ class Script(object):
         else:
             self.redis = Redis(host=self.config.redis.host,
                                port=self.config.redis.port)
+        self._console_logging_configured = False
         self.setup_logging()
-
-    def atexit(self):
-        self.shutdown = True
-        time.sleep(self.config.website.shutdown_delay)
 
     def setup_logging(self):
         for logger_name, level in sorted(self.config.logging.levels.items()):
@@ -55,13 +50,18 @@ class Script(object):
                 facility=self.config.logging.syslog_facility, log_pid=True)
             handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
             logging.getLogger().addHandler(handler)
+        else:
+            self.setup_console_logging()
 
     def setup_console_logging(self, quiet=False):
+        if self._console_logging_configured:
+            return
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s - %(message)s', '%H:%M:%S'))
         if quiet:
             handler.setLevel(logging.ERROR)
         logging.getLogger().addHandler(handler)
+        self._console_logging_configured = True
 
     def setup_sentry(self):
         sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE)

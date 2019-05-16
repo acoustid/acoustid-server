@@ -7,4 +7,4 @@ EXPOSE 3031
 HEALTHCHECK --start-period=10s \
   CMD curl -qf http://localhost:3031/_health_docker || exit 1
 
-CMD ["/opt/acoustid/server/admin/run-api.sh"]
+CMD ["/opt/acoustid/server/admin/docker/run-api.sh"]

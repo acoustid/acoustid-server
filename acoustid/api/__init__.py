@@ -64,9 +64,10 @@ def serialize_response(data, format, **kwargs):
 
 
 def get_health_response(script, req, require_master=False):
+    from acoustid.uwsgi_utils import is_shutting_down
     if require_master and script.config.cluster.role != 'master':
         return Response('not the master server', content_type='text/plain', status=503)
-    if script.shutdown:
+    if is_shutting_down(script.config.website.shutdown_file_path):
         return Response('shutdown in process', content_type='text/plain', status=503)
     return Response('ok', content_type='text/plain', status=200)
 
