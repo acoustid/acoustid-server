@@ -102,7 +102,7 @@ def run_uwsgi(config, args):
         cleanup_shutdown_file(config.website.shutdown_file_path)
 
 
-def common_uwsgi_args(config, workers=1):
+def common_uwsgi_args(config, workers=None):
     # type: (Config, int) -> List[six.text_type]
     args = [
       os.path.join(sys.prefix, "bin", "uwsgi"),
@@ -112,14 +112,19 @@ def common_uwsgi_args(config, workers=1):
       "--disable-logging",
       "--log-date",
       "--buffer-size", "10240",
-      "--workers", six.text_type(workers),
-      "--offload-threads", "1",
-      "--harakiri", "60",
-      "--harakiri-verbose",
-      "--post-buffering", "1",
+      "--workers", six.text_type(workers or config.uwsgi.workers),
       "--enable-threads",
       "--need-app",
     ]
+    if config.uwsgi.harakiri:
+        args.extend([
+            "--harakiri", six.text_type(config.uwsgi.harakiri),
+            "--harakiri-verbose",
+        ])
+    if config.uwsgi.offload_threads:
+        args.extend(["--offload-threads", six.text_type(config.uwsgi.offload_threads)])
+    if config.uwsgi.post_buffering:
+        args.extend(["--post-buffering", six.text_type(config.uwsgi.post_buffering)])
     if 'PYTHONPATH' in os.environ:
         args.extend(["--python-path", os.environ['PYTHONPATH']])
     if hasattr(sys, 'real_prefix'):
@@ -127,7 +132,7 @@ def common_uwsgi_args(config, workers=1):
     return args
 
 
-def run_api_app(config, workers=1):
+def run_api_app(config, workers=None):
     # type: (Config, int) -> int
     args = common_uwsgi_args(config, workers=workers) + [
       "--http-socket", "0.0.0.0:3031",
@@ -136,7 +141,7 @@ def run_api_app(config, workers=1):
     return run_uwsgi(config, args)
 
 
-def run_web_app(config, workers=1):
+def run_web_app(config, workers=None):
     # type: (Config, int) -> int
     static_dir = os.path.join(os.path.dirname(__file__), 'web', 'static')
     args = common_uwsgi_args(config, workers=workers) + [

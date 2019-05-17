@@ -17,7 +17,7 @@ def run():
 
 @run.command('web')
 @click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
-@click.option('-w', '--workers', default=1, envvar='ACOUSTID_WEB_WORKERS')
+@click.option('-w', '--workers', type=int, envvar='ACOUSTID_WEB_WORKERS')
 def run_web_cmd(config, workers):
     """Run production uWSGI with the website."""
     script = Script(config)
@@ -28,7 +28,7 @@ def run_web_cmd(config, workers):
 
 @run.command('api')
 @click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
-@click.option('-w', '--workers', default=1, envvar='ACOUSTID_API_WORKERS')
+@click.option('-w', '--workers', type=int, envvar='ACOUSTID_API_WORKERS')
 def run_api_cmd(config, workers):
     """Run production uWSGI with the API."""
     script = Script(config)

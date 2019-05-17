@@ -196,6 +196,37 @@ class WebSiteConfig(object):
         read_env_item(self, 'shutdown_delay', prefix + 'SHUTDOWN_DELAY', convert=int)
 
 
+class uWSGIConfig(object):
+
+    def __init__(self):
+        self.harakiri = 60
+        self.workers = 2
+        self.post_buffering = 0
+        self.buffer_size = 10240
+        self.offload_threads = 1
+
+    def read(self, parser, section):
+        if parser.has_section(section):
+            return
+        if parser.has_option(section, 'harakiri'):
+            self.harakiri = parser.getint(section, 'harakiri')
+        if parser.has_option(section, 'workers'):
+            self.workers = parser.getint(section, 'workers')
+        if parser.has_option(section, 'post_buffering'):
+            self.post_buffering = parser.getint(section, 'post_buffering')
+        if parser.has_option(section, 'buffer_size'):
+            self.buffer_size = parser.getint(section, 'buffer_size')
+        if parser.has_option(section, 'offload_threads'):
+            self.offload_threads = parser.getint(section, 'offload_threads')
+
+    def read_env(self, prefix):
+        read_env_item(self, 'harakiri', prefix + 'UWSGI_HARAKIRI', convert=int)
+        read_env_item(self, 'workers', prefix + 'UWSGI_WORKERS', convert=int)
+        read_env_item(self, 'post_buffering', prefix + 'UWSGI_POST_BUFFERING', convert=int)
+        read_env_item(self, 'buffer_size', prefix + 'UWSGI_BUFFER_SIZE', convert=int)
+        read_env_item(self, 'offload_threads', prefix + 'UWSGI_OFFLOAD_THREADS', convert=int)
+
+
 class SentryConfig(object):
 
     def __init__(self):
@@ -287,6 +318,7 @@ class Config(object):
         self.cluster = ClusterConfig()
         self.rate_limiter = RateLimiterConfig()
         self.sentry = SentryConfig()
+        self.uwsgi = uWSGIConfig()
 
     def read(self, path):
         logger.info("Loading configuration file %s", path)
@@ -301,6 +333,7 @@ class Config(object):
         self.cluster.read(parser, 'cluster')
         self.rate_limiter.read(parser, 'rate_limiter')
         self.sentry.read(parser, 'sentry')
+        self.uwsgi.read(parser, 'uwsgi')
 
     def read_env(self, tests=False):
         if tests:
@@ -316,3 +349,4 @@ class Config(object):
         self.cluster.read_env(prefix)
         self.rate_limiter.read_env(prefix)
         self.sentry.read_env(prefix)
+        self.uwsgi.read_env(prefix)
