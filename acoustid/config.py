@@ -26,7 +26,20 @@ def read_env_item(obj, key, name, convert=None):
         setattr(obj, key, value)
 
 
-class DatabaseConfig(object):
+class BaseConfig(object):
+
+    def read(self, parser, section):
+        if parser.has_section(section):
+            self.read_section(parser, section)
+
+    def read_section(self, parser, section):
+        pass
+
+    def read_env(self, prefix):
+        pass
+
+
+class DatabaseConfig(BaseConfig):
 
     def __init__(self):
         self.user = None
@@ -71,7 +84,7 @@ class DatabaseConfig(object):
         args.append(self.name)
         return args
 
-    def read(self, parser, section):
+    def read_section(self, parser, section):
         self.user = parser.get(section, 'user')
         self.name = parser.get(section, 'name')
         if parser.has_option(section, 'host'):
@@ -89,13 +102,13 @@ class DatabaseConfig(object):
         read_env_item(self, 'password', prefix + 'POSTGRES_PASSWORD')
 
 
-class IndexConfig(object):
+class IndexConfig(BaseConfig):
 
     def __init__(self):
         self.host = '127.0.0.1'
         self.port = 6080
 
-    def read(self, parser, section):
+    def read_section(self, parser, section):
         if parser.has_option(section, 'host'):
             self.host = parser.get(section, 'host')
         if parser.has_option(section, 'port'):
@@ -106,13 +119,13 @@ class IndexConfig(object):
         read_env_item(self, 'port', prefix + 'INDEX_PORT', convert=int)
 
 
-class RedisConfig(object):
+class RedisConfig(BaseConfig):
 
     def __init__(self):
         self.host = '127.0.0.1'
         self.port = 6379
 
-    def read(self, parser, section):
+    def read_section(self, parser, section):
         if parser.has_option(section, 'host'):
             self.host = parser.get(section, 'host')
         if parser.has_option(section, 'port'):
@@ -133,14 +146,14 @@ def get_logging_level_names():
         return level_names
 
 
-class LoggingConfig(object):
+class LoggingConfig(BaseConfig):
 
     def __init__(self):
         self.levels = {}
         self.syslog = False
         self.syslog_facility = None
 
-    def read(self, parser, section):
+    def read_section(self, parser, section):
         level_names = get_logging_level_names()
         for name in parser.options(section):
             if name == 'level':
@@ -156,7 +169,7 @@ class LoggingConfig(object):
         pass  # XXX
 
 
-class WebSiteConfig(object):
+class WebSiteConfig(BaseConfig):
 
     def __init__(self):
         self.debug = False
@@ -169,7 +182,7 @@ class WebSiteConfig(object):
         self.shutdown_delay = 0
         self.shutdown_file_path = '/tmp/acoustid-server-shutdown.txt'
 
-    def read(self, parser, section):
+    def read_section(self, parser, section):
         if parser.has_option(section, 'debug'):
             self.debug = parser.getboolean(section, 'debug')
         self.secret = parser.get(section, 'secret')
@@ -196,7 +209,7 @@ class WebSiteConfig(object):
         read_env_item(self, 'shutdown_delay', prefix + 'SHUTDOWN_DELAY', convert=int)
 
 
-class uWSGIConfig(object):
+class uWSGIConfig(BaseConfig):
 
     def __init__(self):
         self.harakiri = 120
@@ -207,9 +220,7 @@ class uWSGIConfig(object):
         self.buffer_size = 10240
         self.offload_threads = 1
 
-    def read(self, parser, section):
-        if parser.has_section(section):
-            return
+    def read_section(self, parser, section):
         if parser.has_option(section, 'harakiri'):
             self.harakiri = parser.getint(section, 'harakiri')
         if parser.has_option(section, 'http_timeout'):
@@ -235,16 +246,14 @@ class uWSGIConfig(object):
         read_env_item(self, 'offload_threads', prefix + 'UWSGI_OFFLOAD_THREADS', convert=int)
 
 
-class SentryConfig(object):
+class SentryConfig(BaseConfig):
 
     def __init__(self):
         self.web_dsn = ''
         self.api_dsn = ''
         self.script_dsn = ''
 
-    def read(self, parser, section):
-        if parser.has_section(section):
-            return
+    def read_section(self, parser, section):
         if parser.has_option(section, 'web_dsn'):
             self.web_dsn = parser.get(section, 'web_dsn')
         if parser.has_option(section, 'api_dsn'):
@@ -258,13 +267,13 @@ class SentryConfig(object):
         read_env_item(self, 'script_dsn', prefix + 'SENTRY_SCRIPT_DSN')
 
 
-class ReplicationConfig(object):
+class ReplicationConfig(BaseConfig):
 
     def __init__(self):
         self.import_acoustid = None
         self.import_acoustid_musicbrainz = None
 
-    def read(self, parser, section):
+    def read_section(self, parser, section):
         if parser.has_option(section, 'import_acoustid'):
             self.import_acoustid = parser.get(section, 'import_acoustid')
         if parser.has_option(section, 'import_acoustid_musicbrainz'):
@@ -274,16 +283,14 @@ class ReplicationConfig(object):
         pass  # XXX
 
 
-class ClusterConfig(object):
+class ClusterConfig(BaseConfig):
 
     def __init__(self):
         self.role = 'master'
         self.base_master_url = None
         self.secret = None
 
-    def read(self, parser, section):
-        if parser.has_section(section):
-            return
+    def read_section(self, parser, section):
         if parser.has_option(section, 'role'):
             self.role = parser.get(section, 'role')
         if parser.has_option(section, 'base_master_url'):
@@ -297,13 +304,13 @@ class ClusterConfig(object):
         read_env_item(self, 'secret', prefix + 'CLUSTER_SECRET')
 
 
-class RateLimiterConfig(object):
+class RateLimiterConfig(BaseConfig):
 
     def __init__(self):
         self.ips = {}
         self.applications = {}
 
-    def read(self, parser, section):
+    def read_section(self, parser, section):
         for name in parser.options(section):
             if name.startswith('ip.'):
                 self.ips[name.split('.', 1)[1]] = parser.getfloat(section, name)
