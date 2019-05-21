@@ -167,6 +167,7 @@ class WebSiteConfig(object):
         self.google_oauth_client_secret = None
         self.maintenance = False
         self.shutdown_delay = 0
+        self.shutdown_file_path = '/tmp/acoustid-server-shutdown.txt'
 
     def read(self, parser, section):
         if parser.has_option(section, 'debug'):
