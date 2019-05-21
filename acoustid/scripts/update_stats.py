@@ -1,7 +1,10 @@
 # Copyright (C) 2015 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import logging
 from acoustid import tables
+
+logger = logging.getLogger(__name__)
 
 
 QUERIES = [
@@ -55,6 +58,7 @@ def get_track_count_stats(db, query):
 
 def main(script, opts, args):
     if script.config.cluster.role != 'master':
+        logger.info('Not running update_stats in slave mode')
         return
 
     db = script.engine.connect()
@@ -62,13 +66,16 @@ def main(script, opts, args):
 
         insert = tables.stats.insert()
         for name, query in QUERIES:
+            logger.info('Updating stats %s', name)
             value = db.execute(query).scalar()
             db.execute(insert.values({'name': name, 'value': value}))
 
         for i, value in get_track_count_stats(db, MBID_TRACK_QUERY):
             name = 'mbid.%dtracks' % i
+            logger.info('Updating stats %s', name)
             db.execute(insert.values({'name': name, 'value': value}))
 
         for i, value in get_track_count_stats(db, TRACK_MBID_QUERY):
             name = 'track.%dmbids' % i
+            logger.info('Updating stats %s', name)
             db.execute(insert.values({'name': name, 'value': value}))
