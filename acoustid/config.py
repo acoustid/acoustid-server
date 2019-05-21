@@ -167,7 +167,6 @@ class WebSiteConfig(object):
         self.google_oauth_client_secret = None
         self.maintenance = False
         self.shutdown_delay = 0
-        self.shutdown_file_path = '/tmp/acoustid-server-shutdown.txt'
 
     def read(self, parser, section):
         if parser.has_option(section, 'debug'):
@@ -199,7 +198,9 @@ class WebSiteConfig(object):
 class uWSGIConfig(object):
 
     def __init__(self):
-        self.harakiri = 60
+        self.harakiri = 120
+        self.http_timeout = 90
+        self.http_connect_timeout = 10
         self.workers = 2
         self.post_buffering = 0
         self.buffer_size = 10240
@@ -210,6 +211,10 @@ class uWSGIConfig(object):
             return
         if parser.has_option(section, 'harakiri'):
             self.harakiri = parser.getint(section, 'harakiri')
+        if parser.has_option(section, 'http_timeout'):
+            self.http_timeout = parser.getint(section, 'http_timeout')
+        if parser.has_option(section, 'http_connect_timeout'):
+            self.http_connect_timeout = parser.getint(section, 'http_connect_timeout')
         if parser.has_option(section, 'workers'):
             self.workers = parser.getint(section, 'workers')
         if parser.has_option(section, 'post_buffering'):
@@ -221,6 +226,8 @@ class uWSGIConfig(object):
 
     def read_env(self, prefix):
         read_env_item(self, 'harakiri', prefix + 'UWSGI_HARAKIRI', convert=int)
+        read_env_item(self, 'http_timeout', prefix + 'UWSGI_HTTP_TIMEOUT', convert=int)
+        read_env_item(self, 'http_connect_timeout', prefix + 'UWSGI_CONNECT_TIMEOUT', convert=int)
         read_env_item(self, 'workers', prefix + 'UWSGI_WORKERS', convert=int)
         read_env_item(self, 'post_buffering', prefix + 'UWSGI_POST_BUFFERING', convert=int)
         read_env_item(self, 'buffer_size', prefix + 'UWSGI_BUFFER_SIZE', convert=int)

@@ -32,6 +32,15 @@ secret=XXX
 mb_oauth_client_id=XXX
 mb_oauth_client_secret=XXX
 
+[uwsgi]
+workers=2
+harakiri=120
+http_timeout=90
+http_connect_timeout=10
+post_buffering=0
+buffer_size=10240
+offload_threads=1
+
 [replication]
 import_acoustid=http://data.acoustid.org/replication/acoustid-update-{seq}.xml.bz2
 

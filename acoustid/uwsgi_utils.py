@@ -111,11 +111,19 @@ def common_uwsgi_args(config, workers=None):
       "--master",
       "--disable-logging",
       "--log-date",
-      "--buffer-size", "10240",
       "--workers", six.text_type(workers or config.uwsgi.workers),
       "--enable-threads",
       "--need-app",
     ]
+    if config.uwsgi.http_timeout:
+        args.extend(["--http-timeout", six.text_type(config.uwsgi.http_timeout)])
+    if config.uwsgi.http_connect_timeout:
+        args.extend(["--http-connect-timeout", six.text_type(config.uwsgi.http_connect_timeout)])
+    if config.uwsgi.buffer_size:
+        args.extend([
+            "--buffer-size", six.text_type(config.uwsgi.buffer_size),
+            "--http-buffer-size", six.text_type(config.uwsgi.buffer_size),
+        ])
     if config.uwsgi.harakiri:
         args.extend([
             "--harakiri", six.text_type(config.uwsgi.harakiri),
