@@ -38,4 +38,6 @@ def run_cron(script):
     schedule = create_schedule(script)
     while True:
         schedule.run_pending()
-        time.sleep(schedule.idle_seconds)
+        delay = schedule.idle_seconds
+        if delay > 0:
+            time.sleep(delay)
