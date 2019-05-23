@@ -48,6 +48,9 @@ class DatabaseConfig(BaseConfig):
         self.host = None
         self.port = None
         self.password = None
+        self.pool_size = None
+        self.pool_recycle = None
+        self.pool_pre_ping = None
 
     def create_url(self, superuser=False):
         kwargs = {}
@@ -65,6 +68,12 @@ class DatabaseConfig(BaseConfig):
         return URL('postgresql', **kwargs)
 
     def create_engine(self, superuser=False, **kwargs):
+        if self.pool_size is not None and 'pool_size' not in kwargs:
+            kwargs['pool_size'] = self.pool_size
+        if self.pool_recycle is not None and 'pool_recycle' not in kwargs:
+            kwargs['pool_recycle'] = self.pool_recycle
+        if self.pool_pre_ping is not None and 'pool_pre_ping' not in kwargs:
+            kwargs['pool_pre_ping'] = self.pool_pre_ping
         return create_engine(self.create_url(superuser=superuser), **kwargs)
 
     def create_psql_args(self, superuser=False):
@@ -93,6 +102,12 @@ class DatabaseConfig(BaseConfig):
             self.port = parser.getint(section, 'port')
         if parser.has_option(section, 'password'):
             self.password = parser.get(section, 'password')
+        if parser.has_option(section, 'pool_size'):
+            self.password = parser.getint(section, 'pool_size')
+        if parser.has_option(section, 'pool_recycle'):
+            self.password = parser.getint(section, 'pool_recycle')
+        if parser.has_option(section, 'pool_pre_ping'):
+            self.password = parser.getboolean(section, 'pool_pre_ping')
 
     def read_env(self, prefix):
         read_env_item(self, 'name', prefix + 'POSTGRES_DB')
@@ -100,6 +115,9 @@ class DatabaseConfig(BaseConfig):
         read_env_item(self, 'port', prefix + 'POSTGRES_PORT', convert=int)
         read_env_item(self, 'user', prefix + 'POSTGRES_USER')
         read_env_item(self, 'password', prefix + 'POSTGRES_PASSWORD')
+        read_env_item(self, 'pool_size', prefix + 'POSTGRES_POOL_SIZE', convert=int)
+        read_env_item(self, 'pool_recycle', prefix + 'POSTGRES_POOL_RECYCLE', convert=int)
+        read_env_item(self, 'pool_pre_ping', prefix + 'POSTGRES_POOL_PRE_PING', convert=str_to_bool)
 
 
 class IndexConfig(BaseConfig):
