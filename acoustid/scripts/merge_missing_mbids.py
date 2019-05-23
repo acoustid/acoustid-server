@@ -9,7 +9,7 @@ from acoustid.data.track import merge_missing_mbids
 logger = logging.getLogger(__name__)
 
 
-def main(script, opts, args):
+def run_merge_missing_mbids(script, opts, args):
     if script.config.cluster.role != 'master':
         logger.info('Not running merge_missing_mbids in slave mode')
         return

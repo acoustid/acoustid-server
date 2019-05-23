@@ -4,7 +4,7 @@
 import datetime
 
 
-def main(script, opts, args):
+def run_cleanup_perf_stats(script, opts, args):
     two_days_ago = datetime.datetime.now() - datetime.timedelta(days=2)
     last_key = two_days_ago.strftime('%Y-%m-%d:%H:%M')
     redis = script.redis

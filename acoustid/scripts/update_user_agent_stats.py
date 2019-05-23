@@ -5,7 +5,7 @@ from acoustid.utils import call_internal_api
 from acoustid.data.stats import update_user_agent_stats, unpack_user_agent_stats_key
 
 
-def main(script, opts, args):
+def run_update_user_agent_stats(script, opts, args):
     db = script.engine.connect()
     redis = script.redis
     for key, count in redis.hgetall('ua').iteritems():
