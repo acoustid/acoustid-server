@@ -3,6 +3,7 @@
 
 import gzip
 import sentry_sdk
+from werkzeug.wsgi import get_input_stream
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 from cStringIO import StringIO
 from werkzeug.exceptions import HTTPException
@@ -85,10 +86,9 @@ class GzipRequestMiddleware(object):
         self.app = app
 
     def __call__(self, environ, start_response):
-        # XXX can we do this without loading everything into memory?
         content_encoding = environ.get('HTTP_CONTENT_ENCODING', '').lower().strip()
-        if content_encoding == 'gzip' and 'wsgi.input' in environ and 'CONTENT_LENGTH' in environ:
-            compressed_body = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
+        if content_encoding == 'gzip':
+            compressed_body = get_input_stream(environ).read()
             body = gzip.GzipFile(fileobj=StringIO(compressed_body)).read()
             environ['wsgi.input'] = StringIO(body)
             environ['CONTENT_LENGTH'] = str(len(body))
