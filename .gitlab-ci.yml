@@ -20,12 +20,15 @@ test:
     - redis
     - name: quay.io/acoustid/postgresql:master
       alias: postgres
+    - name: quay.io/acoustid/acoustid-index:master
+      alias: acoustid-index
   variables:
     POSTGRES_USER: acoustid
     POSTGRES_PASSWORD: acoustid
     POSTGRES_DB: acoustid_test
     ACOUSTID_TEST_POSTGRES_HOST: postgres
     ACOUSTID_TEST_REDIS_HOST: redis
+    ACOUSTID_TEST_INDEX_HOST: acoustid-index
   cache:
     key: $CI_JOB_NAME-$CI_COMMIT_REF_SLUG
     paths:
