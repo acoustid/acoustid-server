@@ -9,7 +9,7 @@ make sure the service stays both reliable and free.
 
 The best way to donate is using Patreon:
 
-<a href="https://www.patreon.com/bePatron?u=21057764" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
+<a href="https://www.patreon.com/bePatron?u=21057764" data-patreon-widget-type="become-patron-button">Become a Patron!</a>
 
 Alternatively, you can also donate using PayPal:
 
