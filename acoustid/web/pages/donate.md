@@ -7,7 +7,11 @@ consider donating a small amount of money. Your donation will
 be used to support further development of the project and to
 make sure the service stays both reliable and free.
 
-The easiest way to donate is via PayPal, simply click the button below. Thank you!
+The best way to donate is using Patreon:
+
+<a href="https://www.patreon.com/bePatron?u=21057764" data-patreon-widget-type="become-patron-button">Become a Patron!</a><script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
+
+Alternatively, you can also donate using PayPal:
 
 <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
 <input type="hidden" name="cmd" value="_s-xclick">
