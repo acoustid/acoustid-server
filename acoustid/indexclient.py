@@ -38,6 +38,9 @@ class IndexClient(object):
         self._buffer = ''
         self._connect()
 
+    def __str__(self):
+        return '{}:{}'.format(self.host, self.port)
+
     def __repr__(self):
         return '<%s(%s, %s) instance at %s>' % (self.__class__.__name__,
             self.host, self.port, hex(id(self)))
@@ -163,6 +166,9 @@ class IndexClientWrapper(object):
         self.insert = self._client.insert
         self.get_attribute = self._client.get_attribute
         self.set_attribute = self._client.set_attribute
+
+    def __str__(self):
+        return str(self._client)
 
     def close(self):
         if self._client.in_transaction:
