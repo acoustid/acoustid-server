@@ -233,14 +233,6 @@ track_mbid_change = Table('track_mbid_change', metadata,
     Column('note', Text),
 )
 
-track_mbid_flag = Table('track_mbid_flag', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('track_mbid_id', Integer, ForeignKey('track_mbid.id'), nullable=False),
-    Column('account_id', Integer, ForeignKey('account.id'), nullable=False),
-    Column('handled', Boolean, default=False, server_default=sql.false(), nullable=False),
-    Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
-)
-
 track_puid = Table('track_puid', metadata,
     Column('track_id', Integer, ForeignKey('track.id'), nullable=False),
     Column('puid', UUID, nullable=False, index=True),
