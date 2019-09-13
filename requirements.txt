@@ -42,4 +42,4 @@ subprocess32==3.5.3 ; python_version < "3.2"
 typing==3.6.6
 urllib3==1.24.2           # via requests, sentry-sdk
 uwsgi==2.0.18
-werkzeug==0.15.2
+werkzeug==0.15.3
