@@ -9,7 +9,7 @@ from cStringIO import StringIO
 from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount
 from werkzeug.wrappers import Request
-from werkzeug.contrib.fixers import ProxyFix
+from werkzeug.middleware.proxy_fix import ProxyFix
 from acoustid.script import Script
 from acoustid._release import GIT_RELEASE
 import acoustid.api.v1

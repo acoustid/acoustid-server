@@ -5,7 +5,7 @@ import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from flask import Flask, request, session
 from flask.sessions import SecureCookieSessionInterface
-from werkzeug.contrib.fixers import ProxyFix
+from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy.orm import scoped_session
 from acoustid.script import Script
 from acoustid.web import db
