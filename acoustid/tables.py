@@ -267,16 +267,6 @@ track_foreignid_source = Table('track_foreignid_source', metadata,
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
 )
 
-recording_acoustid = Table('recording_acoustid', metadata,
-    Column('id', Integer, primary_key=True, autoincrement=False),
-    Column('acoustid', UUID, nullable=False, index=True),
-    Column('recording', UUID, nullable=False),
-    Column('disabled', Boolean, default=False, server_default=sql.false(), nullable=False),
-    Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
-    Column('updated', DateTime(timezone=True)),
-    Index('recording_acoustid_idx_uniq', 'recording', 'acoustid', unique=True),
-)
-
 import mbdata.models  # noqa: E402
 mb_area = mbdata.models.Area.__table__
 mb_artist_credit = mbdata.models.ArtistCredit.__table__
