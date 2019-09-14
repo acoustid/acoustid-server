@@ -55,6 +55,14 @@ class Source(Base):
     account = relationship('Account')
 
 
+class Submission(Base):
+    __table__ = tables.submission
+
+
+class SubmissionResult(Base):
+    __table__ = tables.submission_result
+
+
 class Track(Base):
     __table__ = tables.track
 

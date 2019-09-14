@@ -5,11 +5,12 @@ import logging
 from sqlalchemy import sql
 from acoustid import tables as schema, const
 from acoustid.data.fingerprint import insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
-from acoustid.data.musicbrainz import resolve_mbid_redirect
 from acoustid.data.track import (
     insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta,
     can_add_fp_to_track, can_merge_tracks, insert_track_foreignid,
 )
+from acoustid.data.source import get_source
+from acoustid.data.foreignid import get_foreignid
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,27 @@ def insert_submission(conn, data):
     return id
 
 
+def insert_submission_result(conn, data):
+    """
+    Insert a new submission result into the database
+    """
+    with conn.begin():
+        insert_stmt = schema.submission_result.insert().values({
+            'submission_id': data['submission_id'],
+            'created': data['created'],
+            'account_id': data['account_id'],
+            'application_id': data['application_id'],
+            'application_version': data.get('application_version'),
+            'fingerprint_id': data['fingerprint_id'],
+            'track_id': data['track_id'],
+            'mbid': data.get('mbid'),
+            'puid': data.get('puid'),
+            'meta_id': data.get('meta_id'),
+            'foreignid': data.get('foreignid'),
+        })
+        conn.execute(insert_stmt)
+
+
 def import_submission(conn, submission, index=None):
     """
     Import the given submission into the main fingerprint database
@@ -43,22 +65,28 @@ def import_submission(conn, submission, index=None):
         update_stmt = schema.submission.update().where(
             schema.submission.c.id == submission['id'])
         conn.execute(update_stmt.values(handled=True))
-        mbids = []
-        if submission['mbid']:
-            mbids.append(resolve_mbid_redirect(conn, submission['mbid']))
-        logger.info("Importing submission %d with MBIDs %s",
-                    submission['id'], ', '.join(mbids))
+        logger.info("Importing submission %d with MBIDs %s", submission['id'], submission['mbid'])
+
         num_unique_items = len(set(submission['fingerprint']))
         if num_unique_items < const.FINGERPRINT_MIN_UNIQUE_ITEMS:
             logger.info("Skipping, has only %d unique items", num_unique_items)
             return
+
         num_query_items = conn.execute("SELECT icount(acoustid_extract_query(%(fp)s))", dict(fp=submission['fingerprint']))
         if not num_query_items:
             logger.info("Skipping, no data to index")
             return
-        searcher = FingerprintSearcher(conn, index, fast=False)
-        searcher.min_score = const.TRACK_MERGE_THRESHOLD
-        matches = searcher.search(submission['fingerprint'], submission['length'])
+
+        source = get_source(conn, submission['source_id'])
+
+        submission_result = {
+            'submission_id': submission['id'],
+            'created': submission['created'],
+            'account_id': source['account_id'],
+            'application_id': source['application_id'],
+            'application_version': source['version'],
+        }
+
         fingerprint = {
             'id': None,
             'track_id': None,
@@ -67,6 +95,10 @@ def import_submission(conn, submission, index=None):
             'bitrate': submission['bitrate'],
             'format_id': submission['format_id'],
         }
+
+        searcher = FingerprintSearcher(conn, index, fast=False)
+        searcher.min_score = const.TRACK_MERGE_THRESHOLD
+        matches = searcher.search(submission['fingerprint'], submission['length'])
         if matches:
             all_track_ids = set()
             possible_track_ids = set()
@@ -88,20 +120,37 @@ def import_submission(conn, submission, index=None):
                         group.remove(fingerprint['track_id'])
                         merge_tracks(conn, fingerprint['track_id'], list(group))
                         break
+
         if not fingerprint['track_id']:
             fingerprint['track_id'] = insert_track(conn)
+
+        submission_result['track_id'] = fingerprint['track_id']
+
         if not fingerprint['id']:
             fingerprint['id'] = insert_fingerprint(conn, fingerprint, submission['id'], submission['source_id'])
         else:
             inc_fingerprint_submission_count(conn, fingerprint['id'], submission['id'], submission['source_id'])
-        for mbid in mbids:
-            insert_mbid(conn, fingerprint['track_id'], mbid, submission['id'], submission['source_id'])
+
+        submission_result['fingerprint_id'] = fingerprint['id']
+
+        if submission['mbid'] and submission['mbid'] != '00000000-0000-0000-0000-000000000000':
+            insert_mbid(conn, fingerprint['track_id'], submission['mbid'], submission['id'], submission['source_id'])
+            submission_result['mbid'] = submission['mbid']
+
         if submission['puid'] and submission['puid'] != '00000000-0000-0000-0000-000000000000':
             insert_puid(conn, fingerprint['track_id'], submission['puid'], submission['id'], submission['source_id'])
+            submission_result['puid'] = submission['puid']
+
         if submission['meta_id']:
             insert_track_meta(conn, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])
+            submission_result['meta_id'] = submission['meta_id']
+
         if submission['foreignid_id']:
             insert_track_foreignid(conn, fingerprint['track_id'], submission['foreignid_id'], submission['id'], submission['source_id'])
+            submission_result['foreignid'] = get_foreignid(conn, submission['foreignid_id'])
+
+        insert_submission_result(conn, submission_result)
+
         return fingerprint
 
 

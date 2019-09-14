@@ -8,6 +8,16 @@ from acoustid import tables as schema
 logger = logging.getLogger(__name__)
 
 
+def get_foreignid(conn, id):
+    src = schema.foreignid.join(schema.foreignid_vendor, schema.foreignid.c.vendor_id == schema.foreignid_vendor.c.id)
+    query = sql.select([
+        schema.foreignid_vendor.c.name.label('namespace'),
+        schema.foreignid.c.name.label('id'),
+    ], schema.foreignid.c.id == id, from_obj=src)
+    row = conn.execute(query).first()
+    return row['namespace'] + ':' + row['id']
+
+
 def find_or_insert_foreignid_vendor(conn, name):
     with conn.begin():
         query = sql.select([schema.foreignid_vendor.c.id], schema.foreignid_vendor.c.name == name)

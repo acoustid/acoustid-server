@@ -107,6 +107,26 @@ submission = Table('submission', metadata,
 
 Index('submission_idx_handled', submission.c.id, postgresql_where=submission.c.handled == False)  # noqa: E712
 
+submission_result = Table('submission_result', metadata,
+    Column('submission_id', Integer, primary_key=True, autoincrement=False),
+    Column('created', DateTime(timezone=True), nullable=False),
+
+    # source
+    Column('account_id', Integer, nullable=False),
+    Column('application_id', Integer, nullable=False),
+    Column('application_version', String),
+
+    # fingerprint
+    Column('fingerprint_id', Integer, nullable=False),
+    Column('track_id', Integer, nullable=False),
+
+    # metadata
+    Column('meta_id', Integer),
+    Column('mbid', UUID),
+    Column('puid', UUID),
+    Column('foreignid', String),
+)
+
 stats = Table('stats', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String, nullable=False),

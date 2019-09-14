@@ -8,6 +8,15 @@ from acoustid import tables as schema
 logger = logging.getLogger(__name__)
 
 
+def get_source(conn, id):
+    query = sql.select([
+        schema.source.c.account_id,
+        schema.source.c.application_id,
+        schema.source.c.version,
+    ], schema.source.c.id == id)
+    return conn.execute(query).first()
+
+
 def find_or_insert_source(conn, application_id, account_id, version=None):
     """
     Find a source in the database, create it if it doesn't exist yet.
