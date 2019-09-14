@@ -2,7 +2,7 @@ import sqlalchemy.event
 from sqlalchemy import (
     MetaData, Table, Column, Index,
     ForeignKey, CheckConstraint,
-    Integer, String, DateTime, Boolean, Date, Text, SmallInteger, BigInteger, CHAR,
+    Integer, String, DateTime, Boolean, Date, Text, SmallInteger,
     DDL, sql,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID, INET
@@ -20,19 +20,6 @@ sqlalchemy.event.listen(
     metadata, 'before_create',
     DDL('CREATE SCHEMA IF NOT EXISTS musicbrainz'),
 )
-
-
-def create_replication_control_table(name):
-    return Table(name, metadata,
-        Column('id', Integer, primary_key=True),
-        Column('current_schema_sequence', Integer, nullable=False),
-        Column('current_replication_sequence', Integer),
-        Column('last_replication_date', DateTime(timezone=True)),
-    )
-
-
-replication_control = create_replication_control_table('replication_control')
-acoustid_mb_replication_control = create_replication_control_table('acoustid_mb_replication_control')
 
 account = Table('account', metadata,
     Column('id', Integer, primary_key=True),
@@ -292,14 +279,6 @@ recording_acoustid = Table('recording_acoustid', metadata,
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
     Column('updated', DateTime(timezone=True)),
     Index('recording_acoustid_idx_uniq', 'recording', 'acoustid', unique=True),
-)
-
-mirror_queue = Table('mirror_queue', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('txid', BigInteger, nullable=False, server_default=sql.func.txid_current()),
-    Column('tblname', String, nullable=False),
-    Column('op', CHAR(1), CheckConstraint("op = ANY (ARRAY['I'::bpchar, 'U'::bpchar, 'D'::bpchar])"), nullable=False),
-    Column('data', Text, nullable=False),
 )
 
 import mbdata.models  # noqa: E402
