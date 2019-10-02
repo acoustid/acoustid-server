@@ -38,11 +38,6 @@ account = Table('account', metadata,
     Index('account_idx_apikey', 'apikey', unique=True),
 )
 
-account_stats_control = Table('account_stats_control', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('last_updated', DateTime(timezone=True), nullable=False),
-)
-
 account_openid = Table('account_openid', metadata,
     Column('openid', String, primary_key=True),
     Column('account_id', Integer, ForeignKey('account.id'), nullable=False),

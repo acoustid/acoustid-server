@@ -29,7 +29,6 @@ CORE_TABLES = [
 
 PRIVATE_TABLES = [
     #("account", "SELECT id, 'account' || id::text, 'apikey' || id::text, '', anonymous, created, lastlogin, submission_count FROM account"),
-    #("account_stats_control", None),
     #("application", "SELECT id, 'app' || id::text, '', 'apikey' || id::text, created, active, account_id FROM application"),
     ("fingerprint_source", None),
     ("source", None),
