@@ -127,6 +127,12 @@ class APIHandler(Handler):
     def _rate_limit(self, user_ip, application_id):
         if self.config is None:
             return
+
+        global_rate_limit = self.config.rate_limiter.global_rate_limit
+        if global_rate_limit is not None:
+            if self.rate_limiter.limit('global', '', global_rate_limit):
+                raise errors.TooManyRequests(global_rate_limit)
+
         if application_id is not None:
             application_rate_limit = self.config.rate_limiter.applications.get(application_id)
             if application_rate_limit is not None:
@@ -134,6 +140,7 @@ class APIHandler(Handler):
                     raise errors.TooManyRequests(application_rate_limit)
                 else:
                     return
+
         ip_rate_limit = self.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
         if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
             raise errors.TooManyRequests(ip_rate_limit)
@@ -158,7 +165,8 @@ class APIHandler(Handler):
                 logger.exception('Error while handling API request')
                 raise errors.InternalError()
         except errors.WebServiceError as e:
-            logger.warning("WS error: %s", e.message)
+            if not isinstance(e, errors.TooManyRequests):
+                logger.warning("WS error: %s", e.message)
             return self._error(e.code, e.message, params.format, status=e.status)
 
 
