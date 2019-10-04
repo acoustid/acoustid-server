@@ -127,16 +127,16 @@ class APIHandler(Handler):
     def _rate_limit(self, user_ip, application_id):
         if self.config is None:
             return
-        ip_rate_limit = self.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
-        if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
-            if application_id == DEMO_APPLICATION_ID:
-                raise errors.TooManyRequests(ip_rate_limit)
         if application_id is not None:
             application_rate_limit = self.config.rate_limiter.applications.get(application_id)
             if application_rate_limit is not None:
                 if self.rate_limiter.limit('app', application_id, application_rate_limit):
-                    if application_id == DEMO_APPLICATION_ID:
-                        raise errors.TooManyRequests(application_rate_limit)
+                    raise errors.TooManyRequests(application_rate_limit)
+                else:
+                    return
+        ip_rate_limit = self.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
+        if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
+            raise errors.TooManyRequests(ip_rate_limit)
 
     def handle(self, req):
         params = self.params_class(self.config)
