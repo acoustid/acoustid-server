@@ -2,14 +2,16 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-import re
+from typing import List, Dict, Any, Iterable
 from sqlalchemy import sql
 from acoustid import tables as schema
+from acoustid.db import MusicBrainzDB
 
 logger = logging.getLogger(__name__)
 
 
 def _load_artists(conn, artist_credit_ids):
+    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, List[Dict[str, Any]]]
     if not artist_credit_ids:
         return {}
     src = schema.mb_artist_credit_name
@@ -24,7 +26,7 @@ def _load_artists(conn, artist_credit_ids):
     query = sql.select(columns, condition, from_obj=src).\
         order_by(schema.mb_artist_credit_name.c.artist_credit,
                  schema.mb_artist_credit_name.c.position)
-    result = {}
+    result = {}  # type: Dict[int, List[Dict[str, Any]]]
     for row in conn.execute(query):
         ac_data = {
             'id': row['gid'],
@@ -37,6 +39,7 @@ def _load_artists(conn, artist_credit_ids):
 
 
 def _load_release_meta(conn, release_ids):
+    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, Dict[str, Any]]
     if not release_ids:
         return {}
     src = schema.mb_medium
@@ -48,7 +51,7 @@ def _load_release_meta(conn, release_ids):
     ]
     query = sql.select(columns, condition, from_obj=src,
                 group_by=schema.mb_medium.c.release)
-    result = {}
+    result = {}  # type: Dict[int, Dict[str, Any]]
     for row in conn.execute(query):
         result[row['release']] = {
             'release_medium_count': row['release_medium_count'],
@@ -58,10 +61,11 @@ def _load_release_meta(conn, release_ids):
 
 
 def _load_release_events(conn, release_ids):
+    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, List[Dict[str, Any]]]
     if not release_ids:
         return {}
-    src = schema.mb_release_country
-    src = src.outerjoin(schema.mb_iso_3166_1, schema.mb_iso_3166_1.c.area == schema.mb_release_country.c.country)
+    src1 = schema.mb_release_country
+    src = src1.outerjoin(schema.mb_iso_3166_1, schema.mb_iso_3166_1.c.area == schema.mb_release_country.c.country)
     condition = schema.mb_release_country.c.release.in_(release_ids)
     columns = [
         schema.mb_release_country.c.release,
@@ -71,7 +75,7 @@ def _load_release_events(conn, release_ids):
         schema.mb_release_country.c.date_day.label('release_date_day'),
     ]
     query = sql.select(columns, condition, from_obj=src)
-    result = {}
+    result = {}  # type: Dict[int, List[Dict[str, Any]]]
     for row in conn.execute(query):
         result.setdefault(row['release'], []).append({
             'release_country': row['release_country'],
@@ -83,6 +87,7 @@ def _load_release_events(conn, release_ids):
 
 
 def _load_release_group_secondary_types(conn, release_group_ids):
+    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, List[str]]
     if not release_group_ids:
         return {}
     src = schema.mb_release_group_secondary_type_join
@@ -95,13 +100,14 @@ def _load_release_group_secondary_types(conn, release_group_ids):
         schema.mb_release_group_secondary_type.c.name.label('release_group_secondary_type'),
     ]
     query = sql.select(columns, condition, from_obj=src)
-    result = {}
+    result = {}  # type: Dict[int, List[str]]
     for row in conn.execute(query):
         result.setdefault(row['release_group_rid'], []).append(row['release_group_secondary_type'])
     return result
 
 
 def _load_release_groups(conn, release_group_ids):
+    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, Dict[str, Any]]
     if not release_group_ids:
         return {}
     src = schema.mb_release_group
@@ -116,7 +122,7 @@ def _load_release_groups(conn, release_group_ids):
     ]
     query = sql.select(columns, condition, from_obj=src)
     secondary_types = _load_release_group_secondary_types(conn, release_group_ids)
-    result = {}
+    result = {}  # type: Dict[int, Dict[str, Any]]
     for row in conn.execute(query):
         result[row['release_group_rid']] = {
             'release_group_id': row['release_group_id'],
@@ -129,6 +135,7 @@ def _load_release_groups(conn, release_group_ids):
 
 
 def lookup_metadata(conn, recording_ids, load_releases=False, load_release_groups=False, load_artists=False):
+    # type: (MusicBrainzDB, Iterable[int], bool, bool, bool) -> List[Dict[str, Any]]
     if not recording_ids:
         return []
     src = schema.mb_recording
@@ -202,6 +209,7 @@ def lookup_metadata(conn, recording_ids, load_releases=False, load_release_group
 
 
 def lookup_recording_metadata(conn, mbids):
+    # type: (MusicBrainzDB, Iterable[str]) -> Dict[str, Dict[str, Any]]
     """
     Lookup MusicBrainz metadata for the specified MBIDs.
     """
@@ -226,37 +234,8 @@ def lookup_recording_metadata(conn, mbids):
     return results
 
 
-def cluster_track_names(names):
-    tokenized_names = [set([i.lower() for i in re.findall(r"(\w+)", n)]) for n in names]
-    stats = {}
-    for tokens in tokenized_names:
-        for token in tokens:
-            stats[token] = stats.get(token, 0) + 1
-    if not stats:
-        return
-    top_words = set()
-    max_score = max(stats.values())
-    threshold = 0.7 * max_score
-    for token, score in stats.items():
-        if score > threshold:
-            top_words.add(token)
-    results = []
-    for i, tokens in enumerate(tokenized_names):
-        if not tokens:
-            continue
-        score = 1.0 * sum([float(stats[t]) / max_score for t in tokens if t in top_words]) / len(tokens)
-        if score > 0.8:
-            results.append((score, i))
-    if not results:
-        return
-    results.sort(reverse=True)
-    max_score = results[0][0]
-    for score, i in results:
-        if score > max_score * 0.8:
-            yield i
-
-
 def resolve_mbid_redirect(conn, mbid):
+    # type: (MusicBrainzDB, str) -> str
     src = schema.mb_recording
     src = src.join(schema.mb_recording_gid_redirect, schema.mb_recording_gid_redirect.c.new_id == schema.mb_recording.c.id)
     condition = schema.mb_recording_gid_redirect.c.gid == mbid

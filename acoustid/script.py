@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 
 class ScriptContext(object):
 
-    def __init__(self, db, redis, index):
-        # type: (DatabaseContext, Redis, IndexClientPool) -> None
+    def __init__(self, config, db, redis, index):
+        # type: (Config, DatabaseContext, Redis, IndexClientPool) -> None
+        self.config = config
         self.db = db
         self.redis = redis
         self.index = index
@@ -87,7 +88,7 @@ class Script(object):
 
     def context(self):
         # type: () -> ScriptContext
-        return ScriptContext(db=DatabaseContext(self), redis=self.redis, index=self.index)
+        return ScriptContext(config=self.config, db=DatabaseContext(self), redis=self.redis, index=self.index)
 
 
 def run_script(func, option_cb=None, master_only=False):

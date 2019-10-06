@@ -1,8 +1,11 @@
+from acoustid.script import ScriptContext
+
+
 class Handler(object):
 
-    @classmethod
-    def create_from_server(cls, server):
-        return cls()
+    def __init__(self, ctx):
+        # type: (ScriptContext) -> None
+        self.ctx = ctx
 
     def handle(self, req):
         raise NotImplementedError(self.handle)

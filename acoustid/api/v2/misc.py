@@ -124,7 +124,7 @@ class UserCreateAnonymousHandler(APIHandler):
     params_class = UserCreateAnonymousHandlerParams
 
     def _handle_internal(self, params):
-        id, api_key = insert_account(self.conn, {
+        id, api_key = insert_account(self.ctx.db.get_app_db(), {
             'name': 'Anonymous',
             'created_from': self.user_ip,
             'application_id': params.application_id,
@@ -135,12 +135,12 @@ class UserCreateAnonymousHandler(APIHandler):
 
 class UserLookupHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(UserLookupHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(UserLookupHandlerParams, self).parse(values, db)
         account_apikey = values.get('user')
         if not account_apikey:
             raise errors.MissingParameterError('user')
-        self.account_id = lookup_account_id_by_apikey(conn, account_apikey)
+        self.account_id = lookup_account_id_by_apikey(db.get_app_db(), account_apikey)
         if not self.account_id:
             raise errors.InvalidUserAPIKeyError()
         self.account_apikey = account_apikey

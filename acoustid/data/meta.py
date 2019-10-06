@@ -2,20 +2,23 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+from typing import Dict, Any, Iterable, List
 from acoustid import tables as schema
+from acoustid.db import FingerprintDB
 
 logger = logging.getLogger(__name__)
 
 
 def insert_meta(conn, values):
-    with conn.begin():
-        insert_stmt = schema.meta.insert().values(**values)
-        id = conn.execute(insert_stmt).inserted_primary_key[0]
-        logger.debug("Inserted meta %d with values %r", id, values)
+    # type: (FingerprintDB, Dict[str, Any]) -> int
+    insert_stmt = schema.meta.insert().values(**values)
+    id = conn.execute(insert_stmt).inserted_primary_key[0]
+    logger.debug("Inserted meta %d with values %r", id, values)
     return id
 
 
 def lookup_meta(conn, meta_ids):
+    # type: (FingerprintDB, Iterable[int]) -> List[Dict[str, Any]]
     if not meta_ids:
         return []
     query = schema.meta.select(schema.meta.c.id.in_(meta_ids))

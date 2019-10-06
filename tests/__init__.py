@@ -5,6 +5,7 @@ import os
 import json
 import pprint
 import difflib
+from typing import Any
 from sqlalchemy import Table
 from nose.tools import make_decorator
 from acoustid.db import DatabaseContext
@@ -99,7 +100,7 @@ TABLES = [
     'musicbrainz.tracklist',
 ]
 
-BASE_SQL = '''
+BASE_APP_SQL = '''
 INSERT INTO account (name, apikey, lastlogin) VALUES ('User 1', 'user1key', now() - INTERVAL '2 day');
 INSERT INTO account (name, apikey, lastlogin) VALUES ('User 2', 'user2key', now() - INTERVAL '5 day');
 INSERT INTO application (name, apikey, version, account_id) VALUES ('App 1', 'app1key', '0.1', 1);
@@ -107,6 +108,9 @@ INSERT INTO application (name, apikey, version, account_id) VALUES ('App 2', 'ap
 INSERT INTO format (name) VALUES ('FLAC');
 INSERT INTO source (account_id, application_id) VALUES (1, 1);
 INSERT INTO source (account_id, application_id) VALUES (2, 2);
+'''
+
+BASE_FINGERPRINT_SQL = '''
 INSERT INTO track (id, gid) VALUES
     (1, 'eb31d1c3-950e-468b-9e36-e46fa75b1291'),
     (2, '92732e4b-97c6-4250-b237-1636384d466f'),
@@ -123,7 +127,9 @@ INSERT INTO track_meta (track_id, meta_id, submission_count) VALUES (1, 2, 10);
 def with_database(func):
     def wrapper(*args, **kwargs):
         with script.context() as ctx:
-            reset_sequences(ctx.db)
+            prepare_databases(ctx.db)
+            ctx.db.session.commit()
+        with script.context() as ctx:
             try:
                 func(ctx.db.get_app_db(), *args, **kwargs)
             finally:
@@ -132,10 +138,23 @@ def with_database(func):
     return wrapper
 
 
+def with_script(func):
+    def wrapper(*args, **kwargs):
+        with script.context() as ctx:
+            prepare_databases(ctx.db)
+            ctx.db.session.commit()
+        with script.context() as ctx:
+            func(script, *args, **kwargs)
+    wrapper = make_decorator(func)(wrapper)
+    return wrapper
+
+
 def with_script_context(func):
     def wrapper(*args, **kwargs):
         with script.context() as ctx:
-            reset_sequences(ctx.db)
+            prepare_databases(ctx.db)
+            ctx.db.session.commit()
+        with script.context() as ctx:
             try:
                 func(ctx, *args, **kwargs)
             finally:
@@ -147,13 +166,14 @@ def with_script_context(func):
 def reset_sequences(db):
     # type: (DatabaseContext) -> None
     for table_name, column in SEQUENCES:
+        query = """
+            SELECT setval('%(table)s_%(column)s_seq',
+                coalesce((SELECT max(%(column)s) FROM %(table)s), 0) + 1, false)
+        """ % {'table': table_name, 'column': column}
         table = metadata.tables[table_name]  # type: Table
         assert table.info is not None
         conn = db.connection(table.info['bind_key'])
-        conn.execute("""
-            SELECT setval('%(table)s_%(column)s_seq',
-                coalesce((SELECT max(%(column)s) FROM %(table)s), 0) + 1, false)
-        """ % {'table': table, 'column': column})
+        conn.execute(query)
 
 
 def create_tables(db):
@@ -171,9 +191,26 @@ def truncate_tables(db):
 
 def prepare_databases(db):
     # type: (DatabaseContext) -> None
-    create_tables(db)
     truncate_tables(db)
     reset_sequences(db)
+    load_app_db(db, BASE_APP_SQL)
+    load_fingerprint_db(db, BASE_FINGERPRINT_SQL)
+    reset_sequences(db)
+
+
+def load_app_db(db, sql, params=None):
+    # type: (DatabaseContext, str, Any) -> None
+    db.get_app_db().execute(sql, params)
+
+
+def load_fingerprint_db(db, sql, params=None):
+    # type: (DatabaseContext, str, Any) -> None
+    db.get_fingerprint_db().execute(sql, params)
+
+
+def load_ingest_db(db, sql, params=None):
+    # type: (DatabaseContext, str, Any) -> None
+    db.get_ingest_db().execute(sql, params)
 
 
 def prepare_database(conn, sql, params=None):
@@ -187,12 +224,14 @@ def setup():
     script = Script(config_path, tests=True)
     if not os.environ.get('SKIP_DB_SETUP'):
         with script.context() as ctx:
+            create_tables(ctx.db)
             prepare_databases(ctx.db)
-            ctx.db.get_app_db().execute(BASE_SQL)  # FIXME
             ctx.db.session.commit()
 
 
 def teardown():
+    # type: () -> None
+    assert script is not None
     script.index.dispose()
 
 

@@ -3,17 +3,17 @@
 
 import logging
 import uuid
-from typing import Optional, Union, Dict, List
+from typing import Optional, Union, Dict, List, Iterable, Tuple, Any, Set
 from sqlalchemy import Table, Column
 from sqlalchemy import sql
 from acoustid import tables as schema, const
 from acoustid.db import FingerprintDB, IngestDB
-from acoustid.data.fingerprint import FingerprintSearcher
 
 logger = logging.getLogger(__name__)
 
 
 def resolve_track_gid(conn, gid):
+    # type: (FingerprintDB, str) -> Optional[int]
     query = sql.select([schema.track.c.id, schema.track.c.new_id],
         schema.track.c.gid == gid)
     row = conn.execute(query).first()
@@ -28,6 +28,7 @@ def resolve_track_gid(conn, gid):
 
 
 def lookup_mbids(conn, track_ids):
+    # type: (FingerprintDB, Iterable[int]) -> Dict[int, List[Tuple[str, int]]]
     """
     Lookup MBIDs for the specified AcoustID track IDs.
     """
@@ -40,25 +41,27 @@ def lookup_mbids(conn, track_ids):
     ])
     query = query.where(sql.and_(schema.track_mbid.c.track_id.in_(track_ids), schema.track_mbid.c.disabled == False))  # noqa: F712
     query = query.order_by(schema.track_mbid.c.mbid)
-    results = {}
+    results = {}  # type: Dict[int, List[Tuple[str, int]]]
     for track_id, mbid, sources in conn.execute(query):
         results.setdefault(track_id, []).append((mbid, sources))
     return results
 
 
 def lookup_meta_ids(conn, track_ids):
+    # type: (FingerprintDB, Iterable[int]) -> Dict[int, List[int]]
     if not track_ids:
         return {}
     query = sql.select(
         [schema.track_meta.c.track_id, schema.track_meta.c.meta_id],
         sql.and_(schema.track_meta.c.track_id.in_(track_ids))).order_by(schema.track_meta.c.meta_id)
-    results = {}
+    results = {}  # type: Dict[int, List[int]]
     for track_id, meta_id in conn.execute(query):
         results.setdefault(track_id, []).append(meta_id)
     return results
 
 
 def lookup_tracks(conn, mbids):
+    # type: (FingerprintDB, Iterable[int]) -> Dict[str, List[Dict[str, Any]]]
     if not mbids:
         return {}
     query = sql.select(
@@ -66,7 +69,7 @@ def lookup_tracks(conn, mbids):
         sql.and_(schema.track_mbid.c.mbid.in_(mbids), schema.track_mbid.c.disabled == False),  # noqa: F712
         from_obj=schema.track_mbid.join(schema.track, schema.track_mbid.c.track_id == schema.track.c.id)). \
         order_by(schema.track_mbid.c.track_id)
-    results = {}
+    results = {}  # type: Dict[str, List[Dict[str, Any]]]
     for track_id, track_gid, mbid in conn.execute(query):
         results.setdefault(mbid, []).append({'id': track_id, 'gid': track_gid})
     return results
@@ -77,38 +80,37 @@ def merge_mbids(conn, target_mbid, source_mbids):
     Merge the specified MBIDs.
     """
     logger.warning("Merging MBIDs %r into %r", source_mbids, target_mbid)
-    with conn.begin():
-        query = sql.select(
-            [
-                sql.func.min(schema.track_mbid.c.id).label('id'),
-                sql.func.array_agg(schema.track_mbid.c.id).label('all_ids'),
-                schema.track_mbid.c.track_id,
-                sql.func.every(schema.track_mbid.c.disabled).label('all_disabled'),
-                sql.func.sum(schema.track_mbid.c.submission_count).label('count'),
-            ],
-            schema.track_mbid.c.mbid.in_(source_mbids + [target_mbid]),
-            group_by=schema.track_mbid.c.track_id)
-        rows = conn.execute(query).fetchall()
-        to_delete = set()
-        to_update = []
-        for row in rows:
-            old_ids = set(row['all_ids'])
-            old_ids.remove(row['id'])
-            to_delete.update(old_ids)
-            to_update.append((old_ids, row))
-            if old_ids:
-                update_stmt = schema.track_mbid_source.update().where(schema.track_mbid_source.c.track_mbid_id.in_(old_ids))
-                conn.execute(update_stmt.values(track_mbid_id=row['id']))
-                update_stmt = schema.track_mbid_change.update().where(schema.track_mbid_change.c.track_mbid_id.in_(old_ids))
-                conn.execute(update_stmt.values(track_mbid_id=row['id']))
-        if to_delete:
-            delete_stmt = schema.track_mbid.delete().where(
-                schema.track_mbid.c.id.in_(to_delete))
-            conn.execute(delete_stmt)
-        for old_ids, row in to_update:
-            update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == row['id'])
-            conn.execute(update_stmt.values(submission_count=row['count'],
-                mbid=target_mbid, disabled=row['all_disabled']))
+    query = sql.select(
+        [
+            sql.func.min(schema.track_mbid.c.id).label('id'),
+            sql.func.array_agg(schema.track_mbid.c.id).label('all_ids'),
+            schema.track_mbid.c.track_id,
+            sql.func.every(schema.track_mbid.c.disabled).label('all_disabled'),
+            sql.func.sum(schema.track_mbid.c.submission_count).label('count'),
+        ],
+        schema.track_mbid.c.mbid.in_(source_mbids + [target_mbid]),
+        group_by=schema.track_mbid.c.track_id)
+    rows = conn.execute(query).fetchall()
+    to_delete = set()
+    to_update = []
+    for row in rows:
+        old_ids = set(row['all_ids'])
+        old_ids.remove(row['id'])
+        to_delete.update(old_ids)
+        to_update.append((old_ids, row))
+        if old_ids:
+            update_stmt = schema.track_mbid_source.update().where(schema.track_mbid_source.c.track_mbid_id.in_(old_ids))
+            conn.execute(update_stmt.values(track_mbid_id=row['id']))
+            update_stmt = schema.track_mbid_change.update().where(schema.track_mbid_change.c.track_mbid_id.in_(old_ids))
+            conn.execute(update_stmt.values(track_mbid_id=row['id']))
+    if to_delete:
+        delete_stmt = schema.track_mbid.delete().where(
+            schema.track_mbid.c.id.in_(to_delete))
+        conn.execute(delete_stmt)
+    for old_ids, row in to_update:
+        update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == row['id'])
+        conn.execute(update_stmt.values(submission_count=row['count'],
+            mbid=target_mbid, disabled=row['all_disabled']))
 
 
 def merge_missing_mbids(conn):
@@ -177,19 +179,18 @@ def merge_tracks(conn, target_id, source_ids):
     Merge the specified tracks.
     """
     logger.info("Merging tracks %s into %s", ', '.join(map(str, source_ids)), target_id)
-    with conn.begin():
-        _merge_tracks_gids(conn, 'mbid', target_id, source_ids)
-        _merge_tracks_gids(conn, 'puid', target_id, source_ids)
-        _merge_tracks_gids(conn, 'meta_id', target_id, source_ids)
-        _merge_tracks_gids(conn, 'foreignid_id', target_id, source_ids)
-        # XXX don't move duplicate fingerprints
-        update_stmt = schema.fingerprint.update().where(
-            schema.fingerprint.c.track_id.in_(source_ids))
-        conn.execute(update_stmt.values(track_id=target_id))
-        update_stmt = schema.track.update().where(
-            sql.or_(schema.track.c.id.in_(source_ids),
-                    schema.track.c.new_id.in_(source_ids)))
-        conn.execute(update_stmt.values(new_id=target_id))
+    _merge_tracks_gids(conn, 'mbid', target_id, source_ids)
+    _merge_tracks_gids(conn, 'puid', target_id, source_ids)
+    _merge_tracks_gids(conn, 'meta_id', target_id, source_ids)
+    _merge_tracks_gids(conn, 'foreignid_id', target_id, source_ids)
+    # XXX don't move duplicate fingerprints
+    update_stmt = schema.fingerprint.update().where(
+        schema.fingerprint.c.track_id.in_(source_ids))
+    conn.execute(update_stmt.values(track_id=target_id))
+    update_stmt = schema.track.update().where(
+        sql.or_(schema.track.c.id.in_(source_ids),
+                schema.track.c.new_id.in_(source_ids)))
+    conn.execute(update_stmt.values(new_id=target_id))
 
 
 def insert_track(conn):
@@ -270,6 +271,7 @@ def calculate_fingerprint_similarity_matrix(conn, track_ids):
 
 
 def can_merge_tracks(conn, track_ids):
+    # type: (FingerprintDB, Iterable[int]) -> List[Set[int]]
     fp1 = schema.fingerprint.alias('fp1')
     fp2 = schema.fingerprint.alias('fp2')
     join_cond = sql.and_(fp1.c.id < fp2.c.id, fp1.c.track_id < fp2.c.track_id)
@@ -281,7 +283,7 @@ def can_merge_tracks(conn, track_ids):
         sql.func.min(sql.func.acoustid_compare2(fp1.c.fingerprint, fp2.c.fingerprint, const.TRACK_MAX_OFFSET)),
     ], cond, from_obj=src).group_by(fp1.c.track_id, fp2.c.track_id).order_by(fp1.c.track_id, fp2.c.track_id)
     rows = conn.execute(query)
-    merges = {}
+    merges = {}  # type: Dict[int, int]
     for fp1_id, fp2_id, length_diff, score in rows:
         if score < const.TRACK_GROUP_MERGE_THRESHOLD:
             continue
@@ -291,13 +293,14 @@ def can_merge_tracks(conn, track_ids):
         if group in merges:
             group = merges[group]
         merges[fp2_id] = group
-    result = []
+    result = []  # type: List[Set[int]]
     for group in set(merges.values()):
         result.append(set([group] + [i for i in merges if merges[i] == group]))
     return result
 
 
 def can_add_fp_to_track(conn, track_id, fingerprint, length):
+    # type: (FingerprintDB, int, List[int], int) -> bool
     cond = schema.fingerprint.c.track_id == track_id
     query = sql.select([
         sql.func.acoustid_compare2(schema.fingerprint.c.fingerprint, fingerprint, const.TRACK_MAX_OFFSET),
@@ -309,41 +312,3 @@ def can_add_fp_to_track(conn, track_id, fingerprint, length):
         if abs(fp_length - length) > const.FINGERPRINT_MAX_LENGTH_DIFF:
             return False
     return True
-
-
-def find_track_duplicates(conn, fingerprint, index=None):
-    with conn.begin():
-        searcher = FingerprintSearcher(conn, index)
-        searcher.min_score = const.TRACK_MERGE_THRESHOLD
-        matches = searcher.search(fingerprint['fingerprint'], fingerprint['length'])
-        if not matches:
-            logger.debug("Not matched itself!")
-            return
-        logged = False
-        all_track_ids = set()
-        possible_track_ids = set()
-        for m in matches:
-            if m['track_id'] in all_track_ids:
-                continue
-            all_track_ids.add(m['track_id'])
-            if can_add_fp_to_track(conn, m['track_id'], fingerprint['fingerprint'], fingerprint['length']):
-                if m['id'] != fingerprint['id']:
-                    if not logged:
-                        logger.debug("Deduplicating fingerprint %d", fingerprint['id'])
-                        logged = True
-                    logger.debug("Fingerprint %d with track %d is %d%% similar", m['id'], m['track_id'], m['score'] * 100)
-                possible_track_ids.add(m['track_id'])
-        if len(possible_track_ids) > 1:
-            for group in can_merge_tracks(conn, possible_track_ids):
-                if len(group) > 1:
-                    target_track_id = min(group)
-                    group.remove(target_track_id)
-                    merge_tracks(conn, target_track_id, list(group))
-                    break
-        conn.execute("INSERT INTO fingerprint_deduplicate (id) VALUES (%s)", fingerprint['id'])
-
-
-def find_duplicates(conn, limit=50, index=None):
-    query = "SELECT f.id, fingerprint, length FROM fingerprint f LEFT JOIN fingerprint_deduplicate d ON f.id=d.id WHERE d.id IS NULL ORDER BY f.id LIMIT 1000"
-    for fingerprint in conn.execute(query):
-        find_track_duplicates(conn, fingerprint, index=index)

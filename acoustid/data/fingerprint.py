@@ -2,8 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from typing import Dict, Any, Optional
-from contextlib import closing
+from typing import Dict, Any, Optional, List
 from sqlalchemy import sql
 from acoustid import tables as schema, const, chromaprint
 from acoustid.indexclient import Index, IndexClientPool, IndexClientError
@@ -26,28 +25,12 @@ SELECT f.id, f.track_id, t.gid AS track_gid, score FROM (
 
 
 def decode_fingerprint(fingerprint_string):
+    # type: (str) -> Optional[List[int]]
     """Decode a compressed and base64-encoded fingerprint"""
     fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
-    if version == FINGERPRINT_VERSION:
-        return fingerprint
-
-
-def lookup_fingerprint(conn, fp, length, good_enough_score, min_score, fast=False, max_offset=0):
-    """Search for a fingerprint in the database"""
-    matched = []
-    best_score = 0.0
-    for part_start, part_length in PARTS:
-        params = dict(fp=fp, length=length, part_start=part_start,
-            part_length=part_length, max_length_diff=const.FINGERPRINT_MAX_LENGTH_DIFF,
-            min_score=min_score, max_offset=max_offset)
-        with closing(conn.execute(PART_SEARCH_SQL, params)) as result:
-            for row in result:
-                matched.append(row)
-                if row['score'] >= best_score:
-                    best_score = row['score']
-        if best_score > good_enough_score:
-            break
-    return matched
+    if version != FINGERPRINT_VERSION:
+        return None
+    return fingerprint
 
 
 class FingerprintSearcher(object):
@@ -62,6 +45,7 @@ class FingerprintSearcher(object):
         self.fast = fast
 
     def _create_search_query(self, fp, length, condition):
+        # type: (List[int], int, Any) -> Any
         # construct the subquery
         f_columns = [
             schema.fingerprint.c.id,
@@ -81,6 +65,7 @@ class FingerprintSearcher(object):
                           order_by=[f.c.score.desc(), f.c.id])
 
     def _search_index(self, fp, length):
+        # type: (List[int], int) -> List[Dict[Any, Any]]
         # index search
         fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
         if not fp_query:
@@ -101,6 +86,7 @@ class FingerprintSearcher(object):
         return matches
 
     def _search_database(self, fp, length, min_fp_id):
+        # type: (List[int], int, int) -> List[Dict[Any, Any]]
         # construct the query
         condition = sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint).op('&&')(sql.func.acoustid_extract_query(fp))
         if min_fp_id:
@@ -111,10 +97,12 @@ class FingerprintSearcher(object):
         return matches
 
     def _get_min_indexed_fp_id(self):
+        # type: () -> int
         with self.index_pool.connect() as index:
             return int(index.get_attribute('max_document_id') or '0')
 
     def search(self, fp, length):
+        # type: (List[int], int) -> List[Dict[Any, Any]]
         min_fp_id = 0 if self.fast else self._get_min_indexed_fp_id()
         matches = None
         try:

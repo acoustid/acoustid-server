@@ -2,13 +2,15 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 from nose.tools import assert_equals
-from tests import with_database
+from tests import with_script_context
+from acoustid.script import ScriptContext
 from acoustid.data.meta import insert_meta
 
 
-@with_database
-def test_insert_meta(conn):
-    id = insert_meta(conn, {
+@with_script_context
+def test_insert_meta(ctx):
+    # type: (ScriptContext) -> None
+    meta_id = insert_meta(ctx.db.get_fingerprint_db(), {
         'track': 'Voodoo People',
         'artist': 'The Prodigy',
         'album': 'Music For The Jitled People',
@@ -17,10 +19,10 @@ def test_insert_meta(conn):
         'disc_no': 3,
         'year': 2030
     })
-    assert_equals(3, id)
-    row = conn.execute("SELECT * FROM meta WHERE id=%s", id).fetchone()
+    assert_equals(3, meta_id)
+    row = ctx.db.get_fingerprint_db().execute("SELECT * FROM meta WHERE id=%s", meta_id).fetchone()
     expected = {
-        'id': id,
+        'id': meta_id,
         'track': 'Voodoo People',
         'artist': 'The Prodigy',
         'album': 'Music For The Jitled People',

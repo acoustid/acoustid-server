@@ -81,6 +81,9 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         return None
 
     source = get_source(app_db, submission['source_id'])
+    if source is None:
+        logger.error("Source not found")
+        return None
 
     submission_result = {
         'submission_id': submission['id'],

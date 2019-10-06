@@ -6,7 +6,7 @@ import logging
 import json
 import time
 import operator
-from typing import Type
+from typing import Type, Dict, Any, Optional, TYPE_CHECKING
 from acoustid import const
 from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.handler import Handler
@@ -22,9 +22,12 @@ from acoustid.data.meta import insert_meta, lookup_meta
 from acoustid.data.foreignid import find_or_insert_foreignid
 from acoustid.data.stats import update_lookup_counter, update_user_agent_counter, update_lookup_avg_time
 from acoustid.ratelimiter import RateLimiter
-from werkzeug.utils import cached_property
-from acoustid.utils import is_uuid, is_foreignid, check_demo_client_api_key, provider
+from werkzeug.wrappers import Request, Response
+from acoustid.utils import is_uuid, is_foreignid, check_demo_client_api_key
 from acoustid.api import serialize_response, errors
+
+if TYPE_CHECKING:
+    from acoustid.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +54,15 @@ def iter_args_suffixes(args, *prefixes):
 class APIHandlerParams(object):
 
     def __init__(self, config):
+        # type: (Config) -> None
         self.config = config
 
-    def _parse_client(self, values, conn):
+    def _parse_client(self, values, db):
+        app_db = db.get_app_db()
         application_apikey = values.get('client')
         if not application_apikey:
             raise errors.MissingParameterError('client')
-        self.application_id = lookup_application_id_by_apikey(conn, application_apikey, only_active=True)
+        self.application_id = lookup_application_id_by_apikey(app_db, application_apikey, only_active=True)
         if not self.application_id:
             if check_demo_client_api_key(self.config.website.secret, application_apikey):
                 self.application_id = DEMO_APPLICATION_ID
@@ -77,7 +82,7 @@ class APIHandlerParams(object):
                 callback = 'jsonAcoustidApi'
             self.format = '%s:%s' % (self.format, callback)
 
-    def parse(self, values, conn):
+    def parse(self, values, db):
         self._parse_format(values)
 
 
@@ -85,31 +90,8 @@ class APIHandler(Handler):
 
     params_class = None  # type: Type[APIHandlerParams]
 
-    def __init__(self, connect=None):
-        self._connect = connect
-        self.index = None
-        self.redis = None
-        self.config = None
-        self.cluster = None
-
-    @cached_property
-    def conn(self):
-        return self._connect()
-
-    @classmethod
-    def create_from_server(cls, server, conn=None):
-        if conn is not None:
-            connect = provider(conn)
-        else:
-            connect = server.engines['app'].connect
-        handler = cls(connect=connect)
-        handler.index = server.index
-        handler.redis = server.redis
-        handler.config = server.config
-        handler.cluster = server.config.cluster
-        return handler
-
     def _error(self, code, message, format=DEFAULT_FORMAT, status=400):
+        # type: (int, str, str, int) -> Response
         response_data = {
             'status': 'error',
             'error': {
@@ -120,54 +102,58 @@ class APIHandler(Handler):
         return serialize_response(response_data, format, status=status)
 
     def _ok(self, data, format=DEFAULT_FORMAT):
+        # type: (Dict[str, Any], str) -> Response
         response_data = {'status': 'ok'}
         response_data.update(data)
         return serialize_response(response_data, format)
 
     def _rate_limit(self, user_ip, application_id):
-        if self.config is None:
-            return
-
-        global_rate_limit = self.config.rate_limiter.global_rate_limit
+        # type: (str, Optional[int]) -> None
+        global_rate_limit = self.ctx.config.rate_limiter.global_rate_limit
         if global_rate_limit is not None:
             if self.rate_limiter.limit('global', '', global_rate_limit):
                 raise errors.TooManyRequests(global_rate_limit)
 
         if application_id is not None:
-            application_rate_limit = self.config.rate_limiter.applications.get(application_id)
+            application_rate_limit = self.ctx.config.rate_limiter.applications.get(application_id)
             if application_rate_limit is not None:
                 if self.rate_limiter.limit('app', application_id, application_rate_limit):
                     raise errors.TooManyRequests(application_rate_limit)
                 else:
                     return
 
-        ip_rate_limit = self.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
+        ip_rate_limit = self.ctx.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
         if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
             raise errors.TooManyRequests(ip_rate_limit)
 
     def handle(self, req):
-        params = self.params_class(self.config)
+        # type: (Request) -> Response
+        params = self.params_class(self.ctx.config)
         if req.access_route:
             self.user_ip = req.access_route[0]
         else:
             self.user_ip = req.remote_addr
         self.is_secure = req.is_secure
         self.user_agent = req.user_agent
-        self.rate_limiter = RateLimiter(self.redis, 'rl')
+        self.rate_limiter = RateLimiter(self.ctx.redis, 'rl')
         try:
             try:
-                params.parse(req.values, self.conn)
+                params.parse(req.values, self.ctx.db)
                 self._rate_limit(self.user_ip, getattr(params, 'application_id', None))
                 return self._ok(self._handle_internal(params), params.format)
             except errors.WebServiceError:
                 raise
-            except StandardError:
+            except Exception:
                 logger.exception('Error while handling API request')
                 raise errors.InternalError()
         except errors.WebServiceError as e:
             if not isinstance(e, errors.TooManyRequests):
                 logger.warning("WS error: %s", e.message)
             return self._error(e.code, e.message, params.format, status=e.status)
+
+    def _handle_internal(self, params):
+        # type: (APIHandlerParams) -> Dict[str, Any]
+        raise NotImplementedError(self._handle_internal)
 
 
 class LookupHandlerParams(APIHandlerParams):
@@ -192,9 +178,9 @@ class LookupHandlerParams(APIHandlerParams):
                 raise errors.InvalidFingerprintError()
         self.fingerprints.append(p)
 
-    def parse(self, values, conn):
-        super(LookupHandlerParams, self).parse(values, conn)
-        self._parse_client(values, conn)
+    def parse(self, values, db):
+        super(LookupHandlerParams, self).parse(values, db)
+        self._parse_client(values, db)
         self.meta = values.get('meta')
         if self.meta == '0' or not self.meta:
             self.meta = []
@@ -623,11 +609,11 @@ class SubmissionStatusHandler(APIHandler):
 
 class SubmitHandlerParams(APIHandlerParams):
 
-    def _parse_user(self, values, conn):
+    def _parse_user(self, values, db):
         account_apikey = values.get('user')
         if not account_apikey:
             raise errors.MissingParameterError('user')
-        self.account_id = lookup_account_id_by_apikey(conn, account_apikey)
+        self.account_id = lookup_account_id_by_apikey(db.get_app_db(), account_apikey)
         if not self.account_id:
             raise errors.InvalidUserAPIKeyError()
 
@@ -696,46 +682,53 @@ class SubmitHandler(APIHandler):
     def _handle_internal(self, params):
         response = {'submissions': []}
         ids = set()
-        with self.conn.begin():
-            source_id = find_or_insert_source(self.conn, params.application_id, params.account_id, params.application_version)
-            format_ids = {}
-            for p in params.submissions:
-                if p['format']:
-                    if p['format'] not in format_ids:
-                        format_ids[p['format']] = find_or_insert_format(self.conn, p['format'])
-                    p['format_id'] = format_ids[p['format']]
-            for p in params.submissions:
-                mbids = p['mbids'] or [None]
-                for mbid in mbids:
-                    values = {
-                        'mbid': mbid or None,
-                        'puid': p['puid'] or None,
-                        'bitrate': p['bitrate'] or None,
-                        'fingerprint': p['fingerprint'],
-                        'length': p['duration'],
-                        'format_id': p.get('format_id'),
-                        'source_id': source_id
-                    }
-                    meta_values = dict((n, p[n] or None) for n in self.meta_fields)
-                    if any(meta_values.itervalues()):
-                        values['meta_id'] = insert_meta(self.conn, meta_values)
-                    if p['foreignid']:
-                        values['foreignid_id'] = find_or_insert_foreignid(self.conn, p['foreignid'])
-                    id = insert_submission(self.conn, values)
-                    ids.add(id)
-                    submission = {'id': id, 'status': 'pending'}
-                    if p['index']:
-                        submission['index'] = p['index']
-                    response['submissions'].append(submission)
 
-        if self.redis is not None:
-            self.redis.publish('channel.submissions', json.dumps(list(ids)))
+        app_db = self.ctx.db.get_app_db()
+        fingerprint_db = self.ctx.db.get_fingerprint_db()
+        ingest_db = self.ctx.db.get_ingest_db()
+
+        source_id = find_or_insert_source(app_db, params.application_id, params.account_id, params.application_version)
+        format_ids = {}
+        for p in params.submissions:
+            if p['format']:
+                if p['format'] not in format_ids:
+                    format_ids[p['format']] = find_or_insert_format(app_db, p['format'])
+                p['format_id'] = format_ids[p['format']]
+        for p in params.submissions:
+            mbids = p['mbids'] or [None]
+            for mbid in mbids:
+                values = {
+                    'mbid': mbid or None,
+                    'puid': p['puid'] or None,
+                    'bitrate': p['bitrate'] or None,
+                    'fingerprint': p['fingerprint'],
+                    'length': p['duration'],
+                    'format_id': p.get('format_id'),
+                    'source_id': source_id
+                }
+                meta_values = dict((n, p[n] or None) for n in self.meta_fields)
+                if any(meta_values.itervalues()):
+                    values['meta_id'] = insert_meta(fingerprint_db, meta_values)
+                if p['foreignid']:
+                    values['foreignid_id'] = find_or_insert_foreignid(fingerprint_db, p['foreignid'])
+                id = insert_submission(ingest_db, values)
+                ids.add(id)
+                submission = {'id': id, 'status': 'pending'}
+                if p['index']:
+                    submission['index'] = p['index']
+                response['submissions'].append(submission)
+
+        self.ctx.db.session.commit()
+
+        self.ctx.redis.publish('channel.submissions', json.dumps(list(ids)))
+
+        ingest_db = self.ctx.db.get_ingest_db()
 
         clients_waiting_key = 'submission.waiting'
-        clients_waiting = self.redis.incr(clients_waiting_key) - 1
+        clients_waiting = self.ctx.redis.incr(clients_waiting_key) - 1
         try:
             max_wait = 10
-            self.redis.expire(clients_waiting_key, max_wait)
+            self.ctx.redis.expire(clients_waiting_key, max_wait)
             tracks = {}
             remaining = min(max(0, max_wait - 2 ** clients_waiting), params.wait)
             logger.debug('starting to wait at %f %d', remaining, clients_waiting)
@@ -743,7 +736,7 @@ class SubmitHandler(APIHandler):
                 logger.debug('waiting %f seconds', remaining)
                 time.sleep(0.5)  # XXX replace with LISTEN/NOTIFY
                 remaining -= 0.5
-                tracks = lookup_submission_status(self.conn, ids)
+                tracks = lookup_submission_status(ingest_db, ids)
                 if not tracks:
                     continue
                 for submission in response['submissions']:
@@ -754,6 +747,6 @@ class SubmitHandler(APIHandler):
                         submission['result'] = {'id': track_gid}
                         ids.remove(id)
         finally:
-            self.redis.decr(clients_waiting_key)
+            self.ctx.redis.decr(clients_waiting_key)
 
         return response

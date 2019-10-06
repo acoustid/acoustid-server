@@ -1,16 +1,19 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-import urllib
 import logging
 import datetime
+from six.moves import urllib
+from typing import Dict, Iterable, List, Any, Tuple, Optional
 from sqlalchemy import sql
 from acoustid import tables as schema
+from acoustid.db import AppDB
 
 logger = logging.getLogger(__name__)
 
 
 def find_current_stats(conn):
+    # type: (AppDB) -> Dict[str, int]
     query = schema.stats.select(schema.stats.c.date == sql.select([sql.func.max(schema.stats.c.date)]))
     stats = {}
     for row in conn.execute(query):
@@ -19,6 +22,7 @@ def find_current_stats(conn):
 
 
 def find_daily_stats(conn, names):
+    # type: (AppDB, Iterable[str]) -> List[Dict[str, Any]]
     query = """
         SELECT
             date, name,
@@ -27,7 +31,7 @@ def find_daily_stats(conn, names):
         WHERE date > now() - INTERVAL '31 day' AND name IN (""" + ",".join(["%s" for i in names]) + """)
         ORDER BY date, name
     """
-    stats = []
+    stats = []  # type: List[Dict[str, Any]]
     for date, name, value in conn.execute(query, tuple(names)).fetchall():
         if not stats or stats[-1]['date'] != date:
             stats.append({'date': date})
@@ -36,6 +40,7 @@ def find_daily_stats(conn, names):
 
 
 def find_lookup_stats(conn):
+    # type: (AppDB) -> List[Dict[str, Any]]
     query = """
         SELECT
             date,
@@ -54,6 +59,7 @@ def find_lookup_stats(conn):
 
 
 def pack_lookup_stats_key(application_id, type):
+    # type: (int, str) -> str
     parts = [
         datetime.datetime.now().strftime('%Y-%m-%d:%H'),
         str(application_id),
@@ -63,6 +69,7 @@ def pack_lookup_stats_key(application_id, type):
 
 
 def unpack_lookup_stats_key(key):
+    # type: (str) -> Tuple[str, str, str, str]
     parts = key.split(':')
     if len(parts) >= 4:
         date, hour, application_id, type = parts[:4]
@@ -82,24 +89,27 @@ def update_lookup_counter(redis, application_id, hit):
 
 
 def pack_user_agent_stats_key(application_id, user_agent, ip):
+    # type: (int, str, str) -> str
     parts = [
         datetime.datetime.now().strftime('%Y-%m-%d'),
         str(application_id),
-        urllib.quote(str(user_agent)),
-        urllib.quote(str(ip)),
+        urllib.parse.quote(str(user_agent)),
+        urllib.parse.quote(str(ip)),
     ]
     return ':'.join(parts)
 
 
 def unpack_user_agent_stats_key(key):
+    # type: (str) -> Tuple[str, str, str, str]
     parts = key.split(':')
     if len(parts) >= 4:
         date, application_id, user_agent, ip = parts[:5]
-        return date, application_id, urllib.unquote(user_agent), urllib.unquote(ip)
+        return date, application_id, urllib.parse.unquote(user_agent), urllib.parse.unquote(ip)
     raise ValueError('invalid lookup user agent stats key')
 
 
 def update_user_agent_counter(redis, application_id, user_agent, ip):
+    # type: (Any, int, str, str) -> None
     if redis is None:
         return
     key = pack_user_agent_stats_key(application_id, user_agent, ip)
@@ -110,6 +120,7 @@ def update_user_agent_counter(redis, application_id, user_agent, ip):
 
 
 def update_lookup_avg_time(redis, seconds):
+    # type: (Any, float) -> None
     if redis is None:
         return
     key = datetime.datetime.now().strftime('%Y-%m-%d:%H:%M')
@@ -123,58 +134,59 @@ def update_lookup_avg_time(redis, seconds):
 
 
 def update_lookup_stats(db, application_id, date, hour, type, count):
+    # type: (AppDB, int, str, str, str, int) -> None
     if type == 'hit':
         column = schema.stats_lookups.c.count_hits
     else:
         column = schema.stats_lookups.c.count_nohits
-    with db.begin():
-        db.execute("LOCK TABLE stats_lookups IN EXCLUSIVE MODE")
-        query = sql.select([schema.stats_lookups.c.id]).\
-            where(schema.stats_lookups.c.application_id == application_id).\
-            where(schema.stats_lookups.c.date == date).\
-            where(schema.stats_lookups.c.hour == hour)
-        stats_id = db.execute(query).scalar()
-        if stats_id:
-            stmt = schema.stats_lookups.update().\
-                where(schema.stats_lookups.c.id == stats_id).\
-                values({column: column + count})
-        else:
-            stmt = schema.stats_lookups.insert().\
-                values({
-                    schema.stats_lookups.c.application_id: application_id,
-                    schema.stats_lookups.c.date: date,
-                    schema.stats_lookups.c.hour: hour,
-                    column: count,
-                })
-        db.execute(stmt)
+    db.execute("LOCK TABLE stats_lookups IN EXCLUSIVE MODE")
+    query = sql.select([schema.stats_lookups.c.id]).\
+        where(schema.stats_lookups.c.application_id == application_id).\
+        where(schema.stats_lookups.c.date == date).\
+        where(schema.stats_lookups.c.hour == hour)
+    stats_id = db.execute(query).scalar()
+    if stats_id:
+        stmt = schema.stats_lookups.update().\
+            where(schema.stats_lookups.c.id == stats_id).\
+            values({column: column + count})  # type: Any
+    else:
+        stmt = schema.stats_lookups.insert().\
+            values({
+                schema.stats_lookups.c.application_id: application_id,
+                schema.stats_lookups.c.date: date,
+                schema.stats_lookups.c.hour: hour,
+                column: count,
+            })
+    db.execute(stmt)
 
 
 def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
-    with db.begin():
-        db.execute("LOCK TABLE stats_user_agents IN EXCLUSIVE MODE")
-        query = sql.select([schema.stats_user_agents.c.id]).\
-            where(schema.stats_user_agents.c.application_id == application_id).\
-            where(schema.stats_user_agents.c.date == date).\
-            where(schema.stats_user_agents.c.user_agent == user_agent).\
-            where(schema.stats_user_agents.c.ip == ip)
-        stats_id = db.execute(query).scalar()
-        if stats_id:
-            stmt = schema.stats_user_agents.update().\
-                where(schema.stats_user_agents.c.id == stats_id).\
-                values({schema.stats_user_agents.c.count: schema.stats_user_agents.c.count + count})
-        else:
-            stmt = schema.stats_user_agents.insert().\
-                values({
-                    schema.stats_user_agents.c.application_id: application_id,
-                    schema.stats_user_agents.c.date: date,
-                    schema.stats_user_agents.c.user_agent: user_agent,
-                    schema.stats_user_agents.c.ip: ip,
-                    schema.stats_user_agents.c.count: count,
-                })
-        db.execute(stmt)
+    # type: (AppDB, int, str, str, str, int) -> None
+    db.execute("LOCK TABLE stats_user_agents IN EXCLUSIVE MODE")
+    query = sql.select([schema.stats_user_agents.c.id]).\
+        where(schema.stats_user_agents.c.application_id == application_id).\
+        where(schema.stats_user_agents.c.date == date).\
+        where(schema.stats_user_agents.c.user_agent == user_agent).\
+        where(schema.stats_user_agents.c.ip == ip)
+    stats_id = db.execute(query).scalar()
+    if stats_id:
+        stmt = schema.stats_user_agents.update().\
+            where(schema.stats_user_agents.c.id == stats_id).\
+            values({schema.stats_user_agents.c.count: schema.stats_user_agents.c.count + count})  # type: Any
+    else:
+        stmt = schema.stats_user_agents.insert().\
+            values({
+                schema.stats_user_agents.c.application_id: application_id,
+                schema.stats_user_agents.c.date: date,
+                schema.stats_user_agents.c.user_agent: user_agent,
+                schema.stats_user_agents.c.ip: ip,
+                schema.stats_user_agents.c.count: count,
+            })
+    db.execute(stmt)
 
 
 def find_application_lookup_stats_multi(conn, application_ids, from_date=None, to_date=None, days=30):
+    # type: (AppDB, Iterable[int], Optional[datetime.date], Optional[datetime.date], int) -> List[Dict[str, Any]]
     query = sql.select([
         schema.stats_lookups.c.date,
         sql.func.sum(schema.stats_lookups.c.count_hits).label('count_hits'),
@@ -199,45 +211,5 @@ def find_application_lookup_stats_multi(conn, application_ids, from_date=None, t
 
 
 def find_application_lookup_stats(conn, application_id):
+    # type: (AppDB, int) -> List[Dict[str, Any]]
     return find_application_lookup_stats_multi(conn, (application_id,))
-
-
-def find_top_contributors(conn):
-    src = schema.stats_top_accounts.join(schema.account)
-    query = sql.select([
-        schema.account.c.name,
-        schema.account.c.mbuser,
-        schema.stats_top_accounts.c.count
-    ], from_obj=src)
-    query = query.order_by(schema.stats_top_accounts.c.count.desc(),
-                           schema.account.c.name,
-                           schema.account.c.id)
-    results = []
-    for row in conn.execute(query):
-        results.append({
-            'name': row[schema.account.c.name],
-            'mbuser': row[schema.account.c.mbuser],
-            'count': row[schema.stats_top_accounts.c.count],
-        })
-    return results
-
-
-def find_all_contributors(conn):
-    query = sql.select([
-        schema.account.c.name,
-        schema.account.c.mbuser,
-        schema.account.c.submission_count,
-    ])
-    query = query.where(schema.account.c.submission_count > 0)
-    query = query.where(schema.account.c.anonymous == False)  # noqa: F712
-    query = query.order_by(schema.account.c.submission_count.desc(),
-                           schema.account.c.name,
-                           schema.account.c.id)
-    results = []
-    for row in conn.execute(query):
-        results.append({
-            'name': row[schema.account.c.name],
-            'mbuser': row[schema.account.c.mbuser],
-            'count': row[schema.account.c.submission_count],
-        })
-    return results

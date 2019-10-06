@@ -74,15 +74,6 @@ def singular(plural):
     raise ValueError('unknown plural form %r' % (plural,))
 
 
-def provider(value):
-    """
-    Returns a function that returns the given value.
-    """
-    def func():
-        return value
-    return func
-
-
 class LocalSysLogHandler(Handler):
     """
     Logging handler that logs to the local syslog using the syslog module

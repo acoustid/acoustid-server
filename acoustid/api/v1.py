@@ -43,8 +43,8 @@ class LookupHandlerParams(v2.LookupHandlerParams):
     def _parse_format(self, values):
         self.format = FORMAT
 
-    def parse(self, values, conn):
-        super(LookupHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(LookupHandlerParams, self).parse(values, db)
         if self.meta:
             self.meta = ['recordingids']
         else:

@@ -3,10 +3,10 @@
 
 import json
 import unittest
+from typing import Dict, Any
 from nose.tools import assert_equals, assert_raises, assert_true
-import tests
 from tests import (
-    prepare_database, with_database, assert_json_equals,
+    prepare_database, with_script_context, assert_json_equals,
     TEST_1_LENGTH,
     TEST_1_FP,
     TEST_1_FP_RAW,
@@ -18,6 +18,7 @@ from werkzeug.wrappers import Request
 from werkzeug.test import EnvironBuilder
 from werkzeug.datastructures import MultiDict
 from acoustid import tables
+from acoustid.script import ScriptContext
 from acoustid.api import errors
 from acoustid.api.v2 import (
     LookupHandler,
@@ -31,11 +32,12 @@ from acoustid.api.v2.misc import (
     UserCreateAnonymousHandler,
     UserLookupHandler,
 )
-from acoustid.utils import provider
 
 
-def test_ok():
-    handler = APIHandler()
+@with_script_context
+def test_ok(ctx):
+    # type: (ScriptContext) -> None
+    handler = APIHandler(ctx)
     resp = handler._ok({'tracks': [{'id': 1, 'name': 'Track 1'}]}, 'json')
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {"status": "ok", "tracks": [{"id": 1, "name": "Track 1"}]}
@@ -43,8 +45,10 @@ def test_ok():
     assert_equals('200 OK', resp.status)
 
 
-def test_error():
-    handler = APIHandler()
+@with_script_context
+def test_error(ctx):
+    # type: (ScriptContext) -> None
+    handler = APIHandler(ctx)
     resp = handler._error(123, 'something is wrong', 'json')
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {"status": "error", "error": {"message": "something is wrong", "code": 123}}
@@ -57,52 +61,54 @@ def test_error():
     assert_equals('500 INTERNAL SERVER ERROR', resp.status)
 
 
-@with_database
-def test_api_handler_params_jsonp(conn):
+@with_script_context
+def test_api_handler_params_jsonp(ctx):
+    # type: (ScriptContext) -> None
     values = MultiDict({'client': 'app1key', 'format': 'jsonp'})
-    params = APIHandlerParams(tests.script.config)
-    params.parse(values, conn)
+    params = APIHandlerParams(ctx.config)
+    params.parse(values, ctx)
     assert_equals('jsonp:jsonAcoustidApi', params.format)
     values = MultiDict({'client': 'app1key', 'format': 'jsonp', 'jsoncallback': '$foo'})
-    params = APIHandlerParams(tests.script.config)
-    params.parse(values, conn)
+    params = APIHandlerParams(ctx.config)
+    params.parse(values, ctx)
     assert_equals('jsonp:$foo', params.format)
     values = MultiDict({'client': 'app1key', 'format': 'jsonp', 'jsoncallback': '///'})
-    params = APIHandlerParams(tests.script.config)
-    params.parse(values, conn)
+    params = APIHandlerParams(ctx.config)
+    params.parse(values, ctx)
     assert_equals('jsonp:jsonAcoustidApi', params.format)
 
 
-@with_database
-def test_lookup_handler_params(conn):
+@with_script_context
+def test_lookup_handler_params(ctx):
+    # type: (ScriptContext) -> None
     # invalid format
     values = MultiDict({'format': 'xls'})
-    params = LookupHandlerParams(tests.script.config)
-    assert_raises(errors.UnknownFormatError, params.parse, values, conn)
+    params = LookupHandlerParams(ctx.config)
+    assert_raises(errors.UnknownFormatError, params.parse, values, ctx.db)
     # missing client
     values = MultiDict({'format': 'json'})
-    params = LookupHandlerParams(tests.script.config)
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    params = LookupHandlerParams(ctx.config)
+    assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # invalid client
     values = MultiDict({'format': 'json', 'client': 'N/A'})
-    params = LookupHandlerParams(tests.script.config)
-    assert_raises(errors.InvalidAPIKeyError, params.parse, values, conn)
+    params = LookupHandlerParams(ctx.config)
+    assert_raises(errors.InvalidAPIKeyError, params.parse, values, ctx.db)
     # missing duration
     values = MultiDict({'format': 'json', 'client': 'app1key'})
-    params = LookupHandlerParams(tests.script.config)
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    params = LookupHandlerParams(ctx.config)
+    assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # missing fingerprint
     values = MultiDict({'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH)})
-    params = LookupHandlerParams(tests.script.config)
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    params = LookupHandlerParams(ctx.config)
+    assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # invalid fingerprint
     values = MultiDict({'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': '...'})
-    params = LookupHandlerParams(tests.script.config)
-    assert_raises(errors.InvalidFingerprintError, params.parse, values, conn)
+    params = LookupHandlerParams(ctx.config)
+    assert_raises(errors.InvalidFingerprintError, params.parse, values, ctx.db)
     # all ok
     values = MultiDict({'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP})
-    params = LookupHandlerParams(tests.script.config)
-    params.parse(values, conn)
+    params = LookupHandlerParams(ctx.config)
+    params.parse(values, ctx.db)
     assert_equals('json', params.format)
     assert_equals(1, params.application_id)
     assert_equals(TEST_1_LENGTH, params.fingerprints[0]['duration'])
@@ -125,11 +131,12 @@ class InternalErrorHandler(APIHandler):
         return {'infinity': 43 / 0}
 
 
-@with_database
-def test_apihandler_ws_error(conn):
+@with_script_context
+def test_apihandler_ws_error_400(ctx):
+    # type: (ScriptContext) -> None
     values = {'format': 'json'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = WebServiceErrorHandler(connect=provider(conn))
+    handler = WebServiceErrorHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {
@@ -141,7 +148,14 @@ def test_apihandler_ws_error(conn):
     }
     assert_json_equals(expected, resp.data)
     assert_equals('400 BAD REQUEST', resp.status)
-    handler = InternalErrorHandler(connect=provider(conn))
+
+
+@with_script_context
+def test_apihandler_ws_error_500(ctx):
+    # type: (ScriptContext) -> None
+    values = {'format': 'json'}
+    builder = EnvironBuilder(method='POST', data=values)
+    handler = InternalErrorHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {
@@ -155,28 +169,29 @@ def test_apihandler_ws_error(conn):
     assert_equals('500 INTERNAL SERVER ERROR', resp.status)
 
 
-@with_database
+@with_script_context
 @unittest.skip("disabled")
-def test_lookup_handler(conn):
+def test_lookup_handler(ctx):
+    # type: (ScriptContext) -> None
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = LookupHandler(connect=provider(conn))
+    handler = LookupHandler(ctx)
     # no matches
-    handler = LookupHandler(connect=provider(conn))
+    handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {
         "status": "ok",
         "results": []
-    }
+    }  # type: Dict[str, Any]
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     # one exact match
-    prepare_database(conn, """
+    prepare_database(ctx, """
 INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     VALUES (%s, %s, 1, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
-    handler = LookupHandler(connect=provider(conn))
+    handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {
@@ -191,7 +206,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     # one exact match with MBIDs
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '1'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = LookupHandler(connect=provider(conn))
+    handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {
@@ -205,10 +220,10 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     # one exact match with MBIDs and metadata
-    prepare_database(conn, "INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '373e6728-35e3-4633-aab1-bf7092ec43d8', 1)")
+    prepare_database(ctx, "INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '373e6728-35e3-4633-aab1-bf7092ec43d8', 1)")
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '2'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = LookupHandler(connect=provider(conn))
+    handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {
@@ -262,13 +277,13 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     # duplicate fingerprint
-    prepare_database(conn, """
+    prepare_database(ctx, """
 INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     VALUES (%s, %s, 1, 1);
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = LookupHandler(connect=provider(conn))
+    handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {
@@ -282,32 +297,33 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     assert_equals('200 OK', resp.status)
 
 
-@with_database
-def test_submit_handler_params(conn):
+@with_script_context
+def test_submit_handler_params(ctx):
+    # type: (ScriptContext) -> None
     # invalid format
     values = MultiDict({'format': 'xls'})
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.UnknownFormatError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.UnknownFormatError, params.parse, values, ctx.db)
     # missing client
     values = MultiDict({'format': 'json'})
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # invalid client
     values = MultiDict({'format': 'json', 'client': 'N/A'})
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.InvalidAPIKeyError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.InvalidAPIKeyError, params.parse, values, ctx.db)
     # missing user
     values = MultiDict({'format': 'json', 'client': 'app1key'})
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # invalid user
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'N/A'})
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.InvalidUserAPIKeyError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.InvalidUserAPIKeyError, params.parse, values, ctx.db)
     # missing fingerprint
     values = MultiDict({'format': 'json', 'client': 'app1key', 'user': 'user1key'})
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # wrong foreign id
     values = MultiDict({
         'format': 'json', 'client': 'app1key', 'user': 'user1key',
@@ -317,8 +333,8 @@ def test_submit_handler_params(conn):
         'bitrate': '192',
         'fileformat': 'MP3'
     })
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.InvalidForeignIDError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.InvalidForeignIDError, params.parse, values, ctx.db)
     # wrong mbid
     values = MultiDict({
         'format': 'json', 'client': 'app1key', 'user': 'user1key',
@@ -328,8 +344,8 @@ def test_submit_handler_params(conn):
         'bitrate': '192',
         'fileformat': 'MP3'
     })
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.InvalidUUIDError, params.parse, values, ctx.db)
     # one wrong mbid, one good
     values = MultiDict({
         'format': 'json', 'client': 'app1key', 'user': 'user1key',
@@ -339,8 +355,8 @@ def test_submit_handler_params(conn):
         'bitrate': '192',
         'fileformat': 'MP3'
     })
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.InvalidUUIDError, params.parse, values, ctx.db)
     # wrong puid
     values = MultiDict({
         'format': 'json', 'client': 'app1key', 'user': 'user1key',
@@ -350,8 +366,8 @@ def test_submit_handler_params(conn):
         'bitrate': '192',
         'fileformat': 'MP3'
     })
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.InvalidUUIDError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.InvalidUUIDError, params.parse, values, ctx.db)
     # empty fingerprint
     values = MultiDict({
         'format': 'json', 'client': 'app1key', 'user': 'user1key',
@@ -362,8 +378,8 @@ def test_submit_handler_params(conn):
         'bitrate': '192',
         'fileformat': 'MP3'
     })
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # missing duration
     values = MultiDict({
         'format': 'json', 'client': 'app1key', 'user': 'user1key',
@@ -373,8 +389,8 @@ def test_submit_handler_params(conn):
         'bitrate': '192',
         'fileformat': 'MP3'
     })
-    params = SubmitHandlerParams(tests.script.config)
-    assert_raises(errors.MissingParameterError, params.parse, values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # all ok (single submission)
     values = MultiDict({
         'format': 'json', 'client': 'app1key', 'user': 'user1key',
@@ -386,8 +402,8 @@ def test_submit_handler_params(conn):
         'bitrate': '192',
         'fileformat': 'MP3'
     })
-    params = SubmitHandlerParams(tests.script.config)
-    params.parse(values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    params.parse(values, ctx.db)
     assert_equals(1, len(params.submissions))
     assert_equals(['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'], params.submissions[0]['mbids'])
     assert_equals('4e823498-c77d-4bfb-b6cc-85b05c2783cf', params.submissions[0]['puid'])
@@ -412,8 +428,8 @@ def test_submit_handler_params(conn):
         'bitrate.1': '500',
         'fileformat.1': 'FLAC',
     })
-    params = SubmitHandlerParams(tests.script.config)
-    params.parse(values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    params.parse(values, ctx.db)
     assert_equals(2, len(params.submissions))
     assert_equals(['4d814cb1-20ec-494f-996f-f31ca8a49784'], params.submissions[0]['mbids'])
     assert_equals('4e823498-c77d-4bfb-b6cc-85b05c2783cf', params.submissions[0]['puid'])
@@ -443,8 +459,8 @@ def test_submit_handler_params(conn):
         'bitrate.1': '500',
         'fileformat.1': 'FLAC',
     })
-    params = SubmitHandlerParams(tests.script.config)
-    params.parse(values, conn)
+    params = SubmitHandlerParams(ctx.config)
+    params.parse(values, ctx.db)
     assert_equals(1, len(params.submissions))
     assert_equals(['4d814cb1-20ec-494f-996f-f31ca8a49784'], params.submissions[0]['mbids'])
     assert_equals('4e823498-c77d-4bfb-b6cc-85b05c2783cf', params.submissions[0]['puid'])
@@ -454,20 +470,21 @@ def test_submit_handler_params(conn):
     assert_equals('MP3', params.submissions[0]['format'])
 
 
-@with_database
-def test_submit_handler(conn):
+@with_script_context
+def test_submit_handler(ctx):
+    # type: (ScriptContext) -> None
     values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
         'mbid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'fileformat': 'FLAC'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = SubmitHandler.create_from_server(tests.script, conn=conn)
+    handler = SubmitHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {u'status': u'ok', u'submissions': [{u'status': u'pending', u'id': 1}]}
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = conn.execute(query).fetchone()
+    submission = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
     assert_equals(1, submission['format_id'])
     assert_equals(192, submission['bitrate'])
@@ -475,8 +492,9 @@ def test_submit_handler(conn):
     assert_equals(TEST_1_LENGTH, submission['length'])
 
 
-@with_database
-def test_submit_handler_with_meta(conn):
+@with_script_context
+def test_submit_handler_with_meta(ctx):
+    # type: (ScriptContext) -> None
     values = {
         'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
@@ -490,17 +508,17 @@ def test_submit_handler_with_meta(conn):
         'year': '2030'
     }
     builder = EnvironBuilder(method='POST', data=values)
-    handler = SubmitHandler.create_from_server(tests.script, conn=conn)
+    handler = SubmitHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {u'status': u'ok', u'submissions': [{u'status': u'pending', u'id': 1}]}
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = conn.execute(query).fetchone()
+    submission = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
     assert_equals(3, submission['meta_id'])
-    row = conn.execute("SELECT * FROM meta WHERE id=%s", submission['meta_id']).fetchone()
+    row = ctx.db.get_ingest_db().execute("SELECT * FROM meta WHERE id=%s", submission['meta_id']).fetchone()
     expected = {
         'id': submission['meta_id'],
         'track': 'Voodoo People',
@@ -514,20 +532,21 @@ def test_submit_handler_with_meta(conn):
     assert_equals(expected, dict(row))
 
 
-@with_database
-def test_submit_handler_puid(conn):
+@with_script_context
+def test_submit_handler_puid(ctx):
+    # type: (ScriptContext) -> None
     values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
         'puid': 'b9c05616-1874-4d5d-b30e-6b959c922d28', 'fileformat': 'FLAC'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = SubmitHandler.create_from_server(tests.script, conn=conn)
+    handler = SubmitHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {u'status': u'ok', u'submissions': [{u'status': u'pending', u'id': 1}]}
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = conn.execute(query).fetchone()
+    submission = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals(None, submission['mbid'])
     assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['puid'])
     assert_equals(1, submission['format_id'])
@@ -536,20 +555,21 @@ def test_submit_handler_puid(conn):
     assert_equals(TEST_1_LENGTH, submission['length'])
 
 
-@with_database
-def test_submit_handler_foreignid(conn):
+@with_script_context
+def test_submit_handler_foreignid(ctx):
+    # type: (ScriptContext) -> None
     values = {'format': 'json', 'client': 'app1key', 'user': 'user1key',
         'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'bitrate': 192,
         'foreignid': 'foo:123', 'fileformat': 'FLAC'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = SubmitHandler.create_from_server(tests.script, conn=conn)
+    handler = SubmitHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     expected = {u'status': u'ok', u'submissions': [{u'status': u'pending', u'id': 1}]}
     assert_json_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = conn.execute(query).fetchone()
+    submission = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals(None, submission['mbid'])
     assert_equals(None, submission['puid'])
     assert_equals(1, submission['foreignid_id'])
@@ -558,36 +578,38 @@ def test_submit_handler_foreignid(conn):
     assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
     assert_equals(TEST_1_LENGTH, submission['length'])
     query = tables.foreignid_vendor.select().order_by(tables.foreignid_vendor.c.id.desc()).limit(1)
-    row = conn.execute(query).fetchone()
+    row = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals(1, row['id'])
     assert_equals('foo', row['name'])
     query = tables.foreignid.select().order_by(tables.foreignid.c.id.desc()).limit(1)
-    row = conn.execute(query).fetchone()
+    row = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals(1, row['id'])
     assert_equals(1, row['vendor_id'])
     assert_equals('123', row['name'])
 
 
-@with_database
-def test_user_create_anonumous_handler(conn):
+@with_script_context
+def test_user_create_anonumous_handler(ctx):
+    # type: (ScriptContext) -> None
     values = {'format': 'json', 'client': 'app1key'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = UserCreateAnonymousHandler(connect=provider(conn))
+    handler = UserCreateAnonymousHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     assert_equals('200 OK', resp.status)
     data = json.loads(resp.data)
     assert_equals('ok', data['status'])
     query = tables.account.select().where(tables.account.c.apikey == data['user']['apikey'])
-    user = conn.execute(query).fetchone()
+    user = ctx.db.get_app_db().execute(query).fetchone()
     assert_true(user)
 
 
-@with_database
-def test_user_lookup_handler(conn):
+@with_script_context
+def test_user_lookup_handler(ctx):
+    # type: (ScriptContext) -> None
     values = {'format': 'json', 'client': 'app1key', 'user': 'user1key'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = UserLookupHandler(connect=provider(conn))
+    handler = UserLookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     assert_equals('200 OK', resp.status)
@@ -596,11 +618,12 @@ def test_user_lookup_handler(conn):
     assert_equals('user1key', data['user']['apikey'])
 
 
-@with_database
-def test_user_lookup_handler_missing(conn):
+@with_script_context
+def test_user_lookup_handler_missing(ctx):
+    # type: (ScriptContext) -> None
     values = {'format': 'json', 'client': 'app1key', 'user': 'xxx'}
     builder = EnvironBuilder(method='POST', data=values)
-    handler = UserLookupHandler(connect=provider(conn))
+    handler = UserLookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('application/json; charset=UTF-8', resp.content_type)
     assert_equals('400 BAD REQUEST', resp.status)
