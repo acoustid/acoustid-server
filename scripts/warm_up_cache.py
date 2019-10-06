@@ -12,7 +12,7 @@ from acoustid.data.musicbrainz import lookup_metadata
 
 
 def main(script, opts, args):
-    conn = script.engines['app'].connect()
+    conn = script.db_engines['app'].connect()
     min_id, max_id = conn.execute("SELECT min(id), max(id) FROM fingerprint").fetchone()
     print min_id, max_id
     while True:
@@ -25,7 +25,7 @@ def main(script, opts, args):
             t0 = time.time()
             for i in range(len(fingerprint)):
                 fingerprint[i] ^= random.getrandbits(2) << random.randint(0, 20)
-            searcher = FingerprintSearcher(script.engines['app'], script.index)
+            searcher = FingerprintSearcher(script.db_engines['app'], script.index)
             matches = searcher.search(fingerprint, length + random.randint(-8, 8))
             track_ids = [r[1] for r in matches]
             track_mbid_map = lookup_mbids(conn, track_ids)

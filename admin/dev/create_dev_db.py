@@ -14,7 +14,7 @@ from mbdata.sample_data import create_sample_data as create_sample_musicbrainz_d
 
 def main(script, opts, args):
     logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
-    with script.engines['app'].connect() as conn:
+    with script.db_engines['app'].connect() as conn:
         with conn.begin():
             if opts.drop:
                 old_metadata = sqlalchemy.MetaData(conn)

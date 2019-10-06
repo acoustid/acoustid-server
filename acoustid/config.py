@@ -50,6 +50,7 @@ class DatabasesConfig(BaseConfig):
             'app': DatabaseConfig(),
             'fingerprint': DatabaseConfig(),
             'ingest': DatabaseConfig(),
+            'musicbrainz': DatabaseConfig(),
         }
         self.use_two_phase_commit = False
 

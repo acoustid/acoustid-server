@@ -11,9 +11,24 @@ from optparse import OptionParser
 from acoustid.config import Config
 from acoustid.indexclient import IndexClientPool
 from acoustid.utils import LocalSysLogHandler
+from acoustid.db import DatabaseContext
 from acoustid._release import GIT_RELEASE
 
 logger = logging.getLogger(__name__)
+
+
+class ScriptContext(object):
+
+    def __init__(self, db, redis, index):
+        self.db = db
+        self.redis = redis
+        self.index = index
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.db.close()
 
 
 class Script(object):
@@ -24,10 +39,8 @@ class Script(object):
             self.config.read(config_path)
         self.config.read_env(tests=tests)
 
-        if tests:
-            self.engines = self.config.databases.create_engines(poolclass=sqlalchemy.pool.AssertionPool)
-        else:
-            self.engines = self.config.databases.create_engines()
+        create_engine_kwargs = {'poolclass': sqlalchemy.pool.AssertionPool} if tests else {}
+        self.db_engines = self.config.databases.create_engines(**create_engine_kwargs)
 
         if not self.config.index.host:
             self.index = None
@@ -68,6 +81,9 @@ class Script(object):
     def setup_sentry(self):
         sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE)
 
+    def context(self):
+        return ScriptContext(db=DatabaseContext(self), redis=self.redis, index=self.index)
+
 
 def run_script(func, option_cb=None, master_only=False):
     parser = OptionParser()
@@ -95,7 +111,7 @@ def run_script(func, option_cb=None, master_only=False):
         else:
             logger.debug("Script finished %s successfuly", sys.argv[0])
 
-    for engine in script.engines.values():
+    for engine in script.db_engines.values():
         engine.dispose()
 
     script.index.dispose()

@@ -137,7 +137,7 @@ def prepare_database(conn, sql, params=None):
 
 def with_database(func):
     def wrapper(*args, **kwargs):
-        with closing(script.engines['app'].connect()) as conn:
+        with closing(script.db_engines['app'].connect()) as conn:
             prepare_sequences(conn)
             trans = conn.begin()
             try:
@@ -153,7 +153,7 @@ def setup():
     config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid-test.conf'
     script = Script(config_path, tests=True)
     if not os.environ.get('SKIP_DB_SETUP'):
-        with closing(script.engines['app'].connect()) as conn:
+        with closing(script.db_engines['app'].connect()) as conn:
             with conn.begin():
                 if os.environ.get('ACOUSTID_TEST_FULL_DB_SETUP'):
                     conn.execute('CREATE EXTENSION intarray')

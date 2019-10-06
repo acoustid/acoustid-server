@@ -61,7 +61,7 @@ def run_update_stats(script, opts, args):
         logger.info('Not running update_stats in slave mode')
         return
 
-    db = script.engines['app'].connect()
+    db = script.db_engines['app'].connect()
     with db.begin():
 
         insert = tables.stats.insert()

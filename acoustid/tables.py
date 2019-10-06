@@ -36,18 +36,21 @@ account = Table('account', metadata,
     Column('is_admin', Boolean, default=False, server_default=sql.false(), nullable=False),
     Index('account_idx_mbuser', 'mbuser', unique=True),
     Index('account_idx_apikey', 'apikey', unique=True),
+    info={'bind_key': 'app'},
 )
 
 account_openid = Table('account_openid', metadata,
     Column('openid', String, primary_key=True),
     Column('account_id', Integer, ForeignKey('account.id'), nullable=False),
     Index('account_openid_idx_account_id', 'account_id'),
+    info={'bind_key': 'app'},
 )
 
 account_google = Table('account_google', metadata,
     Column('google_user_id', String, primary_key=True),
     Column('account_id', Integer, ForeignKey('account.id'), nullable=False),
     Index('account_google_idx_account_id', 'account_id'),
+    info={'bind_key': 'app'},
 )
 
 application = Table('application', metadata,
@@ -61,6 +64,7 @@ application = Table('application', metadata,
     Column('email', String),
     Column('website', String),
     Index('application_idx_apikey', 'apikey', unique=True),
+    info={'bind_key': 'app'},
 )
 
 track = Table('track', metadata,
@@ -69,12 +73,14 @@ track = Table('track', metadata,
     Column('new_id', Integer, ForeignKey('track.id')),
     Column('gid', UUID, nullable=False),
     Index('track_idx_gid', 'gid', unique=True),
+    info={'bind_key': 'fingerprint'},
 )
 
 format = Table('format', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String, nullable=False),
     Index('format_idx_name', 'name', unique=True),
+    info={'bind_key': 'app'},
 )
 
 source = Table('source', metadata,
@@ -83,6 +89,7 @@ source = Table('source', metadata,
     Column('account_id', Integer, ForeignKey('account.id'), nullable=False),
     Column('version', String),
     Index('source_idx_uniq', 'application_id', 'account_id', 'version', unique=True),
+    info={'bind_key': 'app'},
 )
 
 submission = Table('submission', metadata,
@@ -98,6 +105,7 @@ submission = Table('submission', metadata,
     Column('puid', UUID),
     Column('meta_id', Integer, ForeignKey('meta.id')),
     Column('foreignid_id', Integer, ForeignKey('foreignid.id')),
+    info={'bind_key': 'ingest'},
 )
 
 Index('submission_idx_handled', submission.c.id, postgresql_where=submission.c.handled == False)  # noqa: E712
@@ -120,6 +128,8 @@ submission_result = Table('submission_result', metadata,
     Column('mbid', UUID),
     Column('puid', UUID),
     Column('foreignid', String),
+
+    info={'bind_key': 'ingest'},
 )
 
 stats = Table('stats', metadata,
@@ -129,6 +139,7 @@ stats = Table('stats', metadata,
     Column('value', Integer, nullable=False),
     Index('stats_idx_date', 'date'),
     Index('stats_idx_name_date', 'name', 'date'),
+    info={'bind_key': 'app'},
 )
 
 stats_lookups = Table('stats_lookups', metadata,
@@ -139,6 +150,7 @@ stats_lookups = Table('stats_lookups', metadata,
     Column('count_nohits', Integer, default=0, server_default=sql.literal(0), nullable=False),
     Column('count_hits', Integer, default=0, server_default=sql.literal(0), nullable=False),
     Index('stats_lookups_idx_date', 'date'),
+    info={'bind_key': 'app'},
 )
 
 stats_user_agents = Table('stats_user_agents', metadata,
@@ -149,12 +161,14 @@ stats_user_agents = Table('stats_user_agents', metadata,
     Column('ip', String, nullable=False),
     Column('count', Integer, default=0, server_default=sql.literal(0), nullable=False),
     Index('stats_user_agents_idx_date', 'date'),
+    info={'bind_key': 'app'},
 )
 
 stats_top_accounts = Table('stats_top_accounts', metadata,
     Column('id', Integer, primary_key=True),
     Column('account_id', Integer, ForeignKey('account.id'), nullable=False),
     Column('count', Integer, nullable=False),
+    info={'bind_key': 'app'},
 )
 
 meta = Table('meta', metadata,
@@ -166,12 +180,14 @@ meta = Table('meta', metadata,
     Column('track_no', Integer),
     Column('disc_no', Integer),
     Column('year', Integer),
+    info={'bind_key': 'fingerprint'},
 )
 
 foreignid_vendor = Table('foreignid_vendor', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String, nullable=False),
     Index('foreignid_vendor_idx_name', 'name', unique=True),
+    info={'bind_key': 'fingerprint'},
 )
 
 foreignid = Table('foreignid', metadata,
@@ -180,6 +196,7 @@ foreignid = Table('foreignid', metadata,
     Column('name', Text, nullable=False),
     Index('foreignid_idx_vendor', 'vendor_id'),
     Index('foreignid_idx_vendor_name', 'vendor_id', 'name', unique=True),
+    info={'bind_key': 'fingerprint'},
 )
 
 fingerprint = Table('fingerprint', metadata,
@@ -193,6 +210,7 @@ fingerprint = Table('fingerprint', metadata,
     Column('submission_count', Integer, nullable=False),
     Index('fingerprint_idx_length', 'length'),
     Index('fingerprint_idx_track_id', 'track_id'),
+    info={'bind_key': 'fingerprint'},
 )
 
 fingerprint_source = Table('fingerprint_source', metadata,
@@ -202,6 +220,7 @@ fingerprint_source = Table('fingerprint_source', metadata,
     Column('source_id', Integer, ForeignKey('source.id'), nullable=False),
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
     Index('fingerprint_source_idx_submission_id', 'submission_id'),
+    info={'bind_key': 'ingest'},
 )
 
 track_mbid = Table('track_mbid', metadata,
@@ -212,6 +231,7 @@ track_mbid = Table('track_mbid', metadata,
     Column('submission_count', Integer, nullable=False),
     Column('disabled', Boolean, default=False, server_default=sql.false(), nullable=False),
     Index('track_mbid_idx_uniq', 'track_id', 'mbid', unique=True),
+    info={'bind_key': 'fingerprint'},
 )
 
 track_mbid_source = Table('track_mbid_source', metadata,
@@ -220,6 +240,7 @@ track_mbid_source = Table('track_mbid_source', metadata,
     Column('submission_id', Integer),
     Column('source_id', Integer, ForeignKey('source.id'), nullable=False, index=True),
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
+    info={'bind_key': 'ingest'},
 )
 
 track_mbid_change = Table('track_mbid_change', metadata,
@@ -229,6 +250,7 @@ track_mbid_change = Table('track_mbid_change', metadata,
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
     Column('disabled', Boolean, nullable=False),
     Column('note', Text),
+    info={'bind_key': 'ingest'},
 )
 
 track_puid = Table('track_puid', metadata,
@@ -238,6 +260,7 @@ track_puid = Table('track_puid', metadata,
     Column('id', Integer, primary_key=True),
     Column('submission_count', Integer, nullable=False),
     Index('track_puid_idx_uniq', 'track_id', 'puid', unique=True),
+    info={'bind_key': 'fingerprint'},
 )
 
 track_puid_source = Table('track_puid_source', metadata,
@@ -246,6 +269,7 @@ track_puid_source = Table('track_puid_source', metadata,
     Column('submission_id', Integer, nullable=False),
     Column('source_id', Integer, ForeignKey('source.id'), nullable=False),
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
+    info={'bind_key': 'ingest'},
 )
 
 track_meta = Table('track_meta', metadata,
@@ -255,6 +279,7 @@ track_meta = Table('track_meta', metadata,
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
     Column('submission_count', Integer, nullable=False),
     Index('track_meta_idx_uniq', 'track_id', 'meta_id', unique=True),
+    info={'bind_key': 'fingerprint'},
 )
 
 track_meta_source = Table('track_meta_source', metadata,
@@ -263,6 +288,7 @@ track_meta_source = Table('track_meta_source', metadata,
     Column('submission_id', Integer, nullable=False),
     Column('source_id', Integer, ForeignKey('source.id'), nullable=False),
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
+    info={'bind_key': 'ingest'},
 )
 
 track_foreignid = Table('track_foreignid', metadata,
@@ -272,6 +298,7 @@ track_foreignid = Table('track_foreignid', metadata,
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
     Column('submission_count', Integer, nullable=False),
     Index('track_foreignid_idx_uniq', 'track_id', 'foreignid_id', unique=True),
+    info={'bind_key': 'fingerprint'},
 )
 
 track_foreignid_source = Table('track_foreignid_source', metadata,
@@ -280,6 +307,7 @@ track_foreignid_source = Table('track_foreignid_source', metadata,
     Column('submission_id', Integer, nullable=False),
     Column('source_id', Integer, ForeignKey('source.id'), nullable=False),
     Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
+    info={'bind_key': 'ingest'},
 )
 
 import mbdata.models  # noqa: E402
@@ -307,4 +335,9 @@ mb_release_country = Table('release_event', metadata,
     Column('date_month', Integer),
     Column('date_day', Integer),
     schema='musicbrainz',
+    info={'bind_key': 'musicbrainz'},
 )
+
+for table in metadata.sorted_tables:
+    if table.schema in {'musicbrainz', 'cover_art_archive', 'event_art_archive', 'wikidocs', 'statistics', 'documentation'}:
+        table.info['bind_key'] = 'musicbrainz'

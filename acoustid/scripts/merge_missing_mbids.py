@@ -14,6 +14,6 @@ def run_merge_missing_mbids(script, opts, args):
         logger.info('Not running merge_missing_mbids in slave mode')
         return
 
-    conn = script.engines['app'].connect()
+    conn = script.db_engines['app'].connect()
     with conn.begin():
         merge_missing_mbids(conn)
