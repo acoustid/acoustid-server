@@ -39,6 +39,7 @@ class ScriptContext(object):
 class Script(object):
 
     def __init__(self, config_path, tests=False):
+        # type: (str, bool) -> None
         self.config = Config()
         if config_path:
             self.config.read(config_path)
@@ -47,22 +48,18 @@ class Script(object):
         create_engine_kwargs = {'poolclass': sqlalchemy.pool.AssertionPool} if tests else {}
         self.db_engines = self.config.databases.create_engines(**create_engine_kwargs)
 
-        if not self.config.index.host:
-            self.index = None
-        else:
-            self.index = IndexClientPool(host=self.config.index.host,
-                                         port=self.config.index.port,
-                                         recycle=60)
-        if not self.config.redis.host:
-            self.redis = None
-        else:
-            self.redis = Redis(host=self.config.redis.host,
-                               port=self.config.redis.port)
+        self.index = IndexClientPool(host=self.config.index.host,
+                                     port=self.config.index.port,
+                                     recycle=60)
+
+        self.redis = Redis(host=self.config.redis.host,
+                           port=self.config.redis.port)
 
         self._console_logging_configured = False
         self.setup_logging()
 
     def setup_logging(self):
+        # type: () -> None
         for logger_name, level in sorted(self.config.logging.levels.items()):
             logging.getLogger(logger_name).setLevel(level)
         if self.config.logging.syslog:
@@ -74,6 +71,7 @@ class Script(object):
             self.setup_console_logging()
 
     def setup_console_logging(self, quiet=False):
+        # type: (bool) -> None
         if self._console_logging_configured:
             return
         handler = logging.StreamHandler()
@@ -84,6 +82,7 @@ class Script(object):
         self._console_logging_configured = True
 
     def setup_sentry(self):
+        # type: () -> None
         sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE)
 
     def context(self):
