@@ -4,7 +4,7 @@
 from nose.tools import assert_equals
 import gzip
 import wsgiref.util
-from cStringIO import StringIO
+from six import StringIO
 from acoustid.server import GzipRequestMiddleware, replace_double_slashes, add_cors_headers
 
 

@@ -6,7 +6,7 @@
 import json
 import logging
 import time
-from contextlib import closing
+from acoustid.script import Script
 from acoustid.data.submission import import_queued_submissions
 from acoustid.data.fingerprint import update_fingerprint_index
 
@@ -14,15 +14,22 @@ logger = logging.getLogger(__file__)
 
 
 def do_import(script, index_first=False, only_index=False):
-    with closing(script.db_engines['app'].connect()) as db:
+    # type: (Script, bool, bool) -> None
+    with script.context() as ctx:
+        fingerprint_db = ctx.db.get_fingerprint_db()
         if index_first:
-            update_fingerprint_index(db, script.index)
+            with ctx.index.connect() as index:
+                update_fingerprint_index(fingerprint_db, index)
         if not only_index:
+            app_db = ctx.db.get_app_db()
+            ingest_db = ctx.db.get_ingest_db()
             while True:
-                count = import_queued_submissions(db, script.index, limit=10)
+                count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=10)
                 if not count:
                     break
-                update_fingerprint_index(db, script.index)
+                with ctx.index.connect() as index:
+                    update_fingerprint_index(fingerprint_db, index)
+        ctx.db.session.commit()
 
 
 def run_import_on_master(script):

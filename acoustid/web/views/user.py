@@ -1,6 +1,6 @@
 import json
 import base64
-import urllib2
+import six.moves.urllib.request as urllib2
 import logging
 import random
 from itsdangerous import URLSafeSerializer

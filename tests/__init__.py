@@ -5,8 +5,9 @@ import os
 import json
 import pprint
 import difflib
-from contextlib import closing
+from sqlalchemy import Table
 from nose.tools import make_decorator
+from acoustid.db import DatabaseContext
 from acoustid.script import Script
 from acoustid.tables import metadata
 
@@ -119,51 +120,80 @@ INSERT INTO track_meta (track_id, meta_id, submission_count) VALUES (1, 2, 10);
 '''
 
 
-def prepare_sequences(conn):
-    with conn.begin():
-        for table, column in SEQUENCES:
-            conn.execute("""
-                SELECT setval('%(table)s_%(column)s_seq',
-                    coalesce((SELECT max(%(column)s) FROM %(table)s), 0) + 1, false)
-            """ % {'table': table, 'column': column})
-
-
-def prepare_database(conn, sql, params=None):
-    with conn.begin():
-        prepare_sequences(conn)
-        conn.execute(sql, params)
-        prepare_sequences(conn)
-
-
 def with_database(func):
     def wrapper(*args, **kwargs):
-        with closing(script.db_engines['app'].connect()) as conn:
-            prepare_sequences(conn)
-            trans = conn.begin()
+        with script.context() as ctx:
+            reset_sequences(ctx.db)
             try:
-                func(conn, *args, **kwargs)
+                func(ctx.db.get_app_db(), *args, **kwargs)
             finally:
-                trans.rollback()
+                ctx.db.session.rollback()
     wrapper = make_decorator(func)(wrapper)
     return wrapper
 
 
+def with_script_context(func):
+    def wrapper(*args, **kwargs):
+        with script.context() as ctx:
+            reset_sequences(ctx.db)
+            try:
+                func(ctx, *args, **kwargs)
+            finally:
+                ctx.db.session.rollback()
+    wrapper = make_decorator(func)(wrapper)
+    return wrapper
+
+
+def reset_sequences(db):
+    # type: (DatabaseContext) -> None
+    for table_name, column in SEQUENCES:
+        table = metadata.tables[table_name]  # type: Table
+        assert table.info is not None
+        conn = db.connection(table.info['bind_key'])
+        conn.execute("""
+            SELECT setval('%(table)s_%(column)s_seq',
+                coalesce((SELECT max(%(column)s) FROM %(table)s), 0) + 1, false)
+        """ % {'table': table, 'column': column})
+
+
+def create_tables(db):
+    # type: (DatabaseContext) -> None
+    metadata.create_all(db.get_app_db())  # FIXME
+
+
+def truncate_tables(db):
+    # type: (DatabaseContext) -> None
+    for table in reversed(metadata.sorted_tables):
+        assert table.info is not None
+        conn = db.connection(table.info['bind_key'])
+        conn.execute(table.delete())
+
+
+def prepare_databases(db):
+    # type: (DatabaseContext) -> None
+    create_tables(db)
+    truncate_tables(db)
+    reset_sequences(db)
+
+
+def prepare_database(conn, sql, params=None):
+    conn.execute(sql, params)
+
+
 def setup():
+    # type: () -> None
     global script
     config_path = os.path.dirname(os.path.abspath(__file__)) + '/../acoustid-test.conf'
     script = Script(config_path, tests=True)
     if not os.environ.get('SKIP_DB_SETUP'):
-        with closing(script.db_engines['app'].connect()) as conn:
-            with conn.begin():
-                if os.environ.get('ACOUSTID_TEST_FULL_DB_SETUP'):
-                    conn.execute('CREATE EXTENSION intarray')
-                    conn.execute('CREATE EXTENSION pgcrypto')
-                    conn.execute('CREATE EXTENSION cube')
-                    conn.execute('CREATE EXTENSION acoustid')
-                metadata.create_all(conn)
-                for table in reversed(metadata.sorted_tables):
-                    conn.execute(table.delete())
-                prepare_database(conn, BASE_SQL)
+        with script.context() as ctx:
+            prepare_databases(ctx.db)
+            ctx.db.get_app_db().execute(BASE_SQL)  # FIXME
+            ctx.db.session.commit()
+
+
+def teardown():
+    script.index.dispose()
 
 
 def make_web_application():

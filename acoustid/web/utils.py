@@ -1,6 +1,6 @@
 import re
 import logging
-import urlparse
+import six.moves.urllib.parse as urlparse
 from flask import request, redirect, url_for, abort, session, g
 from acoustid.web import db
 from acoustid.models import Account

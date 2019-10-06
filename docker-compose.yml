@@ -6,6 +6,11 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
 
+  index:
+    image: quay.io/acoustid/acoustid-index:2018.01.13
+    ports:
+      - "127.0.0.1:6080:6080"
+
   postgres:
     image: quay.io/acoustid/postgresql:master
     ports:

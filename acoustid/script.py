@@ -6,6 +6,7 @@ import logging
 import sqlalchemy
 import sqlalchemy.pool
 import sentry_sdk
+from typing import Any
 from redis import Redis
 from optparse import OptionParser
 from acoustid.config import Config
@@ -20,14 +21,17 @@ logger = logging.getLogger(__name__)
 class ScriptContext(object):
 
     def __init__(self, db, redis, index):
+        # type: (DatabaseContext, Redis, IndexClientPool) -> None
         self.db = db
         self.redis = redis
         self.index = index
 
     def __enter__(self):
+        # type: () -> ScriptContext
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        # type: (Any, Any, Any) -> None
         self.db.close()
 
 
@@ -82,6 +86,7 @@ class Script(object):
         sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE)
 
     def context(self):
+        # type: () -> ScriptContext
         return ScriptContext(db=DatabaseContext(self), redis=self.redis, index=self.index)
 
 

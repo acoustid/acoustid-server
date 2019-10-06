@@ -199,6 +199,8 @@ foreignid = Table('foreignid', metadata,
     info={'bind_key': 'fingerprint'},
 )
 
+foreignid.add_is_dependent_on(foreignid_vendor)
+
 fingerprint = Table('fingerprint', metadata,
     Column('id', Integer, primary_key=True),
     Column('fingerprint', ARRAY(Integer), nullable=False),
@@ -340,4 +342,4 @@ mb_release_country = Table('release_event', metadata,
 
 for table in metadata.sorted_tables:
     if table.schema in {'musicbrainz', 'cover_art_archive', 'event_art_archive', 'wikidocs', 'statistics', 'documentation'}:
-        table.info['bind_key'] = 'musicbrainz'
+        table.info['bind_key'] = 'musicbrainz'  # type: ignore

@@ -5,7 +5,7 @@ import gzip
 import sentry_sdk
 from werkzeug.wsgi import get_input_stream
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
-from cStringIO import StringIO
+from six import StringIO
 from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount
 from werkzeug.wrappers import Request

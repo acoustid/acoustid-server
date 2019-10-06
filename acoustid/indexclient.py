@@ -6,6 +6,7 @@ import socket
 import select
 import time
 import logging
+from typing import List, Any
 from collections import namedtuple, deque
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,26 @@ class IndexClientError(Exception):
     pass
 
 
-class IndexClient(object):
+class Index(object):
+
+    def begin(self):
+        # type: () -> None
+        raise NotImplementedError(self.begin)
+
+    def commit(self):
+        # type: () -> None
+        raise NotImplementedError(self.commit)
+
+    def insert(self, fingerprint_id, fingerprint_hashes):
+        # type: (int, List[int]) -> None
+        raise NotImplementedError(self.commit)
+
+    def get_attribute(self, name):
+        # type: (str) -> str
+        raise NotImplementedError(self.get_attribute)
+
+
+class IndexClient(Index):
 
     def __init__(self, host='127.0.0.1', port=6080, timeout=10):
         self.host = host
@@ -153,7 +173,7 @@ class IndexClient(object):
         self.sock = None
 
 
-class IndexClientWrapper(object):
+class IndexClientWrapper(Index):
 
     def __init__(self, pool=None, client=None):
         self._pool = pool
@@ -166,6 +186,14 @@ class IndexClientWrapper(object):
         self.insert = self._client.insert
         self.get_attribute = self._client.get_attribute
         self.set_attribute = self._client.set_attribute
+
+    def __enter__(self):
+        # type: () -> IndexClientWrapper
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # type: (Any, Any, Any) -> None
+        self.close()
 
     def __str__(self):
         return str(self._client)
@@ -198,6 +226,7 @@ class IndexClientPool(object):
             self.clients.append(client)
 
     def connect(self):
+        # type: () -> IndexClientWrapper
         client = None
         if self.clients:
             client = self.clients.popleft()

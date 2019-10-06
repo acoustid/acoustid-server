@@ -20,7 +20,7 @@ test:
     - redis
     - name: quay.io/acoustid/postgresql:master
       alias: postgres
-    - name: quay.io/acoustid/acoustid-index:master
+    - name: quay.io/acoustid/acoustid-index:2018.01.13
       alias: acoustid-index
   variables:
     POSTGRES_USER: acoustid

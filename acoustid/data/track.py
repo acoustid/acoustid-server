@@ -3,8 +3,11 @@
 
 import logging
 import uuid
+from typing import Optional, Union, Dict, List
+from sqlalchemy import Table, Column
 from sqlalchemy import sql
 from acoustid import tables as schema, const
+from acoustid.db import FingerprintDB, IngestDB
 from acoustid.data.fingerprint import FingerprintSearcher
 
 logger = logging.getLogger(__name__)
@@ -199,51 +202,56 @@ def insert_track(conn):
     return id
 
 
-def _insert_gid(conn, tab, tab_src, col, name, track_id, gid, submission_id=None, source_id=None):
+def _insert_gid(fingerprint_db, ingest_db, tab, tab_src, col, name, track_id, gid, submission_id=None, source_id=None):
+    # type: (FingerprintDB, IngestDB, Table, Table, Column, str, int, Union[str, int], Optional[int], Optional[int]) -> None
     cond = sql.and_(tab.c.track_id == track_id, col == gid)
     query = sql.select([tab.c.id], cond)
-    id = conn.execute(query).scalar()
+    id = fingerprint_db.execute(query).scalar()
     if id is not None:
         update_stmt = tab.update().where(cond)
         values = {'submission_count': sql.text('submission_count+1')}
-        conn.execute(update_stmt.values(**values))
+        fingerprint_db.execute(update_stmt.values(**values))
     else:
         insert_stmt = tab.insert().values({
             'track_id': track_id, name: gid,
             'submission_count': 1})
-        id = conn.execute(insert_stmt).inserted_primary_key[0]
+        id = fingerprint_db.execute(insert_stmt).inserted_primary_key[0]
         logger.debug("Added %s %s to track %d", name.upper(), gid, track_id)
     insert_stmt = tab_src.insert().values({
         'track_%s_id' % name.replace('_id', ''): id,
         'submission_id': submission_id,
         'source_id': source_id,
     })
-    conn.execute(insert_stmt)
-    return True
+    ingest_db.execute(insert_stmt)
 
 
-def insert_mbid(conn, track_id, mbid, submission_id=None, source_id=None):
-    return _insert_gid(conn, schema.track_mbid, schema.track_mbid_source,
+def insert_mbid(fingerprint_db, ingest_db, track_id, mbid, submission_id=None, source_id=None):
+    # type: (FingerprintDB, IngestDB, int, str, Optional[int], Optional[int]) -> None
+    _insert_gid(fingerprint_db, ingest_db, schema.track_mbid, schema.track_mbid_source,
         schema.track_mbid.c.mbid, 'mbid', track_id, mbid, submission_id, source_id)
 
 
-def insert_puid(conn, track_id, puid, submission_id=None, source_id=None):
-    return _insert_gid(conn, schema.track_puid, schema.track_puid_source,
+def insert_puid(fingerprint_db, ingest_db, track_id, puid, submission_id=None, source_id=None):
+    # type: (FingerprintDB, IngestDB, int, str, Optional[int], Optional[int]) -> None
+    _insert_gid(fingerprint_db, ingest_db, schema.track_puid, schema.track_puid_source,
         schema.track_puid.c.puid, 'puid', track_id, puid, submission_id, source_id)
 
 
-def insert_track_foreignid(conn, track_id, foreignid_id, submission_id=None, source_id=None):
-    return _insert_gid(conn, schema.track_foreignid, schema.track_foreignid_source,
+def insert_track_foreignid(fingerprint_db, ingest_db, track_id, foreignid_id, submission_id=None, source_id=None):
+    # type: (FingerprintDB, IngestDB, int, int, Optional[int], Optional[int]) -> None
+    _insert_gid(fingerprint_db, ingest_db, schema.track_foreignid, schema.track_foreignid_source,
         schema.track_foreignid.c.foreignid_id, 'foreignid_id', track_id, foreignid_id,
         submission_id, source_id)
 
 
-def insert_track_meta(conn, track_id, meta_id, submission_id=None, source_id=None):
-    return _insert_gid(conn, schema.track_meta, schema.track_meta_source,
+def insert_track_meta(fingerprint_db, ingest_db, track_id, meta_id, submission_id=None, source_id=None):
+    # type: (FingerprintDB, IngestDB, int, int, Optional[int], Optional[int]) -> None
+    _insert_gid(fingerprint_db, ingest_db, schema.track_meta, schema.track_meta_source,
         schema.track_meta.c.meta_id, 'meta_id', track_id, meta_id, submission_id, source_id)
 
 
 def calculate_fingerprint_similarity_matrix(conn, track_ids):
+    # type: (FingerprintDB, List[int]) -> Dict[int, Dict[int, float]]
     fp1 = schema.fingerprint.alias('fp1')
     fp2 = schema.fingerprint.alias('fp2')
     src = fp1.join(fp2, fp1.c.id < fp2.c.id)
@@ -252,7 +260,7 @@ def calculate_fingerprint_similarity_matrix(conn, track_ids):
         fp1.c.id, fp2.c.id,
         sql.func.acoustid_compare2(fp1.c.fingerprint, fp2.c.fingerprint, const.TRACK_MAX_OFFSET),
     ], cond, from_obj=src).order_by(fp1.c.id, fp2.c.id)
-    result = {}
+    result = {}  # type: Dict[int, Dict[int, float]]
     for fp1_id, fp2_id, score in conn.execute(query):
         result.setdefault(fp1_id, {})[fp2_id] = score
         result.setdefault(fp2_id, {})[fp1_id] = score

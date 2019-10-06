@@ -57,7 +57,12 @@ class DatabasesConfig(BaseConfig):
     def create_engines(self, **kwargs):
         engines = {}
         for name, db_config in self.databases.items():
-            engines[name] = db_config.create_engine(**kwargs)
+            for other_name, other_db_config in self.databases.items():
+                if other_name in engines and other_db_config == db_config:
+                    engines[name] = engines[other_name]
+                    break
+            else:
+                engines[name] = db_config.create_engine(**kwargs)
         return engines
 
     def read_section(self, parser, section):
@@ -86,6 +91,19 @@ class DatabaseConfig(BaseConfig):
         self.pool_size = None
         self.pool_recycle = None
         self.pool_pre_ping = None
+
+    def __eq__(self, other):
+        return (
+            self.user == other.user,
+            self.superuser == other.superuser,
+            self.name == other.name,
+            self.host == other.host,
+            self.port == other.port,
+            self.password == other.password,
+            self.pool_size == other.pool_size,
+            self.pool_recycle == other.pool_recycle,
+            self.pool_pre_ping == other.pool_pre_ping,
+        )
 
     def create_url(self, superuser=False):
         kwargs = {}
