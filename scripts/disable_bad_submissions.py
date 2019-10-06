@@ -160,7 +160,7 @@ def disable_track_mbid(db, track_mbid, note):
 
 
 def main(script, opts, args):
-    db = DatabaseContext(script.engine)
+    db = DatabaseContext(script.engines['app'])
 
     min_track_id = db.session.query(sql.func.min(Track.id)).scalar()
     max_track_id = db.session.query(sql.func.max(Track.id)).scalar()

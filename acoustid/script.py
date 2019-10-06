@@ -23,11 +23,12 @@ class Script(object):
         if config_path:
             self.config.read(config_path)
         self.config.read_env(tests=tests)
+
         if tests:
-            self.engine = sqlalchemy.create_engine(self.config.database.create_url(),
-                poolclass=sqlalchemy.pool.AssertionPool)
+            self.engines = self.config.databases.create_engines(poolclass=sqlalchemy.pool.AssertionPool)
         else:
-            self.engine = sqlalchemy.create_engine(self.config.database.create_url())
+            self.engines = self.config.databases.create_engines()
+
         if not self.config.index.host:
             self.index = None
         else:
@@ -39,6 +40,7 @@ class Script(object):
         else:
             self.redis = Redis(host=self.config.redis.host,
                                port=self.config.redis.port)
+
         self._console_logging_configured = False
         self.setup_logging()
 
@@ -92,5 +94,8 @@ def run_script(func, option_cb=None, master_only=False):
             raise
         else:
             logger.debug("Script finished %s successfuly", sys.argv[0])
-    script.engine.dispose()
+
+    for engine in script.engines.values():
+        engine.dispose()
+
     script.index.dispose()

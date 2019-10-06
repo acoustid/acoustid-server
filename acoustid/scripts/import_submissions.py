@@ -14,7 +14,7 @@ logger = logging.getLogger(__file__)
 
 
 def do_import(script, index_first=False, only_index=False):
-    with closing(script.engine.connect()) as db:
+    with closing(script.engines['app'].connect()) as db:
         if index_first:
             update_fingerprint_index(db, script.index)
         if not only_index:

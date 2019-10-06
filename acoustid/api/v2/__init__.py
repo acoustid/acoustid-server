@@ -101,7 +101,7 @@ class APIHandler(Handler):
         if conn is not None:
             connect = provider(conn)
         else:
-            connect = server.engine.connect
+            connect = server.engines['app'].connect
         handler = cls(connect=connect)
         handler.index = server.index
         handler.redis = server.redis

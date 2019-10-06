@@ -10,7 +10,7 @@ from acoustid.data.fingerprint import FingerprintSearcher
 
 
 def main(script, opts, args):
-    conn = script.engine.connect()
+    conn = script.engines['app'].connect()
     find_duplicates(conn, index=script.index)
     searcher = FingerprintSearcher(conn, index)
     matches = searcher.search(fingerprint['fingerprint'], fingerprint['length'])

@@ -9,7 +9,7 @@ from acoustid.data.fingerprint import update_fingerprint_index
 
 
 def main(script, opts, args):
-    with closing(script.engine.connect()) as db:
+    with closing(script.engines['app'].connect()) as db:
         update_fingerprint_index(db, script.index)
 
 

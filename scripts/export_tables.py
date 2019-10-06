@@ -59,7 +59,7 @@ def export_tables(cursor, name, tables, data_dir):
 
 
 def main(script, opts, args):
-    conn = script.engine.connect()
+    conn = script.engines['app'].connect()
     conn.detach()
     with closing(conn):
         conn.connection.rollback()

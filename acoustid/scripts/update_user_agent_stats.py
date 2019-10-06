@@ -6,7 +6,7 @@ from acoustid.data.stats import update_user_agent_stats, unpack_user_agent_stats
 
 
 def run_update_user_agent_stats(script, opts, args):
-    db = script.engine.connect()
+    db = script.engines['app'].connect()
     redis = script.redis
     for key, count in redis.hgetall('ua').iteritems():
         count = int(count)

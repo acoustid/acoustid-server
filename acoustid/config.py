@@ -20,8 +20,10 @@ def read_env_item(obj, key, name, convert=None):
     value = None
     if name in os.environ:
         value = os.environ[name]
+        logger.info('Reading config value from environment variable %s', name)
     if name + '_FILE' in os.environ:
         value = open(os.environ[name + '_FILE']).read().strip()
+        logger.info('Reading config value from environment variable %s', name + '_FILE')
     if value is not None:
         if convert is not None:
             value = convert(value)
@@ -39,6 +41,36 @@ class BaseConfig(object):
 
     def read_env(self, prefix):
         pass
+
+
+class DatabasesConfig(BaseConfig):
+
+    def __init__(self):
+        self.databases = {
+            'app': DatabaseConfig(),
+            'fingerprint': DatabaseConfig(),
+            'ingest': DatabaseConfig(),
+        }
+        self.use_two_phase_commit = False
+
+    def create_engines(self, **kwargs):
+        engines = {}
+        for name, db_config in self.databases.items():
+            engines[name] = db_config.create_engine(**kwargs)
+        return engines
+
+    def read_section(self, parser, section):
+        if parser.has_option(section, 'two_phase_commit'):
+            self.use_two_phase_commit = parser.getboolean(section, 'two_phase_commit')
+        for name, sub_config in self.databases.items():
+            sub_section = '{}:{}'.format(section, name)
+            sub_config.read_section(parser, sub_section)
+
+    def read_env(self, prefix):
+        read_env_item(self, 'use_two_phase_commit', prefix + 'DB_TWO_PHASE_COMMIT', convert=str_to_bool)
+        for name, sub_config in self.databases.items():
+            sub_prefix = prefix + name.upper() + '_DB_'
+            sub_config.read_env(sub_prefix)
 
 
 class DatabaseConfig(BaseConfig):
@@ -105,21 +137,21 @@ class DatabaseConfig(BaseConfig):
         if parser.has_option(section, 'password'):
             self.password = parser.get(section, 'password')
         if parser.has_option(section, 'pool_size'):
-            self.password = parser.getint(section, 'pool_size')
+            self.pool_size = parser.getint(section, 'pool_size')
         if parser.has_option(section, 'pool_recycle'):
-            self.password = parser.getint(section, 'pool_recycle')
+            self.pool_recycle = parser.getint(section, 'pool_recycle')
         if parser.has_option(section, 'pool_pre_ping'):
-            self.password = parser.getboolean(section, 'pool_pre_ping')
+            self.pool_pre_ping = parser.getboolean(section, 'pool_pre_ping')
 
     def read_env(self, prefix):
-        read_env_item(self, 'name', prefix + 'POSTGRES_DB')
-        read_env_item(self, 'host', prefix + 'POSTGRES_HOST')
-        read_env_item(self, 'port', prefix + 'POSTGRES_PORT', convert=int)
-        read_env_item(self, 'user', prefix + 'POSTGRES_USER')
-        read_env_item(self, 'password', prefix + 'POSTGRES_PASSWORD')
-        read_env_item(self, 'pool_size', prefix + 'POSTGRES_POOL_SIZE', convert=int)
-        read_env_item(self, 'pool_recycle', prefix + 'POSTGRES_POOL_RECYCLE', convert=int)
-        read_env_item(self, 'pool_pre_ping', prefix + 'POSTGRES_POOL_PRE_PING', convert=str_to_bool)
+        read_env_item(self, 'name', prefix + 'NAME')
+        read_env_item(self, 'host', prefix + 'HOST')
+        read_env_item(self, 'port', prefix + 'PORT', convert=int)
+        read_env_item(self, 'user', prefix + 'USER')
+        read_env_item(self, 'password', prefix + 'PASSWORD')
+        read_env_item(self, 'pool_size', prefix + 'POOL_SIZE', convert=int)
+        read_env_item(self, 'pool_recycle', prefix + 'POOL_RECYCLE', convert=int)
+        read_env_item(self, 'pool_pre_ping', prefix + 'POOL_PRE_PING', convert=str_to_bool)
 
 
 class IndexConfig(BaseConfig):
@@ -347,7 +379,7 @@ class RateLimiterConfig(BaseConfig):
 class Config(object):
 
     def __init__(self):
-        self.database = DatabaseConfig()
+        self.databases = DatabasesConfig()
         self.logging = LoggingConfig()
         self.website = WebSiteConfig()
         self.index = IndexConfig()
@@ -362,7 +394,7 @@ class Config(object):
         logger.info("Loading configuration file %s", path)
         parser = ConfigParser.RawConfigParser()
         parser.read(path)
-        self.database.read(parser, 'database')
+        self.databases.read(parser, 'database')
         self.logging.read(parser, 'logging')
         self.website.read(parser, 'website')
         self.index.read(parser, 'index')
@@ -378,7 +410,7 @@ class Config(object):
             prefix = 'ACOUSTID_TEST_'
         else:
             prefix = 'ACOUSTID_'
-        self.database.read_env(prefix)
+        self.databases.read_env(prefix)
         self.logging.read_env(prefix)
         self.website.read_env(prefix)
         self.index.read_env(prefix)

@@ -7,7 +7,7 @@ from acoustid.data.stats import update_lookup_stats
 
 
 def run_update_lookup_stats(script, opts, args):
-    db = script.engine.connect()
+    db = script.engines['app'].connect()
     redis = script.redis
     for key, count in redis.hgetall('lookups').iteritems():
         count = int(count)

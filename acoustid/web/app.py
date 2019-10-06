@@ -88,7 +88,7 @@ def make_application(config_filename=None, tests=False):
         from acoustid.api import get_health_response
         return get_health_response(script, request)
 
-    db.session_factory.configure(bind=config.database.create_engine())
+    db.session_factory.configure(bind=config.databases.databases['app'].create_engine())
     db.session = scoped_session(db.session_factory, scopefunc=get_flask_request_scope)
 
     app.register_blueprint(general_page)
