@@ -7,6 +7,8 @@ from six.moves import configparser as ConfigParser
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 
+from acoustid.const import DEFAULT_GLOBAL_RATE_LIMIT
+
 logger = logging.getLogger(__name__)
 
 
@@ -325,11 +327,14 @@ class ClusterConfig(BaseConfig):
 class RateLimiterConfig(BaseConfig):
 
     def __init__(self):
+        self.global_rate_limit = DEFAULT_GLOBAL_RATE_LIMIT
         self.ips = {}
         self.applications = {}
 
     def read_section(self, parser, section):
         for name in parser.options(section):
+            if name == 'global':
+                self.global_rate_limit = parser.getfloat(section, name)
             if name.startswith('ip.'):
                 self.ips[name.split('.', 1)[1]] = parser.getfloat(section, name)
             elif name.startswith('application.'):
