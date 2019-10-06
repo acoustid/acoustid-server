@@ -26,7 +26,9 @@ test:
     POSTGRES_USER: acoustid
     POSTGRES_PASSWORD: acoustid
     POSTGRES_DB: acoustid_test
-    ACOUSTID_TEST_POSTGRES_HOST: postgres
+    ACOUSTID_TEST_DATABASE_APP_HOST: postgres
+    ACOUSTID_TEST_DATABASE_FINGERPRINT_HOST: postgres
+    ACOUSTID_TEST_DATABASE_INGEST_HOST: postgres
     ACOUSTID_TEST_REDIS_HOST: redis
     ACOUSTID_TEST_INDEX_HOST: acoustid-index
   cache:

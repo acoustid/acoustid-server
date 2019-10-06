@@ -20,7 +20,9 @@ services:
     volumes:
       - .:/build/acoustid-server
     environment:
-      ACOUSTID_TEST_POSTGRES_HOST: postgres
+      ACOUSTID_TEST_DATABASE_APP_HOST: postgres
+      ACOUSTID_TEST_DATABASE_FINGERPRINT_HOST: postgres
+      ACOUSTID_TEST_DATABASE_INGEST_HOST: postgres
       ACOUSTID_TEST_REDIS_HOST: redis
     depends_on:
       - redis

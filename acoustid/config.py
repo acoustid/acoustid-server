@@ -73,9 +73,9 @@ class DatabasesConfig(BaseConfig):
             sub_config.read_section(parser, sub_section)
 
     def read_env(self, prefix):
-        read_env_item(self, 'use_two_phase_commit', prefix + 'DB_TWO_PHASE_COMMIT', convert=str_to_bool)
+        read_env_item(self, 'use_two_phase_commit', prefix + 'DATABASE_TWO_PHASE_COMMIT', convert=str_to_bool)
         for name, sub_config in self.databases.items():
-            sub_prefix = prefix + name.upper() + '_DB_'
+            sub_prefix = prefix + 'DATABASE_' + name.upper() + '_'
             sub_config.read_env(sub_prefix)
 
 
