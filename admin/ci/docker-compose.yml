@@ -23,6 +23,7 @@ services:
       ACOUSTID_TEST_DATABASE_APP_HOST: postgres
       ACOUSTID_TEST_DATABASE_FINGERPRINT_HOST: postgres
       ACOUSTID_TEST_DATABASE_INGEST_HOST: postgres
+      ACOUSTID_TEST_DATABASE_DATABASE_HOST: postgres
       ACOUSTID_TEST_REDIS_HOST: redis
     depends_on:
       - redis
