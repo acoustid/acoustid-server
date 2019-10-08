@@ -4,8 +4,8 @@
 from nose.tools import assert_equals
 import gzip
 import wsgiref.util
-from six import BytesIO, text_type
-from typing import Dict, Any, List, Callable, Tuple, TYPE_CHECKING
+from six import BytesIO
+from typing import Any, List, Callable, Tuple, TYPE_CHECKING
 from acoustid.server import GzipRequestMiddleware, replace_double_slashes, add_cors_headers
 
 if TYPE_CHECKING:

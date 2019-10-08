@@ -3,10 +3,10 @@
 
 import gzip
 import sentry_sdk
-from typing import Callable, List, Tuple, Any, Dict, Iterable, Optional, TYPE_CHECKING
+from typing import Callable, List, Tuple, Any, Iterable, Optional, TYPE_CHECKING
 from werkzeug.wsgi import get_input_stream
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
-from six import BytesIO, text_type
+from six import BytesIO
 from werkzeug.exceptions import HTTPException
 from werkzeug.routing import Map, Rule, Submount, RuleFactory
 from werkzeug.wrappers import Request
