@@ -66,6 +66,7 @@ def shell_cmd(config):
     script.setup_console_logging()
     script.setup_sentry()
     with script.context() as ctx:
+        _ = ctx
         IPython.embed()
 
 
