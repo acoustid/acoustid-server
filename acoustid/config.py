@@ -3,8 +3,10 @@
 
 import os.path
 import logging
-from six.moves import configparser as ConfigParser
+from typing import Any, Callable, Dict, List, Optional
+from six.moves.configparser import RawConfigParser
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import URL
 
 from acoustid.const import DEFAULT_GLOBAL_RATE_LIMIT
@@ -13,10 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 def str_to_bool(x):
+    # type: (str) -> bool
     return x.lower() in ('1', 'on', 'true')
 
 
 def read_env_item(obj, key, name, convert=None):
+    # type: (Any, str, str, Callable[[str], Any]) -> None
     value = None
     if name in os.environ:
         value = os.environ[name]
@@ -33,19 +37,23 @@ def read_env_item(obj, key, name, convert=None):
 class BaseConfig(object):
 
     def read(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_section(section):
             self.read_section(parser, section)
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         pass
 
     def read_env(self, prefix):
+        # type: (str) -> None
         pass
 
 
 class DatabasesConfig(BaseConfig):
 
     def __init__(self):
+        # type: () -> None
         self.databases = {
             'app': DatabaseConfig(),
             'fingerprint': DatabaseConfig(),
@@ -55,7 +63,8 @@ class DatabasesConfig(BaseConfig):
         self.use_two_phase_commit = False
 
     def create_engines(self, **kwargs):
-        engines = {}
+        # type: (**Any) -> Dict[str, Engine]
+        engines = {}  # type: Dict[str, Engine]
         for name, db_config in self.databases.items():
             for other_name, other_db_config in self.databases.items():
                 if other_name in engines and other_db_config == db_config:
@@ -66,6 +75,7 @@ class DatabasesConfig(BaseConfig):
         return engines
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'two_phase_commit'):
             self.use_two_phase_commit = parser.getboolean(section, 'two_phase_commit')
         for name, sub_config in self.databases.items():
@@ -73,6 +83,7 @@ class DatabasesConfig(BaseConfig):
             sub_config.read_section(parser, sub_section)
 
     def read_env(self, prefix):
+        # type: (str) -> None
         read_env_item(self, 'use_two_phase_commit', prefix + 'DATABASE_TWO_PHASE_COMMIT', convert=str_to_bool)
         for name, sub_config in self.databases.items():
             sub_prefix = prefix + 'DATABASE_' + name.upper() + '_'
@@ -82,31 +93,36 @@ class DatabasesConfig(BaseConfig):
 class DatabaseConfig(BaseConfig):
 
     def __init__(self):
-        self.user = None
+        # type: () -> None
+        self.user = 'acoustid'
         self.superuser = 'postgres'
-        self.name = None
-        self.host = None
-        self.port = None
-        self.password = None
-        self.pool_size = None
-        self.pool_recycle = None
-        self.pool_pre_ping = None
+        self.name = 'acoustid'
+        self.host = 'localhost'
+        self.port = 5432
+        self.password = ''
+        self.pool_size = None  # type: Optional[int]
+        self.pool_recycle = None  # type: Optional[int]
+        self.pool_pre_ping = None  # type: Optional[bool]
 
     def __eq__(self, other):
+        # type: (object) -> bool
+        if not isinstance(other, DatabaseConfig):
+            return False
         return (
-            self.user == other.user,
-            self.superuser == other.superuser,
-            self.name == other.name,
-            self.host == other.host,
-            self.port == other.port,
-            self.password == other.password,
-            self.pool_size == other.pool_size,
-            self.pool_recycle == other.pool_recycle,
-            self.pool_pre_ping == other.pool_pre_ping,
+            self.user == other.user and
+            self.superuser == other.superuser and
+            self.name == other.name and
+            self.host == other.host and
+            self.port == other.port and
+            self.password == other.password and
+            self.pool_size == other.pool_size and
+            self.pool_recycle == other.pool_recycle and
+            self.pool_pre_ping == other.pool_pre_ping
         )
 
     def create_url(self, superuser=False):
-        kwargs = {}
+        # type: (bool) -> URL
+        kwargs = {}  # type: Dict[str, Any]
         if superuser:
             kwargs['username'] = self.superuser
         else:
@@ -121,6 +137,7 @@ class DatabaseConfig(BaseConfig):
         return URL('postgresql', **kwargs)
 
     def create_engine(self, superuser=False, **kwargs):
+        # type: (bool, **Any) -> Engine
         if self.pool_size is not None and 'pool_size' not in kwargs:
             kwargs['pool_size'] = self.pool_size
         if self.pool_recycle is not None and 'pool_recycle' not in kwargs:
@@ -130,6 +147,7 @@ class DatabaseConfig(BaseConfig):
         return create_engine(self.create_url(superuser=superuser), **kwargs)
 
     def create_psql_args(self, superuser=False):
+        # type: (bool) -> List[str]
         args = []
         if superuser:
             args.append('-U')
@@ -147,6 +165,7 @@ class DatabaseConfig(BaseConfig):
         return args
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         self.user = parser.get(section, 'user')
         self.name = parser.get(section, 'name')
         if parser.has_option(section, 'host'):
@@ -176,10 +195,12 @@ class DatabaseConfig(BaseConfig):
 class IndexConfig(BaseConfig):
 
     def __init__(self):
+        # type: () -> None
         self.host = '127.0.0.1'
         self.port = 6080
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'host'):
             self.host = parser.get(section, 'host')
         if parser.has_option(section, 'port'):
@@ -197,6 +218,7 @@ class RedisConfig(BaseConfig):
         self.port = 6379
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'host'):
             self.host = parser.get(section, 'host')
         if parser.has_option(section, 'port'):
@@ -225,6 +247,7 @@ class LoggingConfig(BaseConfig):
         self.syslog_facility = None
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         level_names = get_logging_level_names()
         for name in parser.options(section):
             if name == 'level':
@@ -254,6 +277,7 @@ class WebSiteConfig(BaseConfig):
         self.shutdown_file_path = '/tmp/acoustid-server-shutdown.txt'
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'debug'):
             self.debug = parser.getboolean(section, 'debug')
         self.secret = parser.get(section, 'secret')
@@ -292,6 +316,7 @@ class uWSGIConfig(BaseConfig):
         self.offload_threads = 1
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'harakiri'):
             self.harakiri = parser.getint(section, 'harakiri')
         if parser.has_option(section, 'http_timeout'):
@@ -325,6 +350,7 @@ class SentryConfig(BaseConfig):
         self.script_dsn = ''
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'web_dsn'):
             self.web_dsn = parser.get(section, 'web_dsn')
         if parser.has_option(section, 'api_dsn'):
@@ -345,6 +371,7 @@ class ReplicationConfig(BaseConfig):
         self.import_acoustid_musicbrainz = None
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'import_acoustid'):
             self.import_acoustid = parser.get(section, 'import_acoustid')
         if parser.has_option(section, 'import_acoustid_musicbrainz'):
@@ -362,6 +389,7 @@ class ClusterConfig(BaseConfig):
         self.secret = None
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'role'):
             self.role = parser.get(section, 'role')
         if parser.has_option(section, 'base_master_url'):
@@ -383,6 +411,7 @@ class RateLimiterConfig(BaseConfig):
         self.applications = {}
 
     def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
         for name in parser.options(section):
             if name == 'global':
                 self.global_rate_limit = parser.getfloat(section, name)
@@ -410,8 +439,9 @@ class Config(object):
         self.uwsgi = uWSGIConfig()
 
     def read(self, path):
+        # type: (str) -> None
         logger.info("Loading configuration file %s", path)
-        parser = ConfigParser.RawConfigParser()
+        parser = RawConfigParser()
         parser.read(path)
         self.databases.read(parser, 'database')
         self.logging.read(parser, 'logging')
@@ -425,6 +455,7 @@ class Config(object):
         self.uwsgi.read(parser, 'uwsgi')
 
     def read_env(self, tests=False):
+        # type: (bool) -> None
         if tests:
             prefix = 'ACOUSTID_TEST_'
         else:

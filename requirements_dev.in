@@ -1,1 +1,5 @@
 nose
+flake8
+functools32 ; python_version < "3.2"
+mypy ; python_version >= "3"
+sqlalchemy-stubs ; python_version >= "3"

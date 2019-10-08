@@ -5,6 +5,8 @@ import six
 import logging
 import json
 import xml.etree.cElementTree as etree
+from typing import Union, List, Dict, Any
+from six import BytesIO
 from werkzeug.wrappers import Request, Response
 from acoustid.handler import Handler
 from acoustid.utils import singular
@@ -14,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def _serialize_xml_node(parent, data):
+    # type: (etree.Element, Union[List[Any], Dict[str, Any], int, float, str]) -> None
     if isinstance(data, dict):
         _serialize_xml_dict(parent, data)
     elif isinstance(data, list):
@@ -23,7 +26,8 @@ def _serialize_xml_node(parent, data):
 
 
 def _serialize_xml_dict(parent, data):
-    for name, value in data.items():
+    # type: (etree.Element, Dict[str, Any]) -> None
+    for name, value in sorted(data.items()):
         if name.startswith('@'):
             parent.attrib[name[1:]] = six.text_type(value)
         else:
@@ -32,6 +36,7 @@ def _serialize_xml_dict(parent, data):
 
 
 def _serialize_xml_list(parent, data):
+    # type: (etree.Element, List[Any]) -> None
     name = singular(parent.tag)
     for item in data:
         elem = etree.SubElement(parent, name)
@@ -39,13 +44,17 @@ def _serialize_xml_list(parent, data):
 
 
 def serialize_xml(data, **kwargs):
+    # type: (Union[List[Any], Dict[str, Any]], **Any) -> Response
     root = etree.Element('response')
     _serialize_xml_node(root, data)
-    res = etree.tostring(root, encoding="UTF-8")
-    return Response(res, content_type='text/xml; charset=UTF-8', **kwargs)
+    tree = etree.ElementTree(root)
+    res = BytesIO()
+    tree.write(res, encoding='UTF-8', xml_declaration=True)
+    return Response(res.getvalue(), content_type='text/xml; charset=UTF-8', **kwargs)
 
 
 def serialize_json(data, callback=None, **kwargs):
+    # type: (Union[List[Any], Dict[str, Any], int, float, str], str, **Any) -> Response
     res = json.dumps(data, sort_keys=True)
     if callback:
         res = '%s(%s)' % (callback, res)
@@ -56,6 +65,7 @@ def serialize_json(data, callback=None, **kwargs):
 
 
 def serialize_response(data, format, **kwargs):
+    # type: (Union[List[Any], Dict[str, Any]], str, **Any) -> Response
     if format == 'json':
         return serialize_json(data, **kwargs)
     elif format.startswith('jsonp:'):

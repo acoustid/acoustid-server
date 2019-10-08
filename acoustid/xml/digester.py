@@ -88,7 +88,7 @@ class Digester(ContentHandler):
     def endDocument(self):
         assert self._active_rules == 0
         assert len(self._path) == 0
-        for a in self._rules.itervalues():
+        for a in self._rules.values():
             for r in [x for x in a if x and hasattr(x.finish, '__call__')]:
                 r.finish()
 

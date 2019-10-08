@@ -185,7 +185,7 @@ def handle_openid_login_response():
                 'email': 'http://schema.openid.net/contact/email',
                 'name': 'http://schema.openid.net/namePerson/friendly',
             }
-            for name, uri in attrs.iteritems():
+            for name, uri in attrs.items():
                 try:
                     value = ax_resp.getSingle(uri)
                     if value:

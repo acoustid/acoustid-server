@@ -22,7 +22,7 @@ def dummy_start_response(status, headers, exc_info=None):
 def test_gzip_request_middleware():
     # type: () -> None
     def app(environ, start_response):
-        assert_equals('Hello world!', environ['wsgi.input'].read(int(environ['CONTENT_LENGTH'])))
+        assert_equals(b'Hello world!', environ['wsgi.input'].read(int(environ['CONTENT_LENGTH'])))
     gzcontent = BytesIO()
     f = gzip.GzipFile(fileobj=gzcontent, mode='w')
     f.write(b'Hello world!')

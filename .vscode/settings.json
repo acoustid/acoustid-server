@@ -1,0 +1,16 @@
+{
+  "python.pythonPath": "venv3/bin/python",
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Path": "venv3/bin/flake8",
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyPath": "venv3/bin/mypy",
+  "python.linting.enabled": true,
+  "python.testing.nosetestsEnabled": true,
+  "python.testing.nosetestPath": "venv3/bin/nosetests",
+  "python.testing.nosetestArgs": [
+    "tests"
+  ],
+  "python.testing.pytestEnabled": false,
+  "python.testing.unittestEnabled": false,
+}

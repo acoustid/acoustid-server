@@ -3,8 +3,7 @@
 
 import re
 import syslog
-import hashlib
-import time
+import os
 import datetime
 import hmac
 import base64
@@ -15,7 +14,8 @@ from logging import Handler
 
 
 def generate_api_key(length=10):
-    return re.sub('[/+=]', '', hashlib.sha1(str(time.time())).digest().encode('base64').strip())[:length]
+    random_bytes = os.urandom(20)
+    return re.sub('[/+=]', '', six.text_type(base64.b64encode(random_bytes)).strip())[:length]
 
 
 def generate_demo_client_api_key(secret, day=None):
@@ -131,7 +131,7 @@ class LocalSysLogHandler(Handler):
             priority = self.priority_map[record.levelname]
             for m in msg.splitlines():
                 syslog.syslog(self.facility | priority, m)
-        except StandardError:
+        except Exception:
             self.handleError(record)
 
 

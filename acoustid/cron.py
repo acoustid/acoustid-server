@@ -4,7 +4,9 @@
 import time
 import logging
 import functools
+from typing import Callable, Any
 from schedule import Scheduler
+from acoustid.script import Script
 from acoustid.scripts.update_stats import run_update_stats
 from acoustid.scripts.update_lookup_stats import run_update_lookup_stats
 from acoustid.scripts.update_user_agent_stats import run_update_user_agent_stats
@@ -15,8 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 def create_schedule(script):
+    # type: (Script) -> Scheduler
 
     def wrap_job(func):
+        # type: (Callable[[Script, Any, Any], None]) -> Callable[[], None]
         @functools.wraps(func)
         def wrapper():
             logger.info('Running %s', func.__name__)
@@ -35,6 +39,7 @@ def create_schedule(script):
 
 
 def run_cron(script):
+    # type: (Script) -> None
     schedule = create_schedule(script)
     while True:
         schedule.run_pending()

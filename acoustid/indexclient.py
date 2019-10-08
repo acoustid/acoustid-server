@@ -11,7 +11,7 @@ from collections import namedtuple, deque
 
 logger = logging.getLogger(__name__)
 
-CRLF = '\r\n'
+CRLF = b'\r\n'
 
 
 def encode_fp(data):
@@ -55,7 +55,7 @@ class IndexClient(Index):
         self.in_transaction = False
         self.created = time.time()
         self.sock = None
-        self._buffer = ''
+        self._buffer = b''
         self._connect()
 
     def __str__(self):
@@ -79,7 +79,8 @@ class IndexClient(Index):
             raise IndexClientError('unable to connect to the index server at %s:%s' % (self.host, self.port))
 
     def _putline(self, line):
-        self.sock.sendall('%s%s' % (line, CRLF))
+        # type: (str) -> None
+        self.sock.sendall(b'%s%s' % (line.encode('utf8'), CRLF))
 
     def _getline(self, timeout=None):
         pos = self._buffer.find(CRLF)
@@ -113,7 +114,7 @@ class IndexClient(Index):
                 raise IndexClientError("read timeout exceeded")
         line = self._buffer[:pos]
         self._buffer = self._buffer[pos + len(CRLF):]
-        return line
+        return line.decode('utf8')
 
     def _request(self, request, timeout=None):
         self._putline(request)
@@ -168,7 +169,7 @@ class IndexClient(Index):
                 self.rollback()
             self._putline('quit')
             self.sock.close()
-        except StandardError:
+        except Exception:
             logger.exception("Error while closing connection %s", self)
         self.sock = None
 

@@ -128,7 +128,7 @@ def merge_missing_mbids(conn):
     merge = {}
     for old_mbid, new_mbid in results:
         merge.setdefault(str(new_mbid), []).append(str(old_mbid))
-    for new_mbid, old_mbids in merge.iteritems():
+    for new_mbid, old_mbids in merge.items():
         merge_mbids(conn, new_mbid, old_mbids)
 
 

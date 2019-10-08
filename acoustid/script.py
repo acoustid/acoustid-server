@@ -56,7 +56,8 @@ class Script(object):
                            port=self.config.redis.port)
 
         self._console_logging_configured = False
-        self.setup_logging()
+        if not tests:
+            self.setup_logging()
 
     def setup_logging(self):
         # type: () -> None

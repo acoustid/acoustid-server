@@ -33,7 +33,7 @@ def test_ok(ctx):
     handler = APIHandler(ctx)
     resp = handler._ok({'tracks': [{'id': 1, 'name': 'Track 1'}]})
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
-    expected = '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="ok"><tracks><track><id>1</id><name>Track 1</name></track></tracks></response>'
+    expected = b'<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="ok"><tracks><track><id>1</id><name>Track 1</name></track></tracks></response>'
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
 
@@ -44,12 +44,12 @@ def test_error(ctx):
     handler = APIHandler(ctx)
     resp = handler._error(123, 'something is wrong')
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
-    expected = '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="error"><error>something is wrong</error></response>'
+    expected = b'<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="error"><error>something is wrong</error></response>'
     assert_equals(expected, resp.data)
     assert_equals('400 BAD REQUEST', resp.status)
     resp = handler._error(234, 'oops', status=500)
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
-    expected = '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="error"><error>oops</error></response>'
+    expected = b'<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="error"><error>oops</error></response>'
     assert_equals(expected, resp.data)
     assert_equals('500 INTERNAL SERVER ERROR', resp.status)
 
@@ -223,7 +223,7 @@ def test_submit_handler(ctx):
     handler = SubmitHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
-    expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><submissions><submission><status>pending</status><id>1</id></submission></submissions></response>"
+    expected = b"<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><submissions><submission><id>1</id><status>pending</status></submission></submissions></response>"
     assert_equals(expected, resp.data)
     assert_equals('200 OK', resp.status)
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)

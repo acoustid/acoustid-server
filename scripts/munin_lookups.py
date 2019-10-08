@@ -29,7 +29,7 @@ def main(script, opts, args):
     today = datetime.date.today().isoformat()
     redis = script.redis
     total = {'hit': 0, 'miss': 0}
-    for key, count in redis.hgetall('lookups').iteritems():
+    for key, count in redis.hgetall('lookups').items():
         date, hour, application_id, type = key.split(':')
         if date != today:
             continue

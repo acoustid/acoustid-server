@@ -40,7 +40,7 @@ DEMO_APPLICATION_ID = 2
 
 def iter_args_suffixes(args, *prefixes):
     results = set()
-    for name in args.iterkeys():
+    for name in args.keys():
         for prefix in prefixes:
             if name == prefix:
                 results.add(None)
@@ -117,7 +117,7 @@ class APIHandler(Handler):
         if application_id is not None:
             application_rate_limit = self.ctx.config.rate_limiter.applications.get(application_id)
             if application_rate_limit is not None:
-                if self.rate_limiter.limit('app', application_id, application_rate_limit):
+                if self.rate_limiter.limit('app', str(application_id), application_rate_limit):
                     raise errors.TooManyRequests(application_rate_limit)
                 else:
                     return
@@ -217,7 +217,7 @@ class LookupHandler(APIHandler):
         el_recording = {}
         res_map = {}
         track_mbid_map = lookup_mbids(self.conn, self.el_result.keys())
-        for track_id, mbids in track_mbid_map.iteritems():
+        for track_id, mbids in track_mbid_map.items():
             res_map[track_id] = []
             for mbid, sources in mbids:
                 res_map[track_id].append(mbid)
@@ -235,7 +235,7 @@ class LookupHandler(APIHandler):
     def _inject_user_meta_ids_internal(self, add=True):
         el_recording = {}
         track_meta_map = lookup_meta_ids(self.conn, self.el_result.keys())
-        for track_id, meta_ids in track_meta_map.iteritems():
+        for track_id, meta_ids in track_meta_map.items():
             for meta_id in meta_ids:
                 if add:
                     for result_el in self.el_result[track_id]:
@@ -428,13 +428,13 @@ class LookupHandler(APIHandler):
 
     def _group_metadata(self, metadata, track_mbid_map):
         results = {}
-        for track_id, mbids in track_mbid_map.iteritems():
+        for track_id, mbids in track_mbid_map.items():
             mbids = set(mbids)
             results[track_id] = []
             for item in metadata:
                 if item['recording_id'] in mbids:
                     results[track_id].append(item)
-        return results.iteritems()
+        return results.items()
 
     def _group_release_groups(self, metadata, only_ids=False):
         results = {}
@@ -443,7 +443,7 @@ class LookupHandler(APIHandler):
             if id not in results:
                 results[id] = (self.extract_release_group(item, only_id=only_ids), [])
             results[id][1].append(item)
-        return results.itervalues()
+        return results.values()
 
     def _group_recordings(self, metadata, only_ids=False):
         results = {}
@@ -452,7 +452,7 @@ class LookupHandler(APIHandler):
             if id not in results:
                 results[id] = (self.extract_recording(item, only_id=only_ids), [])
             results[id][1].append(item)
-        return results.itervalues()
+        return results.values()
 
     def _group_releases(self, metadata, only_ids=False):
         results = {}
@@ -461,7 +461,7 @@ class LookupHandler(APIHandler):
             if id not in results:
                 results[id] = (self.extract_release(item, only_id=only_ids), [])
             results[id][1].append(item)
-        return results.itervalues()
+        return results.values()
 
     def _group_tracks(self, metadata):
         results = {}
@@ -483,7 +483,7 @@ class LookupHandler(APIHandler):
                 'artists': item['track_artists'],
             }
             medium['tracks'].append(track)
-        return results.itervalues()
+        return results.values()
 
     def inject_m2(self, meta):
         el_recording = self._inject_recording_ids_internal(True)[0]
@@ -707,7 +707,7 @@ class SubmitHandler(APIHandler):
                     'source_id': source_id
                 }
                 meta_values = dict((n, p[n] or None) for n in self.meta_fields)
-                if any(meta_values.itervalues()):
+                if any(meta_values.values()):
                     values['meta_id'] = insert_meta(fingerprint_db, meta_values)
                 if p['foreignid']:
                     values['foreignid_id'] = find_or_insert_foreignid(fingerprint_db, p['foreignid'])

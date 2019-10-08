@@ -1,6 +1,7 @@
 /.vagrant
 /.mypy_cache
 /e
+/venv*
 /build
 /acoustid.conf
 /acoustid-test.conf
@@ -9,3 +10,4 @@
 *.swp
 *.so
 *.o
+.noseids

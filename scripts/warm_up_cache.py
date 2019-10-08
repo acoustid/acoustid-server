@@ -30,7 +30,7 @@ def main(script, opts, args):
             track_ids = [r[1] for r in matches]
             track_mbid_map = lookup_mbids(conn, track_ids)
             mbids = set()
-            for track_id, track_mbids in track_mbid_map.iteritems():
+            for track_id, track_mbids in track_mbid_map.items():
                 for mbid, sources in track_mbids:
                     mbids.add(mbid)
             metadata = lookup_metadata(conn, mbids, load_releases=True, load_release_groups=True)
