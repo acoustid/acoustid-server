@@ -26,8 +26,8 @@ def test_serialize_xml():
     resp = serialize_response(data, 'xml')
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
     expected = (
-        '''<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><artists><artist><cities><city>Paris</city><city>Lyon'''
-        '''</city></cities><name>Jean Michel Jarre</name><year>1948</year></artist></artists></response>'''
+        b'''<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><artists><artist><cities><city>Paris</city><city>Lyon'''
+        b'''</city></cities><name>Jean Michel Jarre</name><year>1948</year></artist></artists></response>'''
     )
     assert_equals(expected, resp.data)
 
@@ -36,5 +36,5 @@ def test_serialize_xml_attribute():
     data = {'@status': 'ok'}
     resp = serialize_response(data, 'xml')
     assert_equals('text/xml; charset=UTF-8', resp.content_type)
-    expected = '''<?xml version='1.0' encoding='UTF-8'?>\n<response status="ok" />'''
+    expected = b'''<?xml version='1.0' encoding='UTF-8'?>\n<response status="ok" />'''
     assert_equals(expected, resp.data)

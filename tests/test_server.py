@@ -5,8 +5,18 @@ from nose.tools import assert_equals
 import gzip
 import wsgiref.util
 from six import BytesIO, text_type
-from typing import Dict, Any
+from typing import Dict, Any, List, Callable, Tuple, TYPE_CHECKING
 from acoustid.server import GzipRequestMiddleware, replace_double_slashes, add_cors_headers
+
+if TYPE_CHECKING:
+    from wsgiref.types import WSGIEnvironment
+
+
+def dummy_start_response(status, headers, exc_info=None):
+    # type: (str, List[Tuple[str, str]], Any) -> Callable[[bytes], None]
+    def write(x):
+        pass
+    return write
 
 
 def test_gzip_request_middleware():
@@ -25,7 +35,7 @@ def test_gzip_request_middleware():
     }
     wsgiref.util.setup_testing_defaults(environ)
     mw = GzipRequestMiddleware(app)
-    mw(environ, None)
+    mw(environ, dummy_start_response)
 
 
 def test_replace_double_slashes():
@@ -35,7 +45,7 @@ def test_replace_double_slashes():
     environ = {u'PATH_INFO': '/v2//user//lookup'}
     wsgiref.util.setup_testing_defaults(environ)
     mw = replace_double_slashes(app)
-    mw(environ, None)
+    mw(environ, dummy_start_response)
 
 
 def test_add_cors_headers():
@@ -44,11 +54,13 @@ def test_add_cors_headers():
         start_response(200, [])
 
     def start_response(status, headers, exc_info=None):
+        # type: (str, List[Tuple[str, str]], Any) -> Callable[[bytes], None]
         h = dict(headers)
         print(h)
         assert_equals(h['Access-Control-Allow-Origin'], '*')
+        return dummy_start_response(status, headers, exc_info=exc_info)
 
-    environ = {}  # type: Dict[text_type, Any]
+    environ = {}  # type: WSGIEnvironment
     wsgiref.util.setup_testing_defaults(environ)
     mw = add_cors_headers(app)
     mw(environ, start_response)

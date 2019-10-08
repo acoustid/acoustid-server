@@ -3,11 +3,12 @@
 
 import gzip
 import sentry_sdk
+from typing import Callable, List, Tuple, Any, Dict, Iterable, Optional, TYPE_CHECKING
 from werkzeug.wsgi import get_input_stream
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
-from six import StringIO
+from six import BytesIO, text_type
 from werkzeug.exceptions import HTTPException
-from werkzeug.routing import Map, Rule, Submount
+from werkzeug.routing import Map, Rule, Submount, RuleFactory
 from werkzeug.wrappers import Request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from acoustid.script import Script
@@ -16,6 +17,9 @@ import acoustid.api.v1
 import acoustid.api.v2
 import acoustid.api.v2.misc
 import acoustid.api.v2.internal
+
+if TYPE_CHECKING:
+    from wsgiref.types import WSGIApplication, WSGIEnvironment, StartResponse
 
 
 api_url_rules = [
@@ -43,37 +47,36 @@ api_url_rules = [
             Rule('/update_application_status', endpoint=acoustid.api.v2.internal.UpdateApplicationStatusHandler),
         ]),
     ]),
-]
+]  # type: List[RuleFactory]
 
 admin_url_rules = [
     Submount('/admin', [
     ])
-]
+]  # type: List[RuleFactory]
 
 
 class Server(Script):
 
     def __init__(self, config_path):
+        # type: (str) -> None
         super(Server, self).__init__(config_path)
         url_rules = api_url_rules + admin_url_rules
         self.url_map = Map(url_rules, strict_slashes=False)
 
     def __call__(self, environ, start_response):
+        # type: (WSGIEnvironment, StartResponse) -> Iterable[bytes]
         urls = self.url_map.bind_to_environ(environ)
-        handler = None
         try:
-            try:
-                handler_class, args = urls.match()
-                handler = handler_class.create_from_server(self, **args)
+            handler_class, args = urls.match()
+            with self.context() as ctx:
+                handler = handler_class(ctx, **args)
                 response = handler.handle(Request(environ))
-            except HTTPException as e:
-                return e(environ, start_response)
-            return response(environ, start_response)
-        finally:
-            if handler is not None and 'conn' in handler.__dict__:
-                handler.__dict__['conn'].close()
+        except HTTPException as e:
+            return e(environ, start_response)
+        return response(environ, start_response)
 
     def setup_sentry(self):
+        # type: () -> None
         sentry_sdk.init(self.config.sentry.api_dsn, release=GIT_RELEASE)
 
 
@@ -83,29 +86,36 @@ class GzipRequestMiddleware(object):
     :param app: a WSGI application
     """
     def __init__(self, app):
+        # type: (WSGIApplication) -> None
         self.app = app
 
     def __call__(self, environ, start_response):
+        # type: (WSGIEnvironment, StartResponse) -> Iterable[bytes]
         content_encoding = environ.get('HTTP_CONTENT_ENCODING', '').lower().strip()
         if content_encoding == 'gzip':
             compressed_body = get_input_stream(environ).read()
-            body = gzip.GzipFile(fileobj=StringIO(compressed_body)).read()
-            environ['wsgi.input'] = StringIO(body)
+            body = gzip.GzipFile(fileobj=BytesIO(compressed_body)).read()
+            environ['wsgi.input'] = BytesIO(body)
             environ['CONTENT_LENGTH'] = str(len(body))
             del environ['HTTP_CONTENT_ENCODING']
         return self.app(environ, start_response)
 
 
 def replace_double_slashes(app):
+    # type: (WSGIApplication) -> WSGIApplication
     def wrapped_app(environ, start_response):
+        # type: (WSGIEnvironment, StartResponse) -> Iterable[bytes]
         environ['PATH_INFO'] = environ['PATH_INFO'].replace('//', '/')
         return app(environ, start_response)
     return wrapped_app
 
 
 def add_cors_headers(app):
+    # type: (WSGIApplication) -> WSGIApplication
     def wrapped_app(environ, start_response):
+        # type: (WSGIEnvironment, StartResponse) -> Iterable[bytes]
         def start_response_with_cors_headers(status, headers, exc_info=None):
+            # type: (str,  List[Tuple[str, str]], Optional[Any]) -> Callable[[bytes], None]
             headers.append(('Access-Control-Allow-Origin', '*'))
             return start_response(status, headers, exc_info)
         return app(environ, start_response_with_cors_headers)
@@ -113,15 +123,16 @@ def add_cors_headers(app):
 
 
 def make_application(config_path):
+    # type: (str) -> Tuple[Server, WSGIApplication]
     """Construct a WSGI application for the AcoustID server
 
     :param config_path: path to the server configuration file
     """
     server = Server(config_path)
     server.setup_sentry()
-    app = GzipRequestMiddleware(server)
-    app = ProxyFix(app)
+    app = GzipRequestMiddleware(server)  # type: WSGIApplication
     app = SentryWsgiMiddleware(app)
     app = replace_double_slashes(app)
     app = add_cors_headers(app)
+    app = ProxyFix(app)  # type: ignore
     return server, app

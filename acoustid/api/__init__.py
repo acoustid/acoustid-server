@@ -5,8 +5,10 @@ import six
 import logging
 import json
 import xml.etree.cElementTree as etree
-from werkzeug.wrappers import Response
+from werkzeug.wrappers import Request, Response
+from acoustid.handler import Handler
 from acoustid.utils import singular
+from acoustid.script import ScriptContext
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ def _serialize_xml_node(parent, data):
 
 
 def _serialize_xml_dict(parent, data):
-    for name, value in data.iteritems():
+    for name, value in data.items():
         if name.startswith('@'):
             parent.attrib[name[1:]] = six.text_type(value)
         else:
@@ -63,29 +65,25 @@ def serialize_response(data, format, **kwargs):
         return serialize_xml(data, **kwargs)
 
 
-def get_health_response(script, req, require_master=False):
+def get_health_response(ctx, req, require_master=False):
+    # type: (ScriptContext, Request, bool) -> Response
     from acoustid.uwsgi_utils import is_shutting_down
-    if require_master and script.config.cluster.role != 'master':
+    if require_master and ctx.config.cluster.role != 'master':
         return Response('not the master server', content_type='text/plain', status=503)
-    if is_shutting_down(script.config.website.shutdown_file_path):
+    if is_shutting_down(ctx.config.website.shutdown_file_path):
         return Response('shutdown in process', content_type='text/plain', status=503)
     return Response('ok', content_type='text/plain', status=200)
 
 
-class ReadOnlyHealthHandler(object):
-
-    def __init__(self, server):
-        self.server = server
-
-    @classmethod
-    def create_from_server(cls, server):
-        return cls(server)
+class ReadOnlyHealthHandler(Handler):
 
     def handle(self, req):
-        return get_health_response(self.server, req)
+        # type: (Request) -> Response
+        return get_health_response(self.ctx, req)
 
 
 class HealthHandler(ReadOnlyHealthHandler):
 
     def handle(self, req):
-        return get_health_response(self.server, req, require_master=True)
+        # type: (Request) -> Response
+        return get_health_response(self.ctx, req, require_master=True)
