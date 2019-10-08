@@ -13,4 +13,7 @@
   ],
   "python.testing.pytestEnabled": false,
   "python.testing.unittestEnabled": false,
+  "files.associations": {
+    "Dockerfile.*": "dockerfile"
+  }
 }
