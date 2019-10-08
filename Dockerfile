@@ -12,7 +12,8 @@ RUN curl -Lo /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases
 ADD requirements_py2.txt /tmp/requirements.txt
 
 RUN virtualenv /opt/acoustid/server.venv && \
-    /opt/acoustid/server.venv/bin/pip install --no-use-pep517 --no-binary :all: --no-cache-dir -r /tmp/requirements.txt
+    grep 'ptyprocess' | /opt/acoustid/server.venv/bin/pip install --no-use-pep517 --no-binary :all: --no-cache-dir - /dev/stdin && \
+    /opt/acoustid/server.venv/bin/pip install --no-binary :all: --no-cache-dir -r /tmp/requirements.txt
 
 RUN useradd -ms /bin/bash acoustid
 USER acoustid
