@@ -57,5 +57,17 @@ def run_import_cmd(config):
     run_import(script)
 
 
+@cli.command('shell')
+@click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
+def shell_cmd(config):
+    """Run shell."""
+    import IPython
+    script = Script(config)
+    script.setup_console_logging()
+    script.setup_sentry()
+    with script.context() as ctx:
+        IPython.embed()
+
+
 def main():
     cli()
