@@ -216,6 +216,8 @@ class RedisConfig(BaseConfig):
     def __init__(self):
         self.host = '127.0.0.1'
         self.port = 6379
+        self.sentinel = False
+        self.cluster = 'acoustid'
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
@@ -223,10 +225,16 @@ class RedisConfig(BaseConfig):
             self.host = parser.get(section, 'host')
         if parser.has_option(section, 'port'):
             self.port = parser.getint(section, 'port')
+        if parser.has_option(section, 'sentinel'):
+            self.sentinel = parser.getboolean(section, 'sentinel')
+        if parser.has_option(section, 'cluster'):
+            self.host = parser.get(section, 'cluster')
 
     def read_env(self, prefix):
         read_env_item(self, 'host', prefix + 'REDIS_HOST')
         read_env_item(self, 'port', prefix + 'REDIS_PORT', convert=int)
+        read_env_item(self, 'sentinel', prefix + 'SENTINEL', convert=str_to_bool)
+        read_env_item(self, 'cluster', prefix + 'REDIS_CLUSTER')
 
 
 def get_logging_level_names():

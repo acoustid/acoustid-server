@@ -8,6 +8,7 @@ import sqlalchemy.pool
 import sentry_sdk
 from typing import Any
 from redis import Redis
+from redis.sentinel import Sentinel as RedisSentinel
 from optparse import OptionParser
 from acoustid.config import Config
 from acoustid.indexclient import IndexClientPool
@@ -52,8 +53,12 @@ class Script(object):
                                      port=self.config.index.port,
                                      recycle=60)
 
-        self.redis = Redis(host=self.config.redis.host,
-                           port=self.config.redis.port)
+        if self.config.redis.sentinel:
+            self.redis_sentinel = RedisSentinel([(self.config.redis.host, self.config.redis.port)])
+            self.redis = self.redis_sentinel.master_for(self.config.redis.cluster)  # type: Redis
+        else:
+            self.redis = Redis(host=self.config.redis.host,
+                               port=self.config.redis.port)
 
         self._console_logging_configured = False
         if not tests:
