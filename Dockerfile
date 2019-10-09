@@ -1,9 +1,9 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 RUN apt-get update && \
     apt-get install -y \
         python python-pip python-virtualenv python-dev \
-        libchromaprint0 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
+        libchromaprint1 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
         curl
 
 RUN curl -Lo /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 && \
@@ -12,7 +12,7 @@ RUN curl -Lo /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases
 ADD requirements_py2.txt /tmp/requirements.txt
 
 RUN virtualenv /opt/acoustid/server.venv && \
-    grep 'ptyprocess' | /opt/acoustid/server.venv/bin/pip install --no-use-pep517 --no-binary :all: --no-cache-dir - /dev/stdin && \
+    grep -E '(ipython|pexpect)' /tmp/requirements.txt | /opt/acoustid/server.venv/bin/pip install --no-cache-dir -r /dev/stdin && \
     /opt/acoustid/server.venv/bin/pip install --no-binary :all: --no-cache-dir -r /tmp/requirements.txt
 
 RUN useradd -ms /bin/bash acoustid
