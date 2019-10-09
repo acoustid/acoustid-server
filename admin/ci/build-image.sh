@@ -17,7 +17,7 @@ fi
 
 echo "GIT_RELEASE = '$GIT_RELEASE'" > acoustid/_release.py
 
-docker pull $IMAGE:$PREV_VERSION
+docker pull $IMAGE:$PREV_VERSION || true
 docker build --cache-from=$IMAGE:$PREV_VERSION -t $IMAGE:$VERSION .
 docker push $IMAGE:$VERSION
 
