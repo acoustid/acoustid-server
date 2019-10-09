@@ -222,6 +222,7 @@ class WebSiteConfig(BaseConfig):
     def read_env(self, prefix):
         read_env_item(self, 'debug', prefix + 'DEBUG', convert=str_to_bool)
         read_env_item(self, 'maintenance', prefix + 'MAINTENANCE', convert=str_to_bool)
+        read_env_item(self, 'secret', prefix + 'SECRET')
         read_env_item(self, 'mb_oauth_client_id', prefix + 'MB_OAUTH_CLIENT_ID')
         read_env_item(self, 'mb_oauth_client_secret', prefix + 'MB_OAUTH_CLIENT_SECRET')
         read_env_item(self, 'google_oauth_client_id', prefix + 'GOOGLE_OAUTH_CLIENT_ID')
