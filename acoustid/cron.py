@@ -29,8 +29,8 @@ def create_schedule(script):
 
     schedule = Scheduler()
     # hourly jobs
+    schedule.every(3).to(9).minutes.do(wrap_job(run_update_lookup_stats))
     schedule.every(55).to(65).minutes.do(wrap_job(run_merge_missing_mbids))
-    schedule.every(55).to(65).minutes.do(wrap_job(run_update_lookup_stats))
     # daily jobs
     schedule.every(23).to(25).hours.do(wrap_job(run_update_stats))
     schedule.every(23).to(25).hours.do(wrap_job(run_update_user_agent_stats))

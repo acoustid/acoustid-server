@@ -7,7 +7,7 @@ IMAGE=quay.io/acoustid/acoustid-server
 if [ -n "$CI_COMMIT_TAG" ]
 then
   VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//')
-  PREV_VERSION=master
+  PREV_VERSION=live
   GIT_RELEASE=$CI_COMMIT_TAG
 else
   VERSION=$CI_COMMIT_REF_SLUG
@@ -17,7 +17,7 @@ fi
 
 echo "GIT_RELEASE = '$GIT_RELEASE'" > acoustid/_release.py
 
-docker pull $IMAGE:$PREV_VERSION
+docker pull $IMAGE:$PREV_VERSION || true
 docker build --cache-from=$IMAGE:$PREV_VERSION -t $IMAGE:$VERSION .
 docker push $IMAGE:$VERSION
 
