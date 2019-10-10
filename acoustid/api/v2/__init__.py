@@ -6,9 +6,10 @@ import logging
 import json
 import time
 import operator
-from typing import Type, Dict, Any, Optional, TYPE_CHECKING
+from typing import Type, Tuple, Dict, Any, Optional, List, TYPE_CHECKING, Union, Iterable, Set
 from acoustid import const
 from acoustid.const import MAX_REQUESTS_PER_SECOND
+from acoustid.db import DatabaseContext
 from acoustid.handler import Handler
 from acoustid.data.track import lookup_mbids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
@@ -23,6 +24,7 @@ from acoustid.data.foreignid import find_or_insert_foreignid
 from acoustid.data.stats import update_lookup_counter, update_user_agent_counter, update_lookup_avg_time
 from acoustid.ratelimiter import RateLimiter
 from werkzeug.wrappers import Request, Response
+from werkzeug.datastructures import MultiDict
 from acoustid.utils import is_uuid, is_foreignid, check_demo_client_api_key
 from acoustid.api import serialize_response, errors
 
@@ -161,13 +163,16 @@ class LookupHandlerParams(APIHandlerParams):
     duration_name = 'duration'
 
     def _parse_query(self, values, suffix):
-        p = {}
+        # type: (MultiDict, str) -> Dict[str, Any]
+        p = {}  # type: Dict[str, Any]
         p['index'] = (suffix or '')[1:]
-        p['track_gid'] = values.get('trackid' + suffix)
-        if p['track_gid'] and not is_uuid(p['track_gid']):
-            raise errors.InvalidUUIDError('trackid' + suffix)
-        if not p['track_gid']:
-            p['duration'] = values.get(self.duration_name + suffix, type=int)
+        track_gid = values.get('trackid' + suffix)
+        if track_gid:
+            if not is_uuid(track_gid):
+                raise errors.InvalidUUIDError('trackid' + suffix)
+            p['track_gid'] = track_gid
+        else:
+            p['duration'] = values.get(self.duration_name + suffix, type=int, default=0)
             if not p['duration']:
                 raise errors.MissingParameterError(self.duration_name + suffix)
             fingerprint_string = values.get('fingerprint' + suffix)
@@ -176,9 +181,10 @@ class LookupHandlerParams(APIHandlerParams):
             p['fingerprint'] = decode_fingerprint(fingerprint_string.encode('ascii', 'ignore'))
             if not p['fingerprint']:
                 raise errors.InvalidFingerprintError()
-        self.fingerprints.append(p)
+        return p
 
     def parse(self, values, db):
+        # type: (MultiDict, DatabaseContext) -> None
         super(LookupHandlerParams, self).parse(values, db)
         self._parse_client(values, db)
         self.meta = values.get('meta')
@@ -196,13 +202,13 @@ class LookupHandlerParams(APIHandlerParams):
         elif self.max_duration_diff > const.FINGERPRINT_MAX_ALLOWED_LENGTH_DIFF or self.max_duration_diff < 1:
             raise errors.InvalidMaxDurationDiffError('maxdurationdiff')
         self.batch = values.get('batch', type=int)
-        self.fingerprints = []
+        self.fingerprints = []  # type: List[Dict[str, Any]]
         suffixes = list(iter_args_suffixes(values, 'fingerprint', 'trackid'))
         if not suffixes:
             raise errors.MissingParameterError('fingerprint')
         for i, suffix in enumerate(suffixes):
             try:
-                self._parse_query(values, suffix)
+                self.fingerprints.append(self._parse_query(values, suffix))
             except errors.WebServiceError:
                 if not self.fingerprints and i + 1 == len(suffixes):
                     raise
@@ -214,16 +220,17 @@ class LookupHandler(APIHandler):
     recordings_name = 'recordings'
 
     def _inject_recording_ids_internal(self, add=True, add_sources=False):
-        el_recording = {}
-        res_map = {}
-        track_mbid_map = lookup_mbids(self.conn, self.el_result.keys())
+        # type: (bool, bool) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[int, List[str]]]
+        el_recording = {}  # type: Dict[str, List[Dict[str, Any]]]
+        res_map = {}  # type: Dict[int, List[str]]
+        track_mbid_map = lookup_mbids(self.ctx.db.get_fingerprint_db(), self.el_result.keys())
         for track_id, mbids in track_mbid_map.items():
             res_map[track_id] = []
             for mbid, sources in mbids:
                 res_map[track_id].append(mbid)
                 if add:
                     for result_el in self.el_result[track_id]:
-                        recording = {'id': mbid}
+                        recording = {'id': mbid}  # type: Dict[str, Any]
                         if add_sources:
                             recording['sources'] = sources
                         result_el.setdefault(self.recordings_name, []).append(recording)
@@ -233,13 +240,14 @@ class LookupHandler(APIHandler):
         return el_recording, res_map
 
     def _inject_user_meta_ids_internal(self, add=True):
-        el_recording = {}
-        track_meta_map = lookup_meta_ids(self.conn, self.el_result.keys())
+        # type: (bool) -> Tuple[Dict[int, List[Dict[str, Any]]], Dict[int, List[int]]]
+        el_recording = {}  # type: Dict[int, List[Dict[str, Any]]]
+        track_meta_map = lookup_meta_ids(self.ctx.db.get_fingerprint_db(), self.el_result.keys())
         for track_id, meta_ids in track_meta_map.items():
             for meta_id in meta_ids:
                 if add:
                     for result_el in self.el_result[track_id]:
-                        recording = {}
+                        recording = {}  # type: Dict[str, Any]
                         result_el.setdefault(self.recordings_name, []).append(recording)
                         el_recording.setdefault(meta_id, []).append(recording)
                 else:
@@ -247,6 +255,7 @@ class LookupHandler(APIHandler):
         return el_recording, track_meta_map
 
     def extract_recording(self, m, only_id=False):
+        # type: (Dict[str, Any], bool) -> Dict[str, Any]
         recording = {'id': m['recording_id']}
         if only_id:
             return recording
@@ -258,6 +267,7 @@ class LookupHandler(APIHandler):
         return recording
 
     def extract_release(self, m, only_id=False):
+        # type: (Dict[str, Any], bool) -> Dict[str, Any]
         release = {'id': m['release_id']}
         if only_id:
             return release
@@ -288,6 +298,7 @@ class LookupHandler(APIHandler):
         return release
 
     def extract_release_group(self, m, only_id=False):
+        # type: (Dict[str, Any], bool) -> Dict[str, Any]
         release_group = {'id': m['release_group_id']}
         if only_id:
             return release_group
@@ -301,6 +312,7 @@ class LookupHandler(APIHandler):
         return release_group
 
     def _inject_release_groups_internal(self, meta, parent, metadata):
+        # type: (List[str], Dict[str, Any], List[Dict[str, Any]]) -> None
         release_groups = self._group_release_groups(metadata, 'releasegroupids' in meta)
         parent['releasegroups'] = []
         for release_group, release_group_metadata in release_groups:
@@ -315,6 +327,7 @@ class LookupHandler(APIHandler):
                             del release['title']
 
     def _inject_releases_internal(self, meta, parent, metadata):
+        # type: (List[str], Dict[str, Any], List[Dict[str, Any]]) -> None
         releases = self._group_releases(metadata, 'releaseids' in meta)
         parent['releases'] = []
         for release, release_metadata in releases:
@@ -328,6 +341,7 @@ class LookupHandler(APIHandler):
                                 del track['artists']
 
     def inject_recordings(self, meta):
+        # type: (List[str]) -> None
         recording_els = self._inject_recording_ids_internal(True, 'sources' in meta)[0]
         load_releases = False
         load_release_groups = False
@@ -336,11 +350,11 @@ class LookupHandler(APIHandler):
         if 'releasegroupids' in meta or 'releasegroups' in meta:
             load_releases = True
             load_release_groups = True
-        metadata = lookup_metadata(self.conn, recording_els.keys(), load_releases=load_releases, load_release_groups=load_release_groups)
+        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(), recording_els.keys(), load_releases=load_releases, load_release_groups=load_release_groups)
         if 'usermeta' in meta and not metadata:
             user_meta_els = self._inject_user_meta_ids_internal(True)[0]
-            recording_els.update(user_meta_els)
-            user_meta = lookup_meta(self.conn, user_meta_els.keys())
+            recording_els.update(user_meta_els)  # type: ignore
+            user_meta = lookup_meta(self.ctx.db.get_fingerprint_db(), user_meta_els.keys())
             metadata.extend(user_meta)
         for recording, recording_metadata in self._group_recordings(metadata, 'recordingids' in meta):
             if 'releasegroups' in meta or 'releasegroupids' in meta:
@@ -409,30 +423,33 @@ class LookupHandler(APIHandler):
                 recording_el.update(recording)
 
     def inject_releases(self, meta):
+        # type: (List[str]) -> None
         recording_els, track_mbid_map = self._inject_recording_ids_internal(False)
-        metadata = lookup_metadata(self.conn, recording_els.keys(), load_releases=True, load_release_groups=True)
+        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(), recording_els.keys(), load_releases=True, load_release_groups=True)
         for track_id, track_metadata in self._group_metadata(metadata, track_mbid_map):
-            result = {}
+            result = {}  # type: Dict[str, Any]
             self._inject_releases_internal(meta, result, track_metadata)
             for result_el in self.el_result[track_id]:
                 result_el.update(result)
 
     def inject_release_groups(self, meta):
+        # type: (List[str]) -> None
         recording_els, track_mbid_map = self._inject_recording_ids_internal(False)
-        metadata = lookup_metadata(self.conn, recording_els.keys(), load_releases=True, load_release_groups=True)
+        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(), recording_els.keys(), load_releases=True, load_release_groups=True)
         for track_id, track_metadata in self._group_metadata(metadata, track_mbid_map):
-            result = {}
+            result = {}  # type: Dict[str, Any]
             self._inject_release_groups_internal(meta, result, track_metadata)
             for result_el in self.el_result[track_id]:
                 result_el.update(result)
 
     def _group_metadata(self, metadata, track_mbid_map):
-        results = {}
+        # type: (List[Dict[str, Any]], Dict[int, List[str]]) -> Iterable[Tuple[int, List[Dict[str, Any]]]]
+        results = {}  # type: Dict[int, List[Dict[str, Any]]]
         for track_id, mbids in track_mbid_map.items():
-            mbids = set(mbids)
+            mbids_set = set(mbids)
             results[track_id] = []
             for item in metadata:
-                if item['recording_id'] in mbids:
+                if item['recording_id'] in mbids_set:
                     results[track_id].append(item)
         return results.items()
 
@@ -542,51 +559,67 @@ class LookupHandler(APIHandler):
         return seen
 
     def _handle_internal(self, params):
+        # type: (APIHandlerParams) -> Dict[str, Any]
+        assert isinstance(params, LookupHandlerParams)
+
         import time
         t = time.time()
-        update_user_agent_counter(self.redis, params.application_id, self.user_agent, self.user_ip)
-        searcher = FingerprintSearcher(self.conn, self.index)
+
+        update_user_agent_counter(self.ctx.redis, params.application_id, str(self.user_agent), self.user_ip)
+
+        searcher = FingerprintSearcher(self.ctx.db.get_fingerprint_db(), self.ctx.index)
+        assert params.max_duration_diff is not None
         searcher.max_length_diff = params.max_duration_diff
+
         if params.batch:
             fingerprints = params.fingerprints
         else:
             fingerprints = params.fingerprints[:1]
+
         all_matches = []
         for p in fingerprints:
             if p['track_gid']:
-                track_id = resolve_track_gid(self.conn, p['track_gid'])
-                matches = [(0, track_id, p['track_gid'], 1.0)]
+                track_id = resolve_track_gid(self.ctx.db.get_fingerprint_db(), p['track_gid'])
+                if track_id:
+                    matches = [(0, track_id, p['track_gid'], 1.0)]
+                else:
+                    matches = []
             else:
                 matches = searcher.search(p['fingerprint'], p['duration'])
             all_matches.append(matches)
-        response = {}
+
+        response = {}  # type: Dict[str, Any]
         if params.batch:
             response['fingerprints'] = fps = []
-            result_map = {}
+            result_map = {}  # type: ignore
             for p, matches in zip(fingerprints, all_matches):
-                results = []
+                results = []  # type: ignore
                 fps.append({'index': p['index'], 'results': results})
                 track_ids = self._inject_results(results, result_map, matches)
-                update_lookup_counter(self.redis, params.application_id, bool(track_ids))
+                update_lookup_counter(self.ctx.redis, params.application_id, bool(track_ids))
                 logger.debug("Lookup from %s: %s", params.application_id, list(track_ids))
         else:
             response['results'] = results = []
             result_map = {}
             self._inject_results(results, result_map, all_matches[0])
-            update_lookup_counter(self.redis, params.application_id, bool(result_map))
+            update_lookup_counter(self.ctx.redis, params.application_id, bool(result_map))
             logger.debug("Lookup from %s: %s", params.application_id, result_map.keys())
+
         if params.meta and result_map:
             self.inject_metadata(params.meta, result_map)
+
         if fingerprints:
             time_per_fp = (time.time() - t) / len(fingerprints)
-            update_lookup_avg_time(self.redis, time_per_fp)
+            update_lookup_avg_time(self.ctx.redis, time_per_fp)
+
         return response
 
 
 class SubmissionStatusHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(SubmissionStatusHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        # type: (MultiDict, DatabaseContext) -> None
+        super(SubmissionStatusHandlerParams, self).parse(values, db)
         self._parse_client(values, conn)
         self.ids = values.getlist('id', type=int)
 
@@ -596,8 +629,10 @@ class SubmissionStatusHandler(APIHandler):
     params_class = SubmissionStatusHandlerParams
 
     def _handle_internal(self, params):
+        # type: (APIHandlerParams) -> Dict[str, Any]
+        assert isinstance(params, SubmissionStatusHandlerParams)
         response = {'submissions': [{'id': id, 'status': 'pending'} for id in params.ids]}
-        tracks = lookup_submission_status(self.conn, params.ids)
+        tracks = lookup_submission_status(self.ctx.db.get_ingest_db(), params.ids)
         for submission in response['submissions']:
             id = submission['id']
             track_gid = tracks.get(id)
@@ -610,6 +645,7 @@ class SubmissionStatusHandler(APIHandler):
 class SubmitHandlerParams(APIHandlerParams):
 
     def _parse_user(self, values, db):
+        # type: (MultiDict, DatabaseContext) -> None
         account_apikey = values.get('user')
         if not account_apikey:
             raise errors.MissingParameterError('user')
@@ -618,6 +654,7 @@ class SubmitHandlerParams(APIHandlerParams):
             raise errors.InvalidUserAPIKeyError()
 
     def _parse_duration_and_format(self, p, values, suffix):
+        # type: (Dict[str, Any], MultiDict, str) -> None
         p['duration'] = values.get('duration' + suffix, type=int)
         if p['duration'] is None:
             raise errors.MissingParameterError('duration' + suffix)
@@ -626,7 +663,8 @@ class SubmitHandlerParams(APIHandlerParams):
         p['format'] = values.get('fileformat' + suffix)
 
     def _parse_submission(self, values, suffix):
-        p = {}
+        # type: (MultiDict, str) -> None
+        p = {}  # type: Dict[str, Any]
         p['index'] = (suffix or '')[1:]
         p['puid'] = values.get('puid' + suffix)
         if p['puid'] and not is_uuid(p['puid']):
@@ -656,12 +694,13 @@ class SubmitHandlerParams(APIHandlerParams):
         p['year'] = values.get('year' + suffix, type=int)
         self.submissions.append(p)
 
-    def parse(self, values, conn):
-        super(SubmitHandlerParams, self).parse(values, conn)
-        self._parse_client(values, conn)
-        self._parse_user(values, conn)
+    def parse(self, values, db):
+        # type: (MultiDict, DatabaseContext) -> None
+        super(SubmitHandlerParams, self).parse(values, db)
+        self._parse_client(values, db)
+        self._parse_user(values, db)
         self.wait = values.get('wait', type=int, default=0)
-        self.submissions = []
+        self.submissions = []  # type: List[Dict[str, Any]]
         suffixes = list(iter_args_suffixes(values, 'fingerprint'))
         if not suffixes:
             raise errors.MissingParameterError('fingerprint')
@@ -680,20 +719,25 @@ class SubmitHandler(APIHandler):
                    'disc_no', 'year')
 
     def _handle_internal(self, params):
-        response = {'submissions': []}
-        ids = set()
+        # type: (APIHandlerParams) -> Dict[str, Any]
+        assert isinstance(params, SubmitHandlerParams)
+
+        response = {'submissions': []}  # type: Dict[str, Any]
+        ids = set()  # type: Set[int]
 
         app_db = self.ctx.db.get_app_db()
         fingerprint_db = self.ctx.db.get_fingerprint_db()
         ingest_db = self.ctx.db.get_ingest_db()
 
         source_id = find_or_insert_source(app_db, params.application_id, params.account_id, params.application_version)
-        format_ids = {}
+
+        format_ids = {}  # type: Dict[str, int]
         for p in params.submissions:
             if p['format']:
                 if p['format'] not in format_ids:
                     format_ids[p['format']] = find_or_insert_format(app_db, p['format'])
                 p['format_id'] = format_ids[p['format']]
+
         for p in params.submissions:
             mbids = p['mbids'] or [None]
             for mbid in mbids:
@@ -729,7 +773,6 @@ class SubmitHandler(APIHandler):
         try:
             max_wait = 10
             self.ctx.redis.expire(clients_waiting_key, max_wait)
-            tracks = {}
             remaining = min(max(0, max_wait - 2 ** clients_waiting), params.wait)
             logger.debug('starting to wait at %f %d', remaining, clients_waiting)
             while remaining > 0 and ids:
@@ -740,12 +783,13 @@ class SubmitHandler(APIHandler):
                 if not tracks:
                     continue
                 for submission in response['submissions']:
-                    id = submission['id']
-                    track_gid = tracks.get(id)
+                    submission_id = submission['id']
+                    assert isinstance(submission_id, int)
+                    track_gid = tracks.get(submission_id)
                     if track_gid is not None:
                         submission['status'] = 'imported'
                         submission['result'] = {'id': track_gid}
-                        ids.remove(id)
+                        ids.remove(submission_id)
         finally:
             self.ctx.redis.decr(clients_waiting_key)
 

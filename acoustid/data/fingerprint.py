@@ -2,7 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from sqlalchemy import sql
 from acoustid import tables as schema, const, chromaprint
 from acoustid.indexclient import Index, IndexClientPool, IndexClientError
@@ -65,7 +65,7 @@ class FingerprintSearcher(object):
                           order_by=[f.c.score.desc(), f.c.id])
 
     def _search_index(self, fp, length):
-        # type: (List[int], int) -> List[Dict[Any, Any]]
+        # type: (List[int], int) -> List[Tuple[int, int, str, float]]
         # index search
         fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
         if not fp_query:
@@ -86,7 +86,7 @@ class FingerprintSearcher(object):
         return matches
 
     def _search_database(self, fp, length, min_fp_id):
-        # type: (List[int], int, int) -> List[Dict[Any, Any]]
+        # type: (List[int], int, int) -> List[Tuple[int, int, str, float]]
         # construct the query
         condition = sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint).op('&&')(sql.func.acoustid_extract_query(fp))
         if min_fp_id:
@@ -102,7 +102,7 @@ class FingerprintSearcher(object):
             return int(index.get_attribute('max_document_id') or '0')
 
     def search(self, fp, length):
-        # type: (List[int], int) -> List[Dict[Any, Any]]
+        # type: (List[int], int) -> List[Tuple[int, int, str, float]]
         min_fp_id = 0 if self.fast else self._get_min_indexed_fp_id()
         matches = None
         try:

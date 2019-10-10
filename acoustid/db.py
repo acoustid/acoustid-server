@@ -56,6 +56,10 @@ class DatabaseContext(object):
         # type: () -> IngestDB
         return IngestDB(self.connection('ingest'))
 
+    def get_musicbrainz_db(self):
+        # type: () -> MusicBrainzDB
+        return MusicBrainzDB(self.connection('musicbrainz'))
+
     def close(self):
         # type: () -> None
         self.session.close()

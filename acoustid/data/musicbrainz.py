@@ -135,7 +135,7 @@ def _load_release_groups(conn, release_group_ids):
 
 
 def lookup_metadata(conn, recording_ids, load_releases=False, load_release_groups=False, load_artists=False):
-    # type: (MusicBrainzDB, Iterable[int], bool, bool, bool) -> List[Dict[str, Any]]
+    # type: (MusicBrainzDB, Iterable[str], bool, bool, bool) -> List[Dict[str, Any]]
     if not recording_ids:
         return []
     src = schema.mb_recording

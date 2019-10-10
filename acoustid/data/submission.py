@@ -2,7 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from typing import Dict, Any, Optional, Set, List
+from typing import Dict, Any, Optional, Set, List, Iterable
 from sqlalchemy import sql
 from acoustid import tables as schema, const
 from acoustid.data.fingerprint import insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
@@ -184,7 +184,7 @@ def import_queued_submissions(ingest_db, app_db, fingerprint_db, index, limit=10
 
 
 def lookup_submission_status(ingest_db, ids):
-    # type: (IngestDB, List[int]) -> Dict[int, str]
+    # type: (IngestDB, Iterable[int]) -> Dict[int, str]
     if not ids:
         return {}
     source = schema.fingerprint_source.\
