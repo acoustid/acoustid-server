@@ -109,16 +109,16 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         all_track_ids = set()  # type: Set[int]
         possible_track_ids = set()  # type: Set[int]
         for m in matches:
-            if m['track_id'] in all_track_ids:
+            if m.track_id in all_track_ids:
                 continue
-            all_track_ids.add(m['track_id'])
-            logger.debug("Fingerprint %d with track %d is %d%% similar", m['id'], m['track_id'], m['score'] * 100)
-            if can_add_fp_to_track(fingerprint_db, m['track_id'], submission['fingerprint'], submission['length']):
-                possible_track_ids.add(m['track_id'])
+            all_track_ids.add(m.track_id)
+            logger.debug("Fingerprint %d with track %d is %d%% similar", m.fingerprint_id, m.track_id, m.score * 100)
+            if can_add_fp_to_track(fingerprint_db, m.track_id, submission['fingerprint'], submission['length']):
+                possible_track_ids.add(m.track_id)
                 if not fingerprint['track_id']:
-                    fingerprint['track_id'] = m['track_id']
-                    if m['score'] > const.FINGERPRINT_MERGE_THRESHOLD:
-                        fingerprint['id'] = m['id']
+                    fingerprint['track_id'] = m.track_id
+                    if m.score > const.FINGERPRINT_MERGE_THRESHOLD:
+                        fingerprint['id'] = m.fingerprint_id
         if len(possible_track_ids) > 1:
             for group in can_merge_tracks(fingerprint_db, possible_track_ids):
                 if fingerprint['track_id'] in group and len(group) > 1:

@@ -6,7 +6,7 @@ import logging
 import json
 import time
 import operator
-from typing import Type, Tuple, Dict, Any, Optional, List, TYPE_CHECKING, Union, Iterable, Set
+from typing import Type, Tuple, Dict, Any, Optional, List, TYPE_CHECKING, Iterable, Set
 from acoustid import const
 from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.db import DatabaseContext
@@ -14,7 +14,7 @@ from acoustid.handler import Handler
 from acoustid.data.track import lookup_mbids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.submission import insert_submission, lookup_submission_status
-from acoustid.data.fingerprint import decode_fingerprint, FingerprintSearcher
+from acoustid.data.fingerprint import decode_fingerprint, FingerprintSearcher, FingerprintMatch
 from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
@@ -581,7 +581,7 @@ class LookupHandler(APIHandler):
             if p['track_gid']:
                 track_id = resolve_track_gid(self.ctx.db.get_fingerprint_db(), p['track_gid'])
                 if track_id:
-                    matches = [(0, track_id, p['track_gid'], 1.0)]
+                    matches = [FingerprintMatch(0, track_id, p['track_gid'], 1.0)]
                 else:
                     matches = []
             else:
@@ -620,7 +620,7 @@ class SubmissionStatusHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         # type: (MultiDict, DatabaseContext) -> None
         super(SubmissionStatusHandlerParams, self).parse(values, db)
-        self._parse_client(values, conn)
+        self._parse_client(values, db)
         self.ids = values.getlist('id', type=int)
 
 

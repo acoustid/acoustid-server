@@ -2,7 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, NamedTuple
 from sqlalchemy import sql
 from acoustid import tables as schema, const, chromaprint
 from acoustid.indexclient import Index, IndexClientPool, IndexClientError
@@ -31,6 +31,9 @@ def decode_fingerprint(fingerprint_string):
     if version != FINGERPRINT_VERSION:
         return None
     return fingerprint
+
+
+FingerprintMatch = NamedTuple('FingerprintMatch', [('fingerprint_id', int), ('track_id', int), ('track_gid', str), ('score', float)])
 
 
 class FingerprintSearcher(object):
@@ -65,7 +68,7 @@ class FingerprintSearcher(object):
                           order_by=[f.c.score.desc(), f.c.id])
 
     def _search_index(self, fp, length):
-        # type: (List[int], int) -> List[Tuple[int, int, str, float]]
+        # type: (List[int], int) -> List[FingerprintMatch]
         # index search
         fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
         if not fp_query:
@@ -82,18 +85,18 @@ class FingerprintSearcher(object):
         condition = schema.fingerprint.c.id.in_(candidate_ids)
         query = self._create_search_query(fp, length, condition)
         # database scoring
-        matches = self.db.execute(query).fetchall()
+        matches = [FingerprintMatch(*i) for i in self.db.execute(query)]
         return matches
 
     def _search_database(self, fp, length, min_fp_id):
-        # type: (List[int], int, int) -> List[Tuple[int, int, str, float]]
+        # type: (List[int], int, int) -> List[FingerprintMatch]
         # construct the query
         condition = sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint).op('&&')(sql.func.acoustid_extract_query(fp))
         if min_fp_id:
             condition = sql.and_(condition, schema.fingerprint.c.id > min_fp_id)
         query = self._create_search_query(fp, length, condition)
         # database scoring
-        matches = self.db.execute(query).fetchall()
+        matches = [FingerprintMatch(*i) for i in self.db.execute(query)]
         return matches
 
     def _get_min_indexed_fp_id(self):
@@ -102,7 +105,7 @@ class FingerprintSearcher(object):
             return int(index.get_attribute('max_document_id') or '0')
 
     def search(self, fp, length):
-        # type: (List[int], int) -> List[Tuple[int, int, str, float]]
+        # type: (List[int], int) -> List[FingerprintMatch]
         min_fp_id = 0 if self.fast else self._get_min_indexed_fp_id()
         matches = None
         try:
