@@ -580,7 +580,7 @@ class LookupHandler(APIHandler):
 
         update_user_agent_counter(self.ctx.redis, params.application_id, str(self.user_agent), self.user_ip)
 
-        searcher = FingerprintSearcher(self.ctx.db.get_fingerprint_db(), self.ctx.index)
+        searcher = FingerprintSearcher(self.ctx.db.get_fingerprint_db(read_only=True), self.ctx.index)
         assert params.max_duration_diff is not None
         searcher.max_length_diff = params.max_duration_diff
 
@@ -592,7 +592,7 @@ class LookupHandler(APIHandler):
         all_matches = []
         for p in fingerprints:
             if isinstance(p, TrackLookupQuery):
-                track_id = resolve_track_gid(self.ctx.db.get_fingerprint_db(), p.track_gid)
+                track_id = resolve_track_gid(self.ctx.db.get_fingerprint_db(read_only=True), p.track_gid)
                 if track_id:
                     matches = [FingerprintMatch(fingerprint_id=0, track_id=track_id, track_gid=p.track_gid, score=1.0)]
                 else:
@@ -645,7 +645,7 @@ class SubmissionStatusHandler(APIHandler):
         # type: (APIHandlerParams) -> Dict[str, Any]
         assert isinstance(params, SubmissionStatusHandlerParams)
         response = {'submissions': [{'id': id, 'status': 'pending'} for id in params.ids]}
-        tracks = lookup_submission_status(self.ctx.db.get_ingest_db(), params.ids)
+        tracks = lookup_submission_status(self.ctx.db.get_ingest_db(read_only=True), params.ids)
         for submission in response['submissions']:
             id = submission['id']
             track_gid = tracks.get(id)

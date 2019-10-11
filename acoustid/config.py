@@ -56,8 +56,11 @@ class DatabasesConfig(BaseConfig):
         # type: () -> None
         self.databases = {
             'app': DatabaseConfig(),
+            'app:ro': DatabaseConfig(),
             'fingerprint': DatabaseConfig(),
+            'fingerprint:ro': DatabaseConfig(),
             'ingest': DatabaseConfig(),
+            'ingest:ro': DatabaseConfig(),
             'musicbrainz': DatabaseConfig(),
         }
         self.use_two_phase_commit = False
@@ -80,13 +83,13 @@ class DatabasesConfig(BaseConfig):
             self.use_two_phase_commit = parser.getboolean(section, 'two_phase_commit')
         for name, sub_config in self.databases.items():
             sub_section = '{}:{}'.format(section, name)
-            sub_config.read_section(parser, sub_section)
+            sub_config.read(parser, sub_section)
 
     def read_env(self, prefix):
         # type: (str) -> None
         read_env_item(self, 'use_two_phase_commit', prefix + 'DATABASE_TWO_PHASE_COMMIT', convert=str_to_bool)
         for name, sub_config in self.databases.items():
-            sub_prefix = prefix + 'DATABASE_' + name.upper() + '_'
+            sub_prefix = prefix + 'DATABASE_' + name.replace(':', '_').upper() + '_'
             sub_config.read_env(sub_prefix)
 
 
@@ -166,14 +169,21 @@ class DatabaseConfig(BaseConfig):
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
-        self.user = parser.get(section, 'user')
         self.name = parser.get(section, 'name')
         if parser.has_option(section, 'host'):
             self.host = parser.get(section, 'host')
         if parser.has_option(section, 'port'):
             self.port = parser.getint(section, 'port')
+        if parser.has_option(section, 'user'):
+            self.user = parser.get(section, 'user')
+        elif parser.has_option(section, 'user_file'):
+            user_file_path = parser.get(section, 'user_file')
+            self.user = open(user_file_path, 'rt').read().strip()
         if parser.has_option(section, 'password'):
             self.password = parser.get(section, 'password')
+        elif parser.has_option(section, 'password_file'):
+            password_file_path = parser.get(section, 'password_file')
+            self.password = open(password_file_path, 'rt').read().strip()
         if parser.has_option(section, 'pool_size'):
             self.pool_size = parser.getint(section, 'pool_size')
         if parser.has_option(section, 'pool_recycle'):
