@@ -88,7 +88,7 @@ def track(track_id_or_gid):
         edits_accounts_by_id[account.id] = account
 
     edits_track_mbids = db.session.query(TrackMBID).options(load_only('mbid')).\
-        filter(Account.id.in_(e.track_mbid_id for e in edits)).all()
+        filter(TrackMBID.id.in_(e.track_mbid_id for e in edits)).all()
     edits_track_mbids_by_id = {}
     for track_mbid in edits_track_mbids:
         edits_track_mbids_by_id[track_mbid.id] = track_mbid
