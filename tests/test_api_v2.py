@@ -21,6 +21,7 @@ from acoustid import tables
 from acoustid.script import ScriptContext
 from acoustid.api import errors
 from acoustid.api.v2 import (
+    FingerprintLookupQuery,
     LookupHandler,
     LookupHandlerParams,
     SubmitHandler,
@@ -111,8 +112,10 @@ def test_lookup_handler_params(ctx):
     params.parse(values, ctx.db)
     assert_equals('json', params.format)
     assert_equals(1, params.application_id)
-    assert_equals(TEST_1_LENGTH, params.fingerprints[0]['duration'])
-    assert_equals(TEST_1_FP_RAW, params.fingerprints[0]['fingerprint'])
+    assert len(params.fingerprints) == 1
+    assert isinstance(params.fingerprints[0], FingerprintLookupQuery)
+    assert_equals(TEST_1_LENGTH, params.fingerprints[0].duration)
+    assert_equals(TEST_1_FP_RAW, params.fingerprints[0].fingerprint)
 
 
 class WebServiceErrorHandler(APIHandler):

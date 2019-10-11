@@ -6,7 +6,8 @@ import logging
 import json
 import time
 import operator
-from typing import Type, Tuple, Dict, Any, Optional, List, TYPE_CHECKING, Iterable, Set
+import attr
+from typing import Type, Tuple, Dict, Any, Optional, List, TYPE_CHECKING, Iterable, Set, Union
 from acoustid import const
 from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.db import DatabaseContext
@@ -158,30 +159,42 @@ class APIHandler(Handler):
         raise NotImplementedError(self._handle_internal)
 
 
+@attr.s
+class TrackLookupQuery(object):
+    index = attr.ib()  # type: Optional[int]
+    track_gid = attr.ib()  # type: str
+
+
+@attr.s
+class FingerprintLookupQuery(object):
+    index = attr.ib()  # type: Optional[int]
+    duration = attr.ib()  # type: int
+    fingerprint = attr.ib()  # type: List[int]
+
+
 class LookupHandlerParams(APIHandlerParams):
 
     duration_name = 'duration'
 
     def _parse_query(self, values, suffix):
-        # type: (MultiDict, str) -> Dict[str, Any]
-        p = {}  # type: Dict[str, Any]
-        p['index'] = (suffix or '')[1:]
+        # type: (MultiDict, str) -> Union[TrackLookupQuery, FingerprintLookupQuery]
+        index = int(suffix[1:]) if suffix else None
         track_gid = values.get('trackid' + suffix)
         if track_gid:
             if not is_uuid(track_gid):
                 raise errors.InvalidUUIDError('trackid' + suffix)
-            p['track_gid'] = track_gid
+            return TrackLookupQuery(index=index, track_gid=track_gid)
         else:
-            p['duration'] = values.get(self.duration_name + suffix, type=int, default=0)
-            if not p['duration']:
+            duration = values.get(self.duration_name + suffix, type=int, default=0)
+            if not duration:
                 raise errors.MissingParameterError(self.duration_name + suffix)
             fingerprint_string = values.get('fingerprint' + suffix)
             if not fingerprint_string:
                 raise errors.MissingParameterError('fingerprint' + suffix)
-            p['fingerprint'] = decode_fingerprint(fingerprint_string.encode('ascii', 'ignore'))
-            if not p['fingerprint']:
+            fingerprint = decode_fingerprint(fingerprint_string.encode('ascii', 'ignore'))
+            if not fingerprint:
                 raise errors.InvalidFingerprintError()
-        return p
+            return FingerprintLookupQuery(index=index, duration=duration, fingerprint=fingerprint)
 
     def parse(self, values, db):
         # type: (MultiDict, DatabaseContext) -> None
@@ -202,7 +215,7 @@ class LookupHandlerParams(APIHandlerParams):
         elif self.max_duration_diff > const.FINGERPRINT_MAX_ALLOWED_LENGTH_DIFF or self.max_duration_diff < 1:
             raise errors.InvalidMaxDurationDiffError('maxdurationdiff')
         self.batch = values.get('batch', type=int)
-        self.fingerprints = []  # type: List[Dict[str, Any]]
+        self.fingerprints = []  # type: List[Union[TrackLookupQuery, FingerprintLookupQuery]]
         suffixes = list(iter_args_suffixes(values, 'fingerprint', 'trackid'))
         if not suffixes:
             raise errors.MissingParameterError('fingerprint')
@@ -578,15 +591,14 @@ class LookupHandler(APIHandler):
 
         all_matches = []
         for p in fingerprints:
-            track_gid = p.get('track_gid')
-            if track_gid:
-                track_id = resolve_track_gid(self.ctx.db.get_fingerprint_db(), track_gid)
+            if isinstance(p, TrackLookupQuery):
+                track_id = resolve_track_gid(self.ctx.db.get_fingerprint_db(), p.track_gid)
                 if track_id:
-                    matches = [FingerprintMatch(fingerprint_id=0, track_id=track_id, track_gid=track_gid, score=1.0)]
+                    matches = [FingerprintMatch(fingerprint_id=0, track_id=track_id, track_gid=p.track_gid, score=1.0)]
                 else:
                     matches = []
-            else:
-                matches = searcher.search(p['fingerprint'], p['duration'])
+            elif isinstance(p, FingerprintLookupQuery):
+                matches = searcher.search(p.fingerprint, p.duration)
             all_matches.append(matches)
 
         response = {}  # type: Dict[str, Any]
@@ -595,7 +607,7 @@ class LookupHandler(APIHandler):
             result_map = {}  # type: ignore
             for p, matches in zip(fingerprints, all_matches):
                 results = []  # type: ignore
-                fps.append({'index': p['index'], 'results': results})
+                fps.append({'index': p.index, 'results': results})
                 track_ids = self._inject_results(results, result_map, matches)
                 update_lookup_counter(self.ctx.redis, params.application_id, bool(track_ids))
                 logger.debug("Lookup from %s: %s", params.application_id, list(track_ids))

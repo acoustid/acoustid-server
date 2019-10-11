@@ -18,6 +18,9 @@ from werkzeug.datastructures import MultiDict
 from acoustid import tables
 from acoustid.script import ScriptContext
 from acoustid.api import errors
+from acoustid.api.v2 import (
+    FingerprintLookupQuery,
+)
 from acoustid.api.v1 import (
     LookupHandler,
     LookupHandlerParams,
@@ -82,8 +85,10 @@ def test_lookup_handler_params(ctx):
     params = LookupHandlerParams(ctx.config)
     params.parse(values, ctx.db)
     assert_equals(1, params.application_id)
-    assert_equals(TEST_1_LENGTH, params.fingerprints[0]['duration'])
-    assert_equals(TEST_1_FP_RAW, params.fingerprints[0]['fingerprint'])
+    assert len(params.fingerprints) == 1
+    assert isinstance(params.fingerprints[0], FingerprintLookupQuery)
+    assert_equals(TEST_1_LENGTH, params.fingerprints[0].duration)
+    assert_equals(TEST_1_FP_RAW, params.fingerprints[0].fingerprint)
 
 
 @with_script_context

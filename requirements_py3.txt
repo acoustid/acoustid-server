@@ -6,6 +6,7 @@
 #
 alembic==1.2.1
 asn1crypto==1.0.1         # via cryptography
+attrs==19.2.0
 backcall==0.1.0           # via ipython
 blinker==1.4
 certifi==2019.9.11        # via requests, sentry-sdk
