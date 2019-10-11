@@ -2,14 +2,14 @@ import logging
 from flask import Blueprint, render_template, request, redirect, url_for, abort, session
 from acoustid.web import db
 from acoustid.web.utils import require_user
-from acoustid.models import TrackMBIDChange, TrackMeta, Meta
+from acoustid.models import TrackMBIDChange, TrackMeta, Meta, Account, TrackMBID
 from acoustid.data.track import resolve_track_gid
 from acoustid.data.musicbrainz import lookup_recording_metadata
 from acoustid.data.account import is_moderator
 from acoustid.utils import is_uuid
 from acoustid import tables as schema
 from sqlalchemy import sql
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import load_only
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +78,28 @@ def track(track_id_or_gid):
     )
 
     edits = db.session.query(TrackMBIDChange).\
-        options(joinedload('account', innerjoin=True).load_only('mbuser', 'name')).\
-        options(joinedload('track_mbid', innerjoin=True).load_only('mbid')).\
         filter(TrackMBIDChange.track_mbid_id.in_(m.id for m in mbids)).\
         order_by(TrackMBIDChange.created.desc()).all()
+
+    edits_accounts = db.session.query(Account).options(load_only('mbuser', 'name')).\
+        filter(Account.id.in_(e.account_id for e in edits)).all()
+    edits_accounts_by_id = {}
+    for account in edits_accounts:
+        edits_accounts_by_id[account.id] = account
+
+    edits_track_mbids = db.session.query(TrackMBID).options(load_only('mbid')).\
+        filter(Account.id.in_(e.track_mbid_id for e in edits)).all()
+    edits_track_mbids_by_id = {}
+    for track_mbid in edits_track_mbids:
+        edits_track_mbids_by_id[track_mbid.id] = track_mbid
+
+    for edit in edits:
+        account = edits_accounts_by_id.get(edit.account_id)
+        if account is not None:
+            edit.account = account
+        track_mbid = edits_track_mbids_by_id.get(edit.track_mbid_id)
+        if track_mbid is not None:
+            edit.track_mbid = track_mbid
 
     moderator = is_moderator(db.get_app_db(), session.get('id'))
 
