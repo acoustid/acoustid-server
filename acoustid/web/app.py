@@ -6,7 +6,6 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from flask import Flask, request, session
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.middleware.proxy_fix import ProxyFix
-from sqlalchemy.orm import scoped_session
 from acoustid.script import Script
 from acoustid.web import db
 from acoustid.web.views.general import general_page
@@ -88,8 +87,7 @@ def make_application(config_filename=None, tests=False):
         from acoustid.api import get_health_response
         return get_health_response(script, request)
 
-    db.session_factory.configure(bind=config.databases.databases['app'].create_engine())
-    db.session = scoped_session(db.session_factory, scopefunc=get_flask_request_scope)
+    db.configure(script, get_flask_request_scope)
 
     app.register_blueprint(general_page)
     app.register_blueprint(user_page)

@@ -1,13 +1,11 @@
 from typing import Dict, Any, NewType, TYPE_CHECKING
 
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session
 from sqlalchemy.engine import Engine, Connection
 from acoustid.tables import metadata
 
 if TYPE_CHECKING:
     from acoustid.script import Script
-
-Session = sessionmaker()
 
 AppDB = NewType('AppDB', Connection)
 FingerprintDB = NewType('FingerprintDB', Connection)

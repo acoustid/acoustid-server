@@ -16,20 +16,23 @@ logger = logging.getLogger(__name__)
 metadata_page = Blueprint('metadata', __name__)
 
 
-@metadata_page.route('/track/<track_id>')
-def track(track_id):
-    conn = db.session.connection()
+@metadata_page.route('/track/<track_id_or_gid>')
+def track(track_id_or_gid):
+    # xtype: (str) -> str
 
-    if is_uuid(track_id):
-        track_gid = track_id
-        track_id = resolve_track_gid(conn, track_id)
+    fingerprint_db = db.get_fingerprint_db()
+    musicbrainz_db = db.get_musicbrainz_db()
+
+    if is_uuid(track_id_or_gid):
+        track_gid = track_id_or_gid
+        track_id = resolve_track_gid(fingerprint_db, track_gid)
     else:
         try:
-            track_id = int(track_id)
+            track_id = int(track_id_or_gid)
         except ValueError:
             track_id = None
         query = sql.select([schema.track.c.gid], schema.track.c.id == track_id)
-        track_gid = conn.execute(query).scalar()
+        track_gid = fingerprint_db.execute(query).scalar()
 
     if track_id is None or track_gid is None:
         abort(404)
@@ -44,7 +47,7 @@ def track(track_id):
          schema.fingerprint.c.length,
          schema.fingerprint.c.submission_count],
         schema.fingerprint.c.track_id == track_id).order_by(schema.fingerprint.c.length)
-    fingerprints = conn.execute(query).fetchall()
+    fingerprints = fingerprint_db.execute(query).fetchall()
 
     query = sql.select(
         [schema.track_mbid.c.id,
@@ -52,9 +55,9 @@ def track(track_id):
          schema.track_mbid.c.submission_count,
          schema.track_mbid.c.disabled],
         schema.track_mbid.c.track_id == track_id)
-    mbids = conn.execute(query).fetchall()
+    mbids = fingerprint_db.execute(query).fetchall()
 
-    metadata = lookup_recording_metadata(conn, [r['mbid'] for r in mbids])
+    metadata = lookup_recording_metadata(musicbrainz_db, [r['mbid'] for r in mbids])
 
     recordings = []
     for mbid in mbids:
@@ -80,7 +83,7 @@ def track(track_id):
         filter(TrackMBIDChange.track_mbid_id.in_(m.id for m in mbids)).\
         order_by(TrackMBIDChange.created.desc()).all()
 
-    moderator = is_moderator(conn, session.get('id'))
+    moderator = is_moderator(db.get_app_db(), session.get('id'))
 
     return render_template('track.html', title=title,
         fingerprints=fingerprints, recordings=recordings,
@@ -91,7 +94,7 @@ def track(track_id):
 
 @metadata_page.route('/fingerprint/<int:fingerprint_id>')
 def fingerprint(fingerprint_id):
-    conn = db.session.connection()
+    finerprint_db = db.get_fingerprint_db()
     title = 'Fingerprint #%s' % (fingerprint_id,)
     query = sql.select(
         [schema.fingerprint.c.id,
@@ -100,16 +103,16 @@ def fingerprint(fingerprint_id):
          schema.fingerprint.c.track_id,
          schema.fingerprint.c.submission_count],
         schema.fingerprint.c.id == fingerprint_id)
-    fingerprint = conn.execute(query).first()
+    fingerprint = finerprint_db.execute(query).first()
     query = sql.select([schema.track.c.gid], schema.track.c.id == fingerprint['track_id'])
-    track_gid = conn.execute(query).scalar()
+    track_gid = finerprint_db.execute(query).scalar()
     return render_template('fingerprint.html', title=title,
         fingerprint=fingerprint, track_gid=track_gid)
 
 
 @metadata_page.route('/fingerprint/<int:fingerprint_id_1>/compare/<int:fingerprint_id_2>')
 def compare_fingerprints(fingerprint_id_1, fingerprint_id_2):
-    conn = db.session.connection()
+    finerprint_db = db.get_fingerprint_db()
     title = 'Compare fingerprints #%s and #%s' % (fingerprint_id_1, fingerprint_id_2)
     query = sql.select(
         [schema.fingerprint.c.id,
@@ -120,7 +123,7 @@ def compare_fingerprints(fingerprint_id_1, fingerprint_id_2):
         schema.fingerprint.c.id.in_((fingerprint_id_1, fingerprint_id_2)))
     fingerprint_1 = None
     fingerprint_2 = None
-    for fingerprint in conn.execute(query):
+    for fingerprint in finerprint_db.execute(query):
         if fingerprint['id'] == fingerprint_id_1:
             fingerprint_1 = fingerprint
         elif fingerprint['id'] == fingerprint_id_2:
@@ -135,14 +138,13 @@ def compare_fingerprints(fingerprint_id_1, fingerprint_id_2):
 def mbid(mbid):
     from acoustid.data.track import lookup_tracks
     from acoustid.data.musicbrainz import lookup_recording_metadata
-    conn = db.session.connection()
-    metadata = lookup_recording_metadata(conn, [mbid])
+    metadata = lookup_recording_metadata(db.get_musicbrainz_db(), [mbid])
     if mbid not in metadata:
         title = 'Incorrect Recording'
         return render_template('mbid-not-found.html', title=title, mbid=mbid)
     metadata = metadata[mbid]
     title = 'Recording "%s" by %s' % (metadata['name'], metadata['artist_name'])
-    tracks = lookup_tracks(conn, [mbid]).get(mbid, [])
+    tracks = lookup_tracks(db.get_fingerprint_db(), [mbid]).get(mbid, [])
     return render_template('mbid.html', title=title, tracks=tracks, mbid=mbid)
 
 
