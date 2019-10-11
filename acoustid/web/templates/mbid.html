@@ -5,7 +5,7 @@
 
 <p>
     See more information about this recording on
-    <a href="//musicbrainz.org/track/{{ mbid }}">MusicBrainz</a>.
+    <a href="//musicbrainz.org/recording/{{ mbid }}">MusicBrainz</a>.
 </p>
 
 {% if tracks %}
@@ -14,7 +14,7 @@
 
 <ul>
 {% for tr in tracks %}
-    <li><a href="{{ url_for('.track', track_id=tr.id) }}">{{ tr.gid }}</a></li>
+    <li><a href="{{ url_for('.track', track_id_or_gid=tr.id) }}">{{ tr.gid }}</a></li>
 {% endfor %}
 </ul>
 

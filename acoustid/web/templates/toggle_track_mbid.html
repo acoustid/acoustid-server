@@ -7,7 +7,7 @@
     Are you sure you want to {% if not state %}link{% else %}unlink{% endif %}
     MBID "<a href="//musicbrainz.org/recording/{{ mbid }}">{{ mbid }}</a>"
     {% if not state %}to{% else %}from{% endif %}
-    track "<a href="{{ url_for('.track', track_id=track_gid) }}">{{ track_gid }}</a>"?
+    track "<a href="{{ url_for('.track', track_id_or_gid=track_gid) }}">{{ track_gid }}</a>"?
 </p>
 
 <form method="POST" action="{{ url_for('.toggle_track_mbid') }}">
