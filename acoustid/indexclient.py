@@ -75,8 +75,8 @@ class IndexClient(Index):
         try:
             self.sock = socket.create_connection((self.host, self.port), self.socket_timeout)
             self.sock.setblocking(0)
-        except socket.error:
-            raise IndexClientError('unable to connect to the index server at %s:%s' % (self.host, self.port))
+        except socket.error as e:
+            raise IndexClientError('unable to connect to the index server at %s:%s (%s)' % (self.host, self.port, e))
 
     def _putline(self, line):
         # type: (str) -> None
