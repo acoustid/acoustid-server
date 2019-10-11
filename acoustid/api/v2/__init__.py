@@ -578,10 +578,11 @@ class LookupHandler(APIHandler):
 
         all_matches = []
         for p in fingerprints:
-            if p['track_gid']:
-                track_id = resolve_track_gid(self.ctx.db.get_fingerprint_db(), p['track_gid'])
+            track_gid = p.get('track_gid')
+            if track_gid:
+                track_id = resolve_track_gid(self.ctx.db.get_fingerprint_db(), track_gid)
                 if track_id:
-                    matches = [FingerprintMatch(0, track_id, p['track_gid'], 1.0)]
+                    matches = [FingerprintMatch(fingerprint_id=0, track_id=track_id, track_gid=track_gid, score=1.0)]
                 else:
                     matches = []
             else:
