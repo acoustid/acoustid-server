@@ -517,7 +517,7 @@ class LookupHandler(APIHandler):
 
     def inject_m2(self, meta):
         el_recording = self._inject_recording_ids_internal(True)[0]
-        metadata = lookup_metadata(self.conn, el_recording.keys(), load_releases=True)
+        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(), el_recording.keys(), load_releases=True)
         last_recording_id = None
         for item in metadata:
             if last_recording_id != item['recording_id']:
