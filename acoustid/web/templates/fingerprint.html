@@ -6,7 +6,7 @@
 
 <p>Compare with another fingerprint <input id="fp_id" size="6" placeholder="ID"/> <button id="compare">Compare</button></p>
 
-<p>Back to <a href="{{ url_for('.track', track_id=track_gid) }}">track "{{ track_gid }}"</a></p>
+<p>Back to <a href="{{ url_for('.track', track_id_or_gid=track_gid) }}">track "{{ track_gid }}"</a></p>
 {% endblock %}
 
 {% block extra_js %}
