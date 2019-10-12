@@ -228,7 +228,7 @@ class RedisConfig(BaseConfig):
         if parser.has_option(section, 'sentinel'):
             self.sentinel = parser.getboolean(section, 'sentinel')
         if parser.has_option(section, 'cluster'):
-            self.host = parser.get(section, 'cluster')
+            self.cluster = parser.get(section, 'cluster')
 
     def read_env(self, prefix):
         read_env_item(self, 'host', prefix + 'REDIS_HOST')
