@@ -97,7 +97,6 @@ class DatabaseConfig(BaseConfig):
     def __init__(self):
         # type: () -> None
         self.user = 'acoustid'
-        self.superuser = 'postgres'
         self.name = 'acoustid'
         self.host = 'localhost'
         self.port = 5432
@@ -112,7 +111,6 @@ class DatabaseConfig(BaseConfig):
             return False
         return (
             self.user == other.user and
-            self.superuser == other.superuser and
             self.name == other.name and
             self.host == other.host and
             self.port == other.port and
@@ -122,13 +120,10 @@ class DatabaseConfig(BaseConfig):
             self.pool_pre_ping == other.pool_pre_ping
         )
 
-    def create_url(self, superuser=False):
-        # type: (bool) -> URL
+    def create_url(self):
+        # type: () -> URL
         kwargs = {}  # type: Dict[str, Any]
-        if superuser:
-            kwargs['username'] = self.superuser
-        else:
-            kwargs['username'] = self.user
+        kwargs['username'] = self.user
         kwargs['database'] = self.name
         if self.host is not None:
             kwargs['host'] = self.host
@@ -138,25 +133,21 @@ class DatabaseConfig(BaseConfig):
             kwargs['password'] = self.password
         return URL('postgresql', **kwargs)
 
-    def create_engine(self, superuser=False, **kwargs):
-        # type: (bool, **Any) -> Engine
+    def create_engine(self, **kwargs):
+        # type: (**Any) -> Engine
         if self.pool_size is not None and 'pool_size' not in kwargs:
             kwargs['pool_size'] = self.pool_size
         if self.pool_recycle is not None and 'pool_recycle' not in kwargs:
             kwargs['pool_recycle'] = self.pool_recycle
         if self.pool_pre_ping is not None and 'pool_pre_ping' not in kwargs:
             kwargs['pool_pre_ping'] = self.pool_pre_ping
-        return create_engine(self.create_url(superuser=superuser), **kwargs)
+        return create_engine(self.create_url(), **kwargs)
 
-    def create_psql_args(self, superuser=False):
-        # type: (bool) -> List[str]
+    def create_psql_args(self):
+        # type: () -> List[str]
         args = []
-        if superuser:
-            args.append('-U')
-            args.append(self.superuser)
-        else:
-            args.append('-U')
-            args.append(self.user)
+        args.append('-U')
+        args.append(self.user)
         if self.host is not None:
             args.append('-h')
             args.append(self.host)
