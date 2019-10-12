@@ -54,15 +54,11 @@ class DatabasesConfig(BaseConfig):
 
     def __init__(self):
         # type: () -> None
-        self.databases = {
-            'app': DatabaseConfig(),
-            'app:ro': DatabaseConfig(),
-            'fingerprint': DatabaseConfig(),
-            'fingerprint:ro': DatabaseConfig(),
-            'ingest': DatabaseConfig(),
-            'ingest:ro': DatabaseConfig(),
-            'musicbrainz': DatabaseConfig(),
-        }
+        self.database_names = ['app', 'fingerprint', 'ingest', 'musicbrainz']
+        self.databases = {}  # type: Dict[str, DatabaseConfig]
+        for name in self.database_names:
+            self.databases[name] = DatabaseConfig()
+            self.databases[name + ':ro'] = DatabaseConfig()
         self.use_two_phase_commit = False
 
     def create_engines(self, **kwargs):
@@ -83,7 +79,10 @@ class DatabasesConfig(BaseConfig):
             self.use_two_phase_commit = parser.getboolean(section, 'two_phase_commit')
         for name, sub_config in self.databases.items():
             sub_section = '{}:{}'.format(section, name)
-            sub_config.read(parser, sub_section)
+            if parser.has_section(sub_section):
+                sub_config.read(parser, sub_section)
+            elif sub_section.endswith(':ro') and parser.has_section(sub_section.replace(':ro', '')):
+                sub_config.read(parser, sub_section.replace(':ro', ''))
 
     def read_env(self, prefix):
         # type: (str) -> None
