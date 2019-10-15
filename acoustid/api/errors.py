@@ -139,8 +139,7 @@ class ServiceUnavailable(WebServiceError):
 
 class TooManyRequests(WebServiceError):
 
-    # status = 429
-    status = 503
+    status = 429
 
     def __init__(self, rate):
         message = 'rate limit (%f requests per second) exceeded, try again later' % rate

@@ -112,22 +112,25 @@ class APIHandler(Handler):
 
     def _rate_limit(self, user_ip, application_id):
         # type: (str, Optional[int]) -> None
-        global_rate_limit = self.ctx.config.rate_limiter.global_rate_limit
-        if global_rate_limit is not None:
-            if self.rate_limiter.limit('global', '', global_rate_limit):
-                raise errors.TooManyRequests(global_rate_limit)
 
+        check_ip_rate_limit = True
         if application_id is not None:
             application_rate_limit = self.ctx.config.rate_limiter.applications.get(application_id)
             if application_rate_limit is not None:
                 if self.rate_limiter.limit('app', str(application_id), application_rate_limit):
                     raise errors.TooManyRequests(application_rate_limit)
                 else:
-                    return
+                    check_ip_rate_limit = False
 
-        ip_rate_limit = self.ctx.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
-        if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
-            raise errors.TooManyRequests(ip_rate_limit)
+        global_rate_limit = self.ctx.config.rate_limiter.global_rate_limit
+        if global_rate_limit is not None:
+            if self.rate_limiter.limit('global', '', global_rate_limit):
+                raise errors.TooManyRequests(global_rate_limit)
+
+        if check_ip_rate_limit:
+            ip_rate_limit = self.ctx.config.rate_limiter.ips.get(user_ip, MAX_REQUESTS_PER_SECOND)
+            if self.rate_limiter.limit('ip', user_ip, ip_rate_limit):
+                raise errors.TooManyRequests(ip_rate_limit)
 
     def handle(self, req):
         # type: (Request) -> Response
