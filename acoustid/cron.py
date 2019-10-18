@@ -41,6 +41,9 @@ def create_schedule(script):
 def run_cron(script):
     # type: (Script) -> None
     schedule = create_schedule(script)
+    logging.info('Cron job schedule:')
+    for job in schedule.jobs:
+        logging.info('%r', job)
     while True:
         schedule.run_pending()
         delay = schedule.idle_seconds
