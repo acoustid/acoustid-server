@@ -65,7 +65,7 @@ def test_error(ctx):
 @with_script_context
 def test_api_handler_params_jsonp(ctx):
     # type: (ScriptContext) -> None
-    values = MultiDict({'client': 'app1key', 'format': 'jsonp'})
+    values = MultiDict({'client': 'app1key', 'format': 'jsonp'})  # type: MultiDict
     params = APIHandlerParams(ctx.config)
     params.parse(values, ctx)
     assert_equals('jsonp:jsonAcoustidApi', params.format)
@@ -83,7 +83,7 @@ def test_api_handler_params_jsonp(ctx):
 def test_lookup_handler_params(ctx):
     # type: (ScriptContext) -> None
     # invalid format
-    values = MultiDict({'format': 'xls'})
+    values = MultiDict({'format': 'xls'})  # type: MultiDict
     params = LookupHandlerParams(ctx.config)
     assert_raises(errors.UnknownFormatError, params.parse, values, ctx.db)
     # missing client
@@ -304,7 +304,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
 def test_submit_handler_params(ctx):
     # type: (ScriptContext) -> None
     # invalid format
-    values = MultiDict({'format': 'xls'})
+    values = MultiDict({'format': 'xls'})  # type: MultiDict
     params = SubmitHandlerParams(ctx.config)
     assert_raises(errors.UnknownFormatError, params.parse, values, ctx.db)
     # missing client

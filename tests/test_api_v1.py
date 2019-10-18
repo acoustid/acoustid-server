@@ -61,7 +61,7 @@ def test_error(ctx):
 def test_lookup_handler_params(ctx):
     # type: (ScriptContext) -> None
     # missing client
-    values = MultiDict({})
+    values = MultiDict({})  # type: MultiDict
     params = LookupHandlerParams(ctx.config)
     assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # invalid client
@@ -138,7 +138,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
 def test_submit_handler_params(ctx):
     # type: (ScriptContext) -> None
     # missing client
-    values = MultiDict({})
+    values = MultiDict({})  # type: MultiDict
     params = SubmitHandlerParams(ctx.config)
     assert_raises(errors.MissingParameterError, params.parse, values, ctx.db)
     # invalid client
