@@ -1,0 +1,9 @@
+FROM nginx:alpine
+
+RUN apk --no-cache add curl
+
+COPY admin/nginx-static.conf /etc/nginx/conf.d/default.conf
+COPY acoustid/web/static/ /opt/acoustid/server/acoustid/web/static/
+
+HEALTHCHECK --start-period=1s \
+  CMD curl -qf http://localhost/_health/ready || exit 1
