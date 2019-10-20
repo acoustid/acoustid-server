@@ -7,7 +7,7 @@ from typing import Callable, List, Tuple, Any, Iterable, Optional, TYPE_CHECKING
 from werkzeug.wsgi import get_input_stream
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 from six import BytesIO
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, BadRequest
 from werkzeug.routing import Map, Rule, Submount, RuleFactory
 from werkzeug.wrappers import Request
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -94,7 +94,13 @@ class GzipRequestMiddleware(object):
         content_encoding = environ.get('HTTP_CONTENT_ENCODING', '').lower().strip()
         if content_encoding == 'gzip':
             compressed_body = get_input_stream(environ).read()
-            body = gzip.GzipFile(fileobj=BytesIO(compressed_body)).read()
+            try:
+                body = gzip.GzipFile(fileobj=BytesIO(compressed_body)).read()
+            except IOError as e:
+                if 'Not a gzipped file' in str(e):
+                    bad_request = BadRequest()
+                    return bad_request(environ, start_response)
+                raise
             environ['wsgi.input'] = BytesIO(body)
             environ['CONTENT_LENGTH'] = str(len(body))
             del environ['HTTP_CONTENT_ENCODING']
