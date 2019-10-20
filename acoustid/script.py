@@ -81,7 +81,7 @@ class Script(object):
         if self._console_logging_configured:
             return
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s - %(message)s', '%H:%M:%S'))
+        handler.setFormatter(logging.Formatter('[%(asctime)s] [%(process)s] [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S %z'))
         if quiet:
             handler.setLevel(logging.ERROR)
         logging.getLogger().addHandler(handler)

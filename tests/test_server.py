@@ -38,6 +38,21 @@ def test_gzip_request_middleware():
     mw(environ, dummy_start_response)
 
 
+def test_gzip_request_middleware_invalid_gzip():
+    # type: () -> None
+    def app(environ, start_response):
+        assert_equals(b'Hello world!', environ['wsgi.input'].read(int(environ['CONTENT_LENGTH'])))
+    data = b'Hello world!'
+    environ = {
+        u'HTTP_CONTENT_ENCODING': 'gzip',
+        u'CONTENT_LENGTH': len(data),
+        u'wsgi.input': BytesIO(data),
+    }
+    wsgiref.util.setup_testing_defaults(environ)
+    mw = GzipRequestMiddleware(app)
+    mw(environ, dummy_start_response)
+
+
 def test_replace_double_slashes():
     # type: () -> None
     def app(environ, start_response):

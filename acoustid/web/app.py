@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     if args.api:
         app = DispatcherMiddleware(app, {
-            '/api': make_api_application(app.acoustid_config_filename)[1],
+            '/api': make_api_application(app.acoustid_config_filename),
         })
 
     run_simple(args.host, args.port, app, **run_args)  # type: ignore

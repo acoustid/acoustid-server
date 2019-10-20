@@ -5,7 +5,7 @@ import signal
 import io
 import os
 import sys
-from typing import List, Callable
+from typing import List, Callable, Optional
 from acoustid.config import Config
 if six.PY3:
     import subprocess
@@ -39,7 +39,7 @@ class ProcessWrapper(object):
         logger.info('Received signal %s', sig)
         if self.shutdown:
             if not self.stop_immediately:
-                logger.info('Will stop uwsgi ASAP')
+                logger.info('Will stop gunicorn ASAP')
                 self.stop_immediately = True
         else:
             self.shutdown = True
@@ -57,7 +57,7 @@ class ProcessWrapper(object):
                 continue
 
             if not self.shutdown_handler_called:
-                logger.info('Preparing to shut down, will stop uwsgi in %s seconds', self.shutdown_delay.total_seconds())
+                logger.info('Preparing to shut down, will stop gunicorn in %s seconds', self.shutdown_delay.total_seconds())
                 if self.shutdown_handler:
                     self.shutdown_handler()
                 self.shutdown_handler_called = True
@@ -89,7 +89,7 @@ def cleanup_shutdown_file(shutdown_file_path):
             raise
 
 
-def run_uwsgi(config, args):
+def run_gunicorn(config, args):
     # type: (Config, List[six.text_type]) -> int
     cleanup_shutdown_file(config.website.shutdown_file_path)
     try:
@@ -102,61 +102,32 @@ def run_uwsgi(config, args):
         cleanup_shutdown_file(config.website.shutdown_file_path)
 
 
-def common_uwsgi_args(config, workers=None):
-    # type: (Config, int) -> List[six.text_type]
+def common_gunicorn_args(config, workers=None, threads=None):
+    # type: (Config, Optional[int], Optional[int]) -> List[six.text_type]
     args = [
-      os.path.join(sys.prefix, "bin", "uwsgi"),
-      "--die-on-term",
-      "--chmod-socket",
-      "--master",
-      "--disable-logging",
-      "--log-date",
-      "--workers", six.text_type(workers or config.uwsgi.workers),
-      "--enable-threads",
-      "--need-app",
+      os.path.join(sys.prefix, "bin", "gunicorn"),
+      "--workers", six.text_type(workers or config.gunicorn.workers),
+      "--threads", six.text_type(threads or config.gunicorn.threads),
+      "--limit-request-line", "8190",
     ]
-    if config.uwsgi.http_timeout:
-        args.extend(["--http-timeout", six.text_type(config.uwsgi.http_timeout)])
-    if config.uwsgi.http_connect_timeout:
-        args.extend(["--http-connect-timeout", six.text_type(config.uwsgi.http_connect_timeout)])
-    if config.uwsgi.buffer_size:
-        args.extend([
-            "--buffer-size", six.text_type(config.uwsgi.buffer_size),
-            "--http-buffer-size", six.text_type(config.uwsgi.buffer_size),
-        ])
-    if config.uwsgi.harakiri:
-        args.extend([
-            "--harakiri", six.text_type(config.uwsgi.harakiri),
-            "--harakiri-verbose",
-        ])
-    if config.uwsgi.offload_threads:
-        args.extend(["--offload-threads", six.text_type(config.uwsgi.offload_threads)])
-    if config.uwsgi.post_buffering:
-        args.extend(["--post-buffering", six.text_type(config.uwsgi.post_buffering)])
-    if 'PYTHONPATH' in os.environ:
-        args.extend(["--python-path", os.environ['PYTHONPATH']])
-    if hasattr(sys, 'real_prefix'):
-        args.extend(["--virtualenv", sys.prefix])
+    if config.gunicorn.timeout:
+        args.extend(["--timeout", six.text_type(config.gunicorn.timeout)])
     return args
 
 
-def run_api_app(config, workers=None):
-    # type: (Config, int) -> int
-    args = common_uwsgi_args(config, workers=workers) + [
-      "--http-socket", "0.0.0.0:3031",
-      "--module", "acoustid.wsgi",
+def run_api_app(config, workers=None, threads=None):
+    # type: (Config, Optional[int], Optional[int]) -> int
+    args = common_gunicorn_args(config, workers=workers, threads=threads) + [
+      "--bind", "0.0.0.0:3031",
+      "acoustid.server:make_application()",
     ]
-    return run_uwsgi(config, args)
+    return run_gunicorn(config, args)
 
 
-def run_web_app(config, workers=None):
-    # type: (Config, int) -> int
-    static_dir = os.path.join(os.path.dirname(__file__), 'web', 'static')
-    args = common_uwsgi_args(config, workers=workers) + [
-      "--http-socket", "0.0.0.0:3032",
-      "--module", "acoustid.web.app:make_application()",
-      "--static-map", "/static={}".format(static_dir),
-      "--static-map", "/favicon.ico={}".format(os.path.join(static_dir, 'favicon.ico')),
-      "--static-map", "/robots.txt={}".format(os.path.join(static_dir, 'robots.txt')),
+def run_web_app(config, workers=None, threads=None):
+    # type: (Config, Optional[int], Optional[int]) -> int
+    args = common_gunicorn_args(config, workers=workers, threads=threads) + [
+      "--bind", "0.0.0.0:3032",
+      "acoustid.web.app:make_application()",
     ]
-    return run_uwsgi(config, args)
+    return run_gunicorn(config, args)

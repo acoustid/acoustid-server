@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import os
 import gzip
 import sentry_sdk
 from typing import Callable, List, Tuple, Any, Iterable, Optional, TYPE_CHECKING
@@ -65,6 +66,10 @@ class Server(Script):
 
     def __call__(self, environ, start_response):
         # type: (WSGIEnvironment, StartResponse) -> Iterable[bytes]
+        return self.wsgi_app(environ, start_response)
+
+    def wsgi_app(self, environ, start_response):
+        # type: (WSGIEnvironment, StartResponse) -> Iterable[bytes]
         urls = self.url_map.bind_to_environ(environ)
         try:
             handler_class, args = urls.match()
@@ -128,17 +133,20 @@ def add_cors_headers(app):
     return wrapped_app
 
 
-def make_application(config_path):
-    # type: (str) -> Tuple[Server, WSGIApplication]
+def make_application(config_path=None):
+    # type: (Optional[str]) -> Server
     """Construct a WSGI application for the AcoustID server
 
     :param config_path: path to the server configuration file
     """
+    if config_path is None:
+        config_path = os.environ.get('ACOUSTID_CONFIG', '')
+    assert config_path is not None
     server = Server(config_path)
     server.setup_sentry()
-    app = GzipRequestMiddleware(server)  # type: WSGIApplication
-    app = SentryWsgiMiddleware(app)
-    app = replace_double_slashes(app)
-    app = add_cors_headers(app)
-    app = ProxyFix(app)  # type: ignore
-    return server, app
+    server.wsgi_app = GzipRequestMiddleware(server.wsgi_app)  # type: ignore
+    server.wsgi_app = SentryWsgiMiddleware(server.wsgi_app)  # type: ignore
+    server.wsgi_app = replace_double_slashes(server.wsgi_app)  # type: ignore
+    server.wsgi_app = add_cors_headers(server.wsgi_app)  # type: ignore
+    server.wsgi_app = ProxyFix(server.wsgi_app)  # type: ignore
+    return server

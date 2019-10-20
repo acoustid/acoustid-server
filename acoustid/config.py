@@ -313,6 +313,30 @@ class WebSiteConfig(BaseConfig):
         read_env_item(self, 'shutdown_delay', prefix + 'SHUTDOWN_DELAY', convert=int)
 
 
+class GunicornConfig(BaseConfig):
+
+    def __init__(self):
+        # type: () -> None
+        self.timeout = 90
+        self.workers = 1
+        self.threads = 1
+
+    def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
+        if parser.has_option(section, 'timeout'):
+            self.timeout = parser.getint(section, 'timeout')
+        if parser.has_option(section, 'workers'):
+            self.workers = parser.getint(section, 'workers')
+        if parser.has_option(section, 'threads'):
+            self.threads = parser.getint(section, 'workers')
+
+    def read_env(self, prefix):
+        # type: (str) -> None
+        read_env_item(self, 'timeout', prefix + 'GUNICORN_TIMEOUT', convert=int)
+        read_env_item(self, 'workers', prefix + 'GUNICORN_WORKERS', convert=int)
+        read_env_item(self, 'threads', prefix + 'GUNICORN_THREADS', convert=int)
+
+
 class uWSGIConfig(BaseConfig):
 
     def __init__(self):
@@ -445,7 +469,7 @@ class Config(object):
         self.cluster = ClusterConfig()
         self.rate_limiter = RateLimiterConfig()
         self.sentry = SentryConfig()
-        self.uwsgi = uWSGIConfig()
+        self.gunicorn = GunicornConfig()
 
     def read(self, path):
         # type: (str) -> None
@@ -461,7 +485,7 @@ class Config(object):
         self.cluster.read(parser, 'cluster')
         self.rate_limiter.read(parser, 'rate_limiter')
         self.sentry.read(parser, 'sentry')
-        self.uwsgi.read(parser, 'uwsgi')
+        self.gunicorn.read(parser, 'gunicorn')
 
     def read_env(self, tests=False):
         # type: (bool) -> None
@@ -478,4 +502,4 @@ class Config(object):
         self.cluster.read_env(prefix)
         self.rate_limiter.read_env(prefix)
         self.sentry.read_env(prefix)
-        self.uwsgi.read_env(prefix)
+        self.gunicorn.read_env(prefix)

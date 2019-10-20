@@ -1,6 +1,8 @@
+import os
 import click
+from typing import Optional
 from acoustid.script import Script
-from acoustid.uwsgi_utils import run_web_app, run_api_app
+from acoustid.wsgi_utils import run_web_app, run_api_app
 from acoustid.cron import run_cron
 from acoustid.scripts.import_submissions import run_import
 
@@ -19,26 +21,30 @@ def run():
 
 @run.command('web')
 @click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
-@click.option('-w', '--workers', type=int, envvar='ACOUSTID_WEB_WORKERS')
-def run_web_cmd(config, workers):
-    # type: (str, int) -> None
+@click.option('-w', '--workers', type=int)
+@click.option('-t', '--threads', type=int)
+def run_web_cmd(config, workers=None, threads=None):
+    # type: (str, Optional[int], Optional[int]) -> None
     """Run production uWSGI with the website."""
+    os.environ['ACOUSTID_CONFIG'] = config
     script = Script(config)
     script.setup_console_logging()
     script.setup_sentry()
-    run_web_app(script.config, workers=workers)
+    run_web_app(script.config, workers=workers, threads=threads)
 
 
 @run.command('api')
 @click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
-@click.option('-w', '--workers', type=int, envvar='ACOUSTID_API_WORKERS')
-def run_api_cmd(config, workers):
-    # type: (str, int) -> None
+@click.option('-w', '--workers', type=int)
+@click.option('-t', '--threads', type=int)
+def run_api_cmd(config, workers=None, threads=None):
+    # type: (str, Optional[int], Optional[int]) -> None
     """Run production uWSGI with the API."""
+    os.environ['ACOUSTID_CONFIG'] = config
     script = Script(config)
     script.setup_console_logging()
     script.setup_sentry()
-    run_api_app(script.config, workers=workers)
+    run_api_app(script.config, workers=workers, threads=threads)
 
 
 @run.command('cron')

@@ -77,7 +77,7 @@ def serialize_response(data, format, **kwargs):
 
 def get_health_response(ctx, req, require_master=False):
     # type: (ScriptContext, Request, bool) -> Response
-    from acoustid.uwsgi_utils import is_shutting_down
+    from acoustid.wsgi_utils import is_shutting_down
     if require_master and ctx.config.cluster.role != 'master':
         return Response('not the master server', content_type='text/plain', status=503)
     if is_shutting_down(ctx.config.website.shutdown_file_path):

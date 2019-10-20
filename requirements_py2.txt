@@ -18,6 +18,7 @@ cryptography==2.7         # via pyopenssl
 decorator==4.4.0          # via ipython, traitlets
 enum34==1.1.6             # via cryptography, traitlets
 flask==1.1.1
+futures==3.3.0
 gunicorn==19.9.0
 idna==2.8                 # via requests
 ipaddress==1.0.22         # via cryptography
