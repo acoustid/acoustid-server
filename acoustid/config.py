@@ -328,7 +328,7 @@ class GunicornConfig(BaseConfig):
         if parser.has_option(section, 'workers'):
             self.workers = parser.getint(section, 'workers')
         if parser.has_option(section, 'threads'):
-            self.threads = parser.getint(section, 'workers')
+            self.threads = parser.getint(section, 'threads')
 
     def read_env(self, prefix):
         # type: (str) -> None
