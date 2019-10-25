@@ -187,12 +187,30 @@ def lookup_submission_status(ingest_db, ids):
     # type: (IngestDB, Iterable[int]) -> Dict[int, str]
     if not ids:
         return {}
-    source = schema.fingerprint_source.\
-        join(schema.fingerprint).\
-        join(schema.track)
-    query = sql.select([schema.fingerprint_source.c.submission_id, schema.track.c.gid], from_obj=source).\
+
+    query = sql.select([schema.fingerprint_source.c.submission_id, schema.fingerprint_source.c.fingerprint_id]).\
         where(schema.fingerprint_source.c.submission_id.in_(ids))
+    fingerprint_ids = {}  # type: Dict[int, int]
+    for submission_id, fingerprint_id in ingest_db.execute(query):
+        fingerprint_ids[submission_id] = fingerprint_id
+
+    if not fingerprint_ids:
+        return {}
+
+    source = schema.fingerprint.join(schema.track)
+    query = sql.select([schema.fingerprint.c.id, schema.track.c.gid], from_obj=source).\
+        where(schema.fingerprint.c.id.in_(fingerprint_ids))
+    track_gids = {}  # type: Dict[int, str]
+    for fingerprint_id, track_gid in ingest_db.execute(query):
+        track_gids[fingerprint_id] = track_gid
+
+    if not track_gids:
+        return {}
+
     results = {}  # type: Dict[int, str]
-    for id, track_gid in ingest_db.execute(query):
-        results[id] = track_gid
+    for submission_id in ids:
+        fingerprint_id = fingerprint_ids[submission_id]
+        track_gid = track_gids[fingerprint_id]
+        results[submission_id] = track_gid
+
     return results
