@@ -649,7 +649,7 @@ class SubmissionStatusHandler(APIHandler):
         # type: (APIHandlerParams) -> Dict[str, Any]
         assert isinstance(params, SubmissionStatusHandlerParams)
         response = {'submissions': [{'id': id, 'status': 'pending'} for id in params.ids]}
-        tracks = lookup_submission_status(self.ctx.db.get_ingest_db(read_only=True), params.ids)
+        tracks = lookup_submission_status(self.ctx.db.get_ingest_db(read_only=True), self.ctx.db.get_fingerprint_db(read_only=True), params.ids)
         for submission in response['submissions']:
             id = submission['id']
             track_gid = tracks.get(id)
@@ -785,6 +785,7 @@ class SubmitHandler(APIHandler):
         self.ctx.redis.publish('channel.submissions', json.dumps(list(ids)))
 
         ingest_db = self.ctx.db.get_ingest_db()
+        fingerprint_db = self.ctx.db.get_fingerprint_db()
 
         clients_waiting_key = 'submission.waiting'
         clients_waiting = self.ctx.redis.incr(clients_waiting_key) - 1
@@ -797,7 +798,7 @@ class SubmitHandler(APIHandler):
                 logger.debug('waiting %f seconds', remaining)
                 time.sleep(0.5)  # XXX replace with LISTEN/NOTIFY
                 remaining -= 0.5
-                tracks = lookup_submission_status(ingest_db, ids)
+                tracks = lookup_submission_status(ingest_db, fingerprint_db, ids)
                 if not tracks:
                     continue
                 for submission in response['submissions']:

@@ -183,8 +183,8 @@ def import_queued_submissions(ingest_db, app_db, fingerprint_db, index, limit=10
     return count
 
 
-def lookup_submission_status(ingest_db, ids):
-    # type: (IngestDB, Iterable[int]) -> Dict[int, str]
+def lookup_submission_status(ingest_db, fingerprint_db, ids):
+    # type: (IngestDB, FingerprintDB, Iterable[int]) -> Dict[int, str]
     if not ids:
         return {}
 
@@ -201,7 +201,7 @@ def lookup_submission_status(ingest_db, ids):
     query = sql.select([schema.fingerprint.c.id, schema.track.c.gid], from_obj=source).\
         where(schema.fingerprint.c.id.in_(fingerprint_ids))
     track_gids = {}  # type: Dict[int, str]
-    for fingerprint_id, track_gid in ingest_db.execute(query):
+    for fingerprint_id, track_gid in fingerprint_db.execute(query):
         track_gids[fingerprint_id] = track_gid
 
     if not track_gids:
