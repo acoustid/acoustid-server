@@ -196,6 +196,7 @@ class LookupHandlerParams(APIHandlerParams):
                 raise errors.MissingParameterError('fingerprint' + suffix)
             fingerprint = decode_fingerprint(fingerprint_string.encode('ascii', 'ignore'))
             if not fingerprint:
+                logger.info('Got invalid fingerprint %r', fingerprint_string)
                 raise errors.InvalidFingerprintError()
             return FingerprintLookupQuery(index=index, duration=duration, fingerprint=fingerprint)
 
@@ -697,6 +698,7 @@ class SubmitHandlerParams(APIHandlerParams):
             raise errors.MissingParameterError('fingerprint' + suffix)
         p['fingerprint'] = decode_fingerprint(fingerprint_string.encode('ascii', 'ignore'))
         if not p['fingerprint']:
+            logger.info('Got invalid fingerprint %r', fingerprint_string)
             raise errors.InvalidFingerprintError()
         p['bitrate'] = values.get('bitrate' + suffix, type=int) or None
         if p['bitrate'] is not None and p['bitrate'] <= 0:
