@@ -142,12 +142,16 @@ class Fingerprinter(object):
 
 def decode_fingerprint(data, base64=True):
     result_ptr = ctypes.POINTER(ctypes.c_int32)()
-    result_size = ctypes.c_int()
-    algorithm = ctypes.c_int()
+    result_size = ctypes.c_int(0)
+    algorithm = ctypes.c_int(-1)
     _check(_libchromaprint.chromaprint_decode_fingerprint(
         data, len(data), ctypes.byref(result_ptr), ctypes.byref(result_size),
         ctypes.byref(algorithm), 1 if base64 else 0
     ))
+    if algorithm.value == -1:
+        raise FingerprintError()
+    if result_size.value == 0:
+        raise FingerprintError()
     result = result_ptr[:result_size.value]
     _libchromaprint.chromaprint_dealloc(result_ptr)
     return result, algorithm.value
