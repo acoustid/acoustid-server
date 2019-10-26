@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 class UpdateLookupStatsHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(UpdateLookupStatsHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(UpdateLookupStatsHandlerParams, self).parse(values, db)
         self.secret = values.get('secret')
         self.application_id = values.get('application_id', type=int)
         self.date = values.get('date')
@@ -83,13 +83,13 @@ class UpdateUserAgentStatsHandler(APIHandler):
 
 class LookupStatsHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(LookupStatsHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(LookupStatsHandlerParams, self).parse(values, db)
         self.secret = values.get('secret')
         apikeys = values.getlist('client')
         if not apikeys:
             raise errors.InvalidAPIKeyError()
-        self.applications = find_applications_by_apikeys(conn, apikeys)
+        self.applications = find_applications_by_apikeys(db.get_app_db(), apikeys)
         if not self.applications:
             raise errors.InvalidAPIKeyError()
         self.from_date = values.get('from')
@@ -117,7 +117,7 @@ class LookupStatsHandler(APIHandler):
             kwargs['to_date'] = params.to_date
         if params.days is not None:
             kwargs['days'] = params.days
-        stats = find_application_lookup_stats_multi(self.conn, application_ids.keys(), **kwargs)
+        stats = find_application_lookup_stats_multi(self.ctx.db.get_app_db(), application_ids.keys(), **kwargs)
         for entry in stats:
             entry['date'] = entry['date'].strftime('%Y-%m-%d')
         return {'stats': stats}
@@ -125,8 +125,8 @@ class LookupStatsHandler(APIHandler):
 
 class CreateAccountHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(CreateAccountHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(CreateAccountHandlerParams, self).parse(values, db)
         self.secret = values.get('secret')
 
 
@@ -138,7 +138,7 @@ class CreateAccountHandler(APIHandler):
         if self.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
-        account_id, account_api_key = insert_account(self.conn, {
+        account_id, account_api_key = insert_account(self.ctx.db.get_app_db(), {
             'name': 'External User',
             'anonymous': True,
         })
