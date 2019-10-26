@@ -27,7 +27,10 @@ SELECT f.id, f.track_id, t.gid AS track_gid, score FROM (
 def decode_fingerprint(fingerprint_string):
     # type: (str) -> Optional[List[int]]
     """Decode a compressed and base64-encoded fingerprint"""
-    fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
+    try:
+        fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
+    except chromaprint.FingerprintError:
+        return None
     if version != FINGERPRINT_VERSION:
         return None
     return fingerprint
