@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 class TrackListByMBIDHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(TrackListByMBIDHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(TrackListByMBIDHandlerParams, self).parse(values, db)
         self.disabled = values.get('disabled', type=int)
         self.batch = values.get('batch', type=int)
         self.mbids = values.getlist('mbid')
@@ -41,7 +41,8 @@ class TrackListByMBIDHandler(APIHandler):
         query = sql.select([schema.track_mbid.c.mbid, schema.track_mbid.c.disabled, schema.track.c.gid],
             condition, schema.track_mbid.join(schema.track))
         tracks_map = {}
-        for mbid, disabled, track_gid in self.conn.execute(query):
+        fingerprint_db = self.ctx.db.get_fingerprint_db(read_only=True)
+        for mbid, disabled, track_gid in fingerprint_db.execute(query):
             track = {'id': track_gid}
             if params.disabled and disabled:
                 track['disabled'] = disabled
@@ -60,8 +61,8 @@ class TrackListByMBIDHandler(APIHandler):
 
 class TrackListByPUIDHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(TrackListByPUIDHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(TrackListByPUIDHandlerParams, self).parse(values, db)
         self.puid = values.get('puid')
         if not self.puid:
             raise errors.MissingParameterError('puid')
@@ -81,8 +82,8 @@ class TrackListByPUIDHandler(APIHandler):
 
 class UserCreateMusicBrainzHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(UserCreateMusicBrainzHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(UserCreateMusicBrainzHandlerParams, self).parse(values, db)
         self.access_token = values.get('access_token')
         if not self.access_token:
             raise errors.MissingParameterError('access_token')
@@ -100,11 +101,12 @@ class UserCreateMusicBrainzHandler(APIHandler):
         if resp.status_code != requests.codes.ok:
             raise errors.InvalidMusicBrainzAccessTokenError()
         mbuser = resp.json()['sub']
-        account = get_account_details_by_mbuser(self.conn, mbuser)
+        app_db = self.ctx.db.get_app_db()
+        account = get_account_details_by_mbuser(app_db, mbuser)
         if account is not None:
             api_key = account['apikey']
         else:
-            id, api_key = insert_account(self.conn, {
+            id, api_key = insert_account(app_db, {
                 'name': mbuser,
                 'mbuser': mbuser,
                 'created_from': self.user_ip,
@@ -114,9 +116,9 @@ class UserCreateMusicBrainzHandler(APIHandler):
 
 class UserCreateAnonymousHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(UserCreateAnonymousHandlerParams, self).parse(values, conn)
-        self._parse_client(values, conn)
+    def parse(self, values, db):
+        super(UserCreateAnonymousHandlerParams, self).parse(values, db)
+        self._parse_client(values, db)
 
 
 class UserCreateAnonymousHandler(APIHandler):
@@ -156,8 +158,8 @@ class UserLookupHandler(APIHandler):
 
 class GetFingerprintHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(GetFingerprintHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(GetFingerprintHandlerParams, self).parse(values, db)
         self.fingerprint_id = values.get('id', type=int)
         if not self.fingerprint_id:
             raise errors.MissingParameterError('id')
@@ -168,14 +170,12 @@ class GetFingerprintHandler(APIHandler):
     params_class = GetFingerprintHandlerParams
 
     def _handle_internal(self, params):
-        from acoustid.db import DatabaseContext
         from acoustid.models import Fingerprint
-        with DatabaseContext(self.conn) as db:
-            fingerprint = db.session.query(Fingerprint).filter_by(id=params.fingerprint_id).first()
-            if fingerprint is None:
-                raise errors.FingerprintNotFoundError()
-            return {'fingerprint': {
-                'id': fingerprint.id,
-                'hashes': fingerprint.fingerprint,
-                'duration': fingerprint.length,
-            }}
+        fingerprint = self.ctx.db.session.query(Fingerprint).filter_by(id=params.fingerprint_id).first()
+        if fingerprint is None:
+            raise errors.FingerprintNotFoundError()
+        return {'fingerprint': {
+            'id': fingerprint.id,
+            'hashes': fingerprint.fingerprint,
+            'duration': fingerprint.length,
+        }}
