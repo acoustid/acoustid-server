@@ -203,7 +203,7 @@ def toggle_track_mbid():
                                                                disabled=state, note=note)
         ingest_db.execute(insert_stmt)
         db.session.commit()
-        return redirect(url_for('.track', track_id=track_id))
+        return redirect(url_for('.track', track_id_or_gid=track_id))
     if state:
         title = 'Unlink MBID'
     else:
