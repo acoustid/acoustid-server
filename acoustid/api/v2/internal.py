@@ -40,15 +40,16 @@ class UpdateLookupStatsHandler(APIHandler):
     params_class = UpdateLookupStatsHandlerParams
 
     def _handle_internal(self, params):
-        if self.cluster.role != 'master':
-            logger.warning('Trying to call update_lookup_stats on %s server', self.cluster.role)
+        if self.ctx.config.cluster.role != 'master':
+            logger.warning('Trying to call update_lookup_stats on %s server', self.ctx.config.cluster.role)
             raise errors.NotAllowedError()
-        if self.cluster.secret != params.secret:
+        if self.ctx.config.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
-        with self.conn.begin():
-            update_lookup_stats(self.conn, params.application_id, params.date,
-                                params.hour, params.type, params.count)
+        app_db = self.ctx.db.get_app_db()
+        update_lookup_stats(app_db, params.application_id, params.date,
+                            params.hour, params.type, params.count)
+        self.ctx.db.session.commit()
         return {}
 
 
@@ -69,15 +70,16 @@ class UpdateUserAgentStatsHandler(APIHandler):
     params_class = UpdateUserAgentStatsHandlerParams
 
     def _handle_internal(self, params):
-        if self.cluster.role != 'master':
-            logger.warning('Trying to call update_user_agent_stats on %s server', self.cluster.role)
+        if self.ctx.config.cluster.role != 'master':
+            logger.warning('Trying to call update_user_agent_stats on %s server', self.ctx.config.cluster.role)
             raise errors.NotAllowedError()
-        if self.cluster.secret != params.secret:
+        if self.ctx.config.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
-        with self.conn.begin():
-            update_user_agent_stats(self.conn, params.application_id, params.date,
-                                    params.user_agent, params.ip, params.count)
+        app_db = self.ctx.db.get_app_db()
+        update_user_agent_stats(app_db, params.application_id, params.date,
+                                params.user_agent, params.ip, params.count)
+        self.ctx.db.session.commit()
         return {}
 
 
@@ -106,7 +108,7 @@ class LookupStatsHandler(APIHandler):
     params_class = LookupStatsHandlerParams
 
     def _handle_internal(self, params):
-        if self.cluster.secret != params.secret:
+        if self.ctx.config.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
         application_ids = dict((app['id'], app['apikey']) for app in params.applications)
