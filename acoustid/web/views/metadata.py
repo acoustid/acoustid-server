@@ -168,26 +168,28 @@ def mbid(mbid):
 
 @metadata_page.route('/edit/toggle-track-mbid', methods=['GET', 'POST'])
 def toggle_track_mbid():
-    conn = db.session.connection()
+    fingerprint_db = db.get_fingerprint_db()
+    ingest_db = db.get_ingest_db()
+    app_db = db.get_app_db()
     user = require_user()
     track_id = request.values.get('track_id', type=int)
     if track_id:
         query = sql.select([schema.track.c.gid], schema.track.c.id == track_id)
-        track_gid = conn.execute(query).scalar()
+        track_gid = fingerprint_db.execute(query).scalar()
     else:
         track_gid = request.values.get('track_gid')
-        track_id = resolve_track_gid(conn, track_gid)
+        track_id = resolve_track_gid(fingerprint_db, track_gid)
     state = bool(request.values.get('state', type=int))
     mbid = request.values.get('mbid')
     if not track_id or not mbid or not track_gid:
         return redirect(url_for('general.index'))
-    if not is_moderator(conn, user.id):
+    if not is_moderator(app_db, user.id):
         title = 'MusicBrainz account required'
         return render_template('toggle_track_mbid_login.html', title=title)
     query = sql.select([schema.track_mbid.c.id, schema.track_mbid.c.disabled],
         sql.and_(schema.track_mbid.c.track_id == track_id,
                  schema.track_mbid.c.mbid == mbid))
-    rows = conn.execute(query).fetchall()
+    rows = fingerprint_db.execute(query).fetchall()
     if not rows:
         return redirect(url_for('general.index'))
     id, current_state = rows[0]
@@ -196,10 +198,10 @@ def toggle_track_mbid():
     if request.form.get('submit'):
         note = request.values.get('note')
         update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == id).values(disabled=state)
-        conn.execute(update_stmt)
+        fingerprint_db.execute(update_stmt)
         insert_stmt = schema.track_mbid_change.insert().values(track_mbid_id=id, account_id=session['id'],
                                                                disabled=state, note=note)
-        conn.execute(insert_stmt)
+        ingest_db.execute(insert_stmt)
         db.session.commit()
         return redirect(url_for('.track', track_id=track_id))
     if state:
