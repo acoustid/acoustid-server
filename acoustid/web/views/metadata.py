@@ -194,7 +194,7 @@ def toggle_track_mbid():
         return redirect(url_for('general.index'))
     id, current_state = rows[0]
     if state == current_state:
-        return redirect(url_for('.track', track_id=track_id))
+        return redirect(url_for('.track', track_id_or_gid=track_id))
     if request.form.get('submit'):
         note = request.values.get('note')
         update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == id).values(disabled=state)
