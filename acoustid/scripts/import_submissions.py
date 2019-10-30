@@ -33,6 +33,7 @@ def do_import(script, index_first=False, only_index=False):
 
 
 def run_import_on_master(script):
+    # type: (Script) -> None
     logger.info('Importer running in master mode')
     # first make sure the index is in sync with the database and
     # import already queued submissions
@@ -54,18 +55,16 @@ def run_import_on_master(script):
 
 
 def run_import_on_slave(script):
-    logger.info('Importer running in slave mode, only updating the index')
-    # import new fingerprints to the index every 15 seconds
+    # type: (Script) -> None
+    logger.info('Importer running in slave mode, not doing anything')
     while True:
-        started = time.time()
-        do_import(script, index_first=True, only_index=True)
-        delay = 15 - time.time() + started
-        if delay > 0:
-            logger.debug('Waiting %d seconds...', delay)
-            time.sleep(delay)
+        delay = 60
+        logger.debug('Waiting %d seconds...', delay)
+        time.sleep(delay)
 
 
 def run_import(script):
+    # type: (Script) -> None
     if script.config.cluster.role == 'master':
         run_import_on_master(script)
     else:
