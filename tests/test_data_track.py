@@ -179,7 +179,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH,
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH))
 
-    merge_tracks(ctx.db.get_fingerprint_db(), 3, [1, 2, 4])
+    merge_tracks(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), 3, [1, 2, 4])
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT id, track_id FROM fingerprint ORDER BY id").fetchall()
     assert_equals([(1, 3), (2, 3)], rows)
@@ -216,7 +216,7 @@ TRUNCATE track_mbid CASCADE;
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11);
 """)
-    merge_tracks(ctx.db.get_fingerprint_db(), 1, [2])
+    merge_tracks(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), 1, [2])
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
@@ -232,7 +232,7 @@ TRUNCATE track_mbid CASCADE;
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11, true);
 """)
-    merge_tracks(ctx.db.get_fingerprint_db(), 1, [2])
+    merge_tracks(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), 1, [2])
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
@@ -248,7 +248,7 @@ TRUNCATE track_mbid CASCADE;
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '97edb73c-4dac-11e0-9096-0025225356f3', 11, true);
 """)
-    merge_tracks(ctx.db.get_fingerprint_db(), 1, [2])
+    merge_tracks(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), 1, [2])
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, True),

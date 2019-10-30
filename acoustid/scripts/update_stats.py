@@ -18,7 +18,7 @@ QUERIES = [
     ('fingerprint', 'track_mbid.all', 'SELECT count(*) FROM track_mbid'),
     ('fingerprint', 'mbid.all', 'SELECT count(DISTINCT mbid) FROM track_mbid'),
     ('fingerprint', 'track.all', 'SELECT count(*) FROM track'),
-    ('ingest', 'submission.all', 'SELECT sum(submission_count) FROM account'),
+    ('app', 'submission.all', 'SELECT sum(submission_count) FROM account'),
     ('ingest', 'submission.unhandled', 'SELECT count(*) FROM submission WHERE not handled'),
 ]
 

@@ -124,7 +124,7 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
                 if fingerprint['track_id'] in group and len(group) > 1:
                     fingerprint['track_id'] = min(group)
                     group.remove(fingerprint['track_id'])
-                    merge_tracks(fingerprint_db, fingerprint['track_id'], list(group))
+                    merge_tracks(fingerprint_db, ingest_db, fingerprint['track_id'], list(group))
                     break
 
     if not fingerprint['track_id']:
