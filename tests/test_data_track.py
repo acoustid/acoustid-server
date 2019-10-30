@@ -40,7 +40,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (1, 1
 INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1, true);
 """)
 
-    merge_mbids(ctx.db.get_fingerprint_db(), '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
+    merge_mbids(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
@@ -73,7 +73,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11);
 """)
 
-    merge_mbids(ctx.db.get_fingerprint_db(), '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
+    merge_mbids(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
@@ -90,7 +90,7 @@ TRUNCATE track_mbid CASCADE;
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9);
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11, true);
 """)
-    merge_mbids(ctx.db.get_fingerprint_db(), '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
+    merge_mbids(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
@@ -106,7 +106,7 @@ TRUNCATE track_mbid CASCADE;
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '97edb73c-4dac-11e0-9096-0025225356f3', 9, true);
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11, true);
 """)
-    merge_mbids(ctx.db.get_fingerprint_db(), '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
+    merge_mbids(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), '97edb73c-4dac-11e0-9096-0025225356f3', ['d575d506-4da4-11e0-b951-0025225356f3'])
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, True),
@@ -133,7 +133,7 @@ INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
     (7134048, '5d0290a6-4dad-11e0-a47a-0025225356f3'),
     (7134049, 'b44dfb2a-4dad-11e0-bae4-0025225356f3');
 """)
-    merge_missing_mbids(ctx.db.get_fingerprint_db())
+    merge_missing_mbids(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db())
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, mbid FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected_rows = [
         (1, UUID('77ef7468-e8f8-4447-9c7e-52b11272c6cc')),

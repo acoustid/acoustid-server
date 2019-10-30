@@ -75,7 +75,8 @@ def lookup_tracks(conn, mbids):
     return results
 
 
-def merge_mbids(conn, target_mbid, source_mbids):
+def merge_mbids(fingerprint_db, ingest_db, target_mbid, source_mbids):
+    # type: (FingerprintDB, IngestDB, str, List[str]) -> None
     """
     Merge the specified MBIDs.
     """
@@ -90,7 +91,7 @@ def merge_mbids(conn, target_mbid, source_mbids):
         ],
         schema.track_mbid.c.mbid.in_(source_mbids + [target_mbid]),
         group_by=schema.track_mbid.c.track_id)
-    rows = conn.execute(query).fetchall()
+    rows = fingerprint_db.execute(query).fetchall()
     to_delete = set()
     to_update = []
     for row in rows:
@@ -100,36 +101,37 @@ def merge_mbids(conn, target_mbid, source_mbids):
         to_update.append((old_ids, row))
         if old_ids:
             update_stmt = schema.track_mbid_source.update().where(schema.track_mbid_source.c.track_mbid_id.in_(old_ids))
-            conn.execute(update_stmt.values(track_mbid_id=row['id']))
+            ingest_db.execute(update_stmt.values(track_mbid_id=row['id']))
             update_stmt = schema.track_mbid_change.update().where(schema.track_mbid_change.c.track_mbid_id.in_(old_ids))
-            conn.execute(update_stmt.values(track_mbid_id=row['id']))
+            ingest_db.execute(update_stmt.values(track_mbid_id=row['id']))
     if to_delete:
         delete_stmt = schema.track_mbid.delete().where(
             schema.track_mbid.c.id.in_(to_delete))
-        conn.execute(delete_stmt)
+        fingerprint_db.execute(delete_stmt)
     for old_ids, row in to_update:
         update_stmt = schema.track_mbid.update().where(schema.track_mbid.c.id == row['id'])
-        conn.execute(update_stmt.values(submission_count=row['count'],
+        fingerprint_db.execute(update_stmt.values(submission_count=row['count'],
             mbid=target_mbid, disabled=row['all_disabled']))
 
 
-def merge_missing_mbids(conn):
+def merge_missing_mbids(fingerprint_db, ingest_db):
+    # type: (FingerprintDB, IngestDB) -> None
     """
     Lookup which MBIDs has been merged in MusicBrainz and merge then
     in the AcoustID database as well.
     """
     logger.debug("Merging missing MBIDs")
-    results = conn.execute("""
+    results = fingerprint_db.execute("""
         SELECT DISTINCT tm.mbid AS old_mbid, mt.gid AS new_mbid
         FROM track_mbid tm
         JOIN musicbrainz.recording_gid_redirect mgr ON tm.mbid = mgr.gid
         JOIN musicbrainz.recording mt ON mt.id = mgr.new_id
     """)
-    merge = {}
+    merge = {}  # type: Dict[str, List[str]]
     for old_mbid, new_mbid in results:
         merge.setdefault(str(new_mbid), []).append(str(old_mbid))
     for new_mbid, old_mbids in merge.items():
-        merge_mbids(conn, new_mbid, old_mbids)
+        merge_mbids(fingerprint_db, ingest_db, new_mbid, old_mbids)
 
 
 def _merge_tracks_gids(conn, name_with_id, target_id, source_ids):
