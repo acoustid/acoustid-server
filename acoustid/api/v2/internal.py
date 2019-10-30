@@ -137,7 +137,7 @@ class CreateAccountHandler(APIHandler):
     params_class = CreateAccountHandlerParams
 
     def _handle_internal(self, params):
-        if self.cluster.secret != params.secret:
+        if self.ctx.config.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
         account_id, account_api_key = insert_account(self.ctx.db.get_app_db(), {
