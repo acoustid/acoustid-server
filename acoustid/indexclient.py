@@ -32,6 +32,10 @@ class Index(object):
         # type: () -> None
         raise NotImplementedError(self.begin)
 
+    def search(self, fingerprint):
+        # type: (List[int]) -> List[Result]
+        raise NotImplementedError(self.search)
+
     def commit(self):
         # type: () -> None
         raise NotImplementedError(self.commit)

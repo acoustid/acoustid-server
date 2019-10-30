@@ -8,36 +8,25 @@ import logging
 import time
 from acoustid.script import Script
 from acoustid.data.submission import import_queued_submissions
-from acoustid.data.fingerprint import update_fingerprint_index
 
 logger = logging.getLogger(__file__)
 
 
-def do_import(script, index_first=False, only_index=False):
-    # type: (Script, bool, bool) -> None
-    with script.context() as ctx:
-        fingerprint_db = ctx.db.get_fingerprint_db()
-        if index_first:
-            with ctx.index.connect() as index:
-                update_fingerprint_index(fingerprint_db, index)
-        if not only_index:
-            app_db = ctx.db.get_app_db()
+def do_import(script):
+    # type: (Script) -> None
+    count = 1
+    while count > 0:
+        with script.context() as ctx:
             ingest_db = ctx.db.get_ingest_db()
-            while True:
-                count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=10)
-                if not count:
-                    break
-                with ctx.index.connect() as index:
-                    update_fingerprint_index(fingerprint_db, index)
-        ctx.db.session.commit()
+            app_db = ctx.db.get_app_db()
+            fingerprint_db = ctx.db.get_fingerprint_db()
+            count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=10)
+            ctx.db.session.commit()
 
 
 def run_import_on_master(script):
     # type: (Script) -> None
     logger.info('Importer running in master mode')
-    # first make sure the index is in sync with the database and
-    # import already queued submissions
-    do_import(script, index_first=True)
     # listen for new submissins and import them as they come
     channel = script.redis.pubsub()
     channel.subscribe('channel.submissions')
