@@ -162,7 +162,7 @@ class CreateApplicationHandler(APIHandler):
     params_class = CreateApplicationHandlerParams
 
     def _handle_internal(self, params):
-        if self.cluster.secret != params.secret:
+        if self.ctx.config.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
         application_id, application_api_key = insert_application(self.conn, {
@@ -190,7 +190,7 @@ class UpdateApplicationStatusHandler(APIHandler):
     params_class = UpdateApplicationStatusHandlerParams
 
     def _handle_internal(self, params):
-        if self.cluster.secret != params.secret:
+        if self.ctx.config.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
         update_application_status(self.conn, params.application_id, params.active)
