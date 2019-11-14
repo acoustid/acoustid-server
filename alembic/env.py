@@ -1,11 +1,13 @@
 from __future__ import with_statement
 import os
+import logging
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from logging.config import fileConfig
 
 config = context.config
 fileConfig(config.config_file_name)
+logger = logging.getLogger("alembic.env")
 
 import acoustid.tables
 target_metadata = acoustid.tables.metadata
@@ -17,12 +19,25 @@ acoustid_config = acoustid.config.Config()
 acoustid_config.read(acoustid_config_filename)
 acoustid_config.read_env()
 
-def include_object(obj, name, type, reflected, compare_to):
-    if type == "table" and obj.schema == "musicbrainz":
-        return False
-    if type == "column" and not obj.table.schema == "musicbrainz":
-        return False
-    return True
+use_two_phase_commit = acoustid_config.databases.use_two_phase_commit
+
+
+def include_object(db_name):
+    def inner(obj, name, obj_type, reflected, compare_to):
+        if obj_type == "table":
+            if obj.schema == "musicbrainz":
+                return False
+            bind_key = obj.info.get('bind_key', 'main')
+            if bind_key != db_name:
+                return False
+        if obj_type == "column":
+            if obj.table.schema == "musicbrainz":
+                return False
+            bind_key = obj.table.info.get('bind_key', 'main')
+            if bind_key != db_name:
+                return False
+        return True
+    return inner
 
 
 def run_migrations_offline():
@@ -37,13 +52,20 @@ def run_migrations_offline():
     script output.
 
     """
-    url = acoustid_config.database.create_url()
-    context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True,
-        include_object=include_object)
+    for name, db_config in acoustid_config.databases.databases.items():
+        if name.endswith(':ro') or name == 'musicbrainz':
+            continue
+        logger.info("Migrating database %s" % name)
 
-    with context.begin_transaction():
-        context.run_migrations()
+        context.configure(
+            url=db_config.create_url(),
+            target_metadata=target_metadata,
+            literal_binds=True,
+            include_object=include_object(name),
+        )
+
+        with context.begin_transaction():
+            context.run_migrations(engine_name=name)
 
 
 def run_migrations_online():
@@ -53,17 +75,47 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
-    connectable = acoustid_config.database.create_engine(poolclass=pool.NullPool)
+    engines = {}
+    for name, db_config in acoustid_config.databases.databases.items():
+        if name.endswith(':ro') or name == 'musicbrainz':
+            continue
+        engines[name] = rec = {}
+        rec["engine"] = db_config.create_engine(poolclass=pool.NullPool)
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            include_object=include_object,
-        )
+    for name, rec in engines.items():
+        engine = rec["engine"]
+        rec["connection"] = conn = engine.connect()
 
-        with context.begin_transaction():
-            context.run_migrations()
+        if use_two_phase_commit:
+            rec["transaction"] = conn.begin_twophase()
+        else:
+            rec["transaction"] = conn.begin()
+
+    try:
+        for name, rec in engines.items():
+            logger.info("Migrating database %s" % name)
+            context.configure(
+                connection=rec["connection"],
+                upgrade_token="%s_upgrades" % name,
+                downgrade_token="%s_downgrades" % name,
+                target_metadata=target_metadata,
+                include_object=include_object(name),
+            )
+            context.run_migrations(engine_name=name)
+
+        if use_two_phase_commit:
+            for rec in engines.values():
+                rec["transaction"].prepare()
+
+        for rec in engines.values():
+            rec["transaction"].commit()
+    except:
+        for rec in engines.values():
+            rec["transaction"].rollback()
+        raise
+    finally:
+        for rec in engines.values():
+            rec["connection"].close()
 
 
 if context.is_offline_mode():

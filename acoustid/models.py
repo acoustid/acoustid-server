@@ -37,15 +37,9 @@ class TrackMBID(Base):
 class TrackMBIDChange(Base):
     __table__ = tables.track_mbid_change
 
-    track_mbid = relationship('TrackMBID')
-    account = relationship('Account')
-
 
 class TrackMBIDSource(Base):
     __table__ = tables.track_mbid_source
-
-    track_mbid = relationship('TrackMBID')
-    source = relationship('Source')
 
 
 class Source(Base):
