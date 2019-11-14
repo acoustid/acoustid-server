@@ -21,4 +21,4 @@ typed-ast==1.4.0          # via mypy
 typing-extensions==3.7.4  # via mypy, sqlalchemy-stubs
 
 # The following packages are considered to be unsafe in a requirements file:
-# setuptools==41.4.0        # via protobuf
+# setuptools==41.6.0        # via protobuf

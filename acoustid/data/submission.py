@@ -2,6 +2,8 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+# import datetime
+# import pytz
 from typing import Dict, Any, Optional, Set, List, Iterable
 from sqlalchemy import sql
 from acoustid import tables as schema, const
@@ -18,46 +20,29 @@ from acoustid.data.foreignid import get_foreignid
 logger = logging.getLogger(__name__)
 
 
-def insert_submission(ingest_db, data):
+def insert_submission(ingest_db, values):
     # type: (IngestDB, Dict[str, Any]) -> int
     """
     Insert a new submission into the database
     """
-    insert_stmt = schema.submission.insert().values({
-        'fingerprint': data['fingerprint'],
-        'length': data['length'],
-        'bitrate': data.get('bitrate'),
-        'mbid': data.get('mbid'),
-        'puid': data.get('puid'),
-        'source_id': data.get('source_id'),
-        'format_id': data.get('format_id'),
-        'meta_id': data.get('meta_id'),
-        'foreignid_id': data.get('foreignid_id'),
-    })
+    values = dict((k, v) for (k, v) in values.items() if v is not None)
+    insert_stmt = schema.submission.insert().values(values)
     submission_id = ingest_db.execute(insert_stmt).inserted_primary_key[0]
-    logger.debug("Inserted submission %r with data %r", submission_id, data)
+    logger.debug("Inserted submission %r with data %r", submission_id, values)
     return submission_id
 
 
-def insert_submission_result(ingest_db, data):
-    # type: (IngestDB, Dict[str, Any]) -> None
+def insert_submission_result(ingest_db, values):
+    # type: (IngestDB, Dict[str, Any]) -> int
     """
     Insert a new submission result into the database
     """
-    insert_stmt = schema.submission_result.insert().values({
-        'submission_id': data['submission_id'],
-        'created': data['created'],
-        'account_id': data['account_id'],
-        'application_id': data['application_id'],
-        'application_version': data.get('application_version'),
-        'fingerprint_id': data['fingerprint_id'],
-        'track_id': data['track_id'],
-        'mbid': data.get('mbid'),
-        'puid': data.get('puid'),
-        'meta_id': data.get('meta_id'),
-        'foreignid': data.get('foreignid'),
-    })
+    values = dict((k, v) for (k, v) in values.items() if v is not None)
+    insert_stmt = schema.submission_result.insert().values(values)
     ingest_db.execute(insert_stmt)
+    submission_id = int(values['submission_id'])
+    logger.debug("Inserted submission_result %r with data %r", submission_id, values)
+    return submission_id
 
 
 def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission):
@@ -65,9 +50,13 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     """
     Import the given submission into the main fingerprint database
     """
+
+    # handled_at = datetime.datetime.now(pytz.utc)
+
     update_stmt = schema.submission.update().where(
         schema.submission.c.id == submission['id'])
     ingest_db.execute(update_stmt.values(handled=True))
+    # ingest_db.execute(update_stmt.values(handled=True, handled_at=handled_at))
     logger.info("Importing submission %d with MBIDs %s", submission['id'], submission['mbid'])
 
     num_unique_items = len(set(submission['fingerprint']))
@@ -88,6 +77,7 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     submission_result = {
         'submission_id': submission['id'],
         'created': submission['created'],
+        # 'handled_at': handled_at,
         'account_id': source['account_id'],
         'application_id': source['application_id'],
         'application_version': source['version'],

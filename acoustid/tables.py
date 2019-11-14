@@ -5,7 +5,7 @@ from sqlalchemy import (
     Integer, String, DateTime, Boolean, Date, Text, SmallInteger,
     DDL, sql,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID, INET
+from sqlalchemy.dialects.postgresql import ARRAY, UUID, INET, JSONB
 
 metadata = MetaData(naming_convention={
     'fk': '%(table_name)s_fk_%(column_0_name)s',
@@ -94,17 +94,33 @@ source = Table('source', metadata,
 
 submission = Table('submission', metadata,
     Column('id', Integer, primary_key=True),
+
+    # status
+    Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
+    Column('handled_at', DateTime(timezone=True)),
+    Column('handled', Boolean, default=False, server_default=sql.false()),
+
+    # source
+    Column('account_id', Integer, nullable=True),
+    Column('application_id', Integer, nullable=True),
+    Column('application_version', String),
+    Column('source_id', Integer, nullable=True),  # XXX deprecated
+
+    # fingerprint
     Column('fingerprint', ARRAY(Integer), nullable=False),
     Column('length', SmallInteger, CheckConstraint('length>0'), nullable=False),
     Column('bitrate', SmallInteger, CheckConstraint('bitrate>0')),
-    Column('format_id', Integer),
-    Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
-    Column('source_id', Integer, nullable=False),
+    Column('format', String),
+    Column('format_id', Integer),  # XXX deprecated
+
+    # metadata
+    Column('meta', JSONB),
+    Column('meta_id', Integer),  # XXX deprecated
     Column('mbid', UUID),
-    Column('handled', Boolean, default=False, server_default=sql.false()),
     Column('puid', UUID),
-    Column('meta_id', Integer),
-    Column('foreignid_id', Integer),
+    Column('foreignid', String),
+    Column('foreignid_id', Integer),  # XXX deprecated
+
     info={'bind_key': 'ingest'},
 )
 
@@ -112,7 +128,10 @@ Index('submission_idx_handled', submission.c.id, postgresql_where=submission.c.h
 
 submission_result = Table('submission_result', metadata,
     Column('submission_id', Integer, primary_key=True, autoincrement=False),
+
+    # status
     Column('created', DateTime(timezone=True), nullable=False),
+    Column('handled_at', DateTime(timezone=True), nullable=True),
 
     # source
     Column('account_id', Integer, nullable=False),

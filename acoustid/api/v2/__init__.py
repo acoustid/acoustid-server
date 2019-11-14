@@ -765,13 +765,19 @@ class SubmitHandler(APIHandler):
                     'bitrate': p['bitrate'] or None,
                     'fingerprint': p['fingerprint'],
                     'length': p['duration'],
+                    # 'format': p['format'] or None,
                     'format_id': p.get('format_id'),
-                    'source_id': source_id
+                    # 'account_id': params.account_id,
+                    # 'application_id': params.application_id,
+                    # 'application_version': params.application_version,
+                    'source_id': source_id,
                 }
                 meta_values = dict((n, p[n] or None) for n in self.meta_fields)
                 if any(meta_values.values()):
+                    # values['meta'] = meta_values
                     values['meta_id'] = insert_meta(fingerprint_db, meta_values)
                 if p['foreignid']:
+                    # values['foreignid'] = p['foreignid']
                     values['foreignid_id'] = find_or_insert_foreignid(fingerprint_db, p['foreignid'])
                 id = insert_submission(ingest_db, values)
                 ids.add(id)

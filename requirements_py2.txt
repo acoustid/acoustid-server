@@ -44,6 +44,7 @@ pyopenssl==19.0.0
 python-dateutil==2.8.0    # via alembic
 python-editor==1.0.4      # via alembic
 python-openid==2.2.5 ; python_version < "3"
+pytz==2019.3
 rauth==0.7.3
 redis==3.3.8
 requests==2.22.0
@@ -62,4 +63,4 @@ wcwidth==0.1.7            # via prompt-toolkit
 werkzeug==0.16.0
 
 # The following packages are considered to be unsafe in a requirements file:
-# setuptools==41.4.0        # via ipython, markdown
+# setuptools==41.6.0        # via ipython, markdown

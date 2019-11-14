@@ -26,3 +26,4 @@ ipython
 attrs
 gunicorn
 futures
+pytz
