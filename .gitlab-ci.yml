@@ -7,8 +7,9 @@ build-test-image:
   stage: pre-test
   script:
     - cd admin/ci/
-    - docker build -f Dockerfile.tests -t $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG .
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker pull $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG || true
+    - docker build --file Dockerfile.tests --tag $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG --cache-from $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG .
     - docker push $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG
   services:
     - docker:dind
