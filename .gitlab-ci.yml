@@ -10,8 +10,8 @@ build-test-image:
     - docker build -f Dockerfile.tests -t $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG .
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker push $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG
-  tags:
-    - docker
+  services:
+    - docker:dind
 
 test:
   image: $CI_REGISTRY_IMAGE/test-env:$CI_COMMIT_REF_SLUG
@@ -42,13 +42,11 @@ test:
       - pip-cache/
   script:
     - ./admin/ci/run-tests.sh
-  tags:
-    - docker
 
 build:
   stage: build
   script:
     - docker login -u $QUAY_USER -p $QUAY_PASSWORD quay.io
     - ./admin/ci/build-image.sh
-  tags:
-    - docker
+  services:
+    - docker:dind
