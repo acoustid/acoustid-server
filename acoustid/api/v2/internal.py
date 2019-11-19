@@ -144,6 +144,7 @@ class CreateAccountHandler(APIHandler):
             'name': 'External User',
             'anonymous': True,
         })
+        self.ctx.db.session.commit()
         return {'id': account_id, 'api_key': account_api_key}
 
 
@@ -170,6 +171,7 @@ class CreateApplicationHandler(APIHandler):
             'name': params.name,
             'version': params.version,
         })
+        self.ctx.db.session.commit()
         return {'id': application_id, 'api_key': application_api_key}
 
 
@@ -194,4 +196,5 @@ class UpdateApplicationStatusHandler(APIHandler):
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
         update_application_status(self.ctx.db.get_app_db(), params.application_id, params.active)
+        self.ctx.db.session.commit()
         return {'id': params.application_id, 'active': params.active}
