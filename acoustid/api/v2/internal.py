@@ -55,8 +55,8 @@ class UpdateLookupStatsHandler(APIHandler):
 
 class UpdateUserAgentStatsHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(UpdateUserAgentStatsHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(UpdateUserAgentStatsHandlerParams, self).parse(values, db)
         self.secret = values.get('secret')
         self.application_id = values.get('application_id', type=int)
         self.date = values.get('date')
@@ -149,8 +149,8 @@ class CreateAccountHandler(APIHandler):
 
 class CreateApplicationHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(CreateApplicationHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(CreateApplicationHandlerParams, self).parse(values, db)
         self.secret = values.get('secret')
         self.account_id = values.get('account_id', type=int)
         self.name = values.get('name')
@@ -165,7 +165,7 @@ class CreateApplicationHandler(APIHandler):
         if self.ctx.config.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
-        application_id, application_api_key = insert_application(self.conn, {
+        application_id, application_api_key = insert_application(self.ctx.db.get_app_db(), {
             'account_id': params.account_id,
             'name': params.name,
             'version': params.version,
@@ -175,12 +175,12 @@ class CreateApplicationHandler(APIHandler):
 
 class UpdateApplicationStatusHandlerParams(APIHandlerParams):
 
-    def parse(self, values, conn):
-        super(UpdateApplicationStatusHandlerParams, self).parse(values, conn)
+    def parse(self, values, db):
+        super(UpdateApplicationStatusHandlerParams, self).parse(values, db)
         self.secret = values.get('secret')
         self.account_id = values.get('account_id', type=int)
         self.application_id = values.get('application_id', type=int)
-        if not lookup_application_id(conn, self.application_id, self.account_id):
+        if not lookup_application_id(db.get_app_db(), self.application_id, self.account_id):
             raise errors.UnknownApplicationError()
         self.active = values.get('active', type=bool)
 
@@ -193,5 +193,5 @@ class UpdateApplicationStatusHandler(APIHandler):
         if self.ctx.config.cluster.secret != params.secret:
             logger.warning('Invalid cluster secret')
             raise errors.NotAllowedError()
-        update_application_status(self.conn, params.application_id, params.active)
+        update_application_status(self.ctx.db.get_app_db(), params.application_id, params.active)
         return {'id': params.application_id, 'active': params.active}
