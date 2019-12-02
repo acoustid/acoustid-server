@@ -171,9 +171,18 @@ def _merge_tracks_gids(fingerprint_db, ingest_db, name_with_id, target_id, sourc
     for old_ids, row in to_update:
         update_stmt = tab.update().where(tab.c.id == row['id'])
         if name == 'mbid':
-            fingerprint_db.execute(update_stmt.values(submission_count=row['count'], track_id=target_id, disabled=row['all_disabled']))
+            fingerprint_db.execute(update_stmt.values(
+                submission_count=row['count'],
+                track_id=target_id,
+                disabled=row['all_disabled'],
+                updated=sql.func.current_timestamp(),
+            ))
         else:
-            fingerprint_db.execute(update_stmt.values(submission_count=row['count'], track_id=target_id))
+            fingerprint_db.execute(update_stmt.values(
+                submission_count=row['count'],
+                track_id=target_id,
+                updated=sql.func.current_timestamp(),
+            ))
 
 
 def merge_tracks(fingerprint_db, ingest_db, target_id, source_ids):
@@ -189,11 +198,17 @@ def merge_tracks(fingerprint_db, ingest_db, target_id, source_ids):
     # XXX don't move duplicate fingerprints
     update_stmt = schema.fingerprint.update().where(
         schema.fingerprint.c.track_id.in_(source_ids))
-    fingerprint_db.execute(update_stmt.values(track_id=target_id))
+    fingerprint_db.execute(update_stmt.values(
+        track_id=target_id,
+        updated=sql.func.current_timestamp(),
+    ))
     update_stmt = schema.track.update().where(
         sql.or_(schema.track.c.id.in_(source_ids),
                 schema.track.c.new_id.in_(source_ids)))
-    fingerprint_db.execute(update_stmt.values(new_id=target_id))
+    fingerprint_db.execute(update_stmt.values(
+        new_id=target_id,
+        updated=sql.func.current_timestamp(),
+    ))
 
 
 def insert_track(conn):
