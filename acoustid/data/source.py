@@ -31,7 +31,11 @@ def find_or_insert_source(conn, application_id, account_id, version=None):
                  schema.source.c.version == version))
     id = conn.execute(query).scalar()
     if id is None:
-        insert_stmt = schema.source.insert().values(account_id=account_id, application_id=application_id, version=version)
+        insert_stmt = schema.source.insert().values(
+            account_id=account_id,
+            application_id=application_id,
+            version=version,
+        )
         id = conn.execute(insert_stmt).inserted_primary_key[0]
         logger.info("Inserted source %d with account %d and application %d (%s)", id, account_id, application_id, version)
     return id

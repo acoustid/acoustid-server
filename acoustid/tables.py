@@ -199,6 +199,8 @@ meta = Table('meta', metadata,
     Column('track_no', Integer),
     Column('disc_no', Integer),
     Column('year', Integer),
+    # Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
+    Column('created', DateTime(timezone=True)),
     info={'bind_key': 'fingerprint'},
 )
 

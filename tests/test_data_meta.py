@@ -20,7 +20,7 @@ def test_insert_meta(ctx):
         'year': 2030
     })
     assert_equals(3, meta_id)
-    row = ctx.db.get_fingerprint_db().execute("SELECT * FROM meta WHERE id=%s", meta_id).fetchone()
+    row = dict(ctx.db.get_fingerprint_db().execute("SELECT * FROM meta WHERE id=%s", meta_id).fetchone())
     expected = {
         'id': meta_id,
         'track': 'Voodoo People',
@@ -31,4 +31,6 @@ def test_insert_meta(ctx):
         'disc_no': 3,
         'year': 2030
     }
-    assert_equals(expected, dict(row))
+    assert row['created'] is not None
+    del row['created']
+    assert_equals(expected, row)

@@ -3,6 +3,7 @@
 
 import logging
 from typing import Dict, Any, Iterable, List
+from sqlalchemy import sql
 from acoustid import tables as schema
 from acoustid.db import FingerprintDB
 
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def insert_meta(conn, values):
     # type: (FingerprintDB, Dict[str, Any]) -> int
-    insert_stmt = schema.meta.insert().values(**values)
+    insert_stmt = schema.meta.insert().values(created=sql.func.current_timestamp(), **values)
     id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted meta %d with values %r", id, values)
     return id

@@ -521,7 +521,7 @@ def test_submit_handler_with_meta(ctx):
     submission = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
     assert_equals(3, submission['meta_id'])
-    row = ctx.db.get_ingest_db().execute("SELECT * FROM meta WHERE id=%s", submission['meta_id']).fetchone()
+    row = dict(ctx.db.get_ingest_db().execute("SELECT * FROM meta WHERE id=%s", submission['meta_id']).fetchone())
     expected = {
         'id': submission['meta_id'],
         'track': 'Voodoo People',
@@ -532,7 +532,9 @@ def test_submit_handler_with_meta(ctx):
         'disc_no': 3,
         'year': 2030
     }
-    assert_equals(expected, dict(row))
+    assert row['created'] is not None
+    del row['created']
+    assert_equals(expected, row)
 
 
 @with_script_context
