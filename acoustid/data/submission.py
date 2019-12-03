@@ -51,12 +51,12 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     Import the given submission into the main fingerprint database
     """
 
-    # handled_at = datetime.datetime.now(pytz.utc)
+    handled_at = datetime.datetime.now(pytz.utc)
 
     update_stmt = schema.submission.update().where(
         schema.submission.c.id == submission['id'])
     ingest_db.execute(update_stmt.values(handled=True))
-    # ingest_db.execute(update_stmt.values(handled=True, handled_at=handled_at))
+    ingest_db.execute(update_stmt.values(handled=True, handled_at=handled_at))
     logger.info("Importing submission %d with MBIDs %s", submission['id'], submission['mbid'])
 
     num_unique_items = len(set(submission['fingerprint']))
@@ -77,7 +77,7 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     submission_result = {
         'submission_id': submission['id'],
         'created': submission['created'],
-        # 'handled_at': handled_at,
+        'handled_at': handled_at,
         'account_id': source['account_id'],
         'application_id': source['application_id'],
         'application_version': source['version'],
