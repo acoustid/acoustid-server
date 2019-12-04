@@ -2,12 +2,16 @@ FROM ubuntu:16.04
 
 RUN apt-get update && \
     apt-get install -y \
-        python python-pip python-virtualenv python-dev \
+        python python-dev \
         libchromaprint0 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
         curl
 
 RUN curl -Lo /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 && \
     chmod +x /usr/local/bin/dumb-init
+
+RUN curl -Lo /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py && \
+    python /tmp/get-pip.py && \
+    pip install virtualenv
 
 ADD requirements_py2.txt /tmp/requirements.txt
 
