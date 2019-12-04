@@ -1,9 +1,9 @@
-FROM ubuntu:18.04
+FROM ubuntu:16.04
 
 RUN apt-get update && \
     apt-get install -y \
         python python-pip python-virtualenv python-dev \
-        libchromaprint1 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
+        libchromaprint0 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
         curl
 
 RUN curl -Lo /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 && \
