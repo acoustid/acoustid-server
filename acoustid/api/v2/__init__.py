@@ -786,6 +786,7 @@ class SubmitHandler(APIHandler):
                     submission['index'] = p['index']
                 response['submissions'].append(submission)
 
+        self.ctx.db.session.flush()
         self.ctx.db.session.commit()
 
         self.ctx.redis.publish('channel.submissions', json.dumps(list(ids)))

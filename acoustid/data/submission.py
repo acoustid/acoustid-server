@@ -14,6 +14,7 @@ from acoustid.data.track import (
 )
 from acoustid.db import FingerprintDB, IngestDB, AppDB
 from acoustid.indexclient import IndexClientPool
+from acoustid.data.meta import check_meta_id
 from acoustid.data.source import get_source
 from acoustid.data.foreignid import get_foreignid
 
@@ -140,8 +141,9 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         submission_result['puid'] = submission['puid']
 
     if submission['meta_id']:
-        insert_track_meta(fingerprint_db, ingest_db, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])
-        submission_result['meta_id'] = submission['meta_id']
+        if check_meta_id(fingerprint_db, submission['meta_id']):
+            insert_track_meta(fingerprint_db, ingest_db, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])
+            submission_result['meta_id'] = submission['meta_id']
 
     if submission['foreignid_id']:
         insert_track_foreignid(fingerprint_db, ingest_db, fingerprint['track_id'], submission['foreignid_id'], submission['id'], submission['source_id'])

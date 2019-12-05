@@ -18,6 +18,16 @@ def insert_meta(conn, values):
     return id
 
 
+def check_meta_id(fingerprint_db, meta_id):
+    # type: (FingerprintDB, int) -> bool
+    query = (
+        sql.select([sql.func.count(schema.meta.c.id)])
+        .where(schema.meta.c.id == meta_id)
+    )
+    count = fingerprint_db.execute(query).scalar()
+    return count == 1
+
+
 def lookup_meta(conn, meta_ids):
     # type: (FingerprintDB, Iterable[int]) -> List[Dict[str, Any]]
     if not meta_ids:
