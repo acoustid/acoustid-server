@@ -15,8 +15,9 @@ from acoustid.data.track import (
 from acoustid.db import FingerprintDB, IngestDB, AppDB
 from acoustid.indexclient import IndexClientPool
 from acoustid.data.meta import check_meta_id
-from acoustid.data.source import get_source
-from acoustid.data.foreignid import get_foreignid
+from acoustid.data.format import find_or_insert_format
+from acoustid.data.source import get_source, find_or_insert_source
+from acoustid.data.foreignid import get_foreignid, find_or_insert_foreignid
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +71,19 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         logger.info("Skipping, no data to index")
         return None
 
-    source = get_source(app_db, submission['source_id'])
-    if source is None:
-        logger.error("Source not found")
-        return None
+    source_id = submission['source_id']
+    if source_id is not None:
+        source = get_source(app_db, source_id)
+        if source is None:
+            logger.error("Source not found")
+            return None
+    else:
+        source = {
+            'application_id': submission['application_id'],
+            'version': submission['application_version'],
+            'account_id': submission['account_id'],
+        }
+        source_id = find_or_insert_source(app_db, source['application_id'], source['account_id'], source['version'])
 
     submission_result = {
         'submission_id': submission['id'],
@@ -84,13 +94,17 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         'application_version': source['version'],
     }
 
+    format_id = submission['format_id']
+    if format_id is None and submission['format'] is not None:
+        format_id = find_or_insert_format(app_db, submission['format'])
+
     fingerprint = {
         'id': None,
         'track_id': None,
         'fingerprint': submission['fingerprint'],
         'length': submission['length'],
         'bitrate': submission['bitrate'],
-        'format_id': submission['format_id'],
+        'format_id': format_id,
     }
 
     searcher = FingerprintSearcher(fingerprint_db, index_pool, fast=False)
@@ -125,29 +139,37 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     submission_result['track_id'] = fingerprint['track_id']
 
     if not fingerprint['id']:
-        fingerprint['id'] = insert_fingerprint(fingerprint_db, ingest_db, fingerprint, submission['id'], submission['source_id'])
+        fingerprint['id'] = insert_fingerprint(fingerprint_db, ingest_db, fingerprint, submission['id'], source_id)
     else:
         assert isinstance(fingerprint['id'], int)
-        inc_fingerprint_submission_count(fingerprint_db, ingest_db, fingerprint['id'], submission['id'], submission['source_id'])
+        inc_fingerprint_submission_count(fingerprint_db, ingest_db, fingerprint['id'], submission['id'], source_id)
 
     submission_result['fingerprint_id'] = fingerprint['id']
 
     if submission['mbid'] and submission['mbid'] != '00000000-0000-0000-0000-000000000000':
-        insert_mbid(fingerprint_db, ingest_db, fingerprint['track_id'], submission['mbid'], submission['id'], submission['source_id'])
+        insert_mbid(fingerprint_db, ingest_db, fingerprint['track_id'], submission['mbid'], submission['id'], source_id)
         submission_result['mbid'] = submission['mbid']
 
     if submission['puid'] and submission['puid'] != '00000000-0000-0000-0000-000000000000':
-        insert_puid(fingerprint_db, ingest_db, fingerprint['track_id'], submission['puid'], submission['id'], submission['source_id'])
+        insert_puid(fingerprint_db, ingest_db, fingerprint['track_id'], submission['puid'], submission['id'], source_id)
         submission_result['puid'] = submission['puid']
 
     if submission['meta_id']:
         if check_meta_id(fingerprint_db, submission['meta_id']):
-            insert_track_meta(fingerprint_db, ingest_db, fingerprint['track_id'], submission['meta_id'], submission['id'], submission['source_id'])
+            insert_track_meta(fingerprint_db, ingest_db, fingerprint['track_id'], submission['meta_id'], submission['id'], source_id)
             submission_result['meta_id'] = submission['meta_id']
+        else:
+            logger.error("Meta not found")
 
-    if submission['foreignid_id']:
-        insert_track_foreignid(fingerprint_db, ingest_db, fingerprint['track_id'], submission['foreignid_id'], submission['id'], submission['source_id'])
-        submission_result['foreignid'] = get_foreignid(fingerprint_db, submission['foreignid_id'])
+    if submission['foreignid_id'] or submission['foreignid']:
+        foreignid_id = submission['foreignid_id']
+        if foreignid_id is None:
+            foreignid = submission['foreignid']
+            foreignid_id = find_or_insert_foreignid(fingerprint_db, foreignid)
+        else:
+            foreignid = get_foreignid(fingerprint_db, foreignid_id)
+        insert_track_foreignid(fingerprint_db, ingest_db, fingerprint['track_id'], foreignid_id, submission['id'], source_id)
+        submission_result['foreignid'] = foreignid
 
     insert_submission_result(ingest_db, submission_result)
 

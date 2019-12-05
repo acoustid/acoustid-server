@@ -77,6 +77,25 @@ def test_import_submission_with_foreignid(ctx):
     track_foreignid = fingerprint_db.execute(query).fetchone()
     assert_equals(1, track_foreignid['submission_count'])
 
+    submission_id = insert_submission(ingest_db, {
+        'fingerprint': TEST_1_FP_RAW,
+        'length': TEST_1_LENGTH,
+        'bitrate': 192,
+        'source_id': 1,
+        'format_id': 1,
+        'foreignid': 'foo:123',
+    })
+    query = tables.submission.select(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).fetchone()
+
+    fingerprint = import_submission(ingest_db, app_db, fingerprint_db, ctx.index, submission)
+
+    assert fingerprint is not None
+
+    query = tables.track_foreignid.select(tables.track_foreignid.c.track_id == fingerprint['track_id'])
+    track_foreignid = fingerprint_db.execute(query).fetchone()
+    assert_equals(2, track_foreignid['submission_count'])
+
 
 @with_script_context
 def test_import_submission(ctx):
@@ -90,8 +109,9 @@ def test_import_submission(ctx):
         'fingerprint': TEST_1_FP_RAW,
         'length': TEST_1_LENGTH,
         'bitrate': 192,
-        'source_id': 1,
-        'format_id': 1,
+        'account_id': 1,
+        'application_id': 1,
+        'format': 'FLAC',
         'mbid': '1f143d2b-db04-47cc-82a0-eee6efaa1142',
         'puid': '7c1c6753-c834-44b1-884a-a5166c093139',
     })
@@ -122,6 +142,7 @@ def test_import_submission(ctx):
     fingerprint = fingerprint_db.execute(query).fetchone()
     assert fingerprint is not None
     assert_equals(1, fingerprint['submission_count'])
+    assert_equals(1, fingerprint['format_id'])
 
     # second submission
     submission_id = insert_submission(ingest_db, {
