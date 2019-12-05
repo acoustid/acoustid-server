@@ -23,10 +23,10 @@ def run_backfill_meta_created(script, opts, args):
         UPDATE meta
         SET created = meta_created.created
         FROM meta_created
-        WHERE meta.id = meta_created.meta_id
+        WHERE meta.id = meta_created.meta_id AND meta.created IS NULL
     """
 
-    for i in range(100):
+    for i in range(10):
         with script.context() as ctx:
             fingerprint_db = ctx.db.get_fingerprint_db()
             fingerprint_db.execute(query)
