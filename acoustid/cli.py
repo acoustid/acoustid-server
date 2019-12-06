@@ -1,4 +1,5 @@
 import os
+import importlib
 import click
 from typing import Optional
 from acoustid.script import Script
@@ -67,6 +68,21 @@ def run_import_cmd(config):
     script.setup_console_logging()
     script.setup_sentry()
     run_import(script)
+
+
+@run.command('script')
+@click.argument('name')
+@click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
+def run_script_cmd(name, config):
+    # type: (name, str) -> None
+    """Run import."""
+    script = Script(config)
+    script.setup_console_logging()
+    script.setup_sentry()
+    mod = importlib.import_module('acoustid.scripts.{}'.format(name))
+    func_name = 'run_{}'.format(name)
+    func = getattr(mod, func_name)
+    func(script, None, None)
 
 
 @cli.command('shell')
