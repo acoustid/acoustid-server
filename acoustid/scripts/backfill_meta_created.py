@@ -29,5 +29,8 @@ def run_backfill_meta_created(script, opts, args):
     for i in range(100):
         with script.context() as ctx:
             fingerprint_db = ctx.db.get_fingerprint_db()
-            fingerprint_db.execute(query)
+            result = fingerprint_db.execute(query)
+            logger.info('Added create date to %s meta entries', result.rowcount)
+            if result.rowcount == 0:
+                return
             ctx.db.session.commit()
