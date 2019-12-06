@@ -74,8 +74,8 @@ def run_import_cmd(config):
 @click.argument('name')
 @click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
 def run_script_cmd(name, config):
-    # type: (name, str) -> None
-    """Run import."""
+    # type: (str, str) -> None
+    """Run a built-in script."""
     script = Script(config)
     script.setup_console_logging()
     script.setup_sentry()
