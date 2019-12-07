@@ -35,9 +35,11 @@ def run_backfill_meta_created(script, opts, args):
         last_meta_id = fingerprint_db.execute(last_meta_id_query).scalar()
         if last_meta_id is None:
             return
+
+    for i in range(10):
         first_meta_id = last_meta_id - 10000
-        result = fingerprint_db.execute(update_query, {'first_meta_id': first_meta_id, 'last_meta_id': last_meta_id})
-        logger.info('Added create date to %s meta entries', result.rowcount)
-        if result.rowcount == 0:
-            return
-        ctx.db.session.commit()
+        with script.context() as ctx:
+            fingerprint_db = ctx.db.get_fingerprint_db()
+            result = fingerprint_db.execute(update_query, {'first_meta_id': first_meta_id, 'last_meta_id': last_meta_id})
+            logger.info('Added create date to %s meta entries between (%d and %d)', result.rowcount, first_meta_id, last_meta_id)
+            ctx.db.session.commit()
