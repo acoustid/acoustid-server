@@ -37,9 +37,10 @@ def run_backfill_meta_created(script, opts, args):
             return
 
     for i in range(10):
-        first_meta_id = last_meta_id - 10000
         with script.context() as ctx:
+            first_meta_id = last_meta_id - 10000
             fingerprint_db = ctx.db.get_fingerprint_db()
             result = fingerprint_db.execute(update_query, {'first_meta_id': first_meta_id, 'last_meta_id': last_meta_id})
             logger.info('Added create date to %s meta entries between (%d and %d)', result.rowcount, first_meta_id, last_meta_id)
             ctx.db.session.commit()
+            last_meta_id = first_meta_id
