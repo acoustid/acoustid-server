@@ -30,15 +30,17 @@ def run_import_on_master(script):
     # listen for new submissins and import them as they come
     channel = script.redis.pubsub()
     channel.subscribe('channel.submissions')
-    for message in channel.listen():
-        if message['type'] != 'message':
-            continue
-        try:
-            ids = json.loads(message['data'])
-        except Exception:
-            logger.exception('Invalid notification message: %r', message)
-            ids = []
-        logger.debug('Got notified about %s new submissions', len(ids))
+    while True:
+        message = channel.get_message(timeout=10)
+        if message is not None:
+            if message['type'] != 'message':
+                continue
+            try:
+                ids = json.loads(message['data'])
+            except Exception:
+                logger.exception('Invalid notification message: %r', message)
+                ids = []
+            logger.debug('Got notified about %s new submissions', len(ids))
         do_import(script)
         logger.debug('Waiting for the next event...')
 
