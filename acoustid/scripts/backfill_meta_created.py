@@ -29,7 +29,7 @@ def run_backfill_meta_created(script, opts, args):
     with script.context() as ctx:
         first_meta_id = int(ctx.redis.get('backfill_meta_created_first_id') or 0)
         fingerprint_db = ctx.db.get_fingerprint_db()
-        max_meta_id = fingerprint_db.execute("GET max(id) FROM meta").scalar()
+        max_meta_id = fingerprint_db.execute("SELECT max(id) FROM meta").scalar()
         if first_meta_id > max_meta_id:
             return
 

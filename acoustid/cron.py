@@ -11,7 +11,7 @@ from acoustid.scripts.update_stats import run_update_stats
 from acoustid.scripts.update_lookup_stats import run_update_lookup_stats
 from acoustid.scripts.update_user_agent_stats import run_update_user_agent_stats
 from acoustid.scripts.cleanup_perf_stats import run_cleanup_perf_stats
-from acoustid.scripts.backfill_meta_created import run_backfill_meta_created
+# from acoustid.scripts.backfill_meta_created import run_backfill_meta_created
 # from acoustid.scripts.merge_missing_mbids import run_merge_missing_mbids
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ def create_schedule(script):
         return wrapper
 
     schedule = Scheduler()
-    schedule.every().minute.do(wrap_job(run_backfill_meta_created))
+    # schedule.every().minute.do(wrap_job(run_backfill_meta_created))
     schedule.every(3).to(9).minutes.do(wrap_job(run_update_lookup_stats))
     # schedule.every(55).to(65).minutes.do(wrap_job(run_merge_missing_mbids))
     schedule.every(15).to(30).minutes.do(wrap_job(run_cleanup_perf_stats))
