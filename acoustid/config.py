@@ -397,6 +397,35 @@ class SentryConfig(BaseConfig):
         read_env_item(self, 'script_dsn', prefix + 'SENTRY_SCRIPT_DSN')
 
 
+class StatsdConfig(BaseConfig):
+
+    def __init__(self):
+        # type: () -> None
+        self.host = ''
+        self.port = 8125
+        self.prefix = ''
+
+    @property
+    def enabled(self):
+        # type: () -> bool
+        return bool(self.host)
+
+    def read_section(self, parser, section):
+        # type: (RawConfigParser, str) -> None
+        if parser.has_option(section, 'host'):
+            self.host = parser.get(section, 'host')
+        if parser.has_option(section, 'port'):
+            self.port = parser.getint(section, 'port')
+        if parser.has_option(section, 'prefix'):
+            self.prefix = parser.get(section, 'prefix')
+
+    def read_env(self, prefix):
+        # type: (str) -> None
+        read_env_item(self, 'host', prefix + 'STATSD_HOST')
+        read_env_item(self, 'port', prefix + 'STATSD_PORT', convert=int)
+        read_env_item(self, 'prefix', prefix + 'STATSD_PREFIX')
+
+
 class ReplicationConfig(BaseConfig):
 
     def __init__(self):
@@ -470,6 +499,7 @@ class Config(object):
         self.rate_limiter = RateLimiterConfig()
         self.sentry = SentryConfig()
         self.gunicorn = GunicornConfig()
+        self.statsd = StatsdConfig()
 
     def read(self, path):
         # type: (str) -> None
@@ -486,6 +516,7 @@ class Config(object):
         self.rate_limiter.read(parser, 'rate_limiter')
         self.sentry.read(parser, 'sentry')
         self.gunicorn.read(parser, 'gunicorn')
+        self.statsd.read(parser, 'statsd')
 
     def read_env(self, tests=False):
         # type: (bool) -> None
@@ -503,3 +534,4 @@ class Config(object):
         self.rate_limiter.read_env(prefix)
         self.sentry.read_env(prefix)
         self.gunicorn.read_env(prefix)
+        self.statsd.read_env(prefix)

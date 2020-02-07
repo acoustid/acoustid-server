@@ -112,6 +112,8 @@ def common_gunicorn_args(config, workers=None, threads=None):
     ]
     if config.gunicorn.timeout:
         args.extend(["--timeout", six.text_type(config.gunicorn.timeout)])
+    if config.statsd.enabled:
+        args.extend(["--statsd-host", "{}:{}".format(config.statsd.host, config.statsd.port)])
     return args
 
 
@@ -121,6 +123,8 @@ def run_api_app(config, workers=None, threads=None):
       "--bind", "0.0.0.0:3031",
       "acoustid.server:make_application()",
     ]
+    if config.statsd.enabled:
+        args.extend(["--statsd-prefix", "{}service.api".format(config.statsd.prefix)])
     return run_gunicorn(config, args)
 
 
@@ -130,4 +134,6 @@ def run_web_app(config, workers=None, threads=None):
       "--bind", "0.0.0.0:3032",
       "acoustid.web.app:make_application()",
     ]
+    if config.statsd.enabled:
+        args.extend(["--statsd-prefix", "{}service.web".format(config.statsd.prefix)])
     return run_gunicorn(config, args)

@@ -6,6 +6,7 @@
 import json
 import logging
 import time
+from typing import Optional, Dict, Any
 from acoustid.script import Script
 from acoustid.data.submission import import_queued_submissions
 
@@ -31,7 +32,7 @@ def run_import_on_master(script):
     channel = script.redis.pubsub()
     channel.subscribe('channel.submissions')
     while True:
-        message = channel.get_message(timeout=10)
+        message = channel.get_message(timeout=10)  # type: Optional[Dict[str, Any]]
         if message is not None:
             if message['type'] != 'message':
                 continue
