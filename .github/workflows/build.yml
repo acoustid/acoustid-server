@@ -1,0 +1,176 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python_version: [ '2.7', '3.6' ]
+
+    services:
+      postgresql:
+        image: quay.io/acoustid/postgresql:master
+        ports:
+          - 5432/tcp
+        env:
+          POSTGRES_USER: acoustid
+          POSTGRES_PASSWORD: acoustid
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis
+        ports:
+          - 6379/tcp
+      index:
+        image: quay.io/acoustid/acoustid-index:2018.01.13
+        ports:
+          - 6080/tcp
+
+    steps:
+
+      - name: Checkout source code
+        uses: actions/checkout@v1
+
+      - name: Install python
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python_version }}
+
+      - name: Install tox
+        run: pip install tox
+
+      - name: Lint on the source code
+        run: |
+          if [[ $PYTHON_VERSION =~ ^2 ]]
+          then
+            tox -e flake8-py2
+          else
+            tox -e mypy-py3,mypy-py2,flake8-py3
+          fi
+        env:
+          PYTHON_VERSION: ${{ matrix.python_version }}
+
+      - name: Install additional requirements
+        run: |
+          sudo apt-get update
+          sudo apt-get install libchromaprint1 libpq-dev
+
+      - name: Setup database
+        run: |
+          container=$(docker ps -q -f expose=5432)
+          docker exec -i -e PGUSER=$PGUSER -e PGPASSWORD=$PGPASSWORD -e PGDATABASE=$PGDATABASE $container psql < ./admin/ci/create_db.sql
+        env:
+          PGUSER: acoustid
+          PGPASSWORD: acoustid
+          PGDATABASE: postgres
+
+      - name: Run tests
+        run: |
+          if [[ $PYTHON_VERSION =~ ^2 ]]
+          then
+            tox -e py2
+          else
+            tox -e py3
+          fi
+        env:
+          PYTHON_VERSION: ${{ matrix.python_version }}
+          ACOUSTID_TEST_DATABASE_APP_HOST: localhost
+          ACOUSTID_TEST_DATABASE_APP_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_TEST_DATABASE_APP_RO_HOST: localhost
+          ACOUSTID_TEST_DATABASE_APP_RO_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_TEST_DATABASE_FINGERPRINT_HOST: localhost
+          ACOUSTID_TEST_DATABASE_FINGERPRINT_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_TEST_DATABASE_FINGERPRINT_RO_HOST: localhost
+          ACOUSTID_TEST_DATABASE_FINGERPRINT_RO_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_TEST_DATABASE_INGEST_HOST: localhost
+          ACOUSTID_TEST_DATABASE_INGEST_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_TEST_DATABASE_INGEST_RO_HOST: localhost
+          ACOUSTID_TEST_DATABASE_INGEST_RO_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_TEST_DATABASE_MUSICBRAINZ_HOST: localhost
+          ACOUSTID_TEST_DATABASE_MUSICBRAINZ_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_TEST_DATABASE_MUSICBRAINZ_RO_HOST: localhost
+          ACOUSTID_TEST_DATABASE_MUSICBRAINZ_RO_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_TEST_REDIS_HOST: localhost
+          ACOUSTID_TEST_REDIS_PORT: ${{ job.services.redis.ports['6379'] }}
+          ACOUSTID_TEST_INDEX_HOST: localhost
+          ACOUSTID_TEST_INDEX_PORT: ${{ job.services.index.ports['6080'] }}
+
+  build-base:
+    runs-on: ubuntu-latest
+    needs: [ test ]
+
+    steps:
+    
+      - name: Check out code
+        uses: actions/checkout@v1
+
+      - name: Check version details
+        id: info
+        run: |
+          echo ::set-output name=IMAGE::quay.io/acoustid/acoustid-server
+          if [[ $GITHUB_REF == refs/tags/v* ]]
+          then
+            echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d'/' -f3 | sed 's/^v//')
+          else
+            echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d'/' -f3)
+          fi
+  
+      - name: Build image
+        run: |
+          docker build -t ${{ steps.info.outputs.IMAGE }}:${{ steps.info.outputs.VERSION }} .
+  
+      - name: Push image
+        run: |
+          echo ${{ secrets.QUAY_PASSWORD }} | docker login quay.io -u ${{ secrets.QUAY_USERNAME }} --password-stdin
+          docker push ${{ steps.info.outputs.IMAGE }}:${{ steps.info.outputs.VERSION }}
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [ build-base ]
+    strategy:
+      matrix:
+        component:
+          - static
+          - api
+          - web
+          - cron
+          - import
+
+    steps:
+    
+      - name: Check out code
+        uses: actions/checkout@v1
+
+      - name: Check version details
+        id: info
+        run: |
+          echo ::set-output name=IMAGE::quay.io/acoustid/acoustid-server
+          if [[ $GITHUB_REF == refs/tags/v* ]]
+          then
+            echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d'/' -f3 | sed 's/^v//')
+          else
+            echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d'/' -f3)
+          fi
+  
+      - name: Build image
+        run: |
+          docker build \
+            --build-arg=IMAGE=${{ steps.info.outputs.IMAGE }} \
+            --build-arg=VERSION=${{ steps.info.outputs.VERSION }} \
+            -f Dockerfile.${{ matrix.component }} \
+            -t ${{ steps.info.outputs.IMAGE }}:${{ steps.info.outputs.VERSION }}-${{ matrix.component }} \
+            .
+  
+      - name: Push image
+        run: |
+          echo ${{ secrets.QUAY_PASSWORD }} | docker login quay.io -u ${{ secrets.QUAY_USERNAME }} --password-stdin
+          docker push ${{ steps.info.outputs.IMAGE }}:${{ steps.info.outputs.VERSION }}-${{ matrix.component }}
