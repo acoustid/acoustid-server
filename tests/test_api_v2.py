@@ -582,15 +582,6 @@ def test_submit_handler_foreignid(ctx):
     assert_equals(192, submission['bitrate'])
     assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
     assert_equals(TEST_1_LENGTH, submission['length'])
-    query = tables.foreignid_vendor.select().order_by(tables.foreignid_vendor.c.id.desc()).limit(1)
-    row = ctx.db.get_ingest_db().execute(query).fetchone()
-    assert_equals(1, row['id'])
-    assert_equals('foo', row['name'])
-    query = tables.foreignid.select().order_by(tables.foreignid.c.id.desc()).limit(1)
-    row = ctx.db.get_ingest_db().execute(query).fetchone()
-    assert_equals(1, row['id'])
-    assert_equals(1, row['vendor_id'])
-    assert_equals('123', row['name'])
 
 
 @with_script_context
