@@ -16,12 +16,9 @@ from acoustid.data.track import lookup_mbids, resolve_track_gid, lookup_meta_ids
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.submission import insert_submission, lookup_submission_status
 from acoustid.data.fingerprint import decode_fingerprint, FingerprintSearcher, FingerprintMatch
-from acoustid.data.format import find_or_insert_format
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
-from acoustid.data.source import find_or_insert_source
 from acoustid.data.meta import insert_meta, lookup_meta
-from acoustid.data.foreignid import find_or_insert_foreignid
 from acoustid.data.stats import update_lookup_counter, update_user_agent_counter, update_lookup_avg_time
 from acoustid.ratelimiter import RateLimiter
 from werkzeug.wrappers import Request, Response
@@ -743,7 +740,6 @@ class SubmitHandler(APIHandler):
         response = {'submissions': []}  # type: Dict[str, Any]
         ids = set()  # type: Set[int]
 
-        app_db = self.ctx.db.get_app_db()
         fingerprint_db = self.ctx.db.get_fingerprint_db()
         ingest_db = self.ctx.db.get_ingest_db()
 
