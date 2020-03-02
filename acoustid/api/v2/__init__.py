@@ -747,15 +747,6 @@ class SubmitHandler(APIHandler):
         fingerprint_db = self.ctx.db.get_fingerprint_db()
         ingest_db = self.ctx.db.get_ingest_db()
 
-        source_id = find_or_insert_source(app_db, params.application_id, params.account_id, params.application_version)
-
-        format_ids = {}  # type: Dict[str, int]
-        for p in params.submissions:
-            if p['format']:
-                if p['format'] not in format_ids:
-                    format_ids[p['format']] = find_or_insert_format(app_db, p['format'])
-                p['format_id'] = format_ids[p['format']]
-
         for p in params.submissions:
             mbids = p['mbids'] or [None]
             for mbid in mbids:
@@ -765,20 +756,17 @@ class SubmitHandler(APIHandler):
                     'bitrate': p['bitrate'] or None,
                     'fingerprint': p['fingerprint'],
                     'length': p['duration'],
-                    # 'format': p['format'] or None,
-                    'format_id': p.get('format_id'),
-                    # 'account_id': params.account_id,
-                    # 'application_id': params.application_id,
-                    # 'application_version': params.application_version,
-                    'source_id': source_id,
+                    'format': p['format'] or None,
+                    'account_id': params.account_id,
+                    'application_id': params.application_id,
+                    'application_version': params.application_version,
                 }
                 meta_values = dict((n, p[n] or None) for n in self.meta_fields)
                 if any(meta_values.values()):
                     # values['meta'] = meta_values
                     values['meta_id'] = insert_meta(fingerprint_db, meta_values)
                 if p['foreignid']:
-                    # values['foreignid'] = p['foreignid']
-                    values['foreignid_id'] = find_or_insert_foreignid(fingerprint_db, p['foreignid'])
+                    values['foreignid'] = p['foreignid']
                 id = insert_submission(ingest_db, values)
                 ids.add(id)
                 submission = {'id': id, 'status': 'pending'}
