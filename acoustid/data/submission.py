@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional, Set, List, Iterable
 from sqlalchemy import sql
 from acoustid import tables as schema, const
 from acoustid.data.fingerprint import insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
+from acoustid.data.meta import insert_meta
 from acoustid.data.track import (
     insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta,
     can_add_fp_to_track, can_merge_tracks, insert_track_foreignid,
@@ -154,12 +155,17 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         insert_puid(fingerprint_db, ingest_db, fingerprint['track_id'], submission['puid'], submission['id'], source_id)
         submission_result['puid'] = submission['puid']
 
-    if submission['meta_id']:
-        if check_meta_id(fingerprint_db, submission['meta_id']):
-            insert_track_meta(fingerprint_db, ingest_db, fingerprint['track_id'], submission['meta_id'], submission['id'], source_id)
-            submission_result['meta_id'] = submission['meta_id']
+    if submission['meta_id'] or submission['meta']:
+        meta_id = submission['meta_id']
+        if meta_id is None:
+            meta_id = insert_meta(fingerprint_db, submission['meta'])
         else:
-            logger.error("Meta not found")
+            if not check_meta_id(fingerprint_db, meta_id):
+                logger.error("Meta not found")
+                meta_id = None
+        if meta_id is not None:
+            insert_track_meta(fingerprint_db, ingest_db, fingerprint['track_id'], meta_id, submission['id'], source_id)
+            submission_result['meta_id'] = meta_id
 
     if submission['foreignid_id'] or submission['foreignid']:
         foreignid_id = submission['foreignid_id']
