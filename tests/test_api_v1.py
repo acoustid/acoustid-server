@@ -234,7 +234,7 @@ def test_submit_handler(ctx):
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
     submission = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
-    assert_equals(1, submission['format_id'])
+    assert_equals('FLAC', submission['format'])
     assert_equals(192, submission['bitrate'])
     assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
     assert_equals(TEST_1_LENGTH, submission['length'])
