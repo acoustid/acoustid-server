@@ -2,6 +2,10 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import uuid
+import json
+import six
+from collections import OrderedDict
 from typing import Dict, Any, Iterable, List
 from sqlalchemy import sql
 from acoustid import tables as schema
@@ -9,9 +13,41 @@ from acoustid.db import FingerprintDB
 
 logger = logging.getLogger(__name__)
 
+meta_fields = ('track', 'artist', 'album', 'album_artist', 'track_no',
+               'disc_no', 'year')
+
+meta_gid_ns = uuid.UUID('3b3bd228-5d2c-11ea-b498-60f67731bf41')
+
+
+def generate_meta_gid(values):
+    # type: (Dict[str, Any]) -> uuid.UUID
+    content_hash_items = OrderedDict()
+    for name in meta_fields:
+        value = values.get(name)
+        if value:
+            content_hash_items[name] = value
+    content_hash_source = json.dumps(content_hash_items, ensure_ascii=False, separators=(',', ':'))
+    if six.PY2:
+        return uuid.uuid5(meta_gid_ns, content_hash_source.encode('utf8'))
+    else:
+        return uuid.uuid5(meta_gid_ns, content_hash_source)
+
+
+def find_or_insert_meta(conn, values):
+    # type: (FingerprintDB, Dict[str, Any]) -> int
+    gid = generate_meta_gid(values)
+    query = sql.select([schema.meta.c.id], schema.meta.c.gid == gid)
+    row = conn.execute(query).first()
+    if row is None:
+        values['gid'] = gid
+        return insert_meta(conn, values)
+    return row[0]
+
 
 def insert_meta(conn, values):
     # type: (FingerprintDB, Dict[str, Any]) -> int
+    if 'gid' not in values:
+        values['gid'] = generate_meta_gid(values)
     insert_stmt = schema.meta.insert().values(created=sql.func.current_timestamp(), **values)
     id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted meta %d with values %r", id, values)
