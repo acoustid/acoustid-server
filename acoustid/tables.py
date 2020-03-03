@@ -202,7 +202,7 @@ meta = Table('meta', metadata,
     Column('year', Integer),
     # Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
     Column('created', DateTime(timezone=True)),
-    Column('gid', UUID, unique=True, index=True),
+    Column('gid', UUID(as_uuid=True), unique=True, index=True),
     info={'bind_key': 'fingerprint'},
 )
 
