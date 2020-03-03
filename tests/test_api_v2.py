@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import json
+import uuid
 import unittest
 from typing import Dict, Any
 from nose.tools import assert_equals, assert_raises, assert_true
@@ -530,7 +531,8 @@ def test_submit_handler_with_meta(ctx):
         'album_artist': 'Prodigy',
         'track_no': 2,
         'disc_no': 3,
-        'year': 2030
+        'year': 2030,
+        'gid': uuid.UUID('398d828b-b601-5c58-a135-d5c81116da7c'),
     }
     assert row['created'] is not None
     del row['created']

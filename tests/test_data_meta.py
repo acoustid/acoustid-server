@@ -38,7 +38,8 @@ def test_insert_meta(ctx):
         'album_artist': 'Prodigy',
         'track_no': 2,
         'disc_no': 3,
-        'year': 2030
+        'year': 2030,
+        'gid': uuid.UUID('398d828b-b601-5c58-a135-d5c81116da7c'),
     }
     assert row['created'] is not None
     del row['created']
