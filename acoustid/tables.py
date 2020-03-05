@@ -116,6 +116,7 @@ submission = Table('submission', metadata,
 
     # metadata
     Column('meta', JSONB),
+    Column('meta_gid', UUID(as_uuid=True)),
     Column('meta_id', Integer),  # XXX deprecated
     Column('mbid', UUID),
     Column('puid', UUID),
@@ -144,6 +145,7 @@ submission_result = Table('submission_result', metadata,
     Column('track_id', Integer, nullable=False),
 
     # metadata
+    Column('meta_gid', UUID(as_uuid=True)),
     Column('meta_id', Integer),
     Column('mbid', UUID),
     Column('puid', UUID),

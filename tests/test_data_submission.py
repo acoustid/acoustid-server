@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import uuid
 from nose.tools import assert_equals, assert_false, assert_true
 from tests import (
     with_script_context,
@@ -20,7 +21,6 @@ from tests import (
 )
 from acoustid import tables, const
 from acoustid.script import ScriptContext
-from acoustid.data.meta import insert_meta
 from acoustid.data.submission import insert_submission, import_submission, import_queued_submissions
 
 
@@ -44,6 +44,37 @@ def test_insert_submission(ctx):
         ([1, 2, 3, 4, 5, 6], 123, 192, 1),
     ]
     assert_equals(expected_rows, rows)
+
+
+@with_script_context
+def test_import_submission_with_meta(ctx):
+    # type: (ScriptContext) -> None
+    ingest_db = ctx.db.get_ingest_db()
+    app_db = ctx.db.get_app_db()
+    fingerprint_db = ctx.db.get_fingerprint_db()
+
+    submission_id = insert_submission(ingest_db, {
+        'fingerprint': TEST_1_FP_RAW,
+        'length': TEST_1_LENGTH,
+        'bitrate': 192,
+        'source_id': 1,
+        'meta': {'track': 'Foo'}
+    })
+    query = tables.submission.select(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).fetchone()
+
+    fingerprint = import_submission(ingest_db, app_db, fingerprint_db, ctx.index, submission)
+
+    assert fingerprint is not None
+
+    query = tables.track_meta.select(tables.track_meta.c.track_id == fingerprint['track_id'])
+    track_meta = fingerprint_db.execute(query).fetchone()
+    assert_equals(1, track_meta['submission_count'])
+
+    query = tables.meta.select(tables.meta.c.id == track_meta['meta_id'])
+    meta = fingerprint_db.execute(query).fetchone()
+    assert_equals('Foo', meta['track'])
+    assert_equals(uuid.UUID('da570fc1-ecfd-5fcd-86d7-009daa0f79e5'), meta['gid'])
 
 
 @with_script_context
@@ -422,14 +453,13 @@ def test_import_queued_submissions(ctx):
     app_db = ctx.db.get_app_db()
     fingerprint_db = ctx.db.get_fingerprint_db()
 
-    insert_meta(fingerprint_db, {'track': 'Foo'})
     insert_submission(ingest_db, {
         'fingerprint': TEST_1_FP_RAW,
         'length': TEST_1_LENGTH,
         'bitrate': 192,
         'source_id': 1,
         'format_id': 1,
-        'meta_id': 1,
+        'meta': {'track': 'Foo'},
     })
     insert_submission(ingest_db, {
         'fingerprint': TEST_2_FP_RAW,

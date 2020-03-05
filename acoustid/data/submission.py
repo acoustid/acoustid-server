@@ -3,6 +3,7 @@
 
 import logging
 import datetime
+import uuid
 import pytz
 from typing import Dict, Any, Optional, Set, List, Iterable
 from sqlalchemy import sql
@@ -156,16 +157,19 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         submission_result['puid'] = submission['puid']
 
     if submission['meta_id'] or submission['meta']:
-        meta_id = submission['meta_id']
+        meta_id = submission['meta_id']  # type: Optional[int]
+        meta_gid = None  # type: Optional[uuid.UUID]
         if meta_id is None:
-            meta_id = find_or_insert_meta(fingerprint_db, submission['meta'])
+            meta_id, meta_gid = find_or_insert_meta(fingerprint_db, submission['meta'])
         else:
-            if not check_meta_id(fingerprint_db, meta_id):
+            found, meta_gid = check_meta_id(fingerprint_db, meta_id)
+            if not found:
                 logger.error("Meta not found")
                 meta_id = None
         if meta_id is not None:
             insert_track_meta(fingerprint_db, ingest_db, fingerprint['track_id'], meta_id, submission['id'], source_id)
             submission_result['meta_id'] = meta_id
+            submission_result['meta_gid'] = meta_gid
 
     if submission['foreignid_id'] or submission['foreignid']:
         foreignid_id = submission['foreignid_id']

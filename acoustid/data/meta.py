@@ -6,7 +6,7 @@ import uuid
 import json
 import six
 from collections import OrderedDict
-from typing import Dict, Any, Iterable, List
+from typing import Dict, Any, Iterable, List, Tuple, Optional
 from sqlalchemy import sql
 from acoustid import tables as schema
 from acoustid.db import FingerprintDB
@@ -34,34 +34,37 @@ def generate_meta_gid(values):
 
 
 def find_or_insert_meta(conn, values):
-    # type: (FingerprintDB, Dict[str, Any]) -> int
+    # type: (FingerprintDB, Dict[str, Any]) -> Tuple[int, uuid.UUID]
     gid = generate_meta_gid(values)
     query = sql.select([schema.meta.c.id], schema.meta.c.gid == gid)
     row = conn.execute(query).first()
     if row is None:
         values['gid'] = gid
         return insert_meta(conn, values)
-    return row[0]
+    return row[0], gid
 
 
 def insert_meta(conn, values):
-    # type: (FingerprintDB, Dict[str, Any]) -> int
+    # type: (FingerprintDB, Dict[str, Any]) -> Tuple[int, uuid.UUID]
+    gid = generate_meta_gid(values)
     if 'gid' not in values:
-        values['gid'] = generate_meta_gid(values)
+        values['gid'] = gid
     insert_stmt = schema.meta.insert().values(created=sql.func.current_timestamp(), **values)
     id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted meta %d with values %r", id, values)
-    return id
+    return id, gid
 
 
 def check_meta_id(fingerprint_db, meta_id):
-    # type: (FingerprintDB, int) -> bool
+    # type: (FingerprintDB, int) -> Tuple[bool, Optional[uuid.UUID]]
     query = (
-        sql.select([sql.func.count(schema.meta.c.id)])
+        sql.select([schema.meta.c.id, schema.meta.c.gid])
         .where(schema.meta.c.id == meta_id)
     )
-    count = fingerprint_db.execute(query).scalar()
-    return count == 1
+    row = fingerprint_db.execute(query).first()
+    if row is None:
+        return False, None
+    return True, row[1]
 
 
 def lookup_meta(conn, meta_ids):

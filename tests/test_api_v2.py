@@ -2,7 +2,6 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import json
-import uuid
 import unittest
 from typing import Dict, Any
 from nose.tools import assert_equals, assert_raises, assert_true
@@ -521,22 +520,18 @@ def test_submit_handler_with_meta(ctx):
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
     submission = ctx.db.get_ingest_db().execute(query).fetchone()
     assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
-    assert_equals(3, submission['meta_id'])
-    row = dict(ctx.db.get_ingest_db().execute("SELECT * FROM meta WHERE id=%s", submission['meta_id']).fetchone())
-    expected = {
-        'id': submission['meta_id'],
+    assert_equals(None, submission['meta_id'])
+    assert_equals(None, submission['meta_gid'])
+    expected_meta = {
         'track': 'Voodoo People',
         'artist': 'The Prodigy',
         'album': 'Music For The Jitled People',
         'album_artist': 'Prodigy',
         'track_no': 2,
         'disc_no': 3,
-        'year': 2030,
-        'gid': uuid.UUID('398d828b-b601-5c58-a135-d5c81116da7c'),
+        'year': 2030
     }
-    assert row['created'] is not None
-    del row['created']
-    assert_equals(expected, row)
+    assert_equals(expected_meta, submission['meta'])
 
 
 @with_script_context

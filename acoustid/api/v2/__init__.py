@@ -18,7 +18,7 @@ from acoustid.data.submission import insert_submission, lookup_submission_status
 from acoustid.data.fingerprint import decode_fingerprint, FingerprintSearcher, FingerprintMatch
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
-from acoustid.data.meta import find_or_insert_meta, lookup_meta
+from acoustid.data.meta import lookup_meta
 from acoustid.data.stats import update_lookup_counter, update_user_agent_counter, update_lookup_avg_time
 from acoustid.ratelimiter import RateLimiter
 from werkzeug.wrappers import Request, Response
@@ -759,8 +759,7 @@ class SubmitHandler(APIHandler):
                 }
                 meta_values = dict((n, p[n] or None) for n in self.meta_fields)
                 if any(meta_values.values()):
-                    # values['meta'] = meta_values
-                    values['meta_id'] = find_or_insert_meta(fingerprint_db, meta_values)
+                    values['meta'] = meta_values
                 if p['foreignid']:
                     values['foreignid'] = p['foreignid']
                 id = insert_submission(ingest_db, values)
