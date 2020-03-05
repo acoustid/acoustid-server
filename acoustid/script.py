@@ -6,7 +6,7 @@ import logging
 import sqlalchemy
 import sqlalchemy.pool
 import sentry_sdk
-from typing import Any
+from typing import Any, Optional
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
 from optparse import OptionParser
@@ -91,9 +91,10 @@ class Script(object):
         # type: () -> None
         sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE)
 
-    def context(self):
-        # type: () -> ScriptContext
-        return ScriptContext(config=self.config, db=DatabaseContext(self), redis=self.redis, index=self.index)
+    def context(self, use_two_phase_commit=None):
+        # type: (Optional[bool]) -> ScriptContext
+        db = DatabaseContext(self, use_two_phase_commit=use_two_phase_commit)
+        return ScriptContext(config=self.config, db=db, redis=self.redis, index=self.index)
 
 
 def run_script(func, option_cb=None, master_only=False):

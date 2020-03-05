@@ -1,4 +1,4 @@
-from typing import Dict, Any, NewType, TYPE_CHECKING
+from typing import Dict, Any, NewType, Optional, TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 from sqlalchemy.engine import Engine, Connection
@@ -24,19 +24,21 @@ def get_bind_args(engines):
     return {'bind': engines[default_bind_key], 'binds': binds}
 
 
-def get_session_args(script):
-    # type: (Script) -> Dict[str, Any]
+def get_session_args(script, use_two_phase_commit=None):
+    # type: (Script, Optional[bool]) -> Dict[str, Any]
     kwargs = {'twophase': script.config.databases.use_two_phase_commit}
+    if use_two_phase_commit is not None:
+        kwargs['twophase'] = use_two_phase_commit
     kwargs.update(get_bind_args(script.db_engines))
     return kwargs
 
 
 class DatabaseContext(object):
 
-    def __init__(self, script):
-        # type: (Script) -> None
+    def __init__(self, script, use_two_phase_commit=None):
+        # type: (Script, Optional[bool]) -> None
         self.engines = script.db_engines
-        self.session = Session(**get_session_args(script))
+        self.session = Session(**get_session_args(script, use_two_phase_commit=use_two_phase_commit))
 
     def connection(self, bind_key, read_only=False):
         # type: (str, bool) -> Connection
