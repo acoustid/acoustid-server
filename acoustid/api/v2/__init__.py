@@ -757,7 +757,7 @@ class SubmitHandler(APIHandler):
                     'application_id': params.application_id,
                     'application_version': params.application_version,
                 }
-                meta_values = dict((n, p[n] or None) for n in self.meta_fields)
+                meta_values = dict((n, p[n]) for n in self.meta_fields if p[n])
                 if any(meta_values.values()):
                     values['meta'] = meta_values
                 if p['foreignid']:
