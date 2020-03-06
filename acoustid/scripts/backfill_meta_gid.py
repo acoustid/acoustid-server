@@ -56,6 +56,11 @@ def backfill_meta_gid(fingerprint_db, ingest_db, last_meta_id, limit):
                 .values({'meta_id': new_meta_id, 'meta_gid': meta_gid})
             )
             ingest_db.execute(update_stmt)
+            delete_stmt = (
+                tables.meta.delete()
+                .where(tables.meta.c.id == meta_id)
+            )
+            fingerprint_db.execute(delete_stmt)
         else:
             update_stmt = (
                 tables.meta.update()
