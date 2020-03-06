@@ -33,7 +33,7 @@ def update_last_meta_id(fingerprint_db, last_meta_id):
 
 def backfill_meta_gid(fingerprint_db, ingest_db, last_meta_id, limit):
     # type: (FingerprintDB, IngestDB, int, int) -> int
-    query = sql.select([tables.meta]).where(tables.meta.c.id >= last_meta_id).limit(limit)
+    query = sql.select([tables.meta]).where(tables.meta.c.id >= last_meta_id).order_by(tables.meta.c.id).limit(limit)
     for meta in fingerprint_db.execute(query).fetchall():
         meta_id = meta['id']  # type: int
         if meta_id > last_meta_id:
