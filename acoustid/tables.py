@@ -208,6 +208,12 @@ meta = Table('meta', metadata,
     info={'bind_key': 'fingerprint'},
 )
 
+meta_id_history = Table('meta_id_history', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('gid', UUID(as_uuid=True), index=True),
+    info={'bind_key': 'fingerprint'},
+)
+
 foreignid_vendor = Table('foreignid_vendor', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String, nullable=False),
