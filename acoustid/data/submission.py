@@ -193,7 +193,7 @@ def import_queued_submissions(ingest_db, app_db, fingerprint_db, index, limit=10
     """
     query = (
         schema.submission.select(schema.submission.c.handled == False)  # noqa: F712
-        .order_by(schema.submission.c.mbid.nullslast(), schema.submission.c.id.desc())
+        .order_by(schema.submission.c.id.desc())
     )
     if ids is not None:
         query = query.where(schema.submission.c.id.in_(ids))
