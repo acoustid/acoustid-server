@@ -192,7 +192,8 @@ def import_queued_submissions(ingest_db, app_db, fingerprint_db, index, limit=10
     Import the given submission into the main fingerprint database
     """
     query = (
-        schema.submission.select(schema.submission.c.handled == False)  # noqa: F712
+        schema.submission.select(schema.submission.c.handled.is_(False))
+        .with_for_update(skip_locked=True)
         .where(schema.submission.c.account_id.is_(None) | (schema.submission.c.account_id != 1345917))
         .order_by(schema.submission.c.id.desc())
     )
