@@ -19,6 +19,15 @@ meta_fields = ('track', 'artist', 'album', 'album_artist', 'track_no',
 meta_gid_ns = uuid.UUID('3b3bd228-5d2c-11ea-b498-60f67731bf41')
 
 
+def fix_meta(values):
+    track_no = values.get('track_no', None)
+    if track_no:
+        if track_no > 10000:
+            values = dict(values)
+            del values['track_no']
+    return values
+
+
 def generate_meta_gid(values):
     # type: (Dict[str, Any]) -> uuid.UUID
     content_hash_items = OrderedDict()

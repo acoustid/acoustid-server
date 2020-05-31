@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, Set, List, Iterable
 from sqlalchemy import sql
 from acoustid import tables as schema, const
 from acoustid.data.fingerprint import insert_fingerprint, inc_fingerprint_submission_count, FingerprintSearcher
-from acoustid.data.meta import find_or_insert_meta
+from acoustid.data.meta import fix_meta, find_or_insert_meta
 from acoustid.data.track import (
     insert_track, insert_mbid, insert_puid, merge_tracks, insert_track_meta,
     can_add_fp_to_track, can_merge_tracks, insert_track_foreignid,
@@ -160,7 +160,8 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         meta_id = submission['meta_id']  # type: Optional[int]
         meta_gid = None  # type: Optional[uuid.UUID]
         if meta_id is None:
-            meta_id, meta_gid = find_or_insert_meta(fingerprint_db, submission['meta'])
+            meta = fix_meta(submission['meta'])
+            meta_id, meta_gid = find_or_insert_meta(fingerprint_db, meta)
         else:
             found, meta_gid = check_meta_id(fingerprint_db, meta_id)
             if not found:
