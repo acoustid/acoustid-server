@@ -39,7 +39,7 @@ def lookup_mbids(conn, track_ids):
         schema.track_mbid.c.mbid,
         schema.track_mbid.c.submission_count,
     ])
-    query = query.where(sql.and_(schema.track_mbid.c.track_id.in_(track_ids), schema.track_mbid.c.disabled == False))  # noqa: F712
+    query = query.where(sql.and_(schema.track_mbid.c.track_id.in_(track_ids), schema.track_mbid.c.disabled.is_(False)))
     query = query.order_by(schema.track_mbid.c.mbid)
     results = {}  # type: Dict[int, List[Tuple[str, int]]]
     for track_id, mbid, sources in conn.execute(query):
@@ -66,7 +66,7 @@ def lookup_tracks(conn, mbids):
         return {}
     query = sql.select(
         [schema.track_mbid.c.track_id, schema.track.c.gid, schema.track_mbid.c.mbid],
-        sql.and_(schema.track_mbid.c.mbid.in_(mbids), schema.track_mbid.c.disabled == False),  # noqa: F712
+        sql.and_(schema.track_mbid.c.mbid.in_(mbids), schema.track_mbid.c.disabled.is_(False)),
         from_obj=schema.track_mbid.join(schema.track, schema.track_mbid.c.track_id == schema.track.c.id)). \
         order_by(schema.track_mbid.c.track_id)
     results = {}  # type: Dict[str, List[Dict[str, Any]]]

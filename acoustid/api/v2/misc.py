@@ -37,7 +37,7 @@ class TrackListByMBIDHandler(APIHandler):
         response = {}
         condition = schema.track_mbid.c.mbid.in_(params.mbids)
         if not params.disabled:
-            condition = sql.and_(condition, schema.track_mbid.c.disabled == False)  # noqa: F712
+            condition = sql.and_(condition, schema.track_mbid.c.disabled.is_(False))
         query = sql.select([schema.track_mbid.c.mbid, schema.track_mbid.c.disabled, schema.track.c.gid],
             condition, schema.track_mbid.join(schema.track))
         tracks_map = {}
