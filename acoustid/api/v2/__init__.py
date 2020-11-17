@@ -780,7 +780,7 @@ class SubmitHandler(APIHandler):
         clients_waiting_key = 'submission.waiting'
         clients_waiting = self.ctx.redis.incr(clients_waiting_key) - 1
         try:
-            max_wait = 10
+            max_wait = 0
             self.ctx.redis.expire(clients_waiting_key, max_wait)
             remaining = min(max(0, max_wait - 2 ** clients_waiting), params.wait)
             logger.debug('starting to wait at %f %d', remaining, clients_waiting)
