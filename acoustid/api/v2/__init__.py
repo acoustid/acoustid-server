@@ -636,8 +636,11 @@ class LookupHandler(APIHandler):
                 statsd.timing('api.lookup.inject_metadata', inject_metadata_t1 - inject_metadata_t0)
 
         if fingerprints:
-            time_per_fp = (time.time() - t) / len(fingerprints)
+            time_total = (time.time() - t)
+            time_per_fp = time_total / len(fingerprints)
             update_lookup_avg_time(self.ctx.redis, time_per_fp)
+            if statsd is not None:
+                statsd.timing('api.lookup.total', time_total)
 
         if statsd is not None:
             statsd.send()
