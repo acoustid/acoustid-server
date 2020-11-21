@@ -608,6 +608,7 @@ class LookupHandler(APIHandler):
                 matches = searcher.search(p.fingerprint, p.duration)
                 fingerprint_search_t1 = time.time()
                 if statsd is not None:
+                    statsd.incr('api.lookup.matches', len(matches))
                     statsd.timing('api.lookup.fingerprint_search', fingerprint_search_t1 - fingerprint_search_t0)
             all_matches.append(matches)
 
