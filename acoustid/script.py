@@ -22,12 +22,13 @@ logger = logging.getLogger(__name__)
 
 class ScriptContext(object):
 
-    def __init__(self, config, db, redis, index):
-        # type: (Config, DatabaseContext, Redis, IndexClientPool) -> None
+    def __init__(self, config, db, redis, index, statsd):
+        # type: (Config, DatabaseContext, Redis, IndexClientPool, Optional[StatsClient]) -> None
         self.config = config
         self.db = db
         self.redis = redis
         self.index = index
+        self.statsd = statsd
 
     def __enter__(self):
         # type: () -> ScriptContext
@@ -102,7 +103,7 @@ class Script(object):
     def context(self, use_two_phase_commit=None):
         # type: (Optional[bool]) -> ScriptContext
         db = DatabaseContext(self, use_two_phase_commit=use_two_phase_commit)
-        return ScriptContext(config=self.config, db=db, redis=self.redis, index=self.index)
+        return ScriptContext(config=self.config, db=db, redis=self.redis, index=self.index, statsd=self.statsd)
 
 
 def run_script(func, option_cb=None, master_only=False):
