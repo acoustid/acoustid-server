@@ -27,3 +27,4 @@ attrs
 gunicorn
 futures
 pytz
+statsd

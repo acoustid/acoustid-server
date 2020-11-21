@@ -6,6 +6,7 @@ import logging
 import sqlalchemy
 import sqlalchemy.pool
 import sentry_sdk
+from statsd import StatsClient
 from typing import Any, Optional
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
@@ -48,6 +49,13 @@ class Script(object):
 
         create_engine_kwargs = {'poolclass': sqlalchemy.pool.AssertionPool} if tests else {}
         self.db_engines = self.config.databases.create_engines(**create_engine_kwargs)
+
+        if self.config.statsd.enabled:
+            self.statsd = StatsClient(host=self.config.statsd.host,
+                                      port=self.config.statsd.port,
+                                      prefix=self.config.statsd.prefix)
+        else:
+            self.statsd = None
 
         self.index = IndexClientPool(host=self.config.index.host,
                                      port=self.config.index.port,

@@ -579,6 +579,11 @@ class LookupHandler(APIHandler):
         import time
         t = time.time()
 
+        if self.ctx.statsd is not None:
+            statsd = self.ctx.statsd.pipeline()
+        else:
+            statsd = None
+
         update_user_agent_counter(self.ctx.redis, params.application_id, str(self.user_agent), self.user_ip)
 
         searcher = FingerprintSearcher(self.ctx.db.get_fingerprint_db(read_only=True), self.ctx.index)
@@ -599,7 +604,11 @@ class LookupHandler(APIHandler):
                 else:
                     matches = []
             elif isinstance(p, FingerprintLookupQuery):
+                fingerprint_search_t0 = time.time()
                 matches = searcher.search(p.fingerprint, p.duration)
+                fingerprint_search_t1 = time.time()
+                if statsd is not None:
+                    statsd.timing('api.lookup.fingerprint_search', fingerprint_search_t1 - fingerprint_search_t0)
             all_matches.append(matches)
 
         response = {}  # type: Dict[str, Any]
@@ -620,11 +629,18 @@ class LookupHandler(APIHandler):
             logger.debug("Lookup from %s: %s", params.application_id, result_map.keys())
 
         if params.meta and result_map:
+            inject_metadata_t0 = time.time()
             self.inject_metadata(params.meta, result_map)
+            inject_metadata_t1 = time.time()
+            if statsd is not None:
+                statsd.timing('api.lookup.inject_metadata', inject_metadata_t1 - inject_metadata_t0)
 
         if fingerprints:
             time_per_fp = (time.time() - t) / len(fingerprints)
             update_lookup_avg_time(self.ctx.redis, time_per_fp)
+
+        if statsd is not None:
+            statsd.send()
 
         return response
 
