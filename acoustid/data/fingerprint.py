@@ -70,8 +70,8 @@ class FingerprintSearcher(object):
         return sql.select(columns, f.c.score > self.min_score, src,
                           order_by=[f.c.score.desc(), f.c.id])
 
-    def _search_index(self, fp, length, index):
-        # type: (List[int], int, Index) -> Optional[sql.ClauseElement]
+    def _search_index(self, fp, length, index, max_candidates=None, min_score_pct=None):
+        # type: (List[int], int, Index, Optional[int], Optional[float]) -> Optional[sql.ClauseElement]
         # index search
         fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
         if not fp_query:
@@ -79,11 +79,20 @@ class FingerprintSearcher(object):
         results = index.search(fp_query)
         if not results:
             return None
-        min_score = results[0].score * 0.1  # at least 10% of the top score
-        candidate_ids = [r.id for r in results if r.score > min_score]
-        if not candidate_ids:
+
+        results.sort(key=lambda r: -r.score)
+
+        if min_score_pct is not None:
+            min_score = results[0].score * min_score_pct / 100
+            results = [r for r in results if r.score > min_score]
+
+        if max_candidates is not None:
+            results = results[:max_candidates]
+
+        if not results:
             return None
-        # construct the query
+
+        candidate_ids = [r.id for r in results]
         condition = schema.fingerprint.c.id.in_(candidate_ids)
         return condition
 
@@ -103,12 +112,19 @@ class FingerprintSearcher(object):
         # type: (List[int], int) -> List[FingerprintMatch]
         conditions = []
 
+        max_candidates = 100
+        min_score_pct = 2.5
+
+        if self.fast:
+            max_candidates *= 10
+            min_score_pct *= 10
+
         with self.index_pool.connect() as index:
             if not self.fast:
                 max_indexed_fingerprint_id = self._get_max_indexed_fingerprint_id(index)
 
             try:
-                condition = self._search_index(fp, length, index)
+                condition = self._search_index(fp, length, index, max_candidates=max_candidates, min_score_pct=min_score_pct)
                 if condition is not None:
                     conditions.append(condition)
             except IndexClientError:
