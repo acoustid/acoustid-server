@@ -47,16 +47,22 @@ def lookup_mbids(conn, track_ids):
     return results
 
 
-def lookup_meta_ids(conn, track_ids):
-    # type: (FingerprintDB, Iterable[int]) -> Dict[int, List[int]]
+def lookup_meta_ids(conn, track_ids, max_ids_per_track=None):
+    # type: (FingerprintDB, Iterable[int], Optional[int]) -> Dict[int, List[int]]
     if not track_ids:
         return {}
-    query = sql.select(
-        [schema.track_meta.c.track_id, schema.track_meta.c.meta_id],
-        sql.and_(schema.track_meta.c.track_id.in_(track_ids))).order_by(schema.track_meta.c.meta_id)
+    query = (
+        sql.select(
+            [schema.track_meta.c.track_id, schema.track_meta.c.meta_id],
+            sql.and_(schema.track_meta.c.track_id.in_(track_ids)))
+        .order_by(schema.track_meta.c.track_id, schema.track_meta.c.submission_count.desc())
+    )
     results = {}  # type: Dict[int, List[int]]
     for track_id, meta_id in conn.execute(query):
-        results.setdefault(track_id, []).append(meta_id)
+        track_meta_ids = results.setdefault(track_id, [])
+        if max_ids_per_track is not None and len(track_meta_ids) >= max_ids_per_track:
+            continue
+        track_meta_ids.append(meta_id)
     return results
 
 

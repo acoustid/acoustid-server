@@ -37,6 +37,8 @@ FORMATS = set(['xml', 'json', 'jsonp'])
 
 DEMO_APPLICATION_ID = 2
 
+MAX_META_IDS_PER_TRACK = 10
+
 
 def iter_args_suffixes(args, *prefixes):
     results = set()
@@ -256,7 +258,7 @@ class LookupHandler(APIHandler):
     def _inject_user_meta_ids_internal(self, add=True):
         # type: (bool) -> Tuple[Dict[int, List[Dict[str, Any]]], Dict[int, List[int]]]
         el_recording = {}  # type: Dict[int, List[Dict[str, Any]]]
-        track_meta_map = lookup_meta_ids(self.ctx.db.get_fingerprint_db(), self.el_result.keys())
+        track_meta_map = lookup_meta_ids(self.ctx.db.get_fingerprint_db(), self.el_result.keys(), max_ids_per_track=MAX_META_IDS_PER_TRACK)
         for track_id, meta_ids in track_meta_map.items():
             for meta_id in meta_ids:
                 if add:
