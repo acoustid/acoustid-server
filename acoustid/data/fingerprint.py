@@ -50,8 +50,8 @@ class FingerprintSearcher(object):
         self.max_offset = const.TRACK_MAX_OFFSET
         self.fast = fast
 
-    def _create_search_query(self, fp, length, condition):
-        # type: (List[int], int, Any) -> Any
+    def _create_search_query(self, fp, length, condition, max_results):
+        # type: (List[int], int, Any, Optional[int]) -> Any
         # construct the subquery
         f_columns = [
             schema.fingerprint.c.id,
@@ -67,8 +67,11 @@ class FingerprintSearcher(object):
         # construct the main query
         columns = [f.c.id, f.c.track_id, schema.track.c.gid.label('track_gid'), f.c.score]
         src = f.join(schema.track, schema.track.c.id == f.c.track_id)
-        return sql.select(columns, f.c.score > self.min_score, src,
-                          order_by=[f.c.score.desc(), f.c.id])
+        query = sql.select(columns, f.c.score > self.min_score, src,
+                           order_by=[f.c.score.desc(), f.c.id])
+        if max_results:
+            query = query.limit(max_results)
+        return query
 
     def _search_index(self, fp, length, index, max_candidates=None, min_score_pct=None):
         # type: (List[int], int, Index, Optional[int], Optional[float]) -> Optional[sql.ClauseElement]
@@ -108,8 +111,8 @@ class FingerprintSearcher(object):
         # type: (Index) -> int
         return int(index.get_attribute('max_document_id') or '0')
 
-    def search(self, fp, length):
-        # type: (List[int], int) -> List[FingerprintMatch]
+    def search(self, fp, length, max_results=None):
+        # type: (List[int], int, Optional[int]) -> List[FingerprintMatch]
         conditions = []
 
         max_candidates = 100
@@ -140,7 +143,7 @@ class FingerprintSearcher(object):
         if not conditions:
             return []
 
-        query = self._create_search_query(fp, length, sql.or_(*conditions))
+        query = self._create_search_query(fp, length, sql.or_(*conditions), max_results=max_results)
         matches = [FingerprintMatch(*i) for i in self.db.execute(query)]
         return matches
 

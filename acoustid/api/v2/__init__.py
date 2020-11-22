@@ -595,6 +595,8 @@ class LookupHandler(APIHandler):
         else:
             fingerprints = params.fingerprints[:1]
 
+        max_results = 10
+
         all_matches = []
         for p in fingerprints:
             if isinstance(p, TrackLookupQuery):
@@ -605,7 +607,7 @@ class LookupHandler(APIHandler):
                     matches = []
             elif isinstance(p, FingerprintLookupQuery):
                 fingerprint_search_t0 = time.time()
-                matches = searcher.search(p.fingerprint, p.duration)
+                matches = searcher.search(p.fingerprint, p.duration, max_results=max_results)
                 fingerprint_search_t1 = time.time()
                 if statsd is not None:
                     statsd.incr('api.lookup.matches', len(matches))
