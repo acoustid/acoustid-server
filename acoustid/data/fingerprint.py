@@ -116,12 +116,12 @@ class FingerprintSearcher(object):
         # type: (List[int], int, Optional[int]) -> List[FingerprintMatch]
         conditions = []
 
-        max_candidates = 100
-        min_score_pct = 2.5
-
         if self.fast:
-            max_candidates *= 10
-            min_score_pct *= 10
+            max_candidates = 100
+            min_score_pct = 25
+        else:
+            max_candidates = 1000
+            min_score_pct = 1
 
         with self.index_pool.connect() as index:
             if not self.fast:
