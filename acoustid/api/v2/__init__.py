@@ -601,7 +601,7 @@ class LookupHandler(APIHandler):
         searcher = FingerprintSearcher(
             self.ctx.db.get_fingerprint_db(read_only=True),
             self.ctx.index,
-            timeout=self.config.website.search_timeout,
+            timeout=self.ctx.config.website.search_timeout,
         )
         assert params.max_duration_diff is not None
         searcher.max_length_diff = params.max_duration_diff
@@ -647,7 +647,7 @@ class LookupHandler(APIHandler):
             update_lookup_counter(self.ctx.redis, params.application_id, bool(result_map))
             logger.debug("Lookup from %s: %s", params.application_id, result_map.keys())
 
-        if self.config.website.search_return_metadata:
+        if self.ctx.config.website.search_return_metadata:
             if params.meta and result_map:
                 inject_metadata_t0 = time.time()
                 self.inject_metadata(params.meta, result_map)
