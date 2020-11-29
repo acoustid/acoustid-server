@@ -147,7 +147,7 @@ class APIHandler(Handler):
                 if self.ctx.statsd is not None:
                     request_type = self.__class__.__name__
                     self.ctx.statsd.incr('requests,app={},request={}'.format(application_id, request_type))
-            finally:
+            except Exception:
                 logger.exception("Failed to send stats")
             try:
                 params.parse(req.values, self.ctx.db)
