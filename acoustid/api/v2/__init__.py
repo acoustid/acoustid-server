@@ -108,12 +108,13 @@ class APIHandler(Handler):
         response_data = {'status': 'ok'}
         response_data.update(data)
         t0 = time.time()
-        response = serialize_response(response_data, format)
-        t1 = time.time()
-        if self.ctx.statsd is not None:
-            request_type = self.__class__.__name__
-            self.ctx.statsd.timing('serialize_response,request={}'.format(request_type), 1000 * (t1 - t0))
-        return response
+        try:
+            return serialize_response(response_data, format)
+        finally:
+            t1 = time.time()
+            if self.ctx.statsd is not None:
+                request_type = self.__class__.__name__
+                self.ctx.statsd.timing('serialize_response,format={},request={}'.format(format, request_type), 1000 * (t1 - t0))
 
     def _rate_limit(self, user_ip, application_id):
         # type: (str, Optional[int]) -> None
@@ -148,19 +149,25 @@ class APIHandler(Handler):
         self.user_agent = req.user_agent
         self.rate_limiter = RateLimiter(self.ctx.redis, 'rl')
         try:
+            t0 = time.time()
             try:
-                params.parse(req.values, self.ctx.db)
-                application_id = getattr(params, 'application_id', None)
+                try:
+                    params.parse(req.values, self.ctx.db)
+                    application_id = getattr(params, 'application_id', None)
+                    if self.ctx.statsd is not None:
+                        request_type = self.__class__.__name__
+                        self.ctx.statsd.incr('requests,app={},request={}'.format(application_id, request_type))
+                    self._rate_limit(self.user_ip, application_id)
+                    return self._ok(self._handle_internal(params), params.format)
+                except errors.WebServiceError:
+                    raise
+                except Exception:
+                    logger.exception('Error while handling API request')
+                    raise errors.InternalError()
+            finally:
+                t1 = time.time()
                 if self.ctx.statsd is not None:
-                    request_type = self.__class__.__name__
-                    self.ctx.statsd.incr('requests,app={},request={}'.format(application_id, request_type))
-                self._rate_limit(self.user_ip, application_id)
-                return self._ok(self._handle_internal(params), params.format)
-            except errors.WebServiceError:
-                raise
-            except Exception:
-                logger.exception('Error while handling API request')
-                raise errors.InternalError()
+                    self.ctx.statsd.timing('request_duration,request={}'.format(request_type), 1000 * (t1 - t0))
         except errors.WebServiceError as e:
             if not isinstance(e, errors.TooManyRequests):
                 logger.warning("WS error: %s", e.message)
