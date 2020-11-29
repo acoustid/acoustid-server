@@ -107,7 +107,13 @@ class APIHandler(Handler):
         # type: (Dict[str, Any], str) -> Response
         response_data = {'status': 'ok'}
         response_data.update(data)
-        return serialize_response(response_data, format)
+        t0 = time.time()
+        response = serialize_response(response_data, format)
+        t1 = time.time()
+        if self.ctx.statsd is not None:
+            request_type = self.__class__.__name__
+            self.ctx.statsd.timing('serialize_response,request={}'.format(request_type), 1000 * (t1 - t0))
+        return response
 
     def _rate_limit(self, user_ip, application_id):
         # type: (str, Optional[int]) -> None
