@@ -4,6 +4,7 @@
 import logging
 from typing import Dict, Any, Optional, List, NamedTuple
 from sqlalchemy import sql
+from sqlalchemy.exc import OperationalError
 from acoustid import tables as schema, const, chromaprint
 from acoustid.indexclient import Index, IndexClientPool, IndexClientError
 from acoustid.db import FingerprintDB, IngestDB
@@ -148,7 +149,13 @@ class FingerprintSearcher(object):
         if self.timeout:
             timeout_ms = int(self.timeout * 1000)
             self.db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
-        matches = [FingerprintMatch(*i) for i in self.db.execute(query)]
+        try:
+            results = self.db.execute(query)
+        except OperationalError as ex:
+            if 'canceling statement due to statement timeout' in str(ex):
+                return []
+            raise
+        matches = [FingerprintMatch(*result) for result in results]
         return matches
 
 
