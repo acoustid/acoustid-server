@@ -142,9 +142,16 @@ class APIHandler(Handler):
         self.user_agent = req.user_agent
         self.rate_limiter = RateLimiter(self.ctx.redis, 'rl')
         try:
+            application_id = getattr(params, 'application_id', None)
+            try:
+                if self.ctx.statsd is not None:
+                    request_type = self.__class__.__name__
+                    self.ctx.statsd.incr('requests,app={},request={}'.format(application_id, request_type))
+            finally:
+                logger.exception("Failed to send stats")
             try:
                 params.parse(req.values, self.ctx.db)
-                self._rate_limit(self.user_ip, getattr(params, 'application_id', None))
+                self._rate_limit(self.user_ip, application_id)
                 return self._ok(self._handle_internal(params), params.format)
             except errors.WebServiceError:
                 raise
