@@ -592,7 +592,11 @@ class LookupHandler(APIHandler):
 
         update_user_agent_counter(self.ctx.redis, params.application_id, str(self.user_agent), self.user_ip)
 
-        searcher = FingerprintSearcher(self.ctx.db.get_fingerprint_db(read_only=True), self.ctx.index)
+        searcher = FingerprintSearcher(
+            self.ctx.db.get_fingerprint_db(read_only=True),
+            self.ctx.index,
+            timeout=self.config.website.search_timeout,
+        )
         assert params.max_duration_diff is not None
         searcher.max_length_diff = params.max_duration_diff
 
@@ -637,12 +641,13 @@ class LookupHandler(APIHandler):
             update_lookup_counter(self.ctx.redis, params.application_id, bool(result_map))
             logger.debug("Lookup from %s: %s", params.application_id, result_map.keys())
 
-        if params.meta and result_map:
-            inject_metadata_t0 = time.time()
-            self.inject_metadata(params.meta, result_map)
-            inject_metadata_t1 = time.time()
-            if statsd is not None:
-                statsd.timing('api.lookup.inject_metadata', inject_metadata_t1 - inject_metadata_t0)
+        if self.config.website.search_return_metadata:
+            if params.meta and result_map:
+                inject_metadata_t0 = time.time()
+                self.inject_metadata(params.meta, result_map)
+                inject_metadata_t1 = time.time()
+                if statsd is not None:
+                    statsd.timing('api.lookup.inject_metadata', inject_metadata_t1 - inject_metadata_t0)
 
         if fingerprints:
             time_total = (time.time() - t)

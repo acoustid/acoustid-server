@@ -41,14 +41,15 @@ FingerprintMatch = NamedTuple('FingerprintMatch', [('fingerprint_id', int), ('tr
 
 class FingerprintSearcher(object):
 
-    def __init__(self, db, index_pool, fast=True):
-        # type: (FingerprintDB, IndexClientPool, bool) -> None
+    def __init__(self, db, index_pool, fast=True, timeout=None):
+        # type: (FingerprintDB, IndexClientPool, bool, Optional[float]) -> None
         self.db = db
         self.index_pool = index_pool
         self.min_score = const.TRACK_GROUP_MERGE_THRESHOLD
         self.max_length_diff = const.FINGERPRINT_MAX_LENGTH_DIFF
         self.max_offset = const.TRACK_MAX_OFFSET
         self.fast = fast
+        self.timeout = timeout
 
     def _create_search_query(self, fp, length, condition, max_results):
         # type: (List[int], int, Any, Optional[int]) -> Any
@@ -144,6 +145,9 @@ class FingerprintSearcher(object):
             return []
 
         query = self._create_search_query(fp, length, sql.or_(*conditions), max_results=max_results)
+        if self.timeout:
+            timeout_ms = int(self.timeout * 1000)
+            self.db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
         matches = [FingerprintMatch(*i) for i in self.db.execute(query)]
         return matches
 
