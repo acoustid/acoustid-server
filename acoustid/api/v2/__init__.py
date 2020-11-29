@@ -167,6 +167,7 @@ class APIHandler(Handler):
             finally:
                 t1 = time.time()
                 if self.ctx.statsd is not None:
+                    request_type = self.__class__.__name__
                     self.ctx.statsd.timing('request_duration,request={}'.format(request_type), 1000 * (t1 - t0))
         except errors.WebServiceError as e:
             if not isinstance(e, errors.TooManyRequests):
