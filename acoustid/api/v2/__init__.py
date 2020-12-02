@@ -53,6 +53,14 @@ def iter_args_suffixes(args, *prefixes):
     return ['.%d' % i if i is not None else '' for i in sorted(results)]
 
 
+def check_app_api_key(config, app_db, application_apikey):
+    application_id = lookup_application_id_by_apikey(app_db, application_apikey, only_active=True)
+    if not application_id:
+        if check_demo_client_api_key(config.website.secret, application_apikey):
+            application_id = DEMO_APPLICATION_ID
+    return application_id
+
+
 class APIHandlerParams(object):
 
     def __init__(self, config):
@@ -64,13 +72,10 @@ class APIHandlerParams(object):
         application_apikey = values.get('client')
         if not application_apikey:
             raise errors.MissingParameterError('client')
-        self.application_id = lookup_application_id_by_apikey(app_db, application_apikey, only_active=True)
+        self.application_id = check_app_api_key(self.config, app_db, application_apikey)
         if not self.application_id:
-            if check_demo_client_api_key(self.config.website.secret, application_apikey):
-                self.application_id = DEMO_APPLICATION_ID
-            else:
-                logger.warning("Invalid API key %s", application_apikey)
-                raise errors.InvalidAPIKeyError()
+            logger.warning("Invalid API key %s", application_apikey)
+            raise errors.InvalidAPIKeyError()
         self.application_version = values.get('clientversion')
 
     def _parse_format(self, values):
