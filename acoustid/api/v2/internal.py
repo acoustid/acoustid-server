@@ -18,7 +18,7 @@ from acoustid.data.account import (
     insert_account,
 )
 from acoustid.api import errors
-from acoustid.api.v2 import APIHandler, APIHandlerParams
+from acoustid.api.v2 import APIHandler, APIHandlerParams, check_app_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +146,28 @@ class CreateAccountHandler(APIHandler):
         })
         self.ctx.db.session.commit()
         return {'id': account_id, 'api_key': account_api_key}
+
+
+class CheckApplicationHandlerParams(APIHandlerParams):
+
+    def parse(self, values, db):
+        super(CreateApplicationHandlerParams, self).parse(values, db)
+        self.secret = values.get('secret')
+        self.api_key = values.get('api_key')
+
+
+class CheckApplicationHandler(APIHandler):
+
+    params_class = CheckApplicationHandlerParams
+
+    def _handle_internal(self, params):
+        if self.ctx.config.cluster.secret != params.secret:
+            logger.warning('Invalid cluster secret')
+            raise errors.NotAllowedError()
+        application_id = check_app_api_key(self.ctx.config, self.ctx.db.get_app_db(), params.api_key)
+        if not application_id:
+            raise errors.InvalidAPIKeyError()
+        return {'id': application_id}
 
 
 class CreateApplicationHandlerParams(APIHandlerParams):

@@ -37,6 +37,8 @@ FORMATS = set(['xml', 'json', 'jsonp'])
 
 DEMO_APPLICATION_ID = 2
 
+MAX_META_IDS_PER_TRACK = 10
+
 
 def iter_args_suffixes(args, *prefixes):
     results = set()
@@ -51,6 +53,14 @@ def iter_args_suffixes(args, *prefixes):
     return ['.%d' % i if i is not None else '' for i in sorted(results)]
 
 
+def check_app_api_key(config, app_db, application_apikey):
+    application_id = lookup_application_id_by_apikey(app_db, application_apikey, only_active=True)
+    if not application_id:
+        if check_demo_client_api_key(config.website.secret, application_apikey):
+            application_id = DEMO_APPLICATION_ID
+    return application_id
+
+
 class APIHandlerParams(object):
 
     def __init__(self, config):
@@ -62,13 +72,10 @@ class APIHandlerParams(object):
         application_apikey = values.get('client')
         if not application_apikey:
             raise errors.MissingParameterError('client')
-        self.application_id = lookup_application_id_by_apikey(app_db, application_apikey, only_active=True)
+        self.application_id = check_app_api_key(self.config, app_db, application_apikey)
         if not self.application_id:
-            if check_demo_client_api_key(self.config.website.secret, application_apikey):
-                self.application_id = DEMO_APPLICATION_ID
-            else:
-                logger.warning("Invalid API key %s", application_apikey)
-                raise errors.InvalidAPIKeyError()
+            logger.warning("Invalid API key %s", application_apikey)
+            raise errors.InvalidAPIKeyError()
         self.application_version = values.get('clientversion')
 
     def _parse_format(self, values):
@@ -105,7 +112,14 @@ class APIHandler(Handler):
         # type: (Dict[str, Any], str) -> Response
         response_data = {'status': 'ok'}
         response_data.update(data)
-        return serialize_response(response_data, format)
+        t0 = time.time()
+        try:
+            return serialize_response(response_data, format)
+        finally:
+            t1 = time.time()
+            if self.ctx.statsd is not None:
+                request_type = self.__class__.__name__
+                self.ctx.statsd.timing('serialize_response,format={},request={}'.format(format, request_type), 1000 * (t1 - t0))
 
     def _rate_limit(self, user_ip, application_id):
         # type: (str, Optional[int]) -> None
@@ -140,15 +154,26 @@ class APIHandler(Handler):
         self.user_agent = req.user_agent
         self.rate_limiter = RateLimiter(self.ctx.redis, 'rl')
         try:
+            t0 = time.time()
             try:
-                params.parse(req.values, self.ctx.db)
-                self._rate_limit(self.user_ip, getattr(params, 'application_id', None))
-                return self._ok(self._handle_internal(params), params.format)
-            except errors.WebServiceError:
-                raise
-            except Exception:
-                logger.exception('Error while handling API request')
-                raise errors.InternalError()
+                try:
+                    params.parse(req.values, self.ctx.db)
+                    application_id = getattr(params, 'application_id', None)
+                    if self.ctx.statsd is not None:
+                        request_type = self.__class__.__name__
+                        self.ctx.statsd.incr('requests,app={},request={}'.format(application_id, request_type))
+                    self._rate_limit(self.user_ip, application_id)
+                    return self._ok(self._handle_internal(params), params.format)
+                except errors.WebServiceError:
+                    raise
+                except Exception:
+                    logger.exception('Error while handling API request')
+                    raise errors.InternalError()
+            finally:
+                t1 = time.time()
+                if self.ctx.statsd is not None:
+                    request_type = self.__class__.__name__
+                    self.ctx.statsd.timing('request_duration,request={}'.format(request_type), 1000 * (t1 - t0))
         except errors.WebServiceError as e:
             if not isinstance(e, errors.TooManyRequests):
                 logger.warning("WS error: %s", e.message)
@@ -256,7 +281,7 @@ class LookupHandler(APIHandler):
     def _inject_user_meta_ids_internal(self, add=True):
         # type: (bool) -> Tuple[Dict[int, List[Dict[str, Any]]], Dict[int, List[int]]]
         el_recording = {}  # type: Dict[int, List[Dict[str, Any]]]
-        track_meta_map = lookup_meta_ids(self.ctx.db.get_fingerprint_db(), self.el_result.keys())
+        track_meta_map = lookup_meta_ids(self.ctx.db.get_fingerprint_db(), self.el_result.keys(), max_ids_per_track=MAX_META_IDS_PER_TRACK)
         for track_id, meta_ids in track_meta_map.items():
             for meta_id in meta_ids:
                 if add:
@@ -579,9 +604,18 @@ class LookupHandler(APIHandler):
         import time
         t = time.time()
 
+        if self.ctx.statsd is not None:
+            statsd = self.ctx.statsd.pipeline()
+        else:
+            statsd = None
+
         update_user_agent_counter(self.ctx.redis, params.application_id, str(self.user_agent), self.user_ip)
 
-        searcher = FingerprintSearcher(self.ctx.db.get_fingerprint_db(read_only=True), self.ctx.index)
+        searcher = FingerprintSearcher(
+            self.ctx.db.get_fingerprint_db(read_only=True),
+            self.ctx.index,
+            timeout=self.ctx.config.website.search_timeout,
+        )
         assert params.max_duration_diff is not None
         searcher.max_length_diff = params.max_duration_diff
 
@@ -589,6 +623,8 @@ class LookupHandler(APIHandler):
             fingerprints = params.fingerprints
         else:
             fingerprints = params.fingerprints[:1]
+
+        max_results = 10
 
         all_matches = []
         for p in fingerprints:
@@ -599,7 +635,12 @@ class LookupHandler(APIHandler):
                 else:
                     matches = []
             elif isinstance(p, FingerprintLookupQuery):
-                matches = searcher.search(p.fingerprint, p.duration)
+                fingerprint_search_t0 = time.time()
+                matches = searcher.search(p.fingerprint, p.duration, max_results=max_results)
+                fingerprint_search_t1 = time.time()
+                if statsd is not None:
+                    statsd.incr('api.lookup.matches', len(matches))
+                    statsd.timing('api.lookup.fingerprint_search', fingerprint_search_t1 - fingerprint_search_t0)
             all_matches.append(matches)
 
         response = {}  # type: Dict[str, Any]
@@ -619,12 +660,23 @@ class LookupHandler(APIHandler):
             update_lookup_counter(self.ctx.redis, params.application_id, bool(result_map))
             logger.debug("Lookup from %s: %s", params.application_id, result_map.keys())
 
-        if params.meta and result_map:
-            self.inject_metadata(params.meta, result_map)
+        if self.ctx.config.website.search_return_metadata:
+            if params.meta and result_map:
+                inject_metadata_t0 = time.time()
+                self.inject_metadata(params.meta, result_map)
+                inject_metadata_t1 = time.time()
+                if statsd is not None:
+                    statsd.timing('api.lookup.inject_metadata', inject_metadata_t1 - inject_metadata_t0)
 
         if fingerprints:
-            time_per_fp = (time.time() - t) / len(fingerprints)
+            time_total = (time.time() - t)
+            time_per_fp = time_total / len(fingerprints)
             update_lookup_avg_time(self.ctx.redis, time_per_fp)
+            if statsd is not None:
+                statsd.timing('api.lookup.total', time_total)
+
+        if statsd is not None:
+            statsd.send()
 
         return response
 
@@ -780,7 +832,7 @@ class SubmitHandler(APIHandler):
         clients_waiting_key = 'submission.waiting'
         clients_waiting = self.ctx.redis.incr(clients_waiting_key) - 1
         try:
-            max_wait = 10
+            max_wait = 0
             self.ctx.redis.expire(clients_waiting_key, max_wait)
             remaining = min(max(0, max_wait - 2 ** clients_waiting), params.wait)
             logger.debug('starting to wait at %f %d', remaining, clients_waiting)

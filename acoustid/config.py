@@ -283,6 +283,8 @@ class WebSiteConfig(BaseConfig):
         self.maintenance = False
         self.shutdown_delay = 0
         self.shutdown_file_path = '/tmp/acoustid-server-shutdown.txt'
+        self.search_timeout = 1.0
+        self.search_return_metadata = True
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
@@ -301,6 +303,10 @@ class WebSiteConfig(BaseConfig):
             self.maintenance = parser.getboolean(section, 'maintenance')
         if parser.has_option(section, 'shutdown_delay'):
             self.shutdown_delay = parser.getint(section, 'shutdown_delay')
+        if parser.has_option(section, 'search_timeout'):
+            self.search_timeout = parser.getfloat(section, 'search_timeout')
+        if parser.has_option(section, 'search_return_metadata'):
+            self.search_return_metadata = parser.getboolean(section, 'search_return_metadata')
 
     def read_env(self, prefix):
         read_env_item(self, 'debug', prefix + 'DEBUG', convert=str_to_bool)

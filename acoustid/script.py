@@ -6,6 +6,7 @@ import logging
 import sqlalchemy
 import sqlalchemy.pool
 import sentry_sdk
+from statsd import StatsClient
 from typing import Any, Optional
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
@@ -21,12 +22,13 @@ logger = logging.getLogger(__name__)
 
 class ScriptContext(object):
 
-    def __init__(self, config, db, redis, index):
-        # type: (Config, DatabaseContext, Redis, IndexClientPool) -> None
+    def __init__(self, config, db, redis, index, statsd):
+        # type: (Config, DatabaseContext, Redis, IndexClientPool, Optional[StatsClient]) -> None
         self.config = config
         self.db = db
         self.redis = redis
         self.index = index
+        self.statsd = statsd
 
     def __enter__(self):
         # type: () -> ScriptContext
@@ -48,6 +50,13 @@ class Script(object):
 
         create_engine_kwargs = {'poolclass': sqlalchemy.pool.AssertionPool} if tests else {}
         self.db_engines = self.config.databases.create_engines(**create_engine_kwargs)
+
+        if self.config.statsd.enabled:
+            self.statsd = StatsClient(host=self.config.statsd.host,
+                                      port=self.config.statsd.port,
+                                      prefix=self.config.statsd.prefix)
+        else:
+            self.statsd = None
 
         self.index = IndexClientPool(host=self.config.index.host,
                                      port=self.config.index.port,
@@ -94,7 +103,7 @@ class Script(object):
     def context(self, use_two_phase_commit=None):
         # type: (Optional[bool]) -> ScriptContext
         db = DatabaseContext(self, use_two_phase_commit=use_two_phase_commit)
-        return ScriptContext(config=self.config, db=db, redis=self.redis, index=self.index)
+        return ScriptContext(config=self.config, db=db, redis=self.redis, index=self.index, statsd=self.statsd)
 
 
 def run_script(func, option_cb=None, master_only=False):

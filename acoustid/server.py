@@ -46,6 +46,7 @@ api_url_rules = [
             Rule('/create_account', endpoint=acoustid.api.v2.internal.CreateAccountHandler),
             Rule('/create_application', endpoint=acoustid.api.v2.internal.CreateApplicationHandler),
             Rule('/update_application_status', endpoint=acoustid.api.v2.internal.UpdateApplicationStatusHandler),
+            Rule('/check_application', endpoint=acoustid.api.v2.internal.CheckApplicationHandler),
         ]),
     ]),
 ]  # type: List[RuleFactory]

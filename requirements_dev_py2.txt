@@ -21,4 +21,4 @@ six==1.14.0               # via grpcio, protobuf
 typing==3.7.4.1           # via flake8
 
 # The following packages are considered to be unsafe in a requirements file:
-# setuptools==44.0.0        # via protobuf
+# setuptools==44.1.1        # via protobuf

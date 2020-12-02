@@ -4,6 +4,7 @@
 import logging
 from typing import Dict, Any, Optional, List, NamedTuple
 from sqlalchemy import sql
+from sqlalchemy.exc import OperationalError
 from acoustid import tables as schema, const, chromaprint
 from acoustid.indexclient import Index, IndexClientPool, IndexClientError
 from acoustid.db import FingerprintDB, IngestDB
@@ -41,17 +42,18 @@ FingerprintMatch = NamedTuple('FingerprintMatch', [('fingerprint_id', int), ('tr
 
 class FingerprintSearcher(object):
 
-    def __init__(self, db, index_pool, fast=True):
-        # type: (FingerprintDB, IndexClientPool, bool) -> None
+    def __init__(self, db, index_pool, fast=True, timeout=None):
+        # type: (FingerprintDB, IndexClientPool, bool, Optional[float]) -> None
         self.db = db
         self.index_pool = index_pool
         self.min_score = const.TRACK_GROUP_MERGE_THRESHOLD
         self.max_length_diff = const.FINGERPRINT_MAX_LENGTH_DIFF
         self.max_offset = const.TRACK_MAX_OFFSET
         self.fast = fast
+        self.timeout = timeout
 
-    def _create_search_query(self, fp, length, condition):
-        # type: (List[int], int, Any) -> Any
+    def _create_search_query(self, fp, length, condition, max_results):
+        # type: (List[int], int, Any, Optional[int]) -> Any
         # construct the subquery
         f_columns = [
             schema.fingerprint.c.id,
@@ -67,11 +69,14 @@ class FingerprintSearcher(object):
         # construct the main query
         columns = [f.c.id, f.c.track_id, schema.track.c.gid.label('track_gid'), f.c.score]
         src = f.join(schema.track, schema.track.c.id == f.c.track_id)
-        return sql.select(columns, f.c.score > self.min_score, src,
-                          order_by=[f.c.score.desc(), f.c.id])
+        query = sql.select(columns, f.c.score > self.min_score, src,
+                           order_by=[f.c.score.desc(), f.c.id])
+        if max_results:
+            query = query.limit(max_results)
+        return query
 
-    def _search_index(self, fp, length, index):
-        # type: (List[int], int, Index) -> Optional[sql.ClauseElement]
+    def _search_index(self, fp, length, index, max_candidates=None, min_score_pct=None):
+        # type: (List[int], int, Index, Optional[int], Optional[float]) -> Optional[sql.ClauseElement]
         # index search
         fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
         if not fp_query:
@@ -79,11 +84,20 @@ class FingerprintSearcher(object):
         results = index.search(fp_query)
         if not results:
             return None
-        min_score = results[0].score * 0.1  # at least 10% of the top score
-        candidate_ids = [r.id for r in results if r.score > min_score]
-        if not candidate_ids:
+
+        results.sort(key=lambda r: -r.score)
+
+        if min_score_pct is not None:
+            min_score = results[0].score * min_score_pct / 100
+            results = [r for r in results if r.score > min_score]
+
+        if max_candidates is not None:
+            results = results[:max_candidates]
+
+        if not results:
             return None
-        # construct the query
+
+        candidate_ids = [r.id for r in results]
         condition = schema.fingerprint.c.id.in_(candidate_ids)
         return condition
 
@@ -99,16 +113,23 @@ class FingerprintSearcher(object):
         # type: (Index) -> int
         return int(index.get_attribute('max_document_id') or '0')
 
-    def search(self, fp, length):
-        # type: (List[int], int) -> List[FingerprintMatch]
+    def search(self, fp, length, max_results=None):
+        # type: (List[int], int, Optional[int]) -> List[FingerprintMatch]
         conditions = []
+
+        if self.fast:
+            max_candidates = 100
+            min_score_pct = 25
+        else:
+            max_candidates = 1000
+            min_score_pct = 1
 
         with self.index_pool.connect() as index:
             if not self.fast:
                 max_indexed_fingerprint_id = self._get_max_indexed_fingerprint_id(index)
 
             try:
-                condition = self._search_index(fp, length, index)
+                condition = self._search_index(fp, length, index, max_candidates=max_candidates, min_score_pct=min_score_pct)
                 if condition is not None:
                     conditions.append(condition)
             except IndexClientError:
@@ -124,8 +145,17 @@ class FingerprintSearcher(object):
         if not conditions:
             return []
 
-        query = self._create_search_query(fp, length, sql.or_(*conditions))
-        matches = [FingerprintMatch(*i) for i in self.db.execute(query)]
+        query = self._create_search_query(fp, length, sql.or_(*conditions), max_results=max_results)
+        if self.timeout:
+            timeout_ms = int(self.timeout * 1000)
+            self.db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+        try:
+            results = self.db.execute(query)
+        except OperationalError as ex:
+            if 'canceling statement due to statement timeout' in str(ex):
+                return []
+            raise
+        matches = [FingerprintMatch(*result) for result in results]
         return matches
 
 
