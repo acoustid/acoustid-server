@@ -326,6 +326,7 @@ class GunicornConfig(BaseConfig):
         self.timeout = 90
         self.workers = 1
         self.threads = 1
+        self.backlog = 1024
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
@@ -335,12 +336,15 @@ class GunicornConfig(BaseConfig):
             self.workers = parser.getint(section, 'workers')
         if parser.has_option(section, 'threads'):
             self.threads = parser.getint(section, 'threads')
+        if parser.has_option(section, 'backlog'):
+            self.backlog = parser.getint(section, 'backlog')
 
     def read_env(self, prefix):
         # type: (str) -> None
         read_env_item(self, 'timeout', prefix + 'GUNICORN_TIMEOUT', convert=int)
         read_env_item(self, 'workers', prefix + 'GUNICORN_WORKERS', convert=int)
         read_env_item(self, 'threads', prefix + 'GUNICORN_THREADS', convert=int)
+        read_env_item(self, 'backlog', prefix + 'GUNICORN_BACKLOG', convert=int)
 
 
 class uWSGIConfig(BaseConfig):

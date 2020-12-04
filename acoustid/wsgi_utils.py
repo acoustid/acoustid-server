@@ -112,6 +112,8 @@ def common_gunicorn_args(config, workers=None, threads=None):
     ]
     if config.gunicorn.timeout:
         args.extend(["--timeout", six.text_type(config.gunicorn.timeout)])
+    if config.gunicorn.backlog:
+        args.extend(["--backlog", six.text_type(config.gunicorn.backlog)])
     if config.statsd.enabled:
         args.extend(["--statsd-host", "{}:{}".format(config.statsd.host, config.statsd.port)])
     return args
