@@ -3,7 +3,7 @@
 import gevent.monkey
 gevent.monkey.patch_all()
 
-import psycogreen
+import psycogreen.gevent
 psycogreen.gevent.patch_psycopg()
 
 from acoustid.server import make_application
