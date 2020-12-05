@@ -28,3 +28,5 @@ gunicorn
 futures
 pytz
 statsd
+gevent
+psycogreen

@@ -122,8 +122,9 @@ def common_gunicorn_args(config, workers=None, threads=None):
 def run_api_app(config, workers=None, threads=None):
     # type: (Config, Optional[int], Optional[int]) -> int
     args = common_gunicorn_args(config, workers=workers, threads=threads) + [
+      "--worker-class", "gevent",
       "--bind", "0.0.0.0:3031",
-      "acoustid.server:make_application()",
+      "acoustid.wsgi_api_app:application",
     ]
     if config.statsd.enabled:
         args.extend(["--statsd-prefix", "{}service.api".format(config.statsd.prefix)])

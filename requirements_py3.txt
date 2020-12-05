@@ -18,6 +18,8 @@ decorator==4.4.0          # via ipython, traitlets
 defusedxml==0.6.0         # via python3-openid
 flask==1.1.1
 futures==3.1.1
+gevent==20.9.0
+greenlet==0.4.17          # via gevent
 gunicorn==19.9.0
 idna==2.8                 # via requests
 ipython-genutils==0.2.0   # via traitlets
@@ -34,6 +36,7 @@ parso==0.5.1              # via jedi
 pexpect==4.7.0            # via ipython
 pickleshare==0.7.5        # via ipython
 prompt-toolkit==2.0.10    # via ipython
+psycogreen==1.0.2
 psycopg2==2.8.3
 ptyprocess==0.6.0         # via pexpect
 pyasn1==0.4.7
@@ -58,6 +61,8 @@ urllib3==1.25.6           # via requests, sentry-sdk
 uwsgi==2.0.18
 wcwidth==0.1.7            # via prompt-toolkit
 werkzeug==0.16.0
+zope.event==4.5.0         # via gevent
+zope.interface==5.2.0     # via gevent
 
 # The following packages are considered to be unsafe in a requirements file:
-# setuptools==50.3.2        # via ipython, markdown
+# setuptools==50.3.2        # via gevent, ipython, markdown, zope.event, zope.interface
