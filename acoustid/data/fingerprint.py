@@ -118,11 +118,11 @@ class FingerprintSearcher(object):
         conditions = []
 
         if self.fast:
-            max_candidates = 100
-            min_score_pct = 25
+            max_candidates = 10
+            min_score_pct = 40
         else:
             max_candidates = 1000
-            min_score_pct = 1
+            min_score_pct = 2
 
         with self.index_pool.connect() as index:
             if not self.fast:
