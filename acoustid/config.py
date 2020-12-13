@@ -101,9 +101,10 @@ class DatabaseConfig(BaseConfig):
         self.host = 'localhost'
         self.port = 5432
         self.password = ''
-        self.pool_size = None  # type: Optional[int]
+        self.pool_size = 20  # type: Optional[int]
         self.pool_recycle = None  # type: Optional[int]
         self.pool_pre_ping = None  # type: Optional[bool]
+        self.pool_timeout = 2  # type: Optional[int]
 
     def __eq__(self, other):
         # type: (object) -> bool
@@ -117,7 +118,8 @@ class DatabaseConfig(BaseConfig):
             self.password == other.password and
             self.pool_size == other.pool_size and
             self.pool_recycle == other.pool_recycle and
-            self.pool_pre_ping == other.pool_pre_ping
+            self.pool_pre_ping == other.pool_pre_ping and
+            self.pool_timeout == other.pool_timeout
         )
 
     def create_url(self):
@@ -141,6 +143,8 @@ class DatabaseConfig(BaseConfig):
             kwargs['pool_recycle'] = self.pool_recycle
         if self.pool_pre_ping is not None and 'pool_pre_ping' not in kwargs:
             kwargs['pool_pre_ping'] = self.pool_pre_ping
+        if self.pool_timeout is not None and 'pool_timeout' not in kwargs:
+            kwargs['pool_timeout'] = self.pool_timeout
         return create_engine(self.create_url(), **kwargs)
 
     def create_psql_args(self):
@@ -180,6 +184,8 @@ class DatabaseConfig(BaseConfig):
             self.pool_recycle = parser.getint(section, 'pool_recycle')
         if parser.has_option(section, 'pool_pre_ping'):
             self.pool_pre_ping = parser.getboolean(section, 'pool_pre_ping')
+        if parser.has_option(section, 'pool_timeout'):
+            self.pool_timeout = parser.getint(section, 'pool_timeout')
 
     def read_env(self, prefix):
         read_env_item(self, 'name', prefix + 'NAME')
@@ -190,6 +196,7 @@ class DatabaseConfig(BaseConfig):
         read_env_item(self, 'pool_size', prefix + 'POOL_SIZE', convert=int)
         read_env_item(self, 'pool_recycle', prefix + 'POOL_RECYCLE', convert=int)
         read_env_item(self, 'pool_pre_ping', prefix + 'POOL_PRE_PING', convert=str_to_bool)
+        read_env_item(self, 'pool_timeout', prefix + 'POOL_TIMEOUT', convert=int)
 
 
 class IndexConfig(BaseConfig):
