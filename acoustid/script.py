@@ -4,7 +4,6 @@
 import sys
 import logging
 import sqlalchemy
-import sqlalchemy.pool
 import sentry_sdk
 from statsd import StatsClient
 from typing import Any, Optional
