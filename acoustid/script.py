@@ -48,8 +48,7 @@ class Script(object):
             self.config.read(config_path)
         self.config.read_env(tests=tests)
 
-        create_engine_kwargs = {'poolclass': sqlalchemy.pool.AssertionPool} if tests else {}
-        self.db_engines = self.config.databases.create_engines(**create_engine_kwargs)
+        self.db_engines = self.config.databases.create_engines()
 
         if self.config.statsd.enabled:
             self.statsd = StatsClient(host=self.config.statsd.host,
