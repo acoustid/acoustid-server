@@ -3,7 +3,6 @@
 
 import sys
 import logging
-import sqlalchemy
 import sentry_sdk
 from statsd import StatsClient
 from typing import Any, Optional
