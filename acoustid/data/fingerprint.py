@@ -121,7 +121,7 @@ class FingerprintSearcher(object):
             max_candidates = 10
             min_score_pct = 40
         else:
-            max_candidates = 100
+            max_candidates = 20
             min_score_pct = 10
 
         with self.index_pool.connect() as index:
