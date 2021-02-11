@@ -21,6 +21,12 @@ def do_import(script):
             ingest_db = ctx.db.get_ingest_db()
             app_db = ctx.db.get_app_db()
             fingerprint_db = ctx.db.get_fingerprint_db()
+
+            timeout_ms = 10 * 1000
+            ingest_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+            app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+            fingerprint_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+
             count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=10)
             ctx.db.session.commit()
 
