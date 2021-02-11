@@ -9,8 +9,8 @@ RUN apt-get update && \
 RUN curl -Lo /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 && \
     chmod +x /usr/local/bin/dumb-init
 
-RUN curl -Lo get-pip.py https://bootstrap.pypa.io/get-pip.py && \
-    python get-pip.py pip==20.3.4 && \
+RUN curl -Lo get-pip.py https://bootstrap.pypa.io/2.7/get-pip.py && \
+    python get-pip.py && \
     pip install virtualenv
 
 ADD requirements_py2.txt /tmp/requirements.txt
