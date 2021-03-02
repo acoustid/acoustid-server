@@ -30,3 +30,4 @@ pytz
 statsd
 gevent
 psycogreen
+cachetools

@@ -7,6 +7,7 @@ import json
 import time
 import operator
 import attr
+import cachetools
 from typing import Type, Tuple, Dict, Any, Optional, List, TYPE_CHECKING, Iterable, Set, Union
 from acoustid import const
 from acoustid.const import MAX_REQUESTS_PER_SECOND
@@ -53,12 +54,31 @@ def iter_args_suffixes(args, *prefixes):
     return ['.%d' % i if i is not None else '' for i in sorted(results)]
 
 
-def check_app_api_key(config, app_db, application_apikey):
+api_key_cache = cachetools.TTLCache(maxsize=1000, ttl=60.0)
+
+
+def check_app_api_key_cache_key(config, db, application_apikey):
+    return application_apikey
+
+
+@cachetools.cached(api_key_cache, key=check_app_api_key_cache_key)
+def check_app_api_key(config, db, application_apikey):
+    app_db = db.get_app_db(read_only=True)
     application_id = lookup_application_id_by_apikey(app_db, application_apikey, only_active=True)
     if not application_id:
         if check_demo_client_api_key(config.website.secret, application_apikey):
             application_id = DEMO_APPLICATION_ID
     return application_id
+
+
+def user_api_key_cache_key(config, db, user_apikey):
+    return user_apikey
+
+
+@cachetools.cached(api_key_cache, key=check_app_api_key_cache_key)
+def check_user_api_key(config, db, user_apikey):
+    app_db = db.get_app_db(read_only=True)
+    return lookup_account_id_by_apikey(app_db, user_apikey)
 
 
 class APIHandlerParams(object):
@@ -68,11 +88,10 @@ class APIHandlerParams(object):
         self.config = config
 
     def _parse_client(self, values, db):
-        app_db = db.get_app_db()
         application_apikey = values.get('client')
         if not application_apikey:
             raise errors.MissingParameterError('client')
-        self.application_id = check_app_api_key(self.config, app_db, application_apikey)
+        self.application_id = check_app_api_key(self.config, db, application_apikey)
         if not self.application_id:
             logger.warning("Invalid API key %s", application_apikey)
             raise errors.InvalidAPIKeyError()
@@ -715,7 +734,7 @@ class SubmitHandlerParams(APIHandlerParams):
         account_apikey = values.get('user')
         if not account_apikey:
             raise errors.MissingParameterError('user')
-        self.account_id = lookup_account_id_by_apikey(db.get_app_db(), account_apikey)
+        self.account_id = check_user_api_key(self.config, db, account_apikey)
         if not self.account_id:
             raise errors.InvalidUserAPIKeyError()
 

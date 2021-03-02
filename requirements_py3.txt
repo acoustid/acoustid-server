@@ -9,6 +9,7 @@ asn1crypto==1.0.1         # via cryptography
 attrs==19.2.0
 backcall==0.1.0           # via ipython
 blinker==1.4
+cachetools==4.2.1
 certifi==2019.9.11        # via requests, sentry-sdk
 cffi==1.12.3              # via cryptography
 chardet==3.0.4            # via requests
@@ -65,4 +66,4 @@ zope.event==4.5.0         # via gevent
 zope.interface==5.2.0     # via gevent
 
 # The following packages are considered to be unsafe in a requirements file:
-# setuptools==50.3.2        # via gevent, ipython, markdown, zope.event, zope.interface
+# setuptools==54.0.0        # via gevent, ipython, markdown, zope.event, zope.interface

@@ -8,6 +8,7 @@ alembic==1.2.1
 attrs==19.2.0
 backports.shutil-get-terminal-size==1.0.0  # via ipython
 blinker==1.4
+cachetools==3.1.1
 certifi==2019.9.11        # via requests, sentry-sdk
 cffi==1.12.3              # via cryptography
 chardet==3.0.4            # via requests
