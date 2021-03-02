@@ -54,7 +54,7 @@ def iter_args_suffixes(args, *prefixes):
     return ['.%d' % i if i is not None else '' for i in sorted(results)]
 
 
-api_key_cache = cachetools.TTLCache(maxsize=1000, ttl=60.0)
+api_key_cache = cachetools.TTLCache(maxsize=1000, ttl=60.0)  # type: cachetools.Cache
 
 
 def check_app_api_key_cache_key(config, db, application_apikey):
