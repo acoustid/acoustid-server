@@ -239,6 +239,9 @@ class RedisConfig(BaseConfig):
             self.cluster = parser.get(section, 'cluster')
         if parser.has_option(section, 'password'):
             self.password = parser.get(section, 'password')
+        elif parser.has_option(section, 'password_file'):
+            password_file_path = parser.get(section, 'password_file')
+            self.password = open(password_file_path, 'rt').read().strip()
 
     def read_env(self, prefix):
         read_env_item(self, 'host', prefix + 'REDIS_HOST')
@@ -301,7 +304,11 @@ class WebSiteConfig(BaseConfig):
         # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'debug'):
             self.debug = parser.getboolean(section, 'debug')
-        self.secret = parser.get(section, 'secret')
+        if parser.has_option(section, 'secret'):
+            self.secret = parser.get(section, 'secret')
+        elif parser.has_option(section, 'secret_file'):
+            secret_file_path = parser.get(section, 'secret_file')
+            self.secret = open(secret_file_path, 'rt').read().strip()
         if parser.has_option(section, 'mb_oauth_client_id'):
             self.mb_oauth_client_id = parser.get(section, 'mb_oauth_client_id')
         if parser.has_option(section, 'mb_oauth_client_secret'):
@@ -479,6 +486,9 @@ class ClusterConfig(BaseConfig):
             self.base_master_url = parser.get(section, 'base_master_url')
         if parser.has_option(section, 'secret'):
             self.secret = parser.get(section, 'secret')
+        elif parser.has_option(section, 'secret_file'):
+            secret_file_path = parser.get(section, 'secret_file')
+            self.secret = open(secret_file_path, 'rt').read().strip()
 
     def read_env(self, prefix):
         read_env_item(self, 'role', prefix + 'CLUSTER_ROLE')
