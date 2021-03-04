@@ -5,7 +5,6 @@
 #    pip-compile --output-file=requirements_py3.txt requirements.in
 #
 alembic==1.2.1
-asn1crypto==1.0.1         # via cryptography
 attrs==19.2.0
 backcall==0.1.0           # via ipython
 blinker==1.4
@@ -14,7 +13,7 @@ certifi==2019.9.11        # via requests, sentry-sdk
 cffi==1.12.3              # via cryptography
 chardet==3.0.4            # via requests
 click==7.0
-cryptography==2.7         # via pyopenssl
+cryptography==3.4.6
 decorator==4.4.0          # via ipython, traitlets
 defusedxml==0.6.0         # via python3-openid
 flask==1.1.1

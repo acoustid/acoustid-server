@@ -8,6 +8,7 @@ Markdown
 redis
 flask
 rauth
+cryptography>=3.3.2
 blinker
 requests
 pyopenssl
