@@ -19,6 +19,25 @@ def str_to_bool(x):
     return x.lower() in ('1', 'on', 'true')
 
 
+def read_config_secret_str_option(parser, section, obj, key, name):
+    value = None
+    if parser.has_option(section, name):
+        value = parser.get(section, name)
+    elif parser.has_option(section, name + '_file'):
+        value_file_path = parser.get(section, name + '_file')
+        value = open(value_file_path, 'rt').read().strip()
+    if value is not None:
+        setattr(obj, key, value)
+
+
+def read_config_str_option(parser, section, obj, key, name):
+    value = None
+    if parser.has_option(section, name):
+        value = parser.get(section, name)
+    if value is not None:
+        setattr(obj, key, value)
+
+
 def read_env_item(obj, key, name, convert=None):
     # type: (Any, str, str, Callable[[str], Any]) -> None
     value = None
@@ -168,16 +187,8 @@ class DatabaseConfig(BaseConfig):
             self.host = parser.get(section, 'host')
         if parser.has_option(section, 'port'):
             self.port = parser.getint(section, 'port')
-        if parser.has_option(section, 'user'):
-            self.user = parser.get(section, 'user')
-        elif parser.has_option(section, 'user_file'):
-            user_file_path = parser.get(section, 'user_file')
-            self.user = open(user_file_path, 'rt').read().strip()
-        if parser.has_option(section, 'password'):
-            self.password = parser.get(section, 'password')
-        elif parser.has_option(section, 'password_file'):
-            password_file_path = parser.get(section, 'password_file')
-            self.password = open(password_file_path, 'rt').read().strip()
+        read_config_secret_str_option(parser, section, self, 'user', 'user')
+        read_config_secret_str_option(parser, section, self, 'password', 'password')
         if parser.has_option(section, 'pool_size'):
             self.pool_size = parser.getint(section, 'pool_size')
         if parser.has_option(section, 'pool_recycle'):
@@ -237,11 +248,7 @@ class RedisConfig(BaseConfig):
             self.sentinel = parser.getboolean(section, 'sentinel')
         if parser.has_option(section, 'cluster'):
             self.cluster = parser.get(section, 'cluster')
-        if parser.has_option(section, 'password'):
-            self.password = parser.get(section, 'password')
-        elif parser.has_option(section, 'password_file'):
-            password_file_path = parser.get(section, 'password_file')
-            self.password = open(password_file_path, 'rt').read().strip()
+        read_config_secret_str_option(parser, section, self, 'password', 'password')
 
     def read_env(self, prefix):
         read_env_item(self, 'host', prefix + 'REDIS_HOST')
@@ -302,21 +309,13 @@ class WebSiteConfig(BaseConfig):
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
+        read_config_secret_str_option(parser, section, self, 'secret', 'secret')
+        read_config_secret_str_option(parser, section, self, 'mb_oauth_client_id', 'mb_oauth_client_id')
+        read_config_secret_str_option(parser, section, self, 'mb_oauth_client_secret', 'mb_oauth_client_secret')
+        read_config_secret_str_option(parser, section, self, 'google_oauth_client_id', 'mb_oauth_client_id')
+        read_config_secret_str_option(parser, section, self, 'google_oauth_client_secret', 'mb_oauth_client_secret')
         if parser.has_option(section, 'debug'):
             self.debug = parser.getboolean(section, 'debug')
-        if parser.has_option(section, 'secret'):
-            self.secret = parser.get(section, 'secret')
-        elif parser.has_option(section, 'secret_file'):
-            secret_file_path = parser.get(section, 'secret_file')
-            self.secret = open(secret_file_path, 'rt').read().strip()
-        if parser.has_option(section, 'mb_oauth_client_id'):
-            self.mb_oauth_client_id = parser.get(section, 'mb_oauth_client_id')
-        if parser.has_option(section, 'mb_oauth_client_secret'):
-            self.mb_oauth_client_secret = parser.get(section, 'mb_oauth_client_secret')
-        if parser.has_option(section, 'google_oauth_client_id'):
-            self.google_oauth_client_id = parser.get(section, 'google_oauth_client_id')
-        if parser.has_option(section, 'google_oauth_client_secret'):
-            self.google_oauth_client_secret = parser.get(section, 'google_oauth_client_secret')
         if parser.has_option(section, 'maintenance'):
             self.maintenance = parser.getboolean(section, 'maintenance')
         if parser.has_option(section, 'shutdown_delay'):
@@ -480,15 +479,9 @@ class ClusterConfig(BaseConfig):
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
-        if parser.has_option(section, 'role'):
-            self.role = parser.get(section, 'role')
-        if parser.has_option(section, 'base_master_url'):
-            self.base_master_url = parser.get(section, 'base_master_url')
-        if parser.has_option(section, 'secret'):
-            self.secret = parser.get(section, 'secret')
-        elif parser.has_option(section, 'secret_file'):
-            secret_file_path = parser.get(section, 'secret_file')
-            self.secret = open(secret_file_path, 'rt').read().strip()
+        read_config_str_option(parser, section, self, 'role', 'role')
+        read_config_str_option(parser, section, self, 'base_master_url', 'base_master_url')
+        read_config_secret_str_option(parser, section, self, 'secret', 'secret')
 
     def read_env(self, prefix):
         read_env_item(self, 'role', prefix + 'CLUSTER_ROLE')
