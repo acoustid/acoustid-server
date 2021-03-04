@@ -35,21 +35,22 @@ def run_import_on_master(script):
     # type: (Script) -> None
     logger.info('Importer running in master mode')
     # listen for new submissins and import them as they come
-    channel = script.redis.pubsub()
-    channel.subscribe('channel.submissions')
-    while True:
-        message = channel.get_message(timeout=10)  # type: Optional[Dict[str, Any]]
-        if message is not None:
-            if message['type'] != 'message':
-                continue
-            try:
-                ids = json.loads(message['data'])
-            except Exception:
-                logger.exception('Invalid notification message: %r', message)
-                ids = []
-            logger.debug('Got notified about %s new submissions', len(ids))
-        do_import(script)
-        logger.debug('Waiting for the next event...')
+    with script.context() as ctx:
+        channel = ctx.redis.pubsub()
+        channel.subscribe('channel.submissions')
+        while True:
+            message = channel.get_message(timeout=10)  # type: Optional[Dict[str, Any]]
+            if message is not None:
+                if message['type'] != 'message':
+                    continue
+                try:
+                    ids = json.loads(message['data'])
+                except Exception:
+                    logger.exception('Invalid notification message: %r', message)
+                    ids = []
+                logger.debug('Got notified about %s new submissions', len(ids))
+            do_import(script)
+            logger.debug('Waiting for the next event...')
 
 
 def run_import_on_slave(script):

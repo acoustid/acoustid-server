@@ -59,16 +59,33 @@ class Script(object):
                                      port=self.config.index.port,
                                      recycle=60)
 
+        self.redis = None
+        self.redis_sentinel = None
+
         if self.config.redis.sentinel:
-            self.redis_sentinel = RedisSentinel([(self.config.redis.host, self.config.redis.port)])
-            self.redis = self.redis_sentinel.master_for(self.config.redis.cluster)  # type: Redis
+            self.redis_sentinel = RedisSentinel(
+                [(self.config.redis.host, self.config.redis.port)],
+                password=self.config.redis.password,
+            )
         else:
-            self.redis = Redis(host=self.config.redis.host,
-                               port=self.config.redis.port)
+            self.redis = Redis(
+                host=self.config.redis.host,
+                port=self.config.redis.port,
+                password=self.config.redis.password,
+            )
 
         self._console_logging_configured = False
         if not tests:
             self.setup_logging()
+
+    def get_redis(self):
+        # type: () -> Redis
+        if self.config.redis.sentinel:
+            assert self.redis_sentinel is not None
+            return self.redis_sentinel.master_for(self.config.redis.cluster)
+        else:
+            assert self.redis is not None
+            return self.redis
 
     def setup_logging(self):
         # type: () -> None
@@ -100,7 +117,8 @@ class Script(object):
     def context(self, use_two_phase_commit=None):
         # type: (Optional[bool]) -> ScriptContext
         db = DatabaseContext(self, use_two_phase_commit=use_two_phase_commit)
-        return ScriptContext(config=self.config, db=db, redis=self.redis, index=self.index, statsd=self.statsd)
+        redis = self.get_redis()
+        return ScriptContext(config=self.config, db=db, redis=redis, index=self.index, statsd=self.statsd)
 
 
 def run_script(func, option_cb=None, master_only=False):

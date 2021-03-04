@@ -7,7 +7,7 @@ import datetime
 def run_cleanup_perf_stats(script, opts, args):
     two_days_ago = datetime.datetime.now() - datetime.timedelta(days=2)
     last_key = two_days_ago.strftime('%Y-%m-%d:%H:%M')
-    redis = script.redis
+    redis = script.get_redis()
     tables = ('lookups.time.ms', 'lookups.time.count')
     for table in tables:
         to_delete = []
