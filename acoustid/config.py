@@ -79,6 +79,7 @@ class DatabasesConfig(BaseConfig):
             self.databases[name] = DatabaseConfig()
             self.databases[name + ':ro'] = DatabaseConfig()
         self.use_two_phase_commit = False
+        self.use_auto_commit = False
 
     def create_engines(self, **kwargs):
         # type: (**Any) -> Dict[str, Engine]
@@ -96,6 +97,8 @@ class DatabasesConfig(BaseConfig):
         # type: (RawConfigParser, str) -> None
         if parser.has_option(section, 'two_phase_commit'):
             self.use_two_phase_commit = parser.getboolean(section, 'two_phase_commit')
+        if parser.has_option(section, 'auto_commit'):
+            self.use_auto_commit = parser.getboolean(section, 'auto_commit')
         for name, sub_config in self.databases.items():
             sub_section = '{}:{}'.format(section, name)
             if parser.has_section(sub_section):
@@ -105,6 +108,7 @@ class DatabasesConfig(BaseConfig):
 
     def read_env(self, prefix):
         # type: (str) -> None
+        read_env_item(self, 'use_auto_commit', prefix + 'DATABASE_AUTO_COMMIT', convert=str_to_bool)
         read_env_item(self, 'use_two_phase_commit', prefix + 'DATABASE_TWO_PHASE_COMMIT', convert=str_to_bool)
         for name, sub_config in self.databases.items():
             sub_prefix = prefix + 'DATABASE_' + name.replace(':', '_').upper() + '_'

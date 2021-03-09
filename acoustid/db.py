@@ -26,9 +26,16 @@ def get_bind_args(engines):
 
 def get_session_args(script, use_two_phase_commit=None):
     # type: (Script, Optional[bool]) -> Dict[str, Any]
-    kwargs = {'twophase': script.config.databases.use_two_phase_commit}
+    kwargs = {}
+
+    if script.config.databases.use_two_phase_commit:
+        kwargs['twophase'] = script.config.databases.use_two_phase_commit
     if use_two_phase_commit is not None:
         kwargs['twophase'] = use_two_phase_commit
+
+    if script.config.databases.use_auto_commit:
+        kwargs['autocommit'] = script.config.databases.use_auto_commit
+
     kwargs.update(get_bind_args(script.db_engines))
     return kwargs
 
