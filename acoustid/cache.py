@@ -68,6 +68,10 @@ class Cache(object):
             return key[len(self.prefix):]
         return key
 
+    def with_prefix(self, prefix):
+        # type: (str) -> Cache
+        return Cache(backend=self.backend, prefix=self._add_prefix(prefix))
+
     def get(self, key):
         # type: (str) -> Any
         value = self.backend.get(self._add_prefix(key))
