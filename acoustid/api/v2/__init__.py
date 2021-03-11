@@ -408,7 +408,10 @@ class LookupHandler(APIHandler):
         if 'releasegroupids' in meta or 'releasegroups' in meta:
             load_releases = True
             load_release_groups = True
-        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(read_only=True), recording_els.keys(), load_releases=load_releases, load_release_groups=load_release_groups)
+        metadata = lookup_metadata(
+            self.ctx.db.get_musicbrainz_db(read_only=True),
+            recording_els.keys(),
+            load_releases=load_releases, load_release_groups=load_release_groups)
         if 'usermeta' in meta and not metadata:
             user_meta_els = self._inject_user_meta_ids_internal(True)[0]
             recording_els.update(user_meta_els)  # type: ignore
