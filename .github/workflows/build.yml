@@ -7,10 +7,10 @@ on:
 jobs:
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-focal
     strategy:
       matrix:
-        python_version: [ '2.7', '3.6' ]
+        python_version: [ '2.7', '3.7', 'pypy-3.7' ]
 
     services:
       postgresql:
