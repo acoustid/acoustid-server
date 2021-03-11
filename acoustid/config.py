@@ -160,14 +160,15 @@ class DatabaseConfig(BaseConfig):
 
     def create_engine(self, **kwargs):
         # type: (**Any) -> Engine
-        if self.pool_size is not None and 'pool_size' not in kwargs:
-            kwargs['pool_size'] = self.pool_size
-        if self.pool_recycle is not None and 'pool_recycle' not in kwargs:
-            kwargs['pool_recycle'] = self.pool_recycle
-        if self.pool_pre_ping is not None and 'pool_pre_ping' not in kwargs:
-            kwargs['pool_pre_ping'] = self.pool_pre_ping
-        if self.pool_timeout is not None and 'pool_timeout' not in kwargs:
-            kwargs['pool_timeout'] = self.pool_timeout
+        if 'poolclass' not in kwargs:
+            if self.pool_size is not None and 'pool_size' not in kwargs:
+                kwargs['pool_size'] = self.pool_size
+            if self.pool_recycle is not None and 'pool_recycle' not in kwargs:
+                kwargs['pool_recycle'] = self.pool_recycle
+            if self.pool_pre_ping is not None and 'pool_pre_ping' not in kwargs:
+                kwargs['pool_pre_ping'] = self.pool_pre_ping
+            if self.pool_timeout is not None and 'pool_timeout' not in kwargs:
+                kwargs['pool_timeout'] = self.pool_timeout
         return create_engine(self.create_url(), **kwargs)
 
     def create_psql_args(self):
