@@ -281,7 +281,7 @@ class LookupHandler(APIHandler):
         # type: (bool, bool) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[int, List[str]]]
         el_recording = {}  # type: Dict[str, List[Dict[str, Any]]]
         res_map = {}  # type: Dict[int, List[str]]
-        track_mbid_map = lookup_mbids(self.ctx.db.get_fingerprint_db(), self.el_result.keys())
+        track_mbid_map = lookup_mbids(self.ctx.db.get_fingerprint_db(read_only=True), self.el_result.keys())
         for track_id, mbids in track_mbid_map.items():
             res_map[track_id] = []
             for mbid, sources in mbids:
@@ -300,7 +300,7 @@ class LookupHandler(APIHandler):
     def _inject_user_meta_ids_internal(self, add=True):
         # type: (bool) -> Tuple[Dict[int, List[Dict[str, Any]]], Dict[int, List[int]]]
         el_recording = {}  # type: Dict[int, List[Dict[str, Any]]]
-        track_meta_map = lookup_meta_ids(self.ctx.db.get_fingerprint_db(), self.el_result.keys(), max_ids_per_track=MAX_META_IDS_PER_TRACK)
+        track_meta_map = lookup_meta_ids(self.ctx.db.get_fingerprint_db(read_only=True), self.el_result.keys(), max_ids_per_track=MAX_META_IDS_PER_TRACK)
         for track_id, meta_ids in track_meta_map.items():
             for meta_id in meta_ids:
                 if add:
@@ -408,11 +408,14 @@ class LookupHandler(APIHandler):
         if 'releasegroupids' in meta or 'releasegroups' in meta:
             load_releases = True
             load_release_groups = True
-        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(), recording_els.keys(), load_releases=load_releases, load_release_groups=load_release_groups)
+        metadata = lookup_metadata(
+            self.ctx.db.get_musicbrainz_db(read_only=True),
+            recording_els.keys(),
+            load_releases=load_releases, load_release_groups=load_release_groups)
         if 'usermeta' in meta and not metadata:
             user_meta_els = self._inject_user_meta_ids_internal(True)[0]
             recording_els.update(user_meta_els)  # type: ignore
-            user_meta = lookup_meta(self.ctx.db.get_fingerprint_db(), user_meta_els.keys())
+            user_meta = lookup_meta(self.ctx.db.get_fingerprint_db(read_only=True), user_meta_els.keys())
             metadata.extend(user_meta)
         for recording, recording_metadata in self._group_recordings(metadata, 'recordingids' in meta):
             if 'releasegroups' in meta or 'releasegroupids' in meta:
@@ -483,7 +486,7 @@ class LookupHandler(APIHandler):
     def inject_releases(self, meta):
         # type: (List[str]) -> None
         recording_els, track_mbid_map = self._inject_recording_ids_internal(False)
-        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(), recording_els.keys(), load_releases=True, load_release_groups=True)
+        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(read_only=True), recording_els.keys(), load_releases=True, load_release_groups=True)
         for track_id, track_metadata in self._group_metadata(metadata, track_mbid_map):
             result = {}  # type: Dict[str, Any]
             self._inject_releases_internal(meta, result, track_metadata)
@@ -493,7 +496,7 @@ class LookupHandler(APIHandler):
     def inject_release_groups(self, meta):
         # type: (List[str]) -> None
         recording_els, track_mbid_map = self._inject_recording_ids_internal(False)
-        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(), recording_els.keys(), load_releases=True, load_release_groups=True)
+        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(read_only=True), recording_els.keys(), load_releases=True, load_release_groups=True)
         for track_id, track_metadata in self._group_metadata(metadata, track_mbid_map):
             result = {}  # type: Dict[str, Any]
             self._inject_release_groups_internal(meta, result, track_metadata)
@@ -562,7 +565,7 @@ class LookupHandler(APIHandler):
 
     def inject_m2(self, meta):
         el_recording = self._inject_recording_ids_internal(True)[0]
-        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(), el_recording.keys(), load_releases=True)
+        metadata = lookup_metadata(self.ctx.db.get_musicbrainz_db(read_only=True), el_recording.keys(), load_releases=True)
         last_recording_id = None
         for item in metadata:
             if last_recording_id != item['recording_id']:
