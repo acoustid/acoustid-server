@@ -5,68 +5,173 @@
 #    pip-compile --output-file=requirements_py2.txt requirements.in
 #
 alembic==1.2.1
+    # via -r requirements.in
 attrs==19.2.0
-backports.shutil-get-terminal-size==1.0.0  # via ipython
+    # via -r requirements.in
+backports.shutil-get-terminal-size==1.0.0
+    # via ipython
 blinker==1.4
+    # via
+    #   -r requirements.in
+    #   sentry-sdk
 cachetools==3.1.1
-certifi==2019.9.11        # via requests, sentry-sdk
-cffi==1.12.3              # via cryptography
-chardet==3.0.4            # via requests
+    # via -r requirements.in
+certifi==2019.9.11
+    # via
+    #   requests
+    #   sentry-sdk
+cffi==1.12.3
+    # via cryptography
+chardet==3.0.4
+    # via requests
 click==7.0
-contextlib2==0.6.0        # via mbdata
+    # via
+    #   -r requirements.in
+    #   flask
+contextlib2==0.6.0
+    # via mbdata
 cryptography==3.3.2
-decorator==4.4.0          # via ipython, traitlets
-enum34==1.1.6             # via cryptography, traitlets
+    # via
+    #   -r requirements.in
+    #   pyopenssl
+decorator==4.4.0
+    # via
+    #   ipython
+    #   traitlets
+enum34==1.1.6
+    # via
+    #   cryptography
+    #   traitlets
 flask==1.1.1
+    # via
+    #   -r requirements.in
+    #   sentry-sdk
 futures==3.3.0
+    # via -r requirements.in
 gevent==20.9.0
-greenlet==0.4.17          # via gevent
+    # via -r requirements.in
+greenlet==0.4.17
+    # via gevent
 gunicorn==19.9.0
-idna==2.8                 # via requests
-ipaddress==1.0.22         # via cryptography
-ipython-genutils==0.2.0   # via traitlets
+    # via -r requirements.in
+idna==2.8
+    # via requests
+ipaddress==1.0.22
+    # via cryptography
+ipython-genutils==0.2.0
+    # via traitlets
 ipython==5.8.0
-itsdangerous==1.1.0       # via flask
+    # via -r requirements.in
+itsdangerous==1.1.0
+    # via flask
 jinja2==2.10.3
-mako==1.1.0               # via alembic
+    # via
+    #   -r requirements.in
+    #   flask
+mako==1.1.0
+    # via alembic
 markdown==3.1.1
-markupsafe==1.1.1         # via jinja2, mako
+    # via -r requirements.in
+markupsafe==1.1.1
+    # via
+    #   jinja2
+    #   mako
 mbdata==25.0.0
+    # via -r requirements.in
 ndg-httpsclient==0.5.1
-pathlib2==2.3.5           # via ipython, pickleshare
-pexpect==4.7.0            # via ipython
-pickleshare==0.7.5        # via ipython
-prompt-toolkit==1.0.18    # via ipython
+    # via -r requirements.in
+pathlib2==2.3.5
+    # via
+    #   ipython
+    #   pickleshare
+pexpect==4.7.0
+    # via ipython
+pickleshare==0.7.5
+    # via ipython
+prompt-toolkit==1.0.18
+    # via ipython
 psycogreen==1.0.2
+    # via -r requirements.in
 psycopg2==2.8.3
-ptyprocess==0.6.0         # via pexpect
+    # via -r requirements.in
+ptyprocess==0.6.0
+    # via pexpect
 pyasn1==0.4.7
-pycparser==2.19           # via cffi
-pygments==2.4.2           # via ipython
+    # via
+    #   -r requirements.in
+    #   ndg-httpsclient
+pycparser==2.19
+    # via cffi
+pygments==2.4.2
+    # via ipython
 pyopenssl==19.0.0
-python-dateutil==2.8.0    # via alembic
-python-editor==1.0.4      # via alembic
+    # via
+    #   -r requirements.in
+    #   ndg-httpsclient
+python-dateutil==2.8.0
+    # via alembic
+python-editor==1.0.4
+    # via alembic
 python-openid==2.2.5 ; python_version < "3"
+    # via -r requirements.in
 pytz==2019.3
+    # via -r requirements.in
 rauth==0.7.3
+    # via -r requirements.in
 redis==3.3.8
+    # via -r requirements.in
 requests==2.22.0
-scandir==1.10.0           # via pathlib2
+    # via
+    #   -r requirements.in
+    #   rauth
+scandir==1.10.0
+    # via pathlib2
 schedule==0.6.0
+    # via -r requirements.in
 sentry-sdk[flask]==0.12.3
-simplegeneric==0.8.1      # via ipython
+    # via -r requirements.in
+simplegeneric==0.8.1
+    # via ipython
 six==1.14.0
+    # via
+    #   -r requirements.in
+    #   cryptography
+    #   mbdata
+    #   pathlib2
+    #   prompt-toolkit
+    #   pyopenssl
+    #   python-dateutil
+    #   traitlets
 sqlalchemy==1.3.9
+    # via
+    #   -r requirements.in
+    #   alembic
 statsd==3.3.0
+    # via -r requirements.in
 subprocess32==3.5.4 ; python_version < "3.2"
-traitlets==4.3.3          # via ipython
+    # via -r requirements.in
+traitlets==4.3.3
+    # via ipython
 typing==3.7.4.1
-urllib3==1.25.6           # via requests, sentry-sdk
+    # via
+    #   -r requirements.in
+    #   mbdata
+urllib3==1.25.8
+    # via
+    #   requests
+    #   sentry-sdk
 uwsgi==2.0.18
-wcwidth==0.1.7            # via prompt-toolkit
+    # via -r requirements.in
+wcwidth==0.1.7
+    # via prompt-toolkit
 werkzeug==0.16.0
-zope.event==4.5.0         # via gevent
-zope.interface==5.2.0     # via gevent
+    # via
+    #   -r requirements.in
+    #   flask
+zope.event==4.5.0
+    # via gevent
+zope.interface==5.2.0
+    # via gevent
 
 # The following packages are considered to be unsafe in a requirements file:
-# setuptools==44.1.1        # via gevent, ipython, markdown, zope.event, zope.interface
+# setuptools
