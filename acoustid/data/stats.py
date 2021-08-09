@@ -139,42 +139,33 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
         column = schema.stats_lookups.c.count_hits
     else:
         column = schema.stats_lookups.c.count_nohits
-    db.execute("LOCK TABLE stats_lookups IN EXCLUSIVE MODE")
-    query = sql.select([schema.stats_lookups.c.id]).\
-        where(schema.stats_lookups.c.application_id == application_id).\
-        where(schema.stats_lookups.c.date == date).\
-        where(schema.stats_lookups.c.hour == hour)
-    stats_id = db.execute(query).scalar()
-    if stats_id:
-        stmt = schema.stats_lookups.update().\
-            where(schema.stats_lookups.c.id == stats_id).\
-            values({column: column + count})  # type: Any
-    else:
-        stmt = schema.stats_lookups.insert().\
-            values({
+
+    insert_stmt = (
+        schema.stats_lookups
+            .insert()
+            .values({
                 schema.stats_lookups.c.application_id: application_id,
                 schema.stats_lookups.c.date: date,
                 schema.stats_lookups.c.hour: hour,
                 column: count,
             })
-    db.execute(stmt)
+    )
+
+    upsert_stmt = insert_stmt.on_conflict_do_update(
+        index_elements=[schema.stats_lookups.c.application_id, schema.stats_lookups.c.date, schema.stats_lookups.c.hour]
+        set_={
+            column: column + count,
+        }
+    )
+
+    db.execute(upsert_stmt)
 
 
 def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
     # type: (AppDB, int, str, str, str, int) -> None
-    db.execute("LOCK TABLE stats_user_agents IN EXCLUSIVE MODE")
-    query = sql.select([schema.stats_user_agents.c.id]).\
-        where(schema.stats_user_agents.c.application_id == application_id).\
-        where(schema.stats_user_agents.c.date == date).\
-        where(schema.stats_user_agents.c.user_agent == user_agent).\
-        where(schema.stats_user_agents.c.ip == ip)
-    stats_id = db.execute(query).scalar()
-    if stats_id:
-        stmt = schema.stats_user_agents.update().\
-            where(schema.stats_user_agents.c.id == stats_id).\
-            values({schema.stats_user_agents.c.count: schema.stats_user_agents.c.count + count})  # type: Any
-    else:
-        stmt = schema.stats_user_agents.insert().\
+
+    insert_stmt = (
+        schema.stats_user_agents.insert().
             values({
                 schema.stats_user_agents.c.application_id: application_id,
                 schema.stats_user_agents.c.date: date,
@@ -182,7 +173,21 @@ def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
                 schema.stats_user_agents.c.ip: ip,
                 schema.stats_user_agents.c.count: count,
             })
-    db.execute(stmt)
+    )
+
+    upsert_stmt = insert_stmt.on_conflict_do_update(
+        index_elements=[
+            schema.stats_user_agents.c.application_id,
+            schema.stats_user_agents.c.date,
+            schema.stats_user_agents.c.user_agent,
+            schema.stats_user_agents.c.ip,
+        ],
+        set_={
+            schema.stats_user_agents.c.count: schema.stats_user_agents.c.count + count,
+        },
+    )
+
+    db.execute(upsert_stmt)
 
 
 def find_application_lookup_stats_multi(conn, application_ids, from_date=None, to_date=None, days=30):
