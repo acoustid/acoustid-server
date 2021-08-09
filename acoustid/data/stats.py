@@ -142,20 +142,20 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
 
     insert_stmt = (
         schema.stats_lookups
-            .insert()
-            .values({
-                schema.stats_lookups.c.application_id: application_id,
-                schema.stats_lookups.c.date: date,
-                schema.stats_lookups.c.hour: hour,
-                column: count,
-            })
+        .insert()
+        .values({
+            schema.stats_lookups.c.application_id: application_id,
+            schema.stats_lookups.c.date: date,
+            schema.stats_lookups.c.hour: hour,
+            column: count,
+        })
     )
 
     upsert_stmt = insert_stmt.on_conflict_do_update(
-        index_elements=[schema.stats_lookups.c.application_id, schema.stats_lookups.c.date, schema.stats_lookups.c.hour]
+        index_elements=[schema.stats_lookups.c.application_id, schema.stats_lookups.c.date, schema.stats_lookups.c.hour],
         set_={
             column: column + count,
-        }
+        },
     )
 
     db.execute(upsert_stmt)
@@ -165,14 +165,14 @@ def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
     # type: (AppDB, int, str, str, str, int) -> None
 
     insert_stmt = (
-        schema.stats_user_agents.insert().
-            values({
-                schema.stats_user_agents.c.application_id: application_id,
-                schema.stats_user_agents.c.date: date,
-                schema.stats_user_agents.c.user_agent: user_agent,
-                schema.stats_user_agents.c.ip: ip,
-                schema.stats_user_agents.c.count: count,
-            })
+        schema.stats_user_agents.insert()
+        .values({
+            schema.stats_user_agents.c.application_id: application_id,
+            schema.stats_user_agents.c.date: date,
+            schema.stats_user_agents.c.user_agent: user_agent,
+            schema.stats_user_agents.c.ip: ip,
+            schema.stats_user_agents.c.count: count,
+        })
     )
 
     upsert_stmt = insert_stmt.on_conflict_do_update(
