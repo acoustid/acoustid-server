@@ -14,11 +14,15 @@ update-reqs: update-reqs-py2 update-reqs-py3
 
 update-reqs-py2:
 	venv2/bin/pip-compile --output-file requirements_py2.txt requirements.in
-	venv2/bin/pip-compile --output-file requirements_dev_py2.txt requirements_dev.in
+	echo '-c requirements_py2.txt' > requirements_dev_py2.in
+	cat requirements_dev.in >> requirements_dev_py2.in
+	venv2/bin/pip-compile --output-file requirements_dev_py2.txt requirements_dev_py2.in
 
 update-reqs-py3:
 	venv3/bin/pip-compile --output-file requirements_py3.txt requirements.in
-	venv3/bin/pip-compile --output-file requirements_dev_py3.txt requirements_dev.in
+	echo '-c requirements_py3.txt' > requirements_dev_py3.in
+	cat requirements_dev.in >> requirements_dev_py3.in
+	venv3/bin/pip-compile --output-file requirements_dev_py3.txt requirements_dev_py3.in
 
 sync-reqs: sync-reqs-py2 sync-reqs-py3
 

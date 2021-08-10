@@ -13,25 +13,25 @@ class Account(Base):
 class AccountOpenID(Base):
     __table__ = tables.account_openid
 
-    account = relationship('Account')
+    account = relationship('Account')  # type: ignore
 
 
 class AccountGoogle(Base):
     __table__ = tables.account_google
 
-    account = relationship('Account')
+    account = relationship('Account')  # type: ignore
 
 
 class Application(Base):
     __table__ = tables.application
 
-    account = relationship('Account', foreign_keys=[tables.application.c.account_id])
+    account = relationship('Account', foreign_keys=[tables.application.c.account_id])  # type: ignore
 
 
 class TrackMBID(Base):
     __table__ = tables.track_mbid
 
-    track = relationship('Track')
+    track = relationship('Track')  # type: ignore
 
 
 class TrackMBIDChange(Base):
@@ -45,8 +45,8 @@ class TrackMBIDSource(Base):
 class Source(Base):
     __table__ = tables.source
 
-    application = relationship('Application')
-    account = relationship('Account')
+    application = relationship('Application')  # type: ignore
+    account = relationship('Account')  # type: ignore
 
 
 class Submission(Base):
@@ -64,13 +64,13 @@ class Track(Base):
 class TrackMeta(Base):
     __table__ = tables.track_meta
 
-    track = relationship('Track')
-    meta = relationship('Meta')
+    track = relationship('Track')  # type: ignore
+    meta = relationship('Meta')  # type: ignore
 
 
 class Fingerprint(Base):
     __table__ = tables.fingerprint
-    track = relationship('Track')
+    track = relationship('Track')  # type: ignore
 
 
 class Meta(Base):
@@ -80,4 +80,4 @@ class Meta(Base):
 class StatsLookups(Base):
     __table__ = tables.stats_lookups
 
-    application = relationship('Application')
+    application = relationship('Application')  # type: ignore

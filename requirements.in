@@ -1,4 +1,4 @@
-SQLAlchemy>=0.9
+SQLAlchemy>=1.4
 psycopg2
 Werkzeug
 Jinja2

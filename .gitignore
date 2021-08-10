@@ -11,3 +11,5 @@
 *.so
 *.o
 .noseids
+/requirements_dev_py2.in
+/requirements_dev_py3.in
