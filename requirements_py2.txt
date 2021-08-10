@@ -29,7 +29,7 @@ ipaddress==1.0.22         # via cryptography
 ipython-genutils==0.2.0   # via traitlets
 ipython==5.8.0
 itsdangerous==1.1.0       # via flask
-jinja2==2.10.3
+jinja2==2.11.3
 mako==1.1.0               # via alembic
 markdown==3.1.1
 markupsafe==1.1.1         # via jinja2, mako
@@ -63,7 +63,7 @@ statsd==3.3.0
 subprocess32==3.5.4 ; python_version < "3.2"
 traitlets==4.3.3          # via ipython
 typing==3.7.4.1
-urllib3==1.25.11
+urllib3==1.25.11          # via requests, sentry-sdk
 uwsgi==2.0.18
 wcwidth==0.1.7            # via prompt-toolkit
 werkzeug==0.16.0

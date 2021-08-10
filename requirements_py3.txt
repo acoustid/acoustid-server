@@ -27,7 +27,7 @@ ipython-genutils==0.2.0   # via traitlets
 ipython==7.8.0
 itsdangerous==1.1.0       # via flask
 jedi==0.15.1              # via ipython
-jinja2==2.10.3
+jinja2==2.11.3
 mako==1.1.0               # via alembic
 markdown==3.1.1
 markupsafe==1.1.1         # via jinja2, mako
@@ -59,7 +59,7 @@ statsd==3.3.0
 traitlets==4.3.3          # via ipython
 typing-extensions==3.10.0.0  # via importlib-metadata
 typing==3.7.4.1
-urllib3==1.25.11
+urllib3==1.25.11          # via requests, sentry-sdk
 uwsgi==2.0.18
 wcwidth==0.1.7            # via prompt-toolkit
 werkzeug==0.16.0
