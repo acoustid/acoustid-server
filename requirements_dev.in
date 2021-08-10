@@ -2,5 +2,13 @@ nose
 flake8
 functools32 ; python_version < "3.2"
 mypy ; python_version >= "3"
-sqlalchemy-stubs ; python_version >= "3"
+sqlalchemy-stubs >= 0.4 ; python_version >= "3"
 grpcio-tools
+types-requests ; python_version >= "3"
+types-click ; python_version >= "3"
+types-flask ; python_version >= "3"
+types-werkzeug ; python_version >= "3"
+types-six ; python_version >= "3"
+types-pytz ; python_version >= "3"
+types-redis ; python_version >= "3"
+types-itsdangerous ; python_version >= "3"
