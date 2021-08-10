@@ -1,7 +1,7 @@
 import logging
 import datetime
 from sqlalchemy import sql
-from sqlalchemy.orm.query import Bundle
+from sqlalchemy.orm import Bundle
 from flask import Blueprint, render_template, request
 from acoustid.web import db
 from acoustid.web.utils import require_admin
