@@ -63,7 +63,7 @@ statsd==3.3.0
 subprocess32==3.5.4 ; python_version < "3.2"
 traitlets==4.3.3          # via ipython
 typing==3.7.4.1
-urllib3==1.25.6           # via requests, sentry-sdk
+urllib3==1.25.11
 uwsgi==2.0.18
 wcwidth==0.1.7            # via prompt-toolkit
 werkzeug==0.16.0
