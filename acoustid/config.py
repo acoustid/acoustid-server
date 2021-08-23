@@ -294,7 +294,16 @@ class LoggingConfig(BaseConfig):
             self.syslog_facility = parser.get(section, 'syslog_facility')
 
     def read_env(self, prefix):
-        pass  # XXX
+        # type: (str) -> None
+        level_names = get_logging_level_names()
+        level_field_prefix = prefix + 'LOGGING_LEVEL'
+        for name, value in os.environ.items():
+            if name.startswith(level_field_prefix):
+                if name == level_field_prefix:
+                    logger_name = ''
+                elif name.startswith(level_field_prefix + '_'):
+                    logger_name = name.replace(level_field_prefix + '_', '').lower().replace('__', '.')
+                self.levels[logger_name] = level_names[value]
 
 
 class WebSiteConfig(BaseConfig):
