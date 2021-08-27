@@ -97,8 +97,10 @@ class IndexClient(Index):
             except select.error as e:
                 if getattr(e, 'errno', None) == errno.EINTR:
                     continue
+                self.close()
                 raise
             if in_error:
+                self.close()
                 raise IndexClientError("socket error")
             if ready_to_read:
                 while True:
@@ -115,6 +117,7 @@ class IndexClient(Index):
                     self._buffer += data
                 pos = self._buffer.find(CRLF)
             if time.time() > deadline:
+                self.close()
                 raise IndexClientError("read timeout exceeded")
         line = self._buffer[:pos]
         self._buffer = self._buffer[pos + len(CRLF):]
@@ -169,10 +172,13 @@ class IndexClient(Index):
 
     def close(self):
         try:
-            if self.in_transaction:
-                self.rollback()
-            self._putline('quit')
-            self.sock.close()
+            if self.sock is not None:
+                if self.in_transaction:
+                    try:
+                        self.rollback()
+                    except Exception:
+                        logger.exception("Error while trying to rollback transaction")
+                self.sock.close()
         except Exception:
             logger.exception("Error while closing connection %s", self)
         self.sock = None
