@@ -111,6 +111,7 @@ class IndexClient(Index):
                             continue
                         if e.errno == errno.EAGAIN:
                             break
+                        self.close()
                         raise
                     if not data:
                         break
