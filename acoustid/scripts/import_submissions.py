@@ -7,6 +7,7 @@ import json
 import logging
 import time
 from typing import Optional, Dict, Any
+from acoustid.indexclient import IndexClientError
 from acoustid.script import Script
 from acoustid.data.submission import import_queued_submissions
 
@@ -16,19 +17,27 @@ logger = logging.getLogger(__file__)
 def do_import(script):
     # type: (Script) -> None
     count = 1
+    retries = 0
+    max_retries = 3
     while count > 0:
-        with script.context() as ctx:
-            ingest_db = ctx.db.get_ingest_db()
-            app_db = ctx.db.get_app_db()
-            fingerprint_db = ctx.db.get_fingerprint_db()
+        try:
+            with script.context() as ctx:
+                ingest_db = ctx.db.get_ingest_db()
+                app_db = ctx.db.get_app_db()
+                fingerprint_db = ctx.db.get_fingerprint_db()
 
-            timeout_ms = 20 * 1000
-            ingest_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
-            app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
-            fingerprint_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+                timeout_ms = 20 * 1000
+                ingest_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+                app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+                fingerprint_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
 
-            count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=10)
-            ctx.db.session.commit()
+                count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=10)
+                ctx.db.session.commit()
+        except IndexClientError:
+            if retries > max_retries:
+                raise
+            retries += 1
+            continue
 
 
 def run_import_on_master(script):

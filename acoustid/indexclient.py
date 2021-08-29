@@ -87,7 +87,9 @@ class IndexClient(Index):
 
     def _putline(self, line):
         # type: (str) -> None
-        self.sock.sendall(b'%s%s' % (line.encode('utf8'), CRLF))
+        request = b'%s%s' % (line.encode('utf8'), CRLF)
+        logger.debug("Sending request %r", request)
+        self.sock.sendall(request)
 
     def _getline(self, timeout=None):
         pos = self._buffer.find(CRLF)
@@ -103,6 +105,7 @@ class IndexClient(Index):
                 self.close()
                 raise
             if in_error:
+                logger.debug("Failed to receive response due to select error")
                 self.close()
                 raise IndexClientError("socket error")
             if ready_to_read:
@@ -114,6 +117,7 @@ class IndexClient(Index):
                             continue
                         if e.errno == errno.EAGAIN:
                             break
+                        logger.debug("Failed to receive response due to socket error")
                         self.close()
                         raise
                     if not data:
@@ -121,9 +125,11 @@ class IndexClient(Index):
                     self._buffer += data
                 pos = self._buffer.find(CRLF)
             if time.time() > deadline:
+                logger.debug("Failed to receive response due to timeout")
                 self.close()
                 raise IndexClientError("read timeout exceeded")
         line = self._buffer[:pos]
+        logger.debug("Received response %r", line)
         self._buffer = self._buffer[pos + len(CRLF):]
         return line.decode('utf8')
 
