@@ -138,6 +138,8 @@ class IndexClient(Index):
         line = self._getline(timeout=timeout)
         if line.startswith('OK '):
             return line[3:]
+        if 'unknown command' in line:
+            self.close()
         raise IndexClientError(line)
 
     def ping(self):
