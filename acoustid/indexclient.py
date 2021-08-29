@@ -243,12 +243,15 @@ class IndexClientPool(object):
             client.close()
 
     def _release(self, client):
-        if len(self.clients) >= self.max_idle_clients:
-            logger.debug("Too many idle connections, closing %s", client)
-            client.close()
+        if client.sock is None:
+            logger.debug("Discarding closed connection %s", client)
         else:
-            logger.debug("Checking in connection %s", client)
-            self.clients.append(client)
+            if len(self.clients) >= self.max_idle_clients:
+                logger.debug("Too many idle connections, closing %s", client)
+                client.close()
+            else:
+                logger.debug("Checking in connection %s", client)
+                self.clients.append(client)
 
     def connect(self):
         # type: () -> IndexClientWrapper
