@@ -57,7 +57,7 @@ sqlalchemy==1.3.9
 statsd==3.3.0
 traitlets==4.3.3          # via ipython
 typing==3.7.4.1
-urllib3==1.25.11          # via requests, sentry-sdk
+urllib3==1.25.5          # via requests, sentry-sdk
 uwsgi==2.0.18
 wcwidth==0.1.7            # via prompt-toolkit
 werkzeug==0.16.0
