@@ -64,7 +64,8 @@ class IndexClient(Index):
 
     def __str__(self):
         if self.sock is not None:
-            return '{}->{}'.format(self.sock.getsockname(), self.sock.getpeername())
+            client_host, client_port = self.sock.getsockname()
+            return '{}:{}->{}:{}'.format(client_host, client_port, self.host, self.port)
         else:
             return '{}:{}'.format(self.host, self.port)
 
