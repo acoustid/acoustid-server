@@ -63,7 +63,10 @@ class IndexClient(Index):
         self._connect()
 
     def __str__(self):
-        return '{}:{}'.format(self.host, self.port)
+        if self.sock is not None:
+            return '{}->{}'.format(self.sock.getsockname(), self.sock.getpeername())
+        else:
+            return '{}:{}'.format(self.host, self.port)
 
     def __repr__(self):
         return '<%s(%s, %s) instance at %s>' % (self.__class__.__name__,
@@ -225,8 +228,10 @@ class IndexClientPool(object):
         self.args = kwargs
 
     def dispose(self):
+        logger.debug("Closing all connections")
         while self.clients:
             client = self.clients.popleft()
+            logger.debug("Closing connection %s", client)
             client.close()
 
     def _release(self, client):
@@ -234,7 +239,7 @@ class IndexClientPool(object):
             logger.debug("Too many idle connections, closing %s", client)
             client.close()
         else:
-            # logger.debug("Checking in connection %s", client)
+            logger.debug("Checking in connection %s", client)
             self.clients.append(client)
 
     def connect(self):
@@ -253,5 +258,5 @@ class IndexClientPool(object):
                 client = None
         if client is None:
             client = IndexClient(**self.args)
-        # logger.debug("Checking out connection %s", client)
+        logger.debug("Checking out connection %s", client)
         return IndexClientWrapper(self, client)
