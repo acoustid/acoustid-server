@@ -4,7 +4,7 @@ RUN apt-get update && \
     apt-get install -y \
         python python-dev gcc \
         libchromaprint0 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
-        curl
+        curl nginx
 
 RUN curl -Lo /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 && \
     chmod +x /usr/local/bin/dumb-init
