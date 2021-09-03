@@ -334,6 +334,8 @@ class WebSiteConfig(BaseConfig):
             self.maintenance = parser.getboolean(section, 'maintenance')
         if parser.has_option(section, 'shutdown_delay'):
             self.shutdown_delay = parser.getint(section, 'shutdown_delay')
+        if parser.has_option(section, 'shutdown_file'):
+            self.shutdown_file_path = parser.getint(section, 'shutdown_file')
         if parser.has_option(section, 'search_timeout'):
             self.search_timeout = parser.getfloat(section, 'search_timeout')
         if parser.has_option(section, 'search_return_metadata'):
@@ -348,6 +350,7 @@ class WebSiteConfig(BaseConfig):
         read_env_item(self, 'google_oauth_client_id', prefix + 'GOOGLE_OAUTH_CLIENT_ID')
         read_env_item(self, 'google_oauth_client_secret', prefix + 'GOOGLE_OAUTH_CLIENT_SECRET')
         read_env_item(self, 'shutdown_delay', prefix + 'SHUTDOWN_DELAY', convert=int)
+        read_env_item(self, 'shutdown_file_path', prefix + 'SHUTDOWN_FILE')
 
 
 class GunicornConfig(BaseConfig):
