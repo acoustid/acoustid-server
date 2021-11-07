@@ -2,9 +2,20 @@ FROM ubuntu:20.04
 
 RUN apt-get update && \
     apt-get install -y \
-        pypy3 pypy3-dev gcc \
-        libchromaprint1 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev tini \
-        curl nginx
+        apt-transport-https \
+        ca-certificates \
+        software-properties-common
+
+RUN apt-get update && \
+    apt-get install -y \
+        gcc libchromaprint1 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
+        tini curl nginx
+
+RUN add-apt-repository ppa:pypy/ppa && \
+    apt-get update && \
+    apt-get install -y \
+        pypy3 \
+        pypy3-dev \
 
 RUN curl -Lo get-pip.py https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
