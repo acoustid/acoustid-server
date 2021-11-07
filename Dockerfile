@@ -4,7 +4,7 @@ RUN apt-get update && \
     apt-get install -y \
         python3 python3-dev gcc \
         libchromaprint1 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev tini \
-        curl
+        curl nginx
 
 RUN curl -Lo get-pip.py https://bootstrap.pypa.io/get-pip.py. && \
     python get-pip.py && \
