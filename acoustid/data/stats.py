@@ -6,6 +6,7 @@ import datetime
 from six.moves import urllib
 from typing import Dict, Iterable, List, Any, Tuple, Optional
 from sqlalchemy import sql
+from sqlalchemy.dialects.postgresql import insert
 from acoustid import tables as schema
 from acoustid.db import AppDB
 
@@ -141,8 +142,7 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
         column = schema.stats_lookups.c.count_nohits
 
     insert_stmt = (
-        schema.stats_lookups
-        .insert()
+        insert(schema.stats_lookups)
         .values({
             schema.stats_lookups.c.application_id: application_id,
             schema.stats_lookups.c.date: date,
@@ -151,7 +151,7 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
         })
     )
 
-    upsert_stmt = insert_stmt.on_conflict_do_update(  # type: ignore
+    upsert_stmt = insert_stmt.on_conflict_do_update(
         index_elements=[schema.stats_lookups.c.application_id, schema.stats_lookups.c.date, schema.stats_lookups.c.hour],
         set_={
             column: column + count,
@@ -165,7 +165,7 @@ def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
     # type: (AppDB, int, str, str, str, int) -> None
 
     insert_stmt = (
-        schema.stats_user_agents.insert()
+        insert(schema.stats_user_agents)
         .values({
             schema.stats_user_agents.c.application_id: application_id,
             schema.stats_user_agents.c.date: date,
@@ -175,7 +175,7 @@ def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
         })
     )
 
-    upsert_stmt = insert_stmt.on_conflict_do_update(  # type: ignore
+    upsert_stmt = insert_stmt.on_conflict_do_update(
         index_elements=[
             schema.stats_user_agents.c.application_id,
             schema.stats_user_agents.c.date,
