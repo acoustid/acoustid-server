@@ -70,7 +70,13 @@ jobs:
 
       - name: Run tests
         run: |
-          tox -e ${PYTHON_VERSION/-/}
+          if [[ $PYTHON_VERSION =~ ^pypy ]]
+          then
+            TOX_ENV=${PYTHON_VERSION/-/}
+          else
+            TOX_ENV=py${PYTHON_VERSION}
+          fi
+          tox -e $TOX_ENV
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
           ACOUSTID_TEST_DATABASE_APP_HOST: localhost
