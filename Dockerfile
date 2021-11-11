@@ -23,7 +23,7 @@ RUN curl -Lo get-pip.py https://bootstrap.pypa.io/get-pip.py && \
 
 ADD requirements.txt /tmp/requirements.txt
 
-RUN virtualenv -p pypy3 /opt/acoustid/server.venv && \
+RUN virtualenv -p python3 /opt/acoustid/server.venv && \
     /opt/acoustid/server.venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
 
 WORKDIR /opt/acoustid/server/
