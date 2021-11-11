@@ -14,14 +14,14 @@ RUN apt-get update && \
 RUN add-apt-repository ppa:pypy/ppa && \
     apt-get update && \
     apt-get install -y \
-        pypy3 \
-        pypy3-dev \
+        python3 \
+        python3-dev
 
 RUN curl -Lo get-pip.py https://bootstrap.pypa.io/get-pip.py && \
     python get-pip.py && \
     pip install virtualenv
 
-ADD requirements_py3.txt /tmp/requirements.txt
+ADD requirements.txt /tmp/requirements.txt
 
 RUN virtualenv -p pypy3 /opt/acoustid/server.venv && \
     /opt/acoustid/server.venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
