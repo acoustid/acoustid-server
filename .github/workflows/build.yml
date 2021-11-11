@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python_version: [ '2.7', '3.7', '3.8', 'pypy-3.7', 'pypy-3.8' ]
+        python_version: [ '3.7', '3.8', 'pypy-3.7', 'pypy-3.8' ]
 
     services:
       postgresql:
@@ -50,12 +50,7 @@ jobs:
 
       - name: Lint on the source code
         run: |
-          if [[ $PYTHON_VERSION =~ ^2 ]]
-          then
-            tox -e flake8-py2
-          else
-            tox -e mypy-py3,mypy-py2,flake8-py3
-          fi
+          tox -e mypy,flake8
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
 
@@ -75,12 +70,7 @@ jobs:
 
       - name: Run tests
         run: |
-          if [[ $PYTHON_VERSION =~ ^2 ]]
-          then
-            tox -e py2
-          else
-            tox -e py3
-          fi
+          tox -e ${PYTHON_VERSION/-/}
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
           ACOUSTID_TEST_DATABASE_APP_HOST: localhost
