@@ -2,23 +2,12 @@ FROM ubuntu:20.04
 
 RUN apt-get update && \
     apt-get install -y \
-        apt-transport-https \
-        ca-certificates \
-        software-properties-common
-
-RUN apt-get update && \
-    apt-get install -y \
+        python3 python3-dev \
         gcc libchromaprint1 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
         tini curl nginx
 
-RUN add-apt-repository ppa:pypy/ppa && \
-    apt-get update && \
-    apt-get install -y \
-        python3 \
-        python3-dev
-
 RUN curl -Lo get-pip.py https://bootstrap.pypa.io/get-pip.py && \
-    python get-pip.py && \
+    python3 get-pip.py && \
     pip install virtualenv
 
 ADD requirements.txt /tmp/requirements.txt
