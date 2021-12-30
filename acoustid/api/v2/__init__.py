@@ -620,8 +620,9 @@ class LookupHandler(APIHandler):
         return seen
 
     def handle(self, req):
+        # type: (Request) -> Response
         self.ctx.db.set_auto_commit(True)
-        super(LookupHandler, self).handle(req)
+        return super(LookupHandler, self).handle(req)
 
     def _handle_internal(self, params):
         # type: (APIHandlerParams) -> Dict[str, Any]
