@@ -619,11 +619,6 @@ class LookupHandler(APIHandler):
             results.append(result)
         return seen
 
-    def handle(self, req):
-        # type: (Request) -> Response
-        self.ctx.db.set_auto_commit(True)
-        return super(LookupHandler, self).handle(req)
-
     def _handle_internal(self, params):
         # type: (APIHandlerParams) -> Dict[str, Any]
         assert isinstance(params, LookupHandlerParams)
@@ -669,6 +664,8 @@ class LookupHandler(APIHandler):
                     statsd.incr('api.lookup.matches', len(matches))
                     statsd.timing('api.lookup.fingerprint_search', fingerprint_search_t1 - fingerprint_search_t0)
             all_matches.append(matches)
+
+        self.ctx.db.session.close()
 
         response = {}  # type: Dict[str, Any]
         if params.batch:
