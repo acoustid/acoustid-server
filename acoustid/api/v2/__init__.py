@@ -619,6 +619,10 @@ class LookupHandler(APIHandler):
             results.append(result)
         return seen
 
+    def handle(self, req):
+        self.ctx.db.set_auto_commit(True)
+        super(LookupHandler, self).handle(req)
+
     def _handle_internal(self, params):
         # type: (APIHandlerParams) -> Dict[str, Any]
         assert isinstance(params, LookupHandlerParams)
