@@ -154,7 +154,7 @@ def update_lookup_stats(db, application_id, date, hour, type, count):
     upsert_stmt = insert_stmt.on_conflict_do_update(
         index_elements=[schema.stats_lookups.c.application_id, schema.stats_lookups.c.date, schema.stats_lookups.c.hour],
         set_={
-            column: column + count,
+            column.name: column + count,
         },
     )
 
@@ -183,7 +183,7 @@ def update_user_agent_stats(db, application_id, date, user_agent, ip, count):
             schema.stats_user_agents.c.ip,
         ],
         set_={
-            schema.stats_user_agents.c.count: schema.stats_user_agents.c.count + count,
+            schema.stats_user_agents.c.count.name: schema.stats_user_agents.c.count + count,
         },
     )
 
