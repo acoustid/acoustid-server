@@ -46,7 +46,7 @@ class DatabaseContext(object):
         # type: (Script, Optional[bool]) -> None
         self.engines = script.db_engines
         self.session = Session(**get_session_args(script, use_two_phase_commit=use_two_phase_commit))
-        self.execution_options = {}
+        self.execution_options = {}  # type: Dict[str, Any]
 
     def set_auto_commit(self, enable):
         # type: (bool) -> None
