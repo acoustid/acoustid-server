@@ -46,6 +46,15 @@ class DatabaseContext(object):
         # type: (Script, Optional[bool]) -> None
         self.engines = script.db_engines
         self.session = Session(**get_session_args(script, use_two_phase_commit=use_two_phase_commit))
+        self.execution_options = {}
+
+    def set_auto_commit(self, enable):
+        # type: (bool) -> None
+        self.session.close()
+        if enable:
+            self.execution_options['isolation_level'] = 'AUTOCOMMIT'
+        elif 'isolation_level' in self.execution_options:
+            del self.execution_options['isolation_level']
 
     def connection(self, bind_key, read_only=False):
         # type: (str, bool) -> Connection
@@ -53,7 +62,7 @@ class DatabaseContext(object):
             read_only_bind_key = bind_key + ':ro'
             if read_only_bind_key in self.engines:
                 bind_key = read_only_bind_key
-        return self.session.connection(bind=self.engines[bind_key])
+        return self.session.connection(bind=self.engines[bind_key], execution_options=self.execution_options)
 
     def get_app_db(self, read_only=False):
         # type: (bool) -> AppDB
