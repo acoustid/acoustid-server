@@ -198,15 +198,7 @@ a:hover {
   font-weight: bold;
 }
 
-.donate-header {
-  font-size: 14px;
-  background-color: #ffefd7;
-  font-weight: bold;
-}
-
-.maintenance-header p,
-.donate-header p,
-.donate-header form {
+.maintenance-header p {
   margin: 10px 0;
 }
 
