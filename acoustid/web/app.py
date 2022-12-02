@@ -1,5 +1,4 @@
 import os
-import datetime
 import pickle
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
