@@ -36,6 +36,10 @@ a:hover {
 	text-decoration: underline;
 }
 
+a:visited {
+	color: revert;
+}
+
 .navbar {
   margin-bottom: 10px;
 }
