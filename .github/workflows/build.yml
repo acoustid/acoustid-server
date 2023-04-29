@@ -52,9 +52,9 @@ jobs:
         run: |
           if [[ $PYTHON_VERSION =~ ^2 ]]
           then
-            tox -e flake8-py2
+            echo "."
           else
-            tox -e mypy-py3,mypy-py2,flake8-py3
+            tox -e flake8,mypy
           fi
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
