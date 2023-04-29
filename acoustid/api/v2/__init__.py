@@ -850,6 +850,9 @@ class SubmitHandler(APIHandler):
 
         self.ctx.redis.publish('channel.submissions', json.dumps(list(ids)))
 
+        if self.ctx.statsd is not None:
+            self.ctx.statsd.incr('new_submissions', len(ids))
+
         ingest_db = self.ctx.db.get_ingest_db()
         fingerprint_db = self.ctx.db.get_fingerprint_db()
 
