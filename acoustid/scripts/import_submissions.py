@@ -33,6 +33,10 @@ def do_import(script):
 
                 count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=10)
                 ctx.db.session.commit()
+
+                if ctx.statsd is not None:
+                    ctx.statsd.incr('imported_submissions', count)
+
                 retries = 0
         except IndexClientError:
             if retries > max_retries:
