@@ -7,10 +7,10 @@ on:
 jobs:
 
   test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        python_version: [ '3.7', '3.8' ]
+        python_version: [ '3.8', '3.10' ]
 
     services:
       postgresql:
@@ -38,10 +38,10 @@ jobs:
     steps:
 
       - name: Checkout source code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
 
       - name: Install python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python_version }}
 
@@ -49,8 +49,7 @@ jobs:
         run: pip install tox
 
       - name: Lint on the source code
-        run: |
-          tox -e flake8,mypy
+        run: tox -e flake8,mypy
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
 
@@ -69,8 +68,7 @@ jobs:
           PGDATABASE: postgres
 
       - name: Run tests
-        run: |
-          tox -e py${PYTHON_VERSION}
+        run: tox -e py${PYTHON_VERSION}
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
           ACOUSTID_TEST_DATABASE_APP_HOST: localhost
@@ -101,7 +99,7 @@ jobs:
     steps:
     
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
 
       - name: Check version details
         id: info
