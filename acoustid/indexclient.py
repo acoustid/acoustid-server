@@ -56,6 +56,7 @@ class IndexClient(Index):
         self.port = port
         self.timeout = timeout
         self.socket_timeout = 0.25
+        self.connect_timeout = self.socket_timeout * 4
         self.in_transaction = False
         self.created = time.time()
         self.sock = None
@@ -80,7 +81,7 @@ class IndexClient(Index):
     def _connect(self):
         logger.debug("Connecting to index server at %s:%s", self.host, self.port)
         try:
-            self.sock = socket.create_connection((self.host, self.port), self.socket_timeout)
+            self.sock = socket.create_connection((self.host, self.port), self.connect_timeout)
             self.sock.setblocking(0)
         except socket.error as e:
             raise IndexClientError('unable to connect to the index server at %s:%s (%s)' % (self.host, self.port, e))
