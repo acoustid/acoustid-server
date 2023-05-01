@@ -7,10 +7,10 @@ on:
 jobs:
 
   test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        python_version: [ '2.7', '3.8' ]
+        python_version: [ '3.8', '3.10' ]
 
     services:
       postgresql:
@@ -52,12 +52,7 @@ jobs:
 
       - name: Lint on the source code
         run: |
-          if [[ $PYTHON_VERSION =~ ^2 ]]
-          then
-            echo "."
-          else
             tox -e flake8,mypy
-          fi
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
 
@@ -77,12 +72,7 @@ jobs:
 
       - name: Run tests
         run: |
-          if [[ $PYTHON_VERSION =~ ^2 ]]
-          then
-            tox -e py2
-          else
-            tox -e py3
-          fi
+          tox -e py${{ matrix.python_version }}
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
           ACOUSTID_TEST_DATABASE_APP_HOST: localhost
@@ -107,7 +97,7 @@ jobs:
           ACOUSTID_TEST_INDEX_PORT: ${{ job.services.index.ports['6080'] }}
 
   build-base:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [ test ]
 
     steps:
@@ -136,7 +126,7 @@ jobs:
           docker push ${{ steps.info.outputs.IMAGE }}:${{ steps.info.outputs.VERSION }}
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [ build-base ]
     strategy:
       matrix:
