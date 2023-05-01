@@ -68,10 +68,11 @@ mako==1.1.0
     # via alembic
 markdown==3.1.1
     # via -r requirements.in
-markupsafe==1.1.1
+markupsafe==2.1.2
     # via
     #   jinja2
     #   mako
+    #   werkzeug
 mbdata==25.0.0
     # via -r requirements.in
 ndg-httpsclient==0.5.1
@@ -148,13 +149,13 @@ uwsgi==2.0.21
     # via -r requirements.in
 wcwidth==0.1.7
     # via prompt-toolkit
-werkzeug==0.16.0
+werkzeug==2.2.3
     # via
     #   -r requirements.in
     #   flask
-zope.event==4.5.0
+zope-event==4.5.0
     # via gevent
-zope.interface==5.2.0
+zope-interface==5.2.0
     # via gevent
 
 # The following packages are considered to be unsafe in a requirements file:
