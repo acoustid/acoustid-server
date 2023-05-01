@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python_version: [ '2.7', '3.7' ]
+        python_version: [ '2.7', '3.8' ]
 
     services:
       postgresql:
@@ -45,6 +45,7 @@ jobs:
         with:
           python-version: ${{ matrix.python_version }}
           cache: pip
+          cache-dependency-path: requirements*.txt
 
       - name: Install tox
         run: pip install tox
