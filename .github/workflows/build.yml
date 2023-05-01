@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python_version: [ '2.7', '3.7' ]
+        python_version: [ '2.7', '3.8' ]
 
     services:
       postgresql:
@@ -38,12 +38,14 @@ jobs:
     steps:
 
       - name: Checkout source code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
 
       - name: Install python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python_version }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
 
       - name: Install tox
         run: pip install tox
@@ -111,7 +113,7 @@ jobs:
     steps:
     
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
 
       - name: Check version details
         id: info
@@ -148,7 +150,7 @@ jobs:
     steps:
     
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
 
       - name: Check version details
         id: info
