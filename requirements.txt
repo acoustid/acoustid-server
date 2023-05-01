@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=requirements.txt requirements.in
 #
-alembic==1.2.1
+alembic==1.7.7
     # via -r requirements.in
 attrs==19.2.0
     # via -r requirements.in
@@ -52,6 +52,10 @@ gunicorn==20.1.0
     # via -r requirements.in
 idna==2.8
     # via requests
+importlib-metadata==4.8.3
+    # via alembic
+importlib-resources==5.4.0
+    # via alembic
 ipython==7.8.0
     # via -r requirements.in
 ipython-genutils==0.2.0
@@ -102,10 +106,6 @@ pyopenssl==19.0.0
     # via
     #   -r requirements.in
     #   ndg-httpsclient
-python-dateutil==2.8.0
-    # via alembic
-python-editor==1.0.4
-    # via alembic
 python3-openid==3.1.0 ; python_version >= "3"
     # via -r requirements.in
 pytz==2019.3
@@ -128,7 +128,6 @@ six==1.14.0
     #   mbdata
     #   prompt-toolkit
     #   pyopenssl
-    #   python-dateutil
     #   traitlets
 sqlalchemy==1.3.9
     # via
@@ -140,6 +139,8 @@ traitlets==4.3.3
     # via ipython
 typing==3.7.4.1
     # via -r requirements.in
+typing-extensions==4.1.1
+    # via importlib-metadata
 urllib3==1.26.15
     # via
     #   requests
@@ -152,6 +153,10 @@ werkzeug==0.16.0
     # via
     #   -r requirements.in
     #   flask
+zipp==3.6.0
+    # via
+    #   importlib-metadata
+    #   importlib-resources
 zope.event==4.5.0
     # via gevent
 zope.interface==5.2.0
