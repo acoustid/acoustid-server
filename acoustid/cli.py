@@ -65,7 +65,7 @@ def run_import_cmd(config):
     # type: (str) -> None
     """Run import."""
     script = Script(config)
-    script.setup_console_logging()
+    script.setup_console_logging(verbose=True)
     script.setup_sentry()
     run_import(script)
 

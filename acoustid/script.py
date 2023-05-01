@@ -99,12 +99,14 @@ class Script(object):
         else:
             self.setup_console_logging()
 
-    def setup_console_logging(self, quiet=False):
+    def setup_console_logging(self, quiet=False, verbose=False):
         # type: (bool) -> None
         if self._console_logging_configured:
             return
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter('[%(asctime)s] [%(process)s] [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S %z'))
+        if verbose:
+            handler.setLevel(logging.DEBUG)
         if quiet:
             handler.setLevel(logging.ERROR)
         logging.getLogger().addHandler(handler)
