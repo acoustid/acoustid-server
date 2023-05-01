@@ -16,7 +16,7 @@ blinker==1.4
     #   sentry-sdk
 cachetools==4.2.1
     # via -r requirements.in
-certifi==2019.9.11
+certifi==2022.12.7
     # via
     #   requests
     #   sentry-sdk
@@ -152,9 +152,9 @@ werkzeug==0.16.0
     # via
     #   -r requirements.in
     #   flask
-zope.event==4.5.0
+zope-event==4.5.0
     # via gevent
-zope.interface==5.2.0
+zope-interface==5.2.0
     # via gevent
 
 # The following packages are considered to be unsafe in a requirements file:
