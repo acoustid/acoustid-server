@@ -177,6 +177,7 @@ class APIHandler(Handler):
             try:
                 try:
                     params.parse(req.values, self.ctx.db)
+                    self.ctx.db.session.close()
                     application_id = getattr(params, 'application_id', None)
                     if self.ctx.statsd is not None:
                         request_type = self.__class__.__name__
