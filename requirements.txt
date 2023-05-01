@@ -20,7 +20,7 @@ certifi==2019.9.11
     # via
     #   requests
     #   sentry-sdk
-cffi==1.12.3
+cffi==1.15.1
     # via cryptography
 charset-normalizer==2.0.12
     # via requests
@@ -144,7 +144,7 @@ urllib3==1.26.15
     # via
     #   requests
     #   sentry-sdk
-uwsgi==2.0.18
+uwsgi==2.0.21
     # via -r requirements.in
 wcwidth==0.1.7
     # via prompt-toolkit
