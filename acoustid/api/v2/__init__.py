@@ -446,7 +446,7 @@ class LookupHandler(APIHandler):
                             del release['artists']
             for recording_el in recording_els[recording['id']]:
                 if 'usermeta' in meta:
-                    if isinstance(recording['id'], int):
+                    if isinstance(recording.get('id'), int):
                         del recording['id']
                         if 'title' in recording and not recording['title']:
                             del recording['title']
