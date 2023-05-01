@@ -7,7 +7,6 @@ import json
 import logging
 import time
 from typing import Optional, Dict, Any
-from acoustid.indexclient import IndexClientError
 from acoustid.script import Script
 from acoustid.data.submission import import_queued_submissions
 
@@ -15,7 +14,8 @@ logger = logging.getLogger(__file__)
 
 
 def do_import(script):
-    # type: (Script) -> None
+    # type: (Script) -> int
+    total_count = 0
     count = 1
     while count > 0:
         with script.context() as ctx:
@@ -34,31 +34,35 @@ def do_import(script):
             if ctx.statsd is not None:
                 ctx.statsd.incr('imported_submissions', count)
 
+            total_count += count
+
+    return total_count
+
 
 def run_import_on_master(script):
     # type: (Script) -> None
     logger.info('Importer running in master mode')
     # listen for new submissins and import them as they come
-    with script.context() as ctx:
-        channel = ctx.redis.pubsub()
-        channel.subscribe('channel.submissions')
-        while True:
-            message = channel.get_message(timeout=10)  # type: Optional[Dict[str, Any]]
-            if message is not None:
-                if message['type'] != 'message':
-                    continue
-                try:
-                    ids = json.loads(message['data'])
-                except Exception:
-                    logger.exception('Invalid notification message: %r', message)
-                    ids = []
-                logger.debug('Got notified about %s new submissions', len(ids))
-            try:
-                do_import(script)
-            except Exception:
-                logger.exception('Failed to import submissions')
-                ctx.db.session.rollback()
-            logger.debug('Waiting for the next event...')
+
+    min_delay = 1.0
+    max_delay = 10.0
+    delay_update_coefficient = 1.3
+
+    delay = min_delay
+
+    while True:
+        try:
+            imported = do_import(script)
+        except Exception:
+            logger.exception('Failed to import submissions')
+            imported = 0
+
+        if imported == 0:
+            delay = min(delay * delay_update_coefficient, max_delay)
+        else:
+            delay = max(delay / delay_update_coefficient, min_delay)
+
+        logger.debug('Waiting %s seconds...', delay)
 
 
 def run_import_on_slave(script):

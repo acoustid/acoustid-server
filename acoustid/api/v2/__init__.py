@@ -816,7 +816,6 @@ class SubmitHandler(APIHandler):
         response = {'submissions': []}  # type: Dict[str, Any]
         ids = set()  # type: Set[int]
 
-        fingerprint_db = self.ctx.db.get_fingerprint_db()
         ingest_db = self.ctx.db.get_ingest_db()
 
         for p in params.submissions:
@@ -848,37 +847,7 @@ class SubmitHandler(APIHandler):
         self.ctx.db.session.flush()
         self.ctx.db.session.commit()
 
-        self.ctx.redis.publish('channel.submissions', json.dumps(list(ids)))
-
         if self.ctx.statsd is not None:
             self.ctx.statsd.incr('new_submissions', len(ids))
-
-        ingest_db = self.ctx.db.get_ingest_db()
-        fingerprint_db = self.ctx.db.get_fingerprint_db()
-
-        clients_waiting_key = 'submission.waiting'
-        clients_waiting = self.ctx.redis.incr(clients_waiting_key) - 1
-        try:
-            max_wait = 0
-            self.ctx.redis.expire(clients_waiting_key, max_wait)
-            remaining = min(max(0, max_wait - 2 ** clients_waiting), params.wait)
-            logger.debug('starting to wait at %f %d', remaining, clients_waiting)
-            while remaining > 0 and ids:
-                logger.debug('waiting %f seconds', remaining)
-                time.sleep(0.5)  # XXX replace with LISTEN/NOTIFY
-                remaining -= 0.5
-                tracks = lookup_submission_status(ingest_db, fingerprint_db, ids)
-                if not tracks:
-                    continue
-                for submission in response['submissions']:
-                    submission_id = submission['id']
-                    assert isinstance(submission_id, int)
-                    track_gid = tracks.get(submission_id)
-                    if track_gid is not None:
-                        submission['status'] = 'imported'
-                        submission['result'] = {'id': track_gid}
-                        ids.remove(submission_id)
-        finally:
-            self.ctx.redis.decr(clients_waiting_key)
 
         return response
