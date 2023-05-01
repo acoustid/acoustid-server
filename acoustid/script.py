@@ -112,7 +112,7 @@ class Script(object):
 
     def setup_sentry(self):
         # type: () -> None
-        sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE)
+        sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE, sample_rate=0.01)
 
     def context(self, use_two_phase_commit=None):
         # type: (Optional[bool]) -> ScriptContext

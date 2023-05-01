@@ -326,8 +326,8 @@ class WebSiteConfig(BaseConfig):
         read_config_secret_str_option(parser, section, self, 'secret', 'secret')
         read_config_secret_str_option(parser, section, self, 'mb_oauth_client_id', 'mb_oauth_client_id')
         read_config_secret_str_option(parser, section, self, 'mb_oauth_client_secret', 'mb_oauth_client_secret')
-        read_config_secret_str_option(parser, section, self, 'google_oauth_client_id', 'mb_oauth_client_id')
-        read_config_secret_str_option(parser, section, self, 'google_oauth_client_secret', 'mb_oauth_client_secret')
+        read_config_secret_str_option(parser, section, self, 'google_oauth_client_id', 'google_oauth_client_id')
+        read_config_secret_str_option(parser, section, self, 'google_oauth_client_secret', 'google_oauth_client_secret')
         if parser.has_option(section, 'debug'):
             self.debug = parser.getboolean(section, 'debug')
         if parser.has_option(section, 'maintenance'):

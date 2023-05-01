@@ -1,82 +1,86 @@
 html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
 }
 
 body {
-  font-family: 'Open Sans', sans;
-  font-weight: 400;
-  font-size: 14px;
-  margin-bottom: 80px;
+    font-family: 'Open Sans', sans;
+    font-weight: 400;
+    font-size: 14px;
+    margin-bottom: 80px;
 }
 
 @media (min-width: 768px) {
-  .container {
-    width: 750px;
-  }
+    .container {
+        width: 750px;
+    }
 }
 @media (min-width: 992px) {
-  .container {
-    width: 860px;
-  }
+    .container {
+        width: 860px;
+    }
 }
 @media (min-width: 1200px) {
-  .container {
-    width: 920px;
-  }
+    .container {
+        width: 920px;
+    }
 }
 
 a {
-	color: #0145aa;
-	text-decoration: none;
+    color: #0145aa;
+    text-decoration: none;
 }
 
 a:hover {
-	color: #aa0000;
-	text-decoration: underline;
+    color: #aa0000;
+    text-decoration: underline;
+}
+
+a:visited {
+    color: revert;
 }
 
 .navbar {
-  margin-bottom: 10px;
+    margin-bottom: 10px;
 }
 
 .navbar-default {
-  border: none;
-  background-color: inherit;
+    border: none;
+    background-color: inherit;
 }
 
 .navbar-brand {
-  padding: 13px 15px 13px 15px;
+    padding: 13px 15px 13px 15px;
 }
 
 .navbar-brand a {
-	text-decoration: none;
+    text-decoration: none;
 }
 
 .navbar-default .navbar-brand img {
-  height: 24px;
+    height: 24px;
 }
 
 .navbar-default .navbar-brand small {
-  font-size: 0.7em;
-  padding-left: 1em;
+    font-size: 0.7em;
+    padding-left: 1em;
 }
 
 @media (max-width: 992px) {
-  .navbar-default .navbar-brand small {
-    display: none;
-  }
+    .navbar-default .navbar-brand small {
+        display: none;
+    }
 }
 
 .navbar-nav > li > a {
-  padding-left: 15px;
-  padding-right: 15px;
+    padding-left: 15px;
+    padding-right: 15px;
 }
 
 .navbar-default .navbar-nav > .open > a,
 .navbar-default .navbar-nav > li > a {
-	color: #0145aa;
-  font-weight: 600;
+    color: #0145aa;
+    font-weight: 600;
 }
 
 .navbar-default .navbar-nav > .open > a:hover,
@@ -85,18 +89,18 @@ a:hover {
 .navbar-default .navbar-nav > .active > a:focus,
 .navbar-default .navbar-nav > li > a:hover,
 .navbar-default .navbar-nav > li > a:focus {
-	color: #a00;
+    color: #a00;
 }
 
 .content {
-  margin-bottom: 1em;
+    margin-bottom: 1em;
 }
 
 .content p,
 .content td,
 .content th,
 .content li {
-  line-height: 1.8;
+    line-height: 1.8;
 }
 
 .content h1,
@@ -106,22 +110,22 @@ a:hover {
 .content h5,
 .content h6
 {
-  font-family: 'Roboto', sans;
-  font-weight: 300;
-  margin-bottom: 0.7em;
+    font-family: 'Roboto', sans;
+    font-weight: 300;
+    margin-bottom: 0.7em;
 }
 
 .content h2 {
-  font-size: 26px;
+    font-size: 26px;
 }
 
 .content h3 {
-  font-size: 18px;
+    font-size: 18px;
 }
 
 .content h4 {
-  font-size: 15px;
-  font-weight: 600;
+    font-size: 15px;
+    font-weight: 600;
 }
 
 .login-block {
@@ -157,61 +161,53 @@ a:hover {
 }
 
 .chart {
-  height: 250px;
+    height: 250px;
 }
 
 .indented {
-  padding-left: 2em !important;
+    padding-left: 2em !important;
 }
 
 .narrow {
-  width: 10em;
+    width: 10em;
 }
 
 .footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 80px;
-  font-size: 90%;
-  color: #999;
-  text-align: center;
-  background-color: #f9f9f9;
-  border-top: 1px solid #e5e5e5;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 80px;
+    font-size: 90%;
+    color: #999;
+    text-align: center;
+    background-color: #f9f9f9;
+    border-top: 1px solid #e5e5e5;
 }
 
 .footer p {
-  margin: 10px 0;
+    margin: 10px 0;
 }
 
 .footer p:first-child {
-  margin-top: 15px;
+    margin-top: 15px;
 }
 
 .footer p:last-child {
-  margin-bottom: 15px;
+    margin-bottom: 15px;
 }
 
 .maintenance-header {
-  font-size: 14px;
-  background-color: #ffdfd7;
-  font-weight: bold;
+    font-size: 14px;
+    background-color: #ffdfd7;
+    font-weight: bold;
 }
 
-.donate-header {
-  font-size: 14px;
-  background-color: #ffefd7;
-  font-weight: bold;
-}
-
-.maintenance-header p,
-.donate-header p,
-.donate-header form {
-  margin: 10px 0;
+.maintenance-header p {
+    margin: 10px 0;
 }
 
 .list-nopadding {
-  padding-left: 1.5em;
+    padding-left: 1.5em;
 }
 
 .mbid-disabled td {

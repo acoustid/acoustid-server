@@ -665,6 +665,8 @@ class LookupHandler(APIHandler):
                     statsd.timing('api.lookup.fingerprint_search', fingerprint_search_t1 - fingerprint_search_t0)
             all_matches.append(matches)
 
+        self.ctx.db.session.close()
+
         response = {}  # type: Dict[str, Any]
         if params.batch:
             response['fingerprints'] = fps = []
@@ -847,6 +849,9 @@ class SubmitHandler(APIHandler):
         self.ctx.db.session.commit()
 
         self.ctx.redis.publish('channel.submissions', json.dumps(list(ids)))
+
+        if self.ctx.statsd is not None:
+            self.ctx.statsd.incr('new_submissions', len(ids))
 
         ingest_db = self.ctx.db.get_ingest_db()
         fingerprint_db = self.ctx.db.get_fingerprint_db()

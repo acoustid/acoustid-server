@@ -31,8 +31,12 @@ def do_import(script):
                 app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
                 fingerprint_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
 
-                count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=10)
+                count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=1)
                 ctx.db.session.commit()
+
+                if ctx.statsd is not None:
+                    ctx.statsd.incr('imported_submissions', count)
+
                 retries = 0
         except IndexClientError:
             if retries > max_retries:
@@ -59,7 +63,11 @@ def run_import_on_master(script):
                     logger.exception('Invalid notification message: %r', message)
                     ids = []
                 logger.debug('Got notified about %s new submissions', len(ids))
-            do_import(script)
+            try:
+                do_import(script)
+            except Exception:
+                logger.exception('Failed to import submissions')
+                ctx.db.session.rollback()
             logger.debug('Waiting for the next event...')
 
 
