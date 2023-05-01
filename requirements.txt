@@ -22,7 +22,7 @@ certifi==2019.9.11
     #   sentry-sdk
 cffi==1.12.3
     # via cryptography
-chardet==3.0.4
+charset-normalizer==2.0.12
     # via requests
 click==7.0
     # via
@@ -114,13 +114,13 @@ rauth==0.7.3
     # via -r requirements.in
 redis==3.3.8
     # via -r requirements.in
-requests==2.22.0
+requests==2.27.1
     # via
     #   -r requirements.in
     #   rauth
 schedule==0.6.0
     # via -r requirements.in
-sentry-sdk[flask]==0.12.3
+sentry-sdk[flask]==1.21.1
     # via -r requirements.in
 six==1.14.0
     # via
@@ -140,7 +140,7 @@ traitlets==4.3.3
     # via ipython
 typing==3.7.4.1
     # via -r requirements.in
-urllib3==1.25.5
+urllib3==1.26.15
     # via
     #   requests
     #   sentry-sdk
