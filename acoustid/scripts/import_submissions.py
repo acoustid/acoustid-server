@@ -63,7 +63,11 @@ def run_import_on_master(script):
                     logger.exception('Invalid notification message: %r', message)
                     ids = []
                 logger.debug('Got notified about %s new submissions', len(ids))
-            do_import(script)
+            try:
+                do_import(script)
+            except Exception:
+                logger.exception('Failed to import submissions')
+                ctx.db.session.rollback()
             logger.debug('Waiting for the next event...')
 
 
