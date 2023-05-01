@@ -112,6 +112,9 @@ class APIHandlerParams(object):
         self._parse_format(values)
 
 
+DEFAULT_APPLICATION_RATE_LIMIT = 10
+
+
 class APIHandler(Handler):
 
     params_class = None  # type: Type[APIHandlerParams]
@@ -147,10 +150,11 @@ class APIHandler(Handler):
         if application_id is not None:
             application_rate_limit = self.ctx.config.rate_limiter.applications.get(application_id)
             if application_rate_limit is not None:
-                if self.rate_limiter.limit('app', str(application_id), application_rate_limit):
-                    raise errors.TooManyRequests(application_rate_limit)
-                else:
-                    check_ip_rate_limit = False
+                check_ip_rate_limit = False
+            else:
+                application_rate_limit = DEFAULT_APPLICATION_RATE_LIMIT
+            if self.rate_limiter.limit('app', str(application_id), application_rate_limit):
+                raise errors.TooManyRequests(application_rate_limit)
 
         global_rate_limit = self.ctx.config.rate_limiter.global_rate_limit
         if global_rate_limit is not None:
