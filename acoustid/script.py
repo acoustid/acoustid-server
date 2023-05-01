@@ -100,7 +100,7 @@ class Script(object):
             self.setup_console_logging()
 
     def setup_console_logging(self, quiet=False, verbose=False):
-        # type: (bool) -> None
+        # type: (bool, bool) -> None
         if self._console_logging_configured:
             return
         handler = logging.StreamHandler()
