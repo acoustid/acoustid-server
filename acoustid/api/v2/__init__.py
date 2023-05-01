@@ -638,13 +638,7 @@ class LookupHandler(APIHandler):
 
         update_user_agent_counter(self.ctx.redis, params.application_id, str(self.user_agent), self.user_ip)
 
-        searcher = FingerprintSearcher(
-            self.ctx.db.get_fingerprint_db(read_only=True),
-            self.ctx.index,
-            timeout=self.ctx.config.website.search_timeout,
-        )
         assert params.max_duration_diff is not None
-        searcher.max_length_diff = params.max_duration_diff
 
         if params.batch:
             fingerprints = params.fingerprints
@@ -663,7 +657,14 @@ class LookupHandler(APIHandler):
                     matches = []
             elif isinstance(p, FingerprintLookupQuery):
                 fingerprint_search_t0 = time.time()
+                searcher = FingerprintSearcher(
+                    self.ctx.db.get_fingerprint_db(read_only=True),
+                    self.ctx.index,
+                    timeout=self.ctx.config.website.search_timeout,
+                )
+                searcher.max_length_diff = params.max_duration_diff
                 matches = searcher.search(p.fingerprint, p.duration, max_results=max_results)
+                self.ctx.db.session.close()
                 fingerprint_search_t1 = time.time()
                 if statsd is not None:
                     statsd.incr('api.lookup.matches', len(matches))
