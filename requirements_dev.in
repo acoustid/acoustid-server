@@ -1,5 +1,5 @@
 -c requirements.txt
-nose
+nose-py3<1.4
 flake8
 functools32 ; python_version < "3.2"
 mypy ; python_version >= "3"
