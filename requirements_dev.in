@@ -4,7 +4,6 @@ flake8
 functools32 ; python_version < "3.2"
 mypy ; python_version >= "3"
 sqlalchemy-stubs >= 0.4 ; python_version >= "3"
-grpcio-tools
 types-requests ; python_version >= "3"
 types-click ; python_version >= "3"
 types-flask ; python_version >= "3"
