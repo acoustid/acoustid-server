@@ -1,8 +1,8 @@
-FROM ubuntu:22.04
+FROM ubuntu:20.04
 
 RUN apt-get update && \
     apt-get install -y \
-        python3 python3-dev gcc \
+        python3 python3-dev python3-venv gcc \
         libchromaprint1 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev \
         curl nginx
 
