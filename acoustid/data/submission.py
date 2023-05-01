@@ -204,7 +204,6 @@ def import_queued_submissions(ingest_db, app_db, fingerprint_db, index, limit=10
     for submission in ingest_db.execute(query):
         import_submission(ingest_db, app_db, fingerprint_db, index, submission)
         count += 1
-    logger.info("Imported %d submissions", count)
     return count
 
 

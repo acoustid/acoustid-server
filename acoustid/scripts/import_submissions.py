@@ -53,6 +53,7 @@ def run_import_on_master(script):
     while True:
         try:
             imported = do_import(script)
+            logger.info("Imported %d submissions", imported)
         except Exception:
             logger.exception('Failed to import submissions')
             imported = 0
