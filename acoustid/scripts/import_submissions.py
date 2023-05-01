@@ -17,32 +17,22 @@ logger = logging.getLogger(__file__)
 def do_import(script):
     # type: (Script) -> None
     count = 1
-    retries = 0
-    max_retries = 3
     while count > 0:
-        try:
-            with script.context() as ctx:
-                ingest_db = ctx.db.get_ingest_db()
-                app_db = ctx.db.get_app_db()
-                fingerprint_db = ctx.db.get_fingerprint_db()
+        with script.context() as ctx:
+            ingest_db = ctx.db.get_ingest_db()
+            app_db = ctx.db.get_app_db()
+            fingerprint_db = ctx.db.get_fingerprint_db()
 
-                timeout_ms = 20 * 1000
-                ingest_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
-                app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
-                fingerprint_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+            timeout_ms = 20 * 1000
+            ingest_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+            app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+            fingerprint_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
 
-                count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=1)
-                ctx.db.session.commit()
+            count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=1)
+            ctx.db.session.commit()
 
-                if ctx.statsd is not None:
-                    ctx.statsd.incr('imported_submissions', count)
-
-                retries = 0
-        except IndexClientError:
-            if retries > max_retries:
-                raise
-            retries += 1
-            continue
+            if ctx.statsd is not None:
+                ctx.statsd.incr('imported_submissions', count)
 
 
 def run_import_on_master(script):
