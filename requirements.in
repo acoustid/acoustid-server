@@ -15,7 +15,7 @@ pyopenssl
 ndg-httpsclient
 pyasn1
 mbdata==25.0.0
-alembic>=0.8.4
+alembic>=0.8.4,<1.7
 uwsgi
 schedule
 sentry-sdk[flask]
