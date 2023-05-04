@@ -20,7 +20,7 @@ from acoustid.data.fingerprint import decode_fingerprint, FingerprintSearcher, F
 from acoustid.data.application import lookup_application_id_by_apikey
 from acoustid.data.account import lookup_account_id_by_apikey
 from acoustid.data.meta import lookup_meta
-from acoustid.data.stats import update_lookup_counter, update_user_agent_counter, update_lookup_avg_time
+from acoustid.data.stats import update_lookup_counter, update_user_agent_counter
 from acoustid.ratelimiter import RateLimiter
 from werkzeug.wrappers import Request, Response
 from werkzeug.datastructures import MultiDict
@@ -700,8 +700,6 @@ class LookupHandler(APIHandler):
 
         if fingerprints:
             time_total = (time.time() - t)
-            time_per_fp = time_total / len(fingerprints)
-            update_lookup_avg_time(self.ctx.redis, time_per_fp)
             if statsd is not None:
                 statsd.timing('api.lookup.total', time_total)
 

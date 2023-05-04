@@ -83,8 +83,10 @@ def update_lookup_counter(redis, application_id, hit):
         return
     type = 'hit' if hit else 'miss'
     key = pack_lookup_stats_key(application_id, type)
+    root_key_index = hash(key) % 256
+    root_key = f'lookups:{root_key_index:02x}'
     try:
-        redis.hincrby('lookups', key, 1)
+        redis.hincrby(root_key, key, 1)
     except Exception:
         logger.exception("Can't update lookup stats for %s" % key)
 
@@ -114,24 +116,12 @@ def update_user_agent_counter(redis, application_id, user_agent, ip):
     if redis is None:
         return
     key = pack_user_agent_stats_key(application_id, user_agent, ip)
+    root_key_index = hash(key) % 256
+    root_key = f'ua:{root_key_index:02x}'
     try:
-        redis.hincrby('ua', key, 1)
+        redis.hincrby(root_key, key, 1)
     except Exception:
         logger.exception("Can't update user agent stats for %s" % key)
-
-
-def update_lookup_avg_time(redis, seconds):
-    # type: (Any, float) -> None
-    if redis is None:
-        return
-    key = datetime.datetime.now().strftime('%Y-%m-%d:%H:%M')
-    try:
-        tx = redis.pipeline()
-        tx.hincrby('lookups.time.ms', key, int(round(1000 * seconds)))  # XXX use hincrbyfloat and seconds
-        tx.hincrby('lookups.time.count', key, 1)
-        tx.execute()
-    except Exception:
-        logger.exception("Can't update lookup avg time for %s" % key)
 
 
 def update_lookup_stats(db, application_id, date, hour, type, count):
