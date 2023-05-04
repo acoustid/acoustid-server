@@ -23,7 +23,7 @@ def generate_demo_client_api_key(secret, day=None):
         day = datetime.date.today()
     key = '{}:demo-client-api-key'.format(secret).encode('utf8')
     message = '{:x}'.format(day.toordinal()).encode('utf8')
-    api_key = list(base64.urlsafe_b64encode(hmac.new(key, message, 'hashlib.md5').digest()[:8]).rstrip('='))
+    api_key = list(base64.urlsafe_b64encode(hmac.new(key, message, 'md5').digest()[:8]).rstrip('='))
     api_key[-2] = 'A'
     return ''.join(api_key)
 
