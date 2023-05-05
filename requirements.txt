@@ -6,6 +6,8 @@
 #
 alembic==1.6.5
     # via -r requirements.in
+asttokens==2.2.1
+    # via stack-data
 async-timeout==4.0.2
     # via redis
 attrs==19.2.0
@@ -35,11 +37,11 @@ cryptography==3.4.6
     #   -r requirements.in
     #   pyopenssl
 decorator==4.4.0
-    # via
-    #   ipython
-    #   traitlets
+    # via ipython
 defusedxml==0.6.0
     # via python3-openid
+executing==1.2.0
+    # via stack-data
 flask==1.1.1
     # via
     #   -r requirements.in
@@ -54,13 +56,11 @@ gunicorn==20.1.0
     # via -r requirements.in
 idna==2.8
     # via requests
-ipython==7.8.0
+ipython==8.10.0
     # via -r requirements.in
-ipython-genutils==0.2.0
-    # via traitlets
 itsdangerous==1.1.0
     # via flask
-jedi==0.15.1
+jedi==0.18.2
     # via ipython
 jinja2==2.11.3
     # via
@@ -74,17 +74,19 @@ markupsafe==1.1.1
     # via
     #   jinja2
     #   mako
+matplotlib-inline==0.1.6
+    # via ipython
 mbdata==25.0.0
     # via -r requirements.in
 ndg-httpsclient==0.5.1
     # via -r requirements.in
-parso==0.5.1
+parso==0.8.3
     # via jedi
 pexpect==4.7.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-prompt-toolkit==2.0.10
+prompt-toolkit==3.0.38
     # via ipython
 psycogreen==1.0.2
     # via -r requirements.in
@@ -92,6 +94,8 @@ psycopg2==2.8.3
     # via -r requirements.in
 ptyprocess==0.6.0
     # via pexpect
+pure-eval==0.2.2
+    # via stack-data
 pyasn1==0.4.7
     # via
     #   -r requirements.in
@@ -128,18 +132,20 @@ six==1.14.0
     # via
     #   -r requirements.in
     #   mbdata
-    #   prompt-toolkit
     #   pyopenssl
     #   python-dateutil
-    #   traitlets
 sqlalchemy==1.3.9
     # via
     #   -r requirements.in
     #   alembic
+stack-data==0.6.2
+    # via ipython
 statsd==3.3.0
     # via -r requirements.in
-traitlets==4.3.3
-    # via ipython
+traitlets==5.9.0
+    # via
+    #   ipython
+    #   matplotlib-inline
 typing==3.7.4.1
     # via -r requirements.in
 urllib3==1.26.15
