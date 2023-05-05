@@ -6,6 +6,8 @@
 #
 alembic==1.6.5
     # via -r requirements.in
+async-timeout==4.0.2
+    # via redis
 attrs==19.2.0
     # via -r requirements.in
 backcall==0.1.0
@@ -113,7 +115,7 @@ pytz==2019.3
     # via -r requirements.in
 rauth==0.7.3
     # via -r requirements.in
-redis==3.3.8
+redis==4.4.4
     # via -r requirements.in
 requests==2.27.1
     # via

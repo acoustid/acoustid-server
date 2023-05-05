@@ -21,9 +21,11 @@ def generate_api_key(length=10):
 def generate_demo_client_api_key(secret, day=None):
     if day is None:
         day = datetime.date.today()
-    key = '{}:demo-client-api-key'.format(secret)
-    message = '{:x}'.format(day.toordinal())
-    api_key = list(base64.urlsafe_b64encode(hmac.new(key, message).digest()[:8]).rstrip('='))
+    key = '{}:demo-client-api-key'.format(secret).encode('utf8')
+    message = '{:x}'.format(day.toordinal()).encode('utf8')
+    digest = hmac.new(key, message, 'md5').digest()[:8]
+    encoded_digest = base64.urlsafe_b64encode(digest).decode('ascii').rstrip('=')
+    api_key = list(encoded_digest)
     api_key[-2] = 'A'
     return ''.join(api_key)
 
