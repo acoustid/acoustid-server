@@ -16,7 +16,7 @@ blinker==1.4
     #   sentry-sdk
 cachetools==4.2.1
     # via -r requirements.in
-certifi==2019.9.11
+certifi==2022.12.7
     # via
     #   requests
     #   sentry-sdk
