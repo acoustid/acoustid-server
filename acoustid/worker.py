@@ -42,6 +42,10 @@ def run_worker(script: Script) -> None:
                     logger.error('Unknown task: %s', name)
                     continue
 
+                with script.context() as ctx:
+                    if ctx.statsd is not None:
+                        ctx.statsd.incr(f'tasks_started_total,task={name}')
+
                 logger.info('Running task %s(%s)', name, kwargs)
 
                 try:
@@ -49,5 +53,9 @@ def run_worker(script: Script) -> None:
                 except Exception:
                     logger.exception('Error running task: %s', name)
                     continue
+
+                with script.context() as ctx:
+                    if ctx.statsd is not None:
+                        ctx.statsd.incr(f'tasks_finished_total,task={name}')
 
                 logger.debug('Finished task %s(%s)', name, kwargs)
