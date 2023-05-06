@@ -158,12 +158,9 @@ def replace_double_slashes(app):
     return wrapped_app
 
 
-def add_cors_headers(app):
-    # type: (WSGIApplication) -> WSGIApplication
-    def wrapped_app(environ, start_response):
-        # type: (WSGIEnvironment, StartResponse) -> Iterable[bytes]
-        def start_response_with_cors_headers(status, headers, exc_info=None):
-            # type: (str,  List[Tuple[str, str]], Optional[Any]) -> Callable[[bytes], None]
+def add_cors_headers(app: WSGIApplication) -> WSGIApplication:
+    def wrapped_app(environ: WSGIEnvironment, start_response: StartResponse) -> Iterable[bytes]:
+        def start_response_with_cors_headers(status: str, headers: List[Tuple[str, str]], exc_info: Optional[Any] = None) -> Callable[[bytes], object]:
             headers.append(('Access-Control-Allow-Origin', '*'))
             return start_response(status, headers, exc_info)
         return app(environ, start_response_with_cors_headers)
