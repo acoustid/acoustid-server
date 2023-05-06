@@ -29,8 +29,8 @@ def create_schedule(script):
 
     schedule = Scheduler()
     # schedule.every().minute.do(wrap_job(run_backfill_meta_created))
-    schedule.every(1).to(3).minutes.do(wrap_job(run_update_lookup_stats))
-    schedule.every(1).to(5).minutes.do(wrap_job(run_update_user_agent_stats))
+    schedule.every(1).to(10).seconds.do(wrap_job(run_update_lookup_stats))
+    schedule.every(1).to(30).seconds.do(wrap_job(run_update_user_agent_stats))
     # schedule.every(55).to(65).minutes.do(wrap_job(run_merge_missing_mbids))
     schedule.every().day.at("00:10").do(wrap_job(run_update_stats))
     return schedule
