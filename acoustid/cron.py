@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 def create_schedule(script: Script) -> Scheduler:
 
     def run_task(name: str, **kwargs: Union[str, int, float]):
-        def wrapper():
-            enqueue_task(script.get_redis(), name, kwargs)
+        def wrapper() -> None:
+            enqueue_task(script.context(), name, kwargs)
         wrapper.__name__ = name
         return wrapper
 
