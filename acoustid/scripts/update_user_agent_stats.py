@@ -1,6 +1,7 @@
 # Copyright (C) 2012 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import time
 import logging
 
 from acoustid.script import Script
@@ -12,9 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 def run_update_all_user_agent_stats(script: Script) -> None:
+    delay = 60.0 / NUM_PARTITIONS
     with script.context() as ctx:
         for partition in range(-1, NUM_PARTITIONS):
             enqueue_task(ctx, 'update_user_agent_stats', {'partition': partition})
+            time.sleep(delay)
 
 
 def run_update_user_agent_stats(script: Script, partition: int):
