@@ -6,7 +6,7 @@ python-openid; python_version < "3"
 python3-openid; python_version >= "3"
 Markdown
 redis
-flask>=1,<2
+flask>=2
 rauth
 cryptography>=3.3.2
 blinker
@@ -16,7 +16,6 @@ ndg-httpsclient
 pyasn1
 mbdata==25.0.0
 alembic>=0.8.4,<1.7
-uwsgi
 schedule
 sentry-sdk[flask]
 typing
