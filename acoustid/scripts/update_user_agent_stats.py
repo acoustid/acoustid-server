@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 def run_update_all_user_agent_stats(script: Script) -> None:
-    redis = script.get_redis()
-    for partition in range(-1, NUM_PARTITIONS):
-        enqueue_task(redis, 'update_user_agent_stats', {'partition': partition})
+    with script.context() as ctx:
+        for partition in range(-1, NUM_PARTITIONS):
+            enqueue_task(ctx, 'update_user_agent_stats', {'partition': partition})
 
 
 def run_update_user_agent_stats(script: Script, partition: int):

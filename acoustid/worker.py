@@ -27,24 +27,27 @@ TASKS = {
 def run_worker(script: Script) -> None:
     logger.info('Starting worker')
     while True:
-        try:
-            name, kwargs = dequeue_task(script.get_redis(), timeout=10.0)
-        except TimeoutError:
-            logger.debug('No tasks to run')
-            time.sleep(1.0)
-            continue
+        with script.context() as ctx:
+            started_at = time.time()
+            while time.time() - started_at < 60:
+                try:
+                    name, kwargs = dequeue_task(ctx, timeout=10.0)
+                except TimeoutError:
+                    logger.debug('No tasks to run')
+                    time.sleep(1.0)
+                    continue
 
-        func = TASKS.get(name)
-        if func is None:
-            logger.error('Unknown task: %s', name)
-            continue
+                func = TASKS.get(name)
+                if func is None:
+                    logger.error('Unknown task: %s', name)
+                    continue
 
-        logger.info('Running task %s(%s)', name, kwargs)
+                logger.info('Running task %s(%s)', name, kwargs)
 
-        try:
-            func(script, **kwargs)  # type: ignore
-        except Exception:
-            logger.exception('Error running task: %s', name)
-            continue
+                try:
+                    func(script, **kwargs)  # type: ignore
+                except Exception:
+                    logger.exception('Error running task: %s', name)
+                    continue
 
-        logger.debug('Finished task %s(%s)', name, kwargs)
+                logger.debug('Finished task %s(%s)', name, kwargs)
