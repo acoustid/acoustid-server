@@ -86,6 +86,7 @@ class APIHandlerParams(object):
     def __init__(self, config):
         # type: (Config) -> None
         self.config = config
+        self.format = DEFAULT_FORMAT
 
     def _parse_client(self, values, db):
         application_apikey = values.get('client')
@@ -201,7 +202,7 @@ class APIHandler(Handler):
         except errors.WebServiceError as e:
             if not isinstance(e, errors.TooManyRequests):
                 logger.warning("WS error: %s", e.message)
-            return self._error(e.code, e.message, params.format, status=e.status)
+            return self._error(e.code, e.message, getattr(params, 'format', 'unknown'), status=e.status)
 
     def _handle_internal(self, params):
         # type: (APIHandlerParams) -> Dict[str, Any]
