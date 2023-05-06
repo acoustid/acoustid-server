@@ -723,7 +723,7 @@ class SubmissionStatusHandler(APIHandler):
 
     params_class = SubmissionStatusHandlerParams
 
-    def _handle_internal(self, params: SubmissionStatusHandlerParams) -> Dict[str, Any]:
+    def _handle_internal(self, params: APIHandlerParams) -> Dict[str, Any]:
         assert isinstance(params, SubmissionStatusHandlerParams)
         response = {'submissions': [{'id': submission_id, 'status': 'pending'} for submission_id in params.ids]}
         tracks = lookup_submission_status(self.ctx.db.get_ingest_db(read_only=True), self.ctx.db.get_fingerprint_db(read_only=True), params.ids)
