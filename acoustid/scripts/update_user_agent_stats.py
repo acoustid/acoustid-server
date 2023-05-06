@@ -27,5 +27,4 @@ def run_update_user_agent_stats(script, opts, args):
                     call_internal_api(script.config, 'update_user_agent_stats',
                         application_id=application_id, date=date,
                         user_agent=user_agent, ip=ip, count=count)
-                db.commit()
                 redis.hincrby(root_key, key, -count)
