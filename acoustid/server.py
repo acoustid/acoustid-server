@@ -20,8 +20,7 @@ import acoustid.api.v2
 import acoustid.api.v2.misc
 import acoustid.api.v2.internal
 
-if TYPE_CHECKING:
-    from wsgiref.types import WSGIApplication, WSGIEnvironment, StartResponse
+from wsgiref.types import WSGIApplication, WSGIEnvironment, StartResponse
 
 
 endpoints = {
