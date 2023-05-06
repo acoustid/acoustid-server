@@ -17,11 +17,12 @@ def create_schedule(script: Script) -> Scheduler:
     def run_task(name: str, **kwargs: Union[str, int, float]):
         def wrapper():
             enqueue_task(script.get_redis(), name, kwargs)
+        wrapper.__name__ = name
         return wrapper
 
     schedule = Scheduler()
     schedule.every(1).to(10).seconds.do(run_task('update_all_lookup_stats'))
-    schedule.every(1).to(10).seconds.do(run_task('update_all_user_agent_stats'))
+    schedule.every(10).to(30).seconds.do(run_task('update_all_user_agent_stats'))
     schedule.every().day.at("00:10").do(run_task('update_stats'))
     return schedule
 
