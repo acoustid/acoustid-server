@@ -25,7 +25,6 @@ that enables applications to quickly search in the fingerprint database.
 </p>
 
 <ul class="list-nopadding">
-    <li><a href="/applications">Browse applications that use AcoustID</a></li>
     <li><a href="/api-key">Get user API key for submitting new fingerprints</a></li>
 </ul>
 

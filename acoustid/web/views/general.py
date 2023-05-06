@@ -53,7 +53,6 @@ add_page_route('faq')
 add_page_route('fingerprinter')
 add_page_route('license')
 add_page_route('server')
-add_page_route('applications')
 add_page_route('about')
 
 
