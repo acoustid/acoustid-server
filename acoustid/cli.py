@@ -5,6 +5,7 @@ from typing import Optional
 from acoustid.script import Script
 from acoustid.wsgi_utils import run_web_app, run_api_app
 from acoustid.cron import run_cron
+from acoustid.worker import run_worker
 from acoustid.scripts.import_submissions import run_import
 
 
@@ -50,13 +51,22 @@ def run_api_cmd(config, workers=None, threads=None):
 
 @run.command('cron')
 @click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
-def run_cron_cmd(config):
-    # type: (str) -> None
+def run_cron_cmd(config: str) -> None:
     """Run cron."""
     script = Script(config)
     script.setup_console_logging()
     script.setup_sentry()
     run_cron(script)
+
+
+@run.command('worker')
+@click.option('-c', '--config', default='acoustid.conf', envvar='ACOUSTID_CONFIG')
+def run_worker_cmd(config: str) -> None:
+    """Run worker."""
+    script = Script(config)
+    script.setup_console_logging()
+    script.setup_sentry()
+    run_worker(script)
 
 
 @run.command('import')

@@ -12,6 +12,8 @@ from acoustid.db import AppDB
 
 logger = logging.getLogger(__name__)
 
+NUM_PARTITIONS = 256
+
 
 def find_current_stats(conn):
     # type: (AppDB) -> Dict[str, int]
@@ -69,13 +71,13 @@ def pack_lookup_stats_key(application_id, type):
     return ':'.join(parts)
 
 
-def unpack_lookup_stats_key(key: Union[str, bytes]) -> Tuple[str, str, str, str]:
+def unpack_lookup_stats_key(key: Union[str, bytes]) -> Tuple[str, str, int, str]:
     if isinstance(key, bytes):
         key = key.decode('utf8')
     parts = key.split(':')
     if len(parts) >= 4:
         date, hour, application_id, type = parts[:4]
-        return date, hour, application_id, type
+        return date, hour, int(application_id), type
     raise ValueError('invalid lookup stats key')
 
 
@@ -84,7 +86,7 @@ def update_lookup_counter(redis, application_id, hit):
         return
     type = 'hit' if hit else 'miss'
     key = pack_lookup_stats_key(application_id, type)
-    root_key_index = hash(key) % 256
+    root_key_index = hash(key) % NUM_PARTITIONS
     root_key = f'lookups:{root_key_index:02x}'
     try:
         redis.hincrby(root_key, key, 1)
@@ -103,13 +105,13 @@ def pack_user_agent_stats_key(application_id, user_agent, ip):
     return ':'.join(parts)
 
 
-def unpack_user_agent_stats_key(key: Union[str, bytes]) -> Tuple[str, str, str, str]:
+def unpack_user_agent_stats_key(key: Union[str, bytes]) -> Tuple[str, int, str, str]:
     if isinstance(key, bytes):
         key = key.decode('utf8')
     parts = key.split(':')
     if len(parts) >= 4:
         date, application_id, user_agent, ip = parts[:5]
-        return date, application_id, urllib.parse.unquote(user_agent), urllib.parse.unquote(ip)
+        return date, int(application_id), urllib.parse.unquote(user_agent), urllib.parse.unquote(ip)
     raise ValueError('invalid lookup user agent stats key')
 
 
@@ -118,7 +120,7 @@ def update_user_agent_counter(redis, application_id, user_agent, ip):
     if redis is None:
         return
     key = pack_user_agent_stats_key(application_id, user_agent, ip)
-    root_key_index = hash(key) % 256
+    root_key_index = hash(key) % NUM_PARTITIONS
     root_key = f'ua:{root_key_index:02x}'
     try:
         redis.hincrby(root_key, key, 1)

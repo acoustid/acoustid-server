@@ -56,7 +56,7 @@ def get_track_count_stats(db, query):
     return sorted(counts.items())
 
 
-def run_update_stats(script, opts, args):
+def run_update_stats(script):
     if script.config.cluster.role != 'master':
         logger.info('Not running update_stats in slave mode')
         return

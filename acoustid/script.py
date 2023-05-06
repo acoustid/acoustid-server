@@ -78,8 +78,7 @@ class Script(object):
         if not tests:
             self.setup_logging()
 
-    def get_redis(self):
-        # type: () -> Redis
+    def get_redis(self) -> Redis:
         if self.config.redis.sentinel:
             assert self.redis_sentinel is not None
             return self.redis_sentinel.master_for(self.config.redis.cluster)
