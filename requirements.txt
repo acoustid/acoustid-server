@@ -28,7 +28,7 @@ click==7.0
     # via
     #   -r requirements.in
     #   flask
-cryptography==3.4.6
+cryptography==39.0.1
     # via
     #   -r requirements.in
     #   pyopenssl
