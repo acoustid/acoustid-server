@@ -172,7 +172,7 @@ class APIHandler(Handler):
         if req.access_route:
             self.user_ip = req.access_route[0]
         else:
-            self.user_ip = req.remote_addr
+            self.user_ip = req.remote_addr or '0.0.0.0'
         self.is_secure = req.is_secure
         self.user_agent = req.user_agent
         self.rate_limiter = RateLimiter(self.ctx.redis, 'rl')
@@ -728,8 +728,9 @@ class SubmissionStatusHandler(APIHandler):
         response = {'submissions': [{'id': id, 'status': 'pending'} for id in params.ids]}
         tracks = lookup_submission_status(self.ctx.db.get_ingest_db(read_only=True), self.ctx.db.get_fingerprint_db(read_only=True), params.ids)
         for submission in response['submissions']:
-            id = submission['id']
-            track_gid = tracks.get(id)
+            submission_id = submission['id']
+            assert isinstance(submission_id, str)
+            track_gid = tracks.get(submission_id)
             if track_gid is not None:
                 submission['status'] = 'imported'
                 submission['result'] = {'id': track_gid}
