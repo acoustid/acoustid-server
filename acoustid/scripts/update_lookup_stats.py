@@ -3,7 +3,7 @@
 
 import time
 from acoustid.utils import call_internal_api
-from acoustid.data.stats import update_lookup_stats
+from acoustid.data.stats import update_lookup_stats, unpack_lookup_stats_key
 
 
 def run_update_lookup_stats(script, opts, args):
@@ -16,7 +16,7 @@ def run_update_lookup_stats(script, opts, args):
             root_key = f'lookups:{i:02x}'
         for key, count in redis.hgetall(root_key).items():
             count = int(count)
-            date, hour, application_id, type = key.split(':')
+            date, hour, application_id, type = unpack_lookup_stats_key(key)
             if not count:
                 # the only way this could be 0 is if we already processed it and
                 # nothing touched it since then, so it's safe to delete
