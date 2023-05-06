@@ -2,7 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 from nose.tools import assert_equals, assert_raises, assert_true, assert_false
-from acoustid.utils import singular, is_uuid, is_foreignid
+from acoustid.utils import singular, is_uuid, is_foreignid, generate_demo_client_api_key
 
 
 def test_singular():
@@ -25,3 +25,8 @@ def test_is_foreignid():
     assert_true(is_foreignid('foo:123'))
     assert_false(is_foreignid('ABC:83'))
     assert_false(is_foreignid('83'))
+
+
+def test_generate_demo_client_api_key() -> None:
+    token = generate_demo_client_api_key('foo')
+    assert token != ''

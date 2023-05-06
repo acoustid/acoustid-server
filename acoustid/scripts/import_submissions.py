@@ -13,12 +13,13 @@ from acoustid.data.submission import import_queued_submissions
 logger = logging.getLogger(__file__)
 
 
-def do_import(script):
-    # type: (Script) -> int
+def do_import(script: Script, limit: int = 100) -> int:
     total_count = 0
     count = 1
-    while count > 0:
+    while count > 0 and count < limit:
         with script.context() as ctx:
+            if ctx.statsd is not None:
+                ctx.statsd.incr('importer_running', 1)
             ingest_db = ctx.db.get_ingest_db()
             app_db = ctx.db.get_app_db()
             fingerprint_db = ctx.db.get_fingerprint_db()
@@ -64,6 +65,7 @@ def run_import_on_master(script):
             delay = max(delay / delay_update_coefficient, min_delay)
 
         logger.debug('Waiting %s seconds...', delay)
+        time.sleep(delay)
 
 
 def run_import_on_slave(script):
