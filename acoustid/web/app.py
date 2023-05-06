@@ -97,14 +97,12 @@ def make_application(config_filename=None, tests=False):
 if __name__ == "__main__":
     import argparse
     from werkzeug.serving import run_simple
-    from werkzeug.wsgi import DispatcherMiddleware
     from acoustid.server import make_application as make_api_application
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--ssl', action='store_true')
     parser.add_argument('--ssl-crt')
     parser.add_argument('--ssl-key')
-    parser.add_argument('--api', action='store_true')
     parser.add_argument('--host', '-H', default='127.0.0.1')
     parser.add_argument('--port', '-p', default=5000, type=int)
     args = parser.parse_args()
@@ -125,10 +123,5 @@ if __name__ == "__main__":
             run_args['ssl_context'] = args.ssl_crt, args.ssl_key
         else:
             run_args['ssl_context'] = 'adhoc'
-
-    if args.api:
-        app = DispatcherMiddleware(app, {
-            '/api': make_api_application(app.acoustid_config_filename),
-        })
 
     run_simple(args.host, args.port, app, **run_args)  # type: ignore
