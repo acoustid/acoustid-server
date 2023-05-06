@@ -25,10 +25,12 @@ TASKS = {
 
 
 def run_worker(script: Script) -> None:
+    logger.info('Starting worker')
     while True:
         try:
             name, kwargs = dequeue_task(script.get_redis(), timeout=1.0)
         except TimeoutError:
+            logger.debug('No tasks to run')
             time.sleep(1.0)
             continue
 
