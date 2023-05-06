@@ -4,7 +4,7 @@
 import logging
 import datetime
 from six.moves import urllib
-from typing import Dict, Iterable, List, Any, Tuple, Optional
+from typing import Dict, Iterable, List, Any, Tuple, Optional, Union
 from sqlalchemy import sql
 from sqlalchemy.dialects.postgresql import insert
 from acoustid import tables as schema
@@ -69,8 +69,9 @@ def pack_lookup_stats_key(application_id, type):
     return ':'.join(parts)
 
 
-def unpack_lookup_stats_key(key):
-    # type: (str) -> Tuple[str, str, str, str]
+def unpack_lookup_stats_key(key: Union[str, bytes]) -> Tuple[str, str, str, str]:
+    if isinstance(key, bytes):
+        key = key.decode('utf8')
     parts = key.split(':')
     if len(parts) >= 4:
         date, hour, application_id, type = parts[:4]
@@ -102,8 +103,9 @@ def pack_user_agent_stats_key(application_id, user_agent, ip):
     return ':'.join(parts)
 
 
-def unpack_user_agent_stats_key(key):
-    # type: (str) -> Tuple[str, str, str, str]
+def unpack_user_agent_stats_key(key: Union[str, bytes]) -> Tuple[str, str, str, str]:
+    if isinstance(key, bytes):
+        key = key.decode('utf8')
     parts = key.split(':')
     if len(parts) >= 4:
         date, application_id, user_agent, ip = parts[:5]
