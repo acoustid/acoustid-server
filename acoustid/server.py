@@ -1,6 +1,8 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+from __future__ import annotations
+
 import os
 import gzip
 import sentry_sdk
