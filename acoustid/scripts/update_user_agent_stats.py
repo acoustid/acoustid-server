@@ -1,11 +1,16 @@
 # Copyright (C) 2012 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import logging
+
 from acoustid.utils import call_internal_api
 from acoustid.data.stats import update_user_agent_stats, unpack_user_agent_stats_key
 
+logger = logging.getLogger(__name__)
+
 
 def run_update_user_agent_stats(script, opts, args):
+    logger.info('Updating user agent stats')
     db = script.db_engines['app'].connect()
     redis = script.get_redis()
     for i in range(-1, 256):
@@ -13,6 +18,7 @@ def run_update_user_agent_stats(script, opts, args):
             root_key = 'ua'
         else:
             root_key = f'ua:{i:02x}'
+        logger.info('Checking key %s', root_key)
         for key, count in redis.hgetall(root_key).items():
             count = int(count)
             date, application_id, user_agent, ip = unpack_user_agent_stats_key(key)
