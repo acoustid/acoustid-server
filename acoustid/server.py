@@ -5,7 +5,7 @@ import os
 import gzip
 import sentry_sdk
 from typing import Callable, List, Tuple, Any, Iterable, Optional, TYPE_CHECKING
-from werkzeug.wsgi import get_input_stream
+from werkzeug.wsgi import get_input_stream, get_content_length
 from werkzeug.exceptions import ClientDisconnected
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 from six import BytesIO
@@ -58,6 +58,11 @@ admin_url_rules = [
 ]  # type: List[RuleFactory]
 
 
+MAX_CONTENT_LENGTH = 1024 * 1024
+MAX_FORM_PARTS = 100
+MAX_FORM_MEMORY_SIZE = 100 * 1024
+
+
 class Server(Script):
 
     def __init__(self, config_path):
@@ -77,7 +82,11 @@ class Server(Script):
             handler_class, args = urls.match()
             with self.context() as ctx:
                 handler = handler_class(ctx, **args)
-                response = handler.handle(Request(environ))
+                request = Request(environ)
+                request.max_content_length = MAX_CONTENT_LENGTH
+                request.max_form_parts = MAX_FORM_PARTS  # type: ignore
+                request.max_form_memory_size = MAX_FORM_MEMORY_SIZE
+                response = handler.handle(request)
         except HTTPException as e:
             return e(environ, start_response)
         return response(environ, start_response)
@@ -100,6 +109,11 @@ class GzipRequestMiddleware(object):
         # type: (WSGIEnvironment, StartResponse) -> Iterable[bytes]
         content_encoding = environ.get('HTTP_CONTENT_ENCODING', '').lower().strip()
         if content_encoding == 'gzip':
+            content_length = get_content_length(environ)
+            if content_length is not None:
+                if content_length > MAX_CONTENT_LENGTH:
+                    bad_request = BadRequest('Request body is too large')
+                    return bad_request(environ, start_response)
             try:
                 compressed_body = get_input_stream(environ).read()
             except ClientDisconnected:
