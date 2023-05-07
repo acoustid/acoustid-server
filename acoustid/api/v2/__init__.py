@@ -24,6 +24,7 @@ from acoustid.data.stats import update_lookup_counter, update_user_agent_counter
 from acoustid.ratelimiter import RateLimiter
 from werkzeug.wrappers import Request, Response
 from werkzeug.datastructures import MultiDict
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from acoustid.utils import is_uuid, is_foreignid, check_demo_client_api_key
 from acoustid.api import serialize_response, errors
 
@@ -190,6 +191,10 @@ class APIHandler(Handler):
                     self._rate_limit(self.user_ip, application_id)
                     return self._ok(self._handle_internal(params), params.format)
                 except errors.WebServiceError:
+                    raise
+                except RequestEntityTooLarge:
+                    raise errors.RequestTooLargeError()
+                except HTTPException:
                     raise
                 except Exception:
                     logger.exception('Error while handling API request')

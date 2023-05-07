@@ -25,6 +25,7 @@ ERROR_INVALID_MUSICBRAINZ_ACCESS_TOKEN = 15
 ERROR_INSECURE_REQUEST = 16
 ERROR_UNKNOWN_APPLICATION = 17
 ERROR_FINGERPRINT_NOT_FOUND = 18
+ERROR_REQUEST_TOO_LARGE = 19
 
 
 class WebServiceError(Exception):
@@ -174,3 +175,12 @@ class FingerprintNotFoundError(WebServiceError):
     def __init__(self):
         message = 'fingerprint not found'
         WebServiceError.__init__(self, ERROR_FINGERPRINT_NOT_FOUND, message)
+
+
+class RequestTooLargeError(WebServiceError):
+
+    status = 413
+
+    def __init__(self):
+        message = 'request too large'
+        WebServiceError.__init__(self, ERROR_REQUEST_TOO_LARGE, message)
