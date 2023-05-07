@@ -54,7 +54,7 @@ endpoints = {
 api_url_rules = [
     Rule('/_health', endpoint='health'),
     Rule('/_health_ro', endpoint='health_ro'),
-    Rule('/_health_docker', endpoint='header_docker'),
+    Rule('/_health_docker', endpoint='health_docker'),
     Rule('/lookup', endpoint='v1.lookup'),
     Rule('/submit', endpoint='v1.submit'),
     Submount('/v2', [

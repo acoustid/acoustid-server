@@ -71,32 +71,17 @@ Setup a MusicBrainz slave database (without custom extensions):
 TODO
 
 
-Development
------------
+Local Testing
+-------------
 
-You can use the provided `Vagrantfile` to quickly set up a development instance:
+You can use the provided `docker-compose.yml` file to quickly set up a test environment:
 
-    vagrant up
-    vagrant ssh
+    export COMPOSE_DOCKER_CLI_BUILD=1
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_FILE=docker-compose.yml:docker-compose.localhost.yml
+    export COMPOSE_PROFILES=frontend,backend
 
-Create an empty database:
-
-    ./admin/dev/create_dev_db.py -c acoustid.conf --drop --create
-
-You can start the web application like this:
- 
-    ./run_web.sh --host=0.0.0.0
-
-If you want to test it with HTTP enabled, use this:
-
-    ./run_web.sh --ssl
-
-Then setup forwarding from the standard HTTPS port 443 to the application port:
-
-    sudo redir --lport=443 --cport=5000
-
-Add `127.0.0.1 acoustid.org` to your `/etc/hosts` file and then you can see the
-development version of the application at https://acoustid.org.
+    docker-compose up -d
 
 Database migrations
 -------------------

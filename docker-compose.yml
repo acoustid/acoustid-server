@@ -3,21 +3,86 @@ services:
 
   redis:
     image: redis
-    ports:
-      - "127.0.0.1:6379:6379"
-
-  index:
-    image: quay.io/acoustid/acoustid-index:2018.01.13
-    ports:
-      - "127.0.0.1:6080:6080"
 
   postgres:
     image: quay.io/acoustid/postgresql:master
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - ./admin/ci/create_db.sql:/docker-entrypoint-initdb.d/10_create_db.sql
     environment:
       POSTGRES_USER: acoustid
       POSTGRES_PASSWORD: acoustid
       POSTGRES_DB: postgres
+
+  index:
+    image: ghcr.io/acoustid/acoustid-index:v2022.02.03
+
+  init-db:
+    image: quay.io/acoustid/acoustid-server:latest
+    build: .
+    depends_on:
+      - postgres
+    command:
+      - bash
+      - -ecx
+      - |
+        /opt/acoustid/server/admin/docker/run-alembic.sh upgrade head
+    env_file:
+      - ./admin/dev/server.env
+    profiles:
+      - tools
+
+  api:
+    image: quay.io/acoustid/acoustid-server:latest
+    build: .
+    depends_on:
+      - redis
+      - postgres
+      - index
+    command:
+      - /opt/acoustid/server/admin/docker/run-api.sh
+    env_file:
+      - ./admin/dev/server.env
+    profiles:
+      - frontend
+
+  web:
+    image: quay.io/acoustid/acoustid-server:latest
+    build: .
+    depends_on:
+      - redis
+      - postgres
+      - index
+    command:
+      - /opt/acoustid/server/admin/docker/run-web.sh
+    env_file:
+      - ./admin/dev/server.env
+    profiles:
+      - frontend
+
+  cron:
+    image: quay.io/acoustid/acoustid-server:latest
+    build: .
+    depends_on:
+      - redis
+      - postgres
+      - index
+    command:
+      - /opt/acoustid/server/admin/docker/run-cron.sh
+    env_file:
+      - ./admin/dev/server.env
+    profiles:
+      - backend
+
+  worker:
+    image: quay.io/acoustid/acoustid-server:latest
+    build: .
+    depends_on:
+      - redis
+      - postgres
+      - index
+    command:
+      - /opt/acoustid/server/admin/docker/run-worker.sh
+    env_file:
+      - ./admin/dev/server.env
+    profiles:
+      - backend
