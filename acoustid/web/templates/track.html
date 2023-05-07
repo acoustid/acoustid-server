@@ -5,7 +5,7 @@
 
 <p>
     This track has {{ fingerprints | length }} fingerprint(s) and is linked
-    to {{ recordings | length }} MusicBrainz recording(s).
+    to {{ num_enabled }} MusicBrainz recording(s).
 </p>
 
 {% macro format_length(secs) -%}
@@ -43,6 +43,7 @@
     {% endif %}
 </tr>
 {% for rec in recordings %}
+{% if show_disabled or not rec.disabled %}
 <tr{% if rec.disabled %} class="mbid-disabled"{% endif %} id="{{ rec.mbid }}">
     {% if rec.name %}
     <td><a href="//musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a>{% if rec.comment %}<small> ({{ rec.comment }})</small>{% endif %}</td>
@@ -62,9 +63,16 @@
       </form>
     </td>
     {% endif %}
+{% endif %}
 {% endfor %}
 </tr>
 </table>
+{% endif %}
+
+{% if num_disabled > 0 and not show_disabled %}
+<p>
+  <small><a href="{{ url_for('.track', track_id_or_gid=track.gid, disabled='1') }}">Show {{ num_disabled }} disabled recording(s).</a></small>
+</p>
 {% endif %}
 
 {% if user_metadata %}
