@@ -148,10 +148,6 @@ a:visited {
     background: url(/static/login/google.png) 50% 50% no-repeat;
 }
 
-.login-yahoo {
-    background: url(/static/login/yahoo.png) 50% 50% no-repeat;
-}
-
 .login-musicbrainz {
     background: url(/static/login/musicbrainz.png) 50% 50% no-repeat;
 }

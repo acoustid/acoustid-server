@@ -14,7 +14,6 @@
 <p>
     <a class="login-block login-musicbrainz" href="#"><span>Log in with MusicBrainz</span></a>
     <a class="login-block login-google" href="#"><span>Log in with Google</span></a>
-    <a class="login-block login-yahoo" href="#"><span>Log in with Yahoo!</span></a>
     <a class="login-block login-openid" href="#"><span>Log in with OpenID</span></a>
 </p>
 
@@ -43,13 +42,6 @@ $(document).ready(function () {
     $('.login-google').click(function () {
         var $form = $(this).closest('form');
         $form.find('input[name=login]').val('google');
-        $form.submit();
-        return false;
-    });
-    $('.login-yahoo').click(function () {
-        var $form = $(this).closest('form');
-        $form.find('input[name=login]').val('openid');
-        $form.find('input.openid').val('https://me.yahoo.com');
         $form.submit();
         return false;
     });
