@@ -172,8 +172,8 @@ def test_apihandler_ws_error_500(ctx):
     assert_equals('500 INTERNAL SERVER ERROR', resp.status)
 
 
-@with_script_context
 @unittest.skip("disabled")
+@with_script_context
 def test_lookup_handler(ctx):
     # type: (ScriptContext) -> None
     values = {'format': 'json', 'client': 'app1key', 'duration': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP}
