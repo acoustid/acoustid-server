@@ -33,7 +33,7 @@ def render_page(name, **context):
         text = file.read().decode('utf8')
         text = render_template_string(text, **context)
         md = Markdown(extensions=['meta'])
-        md.treeprocessors["flask_links"] = MarkdownFlaskUrlProcessor(md)
+        md.treeprocessors.register(MarkdownFlaskUrlProcessor(md), "flask_links", 50)
         html = md.convert(text)
         title = ' '.join(md.Meta.get('title', []))
         return render_template('page.html', content=html, title=title)

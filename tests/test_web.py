@@ -70,7 +70,7 @@ def test_login_page(app: Flask) -> None:
 def test_contact_page(app: Flask) -> None:
     client = app.test_client()
 
-    rv = client.get('/login')
+    rv = client.get('/contact')
     assert rv.status_code == 200
     assert 'info@acoustid.org' in rv.text
 
