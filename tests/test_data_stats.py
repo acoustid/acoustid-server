@@ -1,15 +1,15 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+from acoustid.data.stats import find_current_stats
 from tests import prepare_database, with_database
-from acoustid.data.stats import (
-    find_current_stats,
-)
 
 
 @with_database
 def test_find_current_stats(conn):
-    prepare_database(conn, """
+    prepare_database(
+        conn,
+        """
     INSERT INTO stats (name, value, date) VALUES
         ('account.all', 3, '2011-04-25'),
         ('account.all', 3, '2011-04-26'),
@@ -17,7 +17,8 @@ def test_find_current_stats(conn):
         ('track.all', 13, '2011-04-25'),
         ('track.all', 13, '2011-04-26'),
         ('track.all', 14, '2011-04-27');
-    """)
+    """,
+    )
     stats = find_current_stats(conn)
-    assert 4 == stats['account.all']
-    assert 14 == stats['track.all']
+    assert 4 == stats["account.all"]
+    assert 14 == stats["track.all"]

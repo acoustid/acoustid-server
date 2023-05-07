@@ -1,1 +1,1 @@
-GIT_RELEASE = ''
+GIT_RELEASE = ""

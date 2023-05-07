@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def run_backfill_meta_created(script, opts, args):
-    if script.config.cluster.role != 'master':
-        logger.info('Not running backfill_meta_created in slave mode')
+    if script.config.cluster.role != "master":
+        logger.info("Not running backfill_meta_created in slave mode")
         return
 
     update_query = """
@@ -27,7 +27,7 @@ def run_backfill_meta_created(script, opts, args):
     """
 
     with script.context() as ctx:
-        first_meta_id = int(ctx.redis.get('backfill_meta_created_first_id') or 0)
+        first_meta_id = int(ctx.redis.get("backfill_meta_created_first_id") or 0)
         fingerprint_db = ctx.db.get_fingerprint_db()
         max_meta_id = fingerprint_db.execute("SELECT max(id) FROM meta").scalar()
         if first_meta_id > max_meta_id:
@@ -37,8 +37,16 @@ def run_backfill_meta_created(script, opts, args):
         with script.context() as ctx:
             last_meta_id = first_meta_id + 10000
             fingerprint_db = ctx.db.get_fingerprint_db()
-            result = fingerprint_db.execute(update_query, {'first_meta_id': first_meta_id, 'last_meta_id': last_meta_id})
-            logger.info('Added create date to %s meta entries between (%d and %d)', result.rowcount, first_meta_id, last_meta_id)
+            result = fingerprint_db.execute(
+                update_query,
+                {"first_meta_id": first_meta_id, "last_meta_id": last_meta_id},
+            )
+            logger.info(
+                "Added create date to %s meta entries between (%d and %d)",
+                result.rowcount,
+                first_meta_id,
+                last_meta_id,
+            )
             ctx.db.session.commit()
-            ctx.redis.set('backfill_meta_created_first_id', str(last_meta_id))
+            ctx.redis.set("backfill_meta_created_first_id", str(last_meta_id))
             first_meta_id = last_meta_id

@@ -2,7 +2,9 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+
 from sqlalchemy import sql
+
 from acoustid import tables as schema
 from acoustid.db import AppDB
 
