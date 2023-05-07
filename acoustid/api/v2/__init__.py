@@ -646,7 +646,7 @@ class LookupHandler(APIHandler):
 
         assert params.max_duration_diff is not None
 
-        if len(params.fingerprints) > 10:
+        if len(params.fingerprints) > 15:
             raise errors.RequestTooLargeError()
 
         if params.batch:
