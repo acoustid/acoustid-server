@@ -796,7 +796,9 @@ class LookupHandler(APIHandler):
                 )
                 searcher.max_length_diff = params.max_duration_diff
                 matches = searcher.search(
-                    p.fingerprint, p.duration, max_results=MAX_RESULTS_PER_FINGERPRINT_QUERY
+                    p.fingerprint,
+                    p.duration,
+                    max_results=MAX_RESULTS_PER_FINGERPRINT_QUERY,
                 )
                 self.ctx.db.session.close()
                 fingerprint_search_t1 = time.time()

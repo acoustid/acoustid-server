@@ -80,7 +80,7 @@ def test_track_page(app: Flask) -> None:
 
     rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
     assert rv.status_code == 200
-    assert 'b81f83ee-4da4-11e0-9ed8-0025225356f3' in rv.text
+    assert "b81f83ee-4da4-11e0-9ed8-0025225356f3" in rv.text
     assert rv.data.count(b"Custom Track") == 2
     assert rv.data.count(b"Custom Artist") == 2
     assert not db.session.registry.has()
@@ -90,11 +90,11 @@ def test_track_page_show_disabled(app: Flask) -> None:
     client = app.test_client()
 
     rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
-    assert '54b7b412-fc69-4fc7-8c96-17800eda3a98' not in rv.text
-    assert 'Show 1 disabled recording' in rv.text
+    assert "54b7b412-fc69-4fc7-8c96-17800eda3a98" not in rv.text
+    assert "Show 1 disabled recording" in rv.text
     assert rv.status_code == 200
 
     rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291?disabled=1")
-    assert '54b7b412-fc69-4fc7-8c96-17800eda3a98' in rv.text
-    assert 'Show 1 disabled recording' not in rv.text
+    assert "54b7b412-fc69-4fc7-8c96-17800eda3a98" in rv.text
+    assert "Show 1 disabled recording" not in rv.text
     assert rv.status_code == 200

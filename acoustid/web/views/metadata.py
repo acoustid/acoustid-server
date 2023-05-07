@@ -1,5 +1,4 @@
 import logging
-
 from typing import Any
 
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for
