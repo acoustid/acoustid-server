@@ -1,5 +1,4 @@
 -c requirements.txt
-nose
 flake8
 pytest
 functools32 ; python_version < "3.2"

@@ -1,7 +1,6 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import assert_equals, assert_raises
 from tests import (
     with_script_context,
     prepare_database,
@@ -11,6 +10,7 @@ from tests import (
     TEST_2_LENGTH,
     TEST_2_FP,
     TEST_2_FP_RAW,
+    assert_raises,
 )
 from werkzeug.wrappers import Request
 from werkzeug.test import EnvironBuilder
@@ -35,10 +35,10 @@ def test_ok(ctx):
     # type: (ScriptContext) -> None
     handler = APIHandler(ctx)
     resp = handler._ok({'tracks': [{'id': 1, 'name': 'Track 1'}]})
-    assert_equals('text/xml; charset=UTF-8', resp.content_type)
+    assert 'text/xml; charset=UTF-8' == resp.content_type
     expected = b'<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="ok"><tracks><track><id>1</id><name>Track 1</name></track></tracks></response>'
-    assert_equals(expected, resp.data)
-    assert_equals('200 OK', resp.status)
+    assert expected == resp.data
+    assert '200 OK' == resp.status
 
 
 @with_script_context
@@ -46,15 +46,15 @@ def test_error(ctx):
     # type: (ScriptContext) -> None
     handler = APIHandler(ctx)
     resp = handler._error(123, 'something is wrong')
-    assert_equals('text/xml; charset=UTF-8', resp.content_type)
+    assert 'text/xml; charset=UTF-8' == resp.content_type
     expected = b'<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="error"><error>something is wrong</error></response>'
-    assert_equals(expected, resp.data)
-    assert_equals('400 BAD REQUEST', resp.status)
+    assert expected == resp.data
+    assert '400 BAD REQUEST' == resp.status
     resp = handler._error(234, 'oops', status=500)
-    assert_equals('text/xml; charset=UTF-8', resp.content_type)
+    assert 'text/xml; charset=UTF-8' == resp.content_type
     expected = b'<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<response status="error"><error>oops</error></response>'
-    assert_equals(expected, resp.data)
-    assert_equals('500 INTERNAL SERVER ERROR', resp.status)
+    assert expected == resp.data
+    assert '500 INTERNAL SERVER ERROR' == resp.status
 
 
 @with_script_context
@@ -84,11 +84,11 @@ def test_lookup_handler_params(ctx):
     values = MultiDict({'client': 'app1key', 'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP})
     params = LookupHandlerParams(ctx.config)
     params.parse(values, ctx.db)
-    assert_equals(1, params.application_id)
+    assert 1 == params.application_id
     assert len(params.fingerprints) == 1
     assert isinstance(params.fingerprints[0], FingerprintLookupQuery)
-    assert_equals(TEST_1_LENGTH, params.fingerprints[0].duration)
-    assert_equals(TEST_1_FP_RAW, params.fingerprints[0].fingerprint)
+    assert TEST_1_LENGTH == params.fingerprints[0].duration
+    assert TEST_1_FP_RAW == params.fingerprints[0].fingerprint
 
 
 @with_script_context
@@ -99,10 +99,10 @@ def lookup_handler(ctx):
     # no matches
     handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml; charset=UTF-8', resp.content_type)
+    assert 'text/xml; charset=UTF-8' == resp.content_type
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results /></response>"
-    assert_equals(expected, resp.data)
-    assert_equals('200 OK', resp.status)
+    assert expected == resp.data
+    assert '200 OK' == resp.status
     # one exact match
     prepare_database(ctx.db.get_fingerprint_db(), """
 INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
@@ -110,28 +110,28 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
 """, (TEST_1_LENGTH, TEST_1_FP_RAW))
     handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml; charset=UTF-8', resp.content_type)
+    assert 'text/xml; charset=UTF-8' == resp.content_type
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><score>1.0</score><id>eb31d1c3-950e-468b-9e36-e46fa75b1291</id></result></results></response>"
-    assert_equals(expected, resp.data)
-    assert_equals('200 OK', resp.status)
+    assert expected == resp.data
+    assert '200 OK' == resp.status
     # one exact match with MBIDs
     values = {'client': 'app1key', 'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '1'}
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml; charset=UTF-8', resp.content_type)
+    assert 'text/xml; charset=UTF-8' == resp.content_type
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id></track></tracks><score>1.0</score><id>eb31d1c3-950e-468b-9e36-e46fa75b1291</id></result></results></response>"
-    assert_equals(expected, resp.data)
-    assert_equals('200 OK', resp.status)
+    assert expected == resp.data
+    assert '200 OK' == resp.status
     # one exact match with MBIDs (no exta metadata in v1)
     values = {'client': 'app1key', 'length': str(TEST_1_LENGTH), 'fingerprint': TEST_1_FP, 'meta': '2'}
     builder = EnvironBuilder(method='POST', data=values)
     handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml; charset=UTF-8', resp.content_type)
+    assert 'text/xml; charset=UTF-8' == resp.content_type
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><results><result><tracks><track><id>b81f83ee-4da4-11e0-9ed8-0025225356f3</id></track></tracks><score>1.0</score><id>eb31d1c3-950e-468b-9e36-e46fa75b1291</id></result></results></response>"
-    assert_equals(expected, resp.data)
-    assert_equals('200 OK', resp.status)
+    assert expected == resp.data
+    assert '200 OK' == resp.status
 
 
 @with_script_context
@@ -178,13 +178,13 @@ def test_submit_handler_params(ctx):
     })
     params = SubmitHandlerParams(ctx.config)
     params.parse(values, ctx.db)
-    assert_equals(1, len(params.submissions))
-    assert_equals(['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'], params.submissions[0]['mbids'])
-    assert_equals('4e823498-c77d-4bfb-b6cc-85b05c2783cf', params.submissions[0]['puid'])
-    assert_equals(TEST_1_LENGTH, params.submissions[0]['duration'])
-    assert_equals(TEST_1_FP_RAW, params.submissions[0]['fingerprint'])
-    assert_equals(192, params.submissions[0]['bitrate'])
-    assert_equals('MP3', params.submissions[0]['format'])
+    assert 1 == len(params.submissions)
+    assert ['4d814cb1-20ec-494f-996f-f31ca8a49784', '66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'] == params.submissions[0]['mbids']
+    assert '4e823498-c77d-4bfb-b6cc-85b05c2783cf' == params.submissions[0]['puid']
+    assert TEST_1_LENGTH == params.submissions[0]['duration']
+    assert TEST_1_FP_RAW == params.submissions[0]['fingerprint']
+    assert 192 == params.submissions[0]['bitrate']
+    assert 'MP3' == params.submissions[0]['format']
     # all ok (single submission)
     values = MultiDict({
         'client': 'app1key', 'user': 'user1key',
@@ -203,19 +203,19 @@ def test_submit_handler_params(ctx):
     })
     params = SubmitHandlerParams(ctx.config)
     params.parse(values, ctx.db)
-    assert_equals(2, len(params.submissions))
-    assert_equals(['4d814cb1-20ec-494f-996f-f31ca8a49784'], params.submissions[0]['mbids'])
-    assert_equals('4e823498-c77d-4bfb-b6cc-85b05c2783cf', params.submissions[0]['puid'])
-    assert_equals(TEST_1_LENGTH, params.submissions[0]['duration'])
-    assert_equals(TEST_1_FP_RAW, params.submissions[0]['fingerprint'])
-    assert_equals(192, params.submissions[0]['bitrate'])
-    assert_equals('MP3', params.submissions[0]['format'])
-    assert_equals(['66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'], params.submissions[1]['mbids'])
-    assert_equals('57b202a3-242b-4896-a79c-cac34bbca0b6', params.submissions[1]['puid'])
-    assert_equals(TEST_2_LENGTH, params.submissions[1]['duration'])
-    assert_equals(TEST_2_FP_RAW, params.submissions[1]['fingerprint'])
-    assert_equals(500, params.submissions[1]['bitrate'])
-    assert_equals('FLAC', params.submissions[1]['format'])
+    assert 2 == len(params.submissions)
+    assert ['4d814cb1-20ec-494f-996f-f31ca8a49784'] == params.submissions[0]['mbids']
+    assert '4e823498-c77d-4bfb-b6cc-85b05c2783cf' == params.submissions[0]['puid']
+    assert TEST_1_LENGTH == params.submissions[0]['duration']
+    assert TEST_1_FP_RAW == params.submissions[0]['fingerprint']
+    assert 192 == params.submissions[0]['bitrate']
+    assert 'MP3' == params.submissions[0]['format']
+    assert ['66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea'] == params.submissions[1]['mbids']
+    assert '57b202a3-242b-4896-a79c-cac34bbca0b6' == params.submissions[1]['puid']
+    assert TEST_2_LENGTH == params.submissions[1]['duration']
+    assert TEST_2_FP_RAW == params.submissions[1]['fingerprint']
+    assert 500 == params.submissions[1]['bitrate']
+    assert 'FLAC' == params.submissions[1]['format']
 
 
 @with_script_context
@@ -227,14 +227,14 @@ def test_submit_handler(ctx):
     builder = EnvironBuilder(method='POST', data=values)
     handler = SubmitHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
-    assert_equals('text/xml; charset=UTF-8', resp.content_type)
+    assert 'text/xml; charset=UTF-8' == resp.content_type
     expected = b"<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><submissions><submission><id>1</id><status>pending</status></submission></submissions></response>"
-    assert_equals(expected, resp.data)
-    assert_equals('200 OK', resp.status)
+    assert expected == resp.data
+    assert '200 OK' == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
     submission = ctx.db.get_ingest_db().execute(query).fetchone()
-    assert_equals('b9c05616-1874-4d5d-b30e-6b959c922d28', submission['mbid'])
-    assert_equals('FLAC', submission['format'])
-    assert_equals(192, submission['bitrate'])
-    assert_equals(TEST_1_FP_RAW, submission['fingerprint'])
-    assert_equals(TEST_1_LENGTH, submission['length'])
+    assert 'b9c05616-1874-4d5d-b30e-6b959c922d28' == submission['mbid']
+    assert 'FLAC' == submission['format']
+    assert 192 == submission['bitrate']
+    assert TEST_1_FP_RAW == submission['fingerprint']
+    assert TEST_1_LENGTH == submission['length']

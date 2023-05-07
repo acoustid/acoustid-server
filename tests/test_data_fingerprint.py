@@ -1,7 +1,6 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import assert_equals
 from tests import with_script_context
 from acoustid.script import ScriptContext
 from acoustid.data.fingerprint import insert_fingerprint
@@ -20,7 +19,7 @@ def test_insert_fingerprint(ctx):
         'format_id': 1,
         'track_id': 2,
     })
-    assert_equals(1, fingerprint_id)
+    assert 1 == fingerprint_id
     rows = fingerprint_db.execute("""
         SELECT fingerprint, length, bitrate, format_id, track_id
         FROM fingerprint WHERE id=%s
@@ -28,4 +27,4 @@ def test_insert_fingerprint(ctx):
     expected_rows = [
         ([1, 2, 3, 4, 5, 6], 123, 192, 1, 2),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows

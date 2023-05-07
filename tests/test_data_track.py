@@ -1,7 +1,6 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import assert_equals
 from uuid import UUID
 from tests import (
     with_script_context,
@@ -46,7 +45,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
     query = "SELECT track_mbid_id, submission_id, source_id FROM track_mbid_source ORDER BY track_mbid_id, submission_id, source_id"
     rows = ctx.db.get_fingerprint_db().execute(query).fetchall()
@@ -54,14 +53,14 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
         (1, 1, 1),
         (1, 2, 1),
     ]
-    assert_equals(expected_rows2, rows)
+    assert expected_rows2 == rows
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id").fetchall()
     expected_rows3 = [
         (1, 1),
         (1, 1),
     ]
-    assert_equals(expected_rows3, rows)
+    assert expected_rows3 == rows
 
 
 @with_script_context
@@ -79,7 +78,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
 
 @with_script_context
@@ -95,7 +94,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
 
 @with_script_context
@@ -111,7 +110,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, True),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
 
 @with_script_context
@@ -143,16 +142,16 @@ INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
         (3, UUID('97edb73c-4dac-11e0-9096-0025225356f3')),
         (4, UUID('e6d2be9c-06b7-4a64-911d-076ad4e79c6f')),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
 
 @with_script_context
 def test_insert_track(ctx):
     # type: (ScriptContext) -> None
     id = insert_track(ctx.db.get_fingerprint_db())
-    assert_equals(5, id)
+    assert 5 == id
     id = insert_track(ctx.db.get_fingerprint_db())
-    assert_equals(6, id)
+    assert 6 == id
 
 
 @with_script_context
@@ -182,7 +181,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
     merge_tracks(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db(), 3, [1, 2, 4])
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT id, track_id FROM fingerprint ORDER BY id").fetchall()
-    assert_equals([(1, 3), (2, 3)], rows)
+    assert [(1, 3), (2, 3)] == rows
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT id, track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid").fetchall()
     expected = [
@@ -190,7 +189,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
         (1, 3, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 35),
         (2, 3, UUID('d575d506-4da4-11e0-b951-0025225356f3'), 65)
     ]
-    assert_equals(expected, rows)
+    assert expected == rows
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_id, puid, submission_count FROM track_puid ORDER BY track_id, puid").fetchall()
     expected2 = [
@@ -198,14 +197,14 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
         (3, UUID('97edb73c-4dac-11e0-9096-0025225356f4'), 35),
         (3, UUID('d575d506-4da4-11e0-b951-0025225356f4'), 65)
     ]
-    assert_equals(expected2, rows)
+    assert expected2 == rows
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id").fetchall()
     expected_rows = [(1, 1), (2, 1), (2, 1), (5, 1)]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
     rows = ctx.db.get_fingerprint_db().execute("SELECT id, new_id FROM track ORDER BY id, new_id").fetchall()
-    assert_equals([(1, 3), (2, 3), (3, None), (4, 3)], rows)
+    assert [(1, 3), (2, 3), (3, None), (4, 3)] == rows
 
 
 @with_script_context
@@ -221,7 +220,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, '97edb73c-4
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
 
 @with_script_context
@@ -237,7 +236,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, False),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
 
 @with_script_context
@@ -253,7 +252,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '
     expected_rows = [
         (1, UUID('97edb73c-4dac-11e0-9096-0025225356f3'), 20, True),
     ]
-    assert_equals(expected_rows, rows)
+    assert expected_rows == rows
 
 
 @with_script_context
@@ -267,7 +266,7 @@ INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
               fp2=TEST_1B_FP_RAW, len2=TEST_1B_LENGTH,
               fp3=TEST_2_FP_RAW, len3=TEST_2_LENGTH))
     groups = can_merge_tracks(ctx.db.get_fingerprint_db(), [1, 2, 3])
-    assert_equals([set([1, 2])], groups)
+    assert [set([1, 2])] == groups
 
 
 @with_script_context
@@ -278,8 +277,8 @@ INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
     VALUES (%(fp1)s, %(len1)s, 1, 1);
     """, dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH))
     res = can_add_fp_to_track(ctx.db.get_fingerprint_db(), 1, TEST_2_FP_RAW, TEST_2_LENGTH)
-    assert_equals(False, res)
+    assert res is False
     res = can_add_fp_to_track(ctx.db.get_fingerprint_db(), 1, TEST_1B_FP_RAW, TEST_1B_LENGTH + 20)
-    assert_equals(False, res)
+    assert res is False
     res = can_add_fp_to_track(ctx.db.get_fingerprint_db(), 1, TEST_1B_FP_RAW, TEST_1B_LENGTH)
-    assert_equals(True, res)
+    assert res is True
