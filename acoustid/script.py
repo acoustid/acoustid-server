@@ -1,25 +1,26 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-import sys
 import logging
-import sentry_sdk
-from statsd import StatsClient
+import sys
+from optparse import OptionParser
 from typing import Any, Optional
+
+import sentry_sdk
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
-from optparse import OptionParser
+from statsd import StatsClient
+
+from acoustid._release import GIT_RELEASE
 from acoustid.config import Config
+from acoustid.db import DatabaseContext
 from acoustid.indexclient import IndexClientPool
 from acoustid.utils import LocalSysLogHandler
-from acoustid.db import DatabaseContext
-from acoustid._release import GIT_RELEASE
 
 logger = logging.getLogger(__name__)
 
 
 class ScriptContext(object):
-
     def __init__(self, config, db, redis, index, statsd):
         # type: (Config, DatabaseContext, Redis, IndexClientPool, Optional[StatsClient]) -> None
         self.config = config
@@ -38,7 +39,6 @@ class ScriptContext(object):
 
 
 class Script(object):
-
     def __init__(self, config_path, tests=False):
         # type: (str, bool) -> None
         self.config = Config()
@@ -49,15 +49,17 @@ class Script(object):
         self.db_engines = self.config.databases.create_engines()
 
         if self.config.statsd.enabled:
-            self.statsd = StatsClient(host=self.config.statsd.host,
-                                      port=self.config.statsd.port,
-                                      prefix=self.config.statsd.prefix)
+            self.statsd = StatsClient(
+                host=self.config.statsd.host,
+                port=self.config.statsd.port,
+                prefix=self.config.statsd.prefix,
+            )
         else:
             self.statsd = None
 
-        self.index = IndexClientPool(host=self.config.index.host,
-                                     port=self.config.index.port,
-                                     recycle=60)
+        self.index = IndexClientPool(
+            host=self.config.index.host, port=self.config.index.port, recycle=60
+        )
 
         self.redis = None
         self.redis_sentinel = None
@@ -91,9 +93,12 @@ class Script(object):
         for logger_name, level in sorted(self.config.logging.levels.items()):
             logging.getLogger(logger_name).setLevel(level)
         if self.config.logging.syslog:
-            handler = LocalSysLogHandler(ident='acoustid',
-                facility=self.config.logging.syslog_facility, log_pid=True)
-            handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
+            handler = LocalSysLogHandler(
+                ident="acoustid",
+                facility=self.config.logging.syslog_facility,
+                log_pid=True,
+            )
+            handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
             logging.getLogger().addHandler(handler)
         else:
             self.setup_console_logging()
@@ -103,7 +108,12 @@ class Script(object):
         if self._console_logging_configured:
             return
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter('[%(asctime)s] [%(process)s] [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S %z'))
+        handler.setFormatter(
+            logging.Formatter(
+                "[%(asctime)s] [%(process)s] [%(levelname)s] %(message)s",
+                "%Y-%m-%d %H:%M:%S %z",
+            )
+        )
         if verbose:
             handler.setLevel(logging.DEBUG)
         if quiet:
@@ -113,30 +123,41 @@ class Script(object):
 
     def setup_sentry(self):
         # type: () -> None
-        sentry_sdk.init(self.config.sentry.script_dsn, release=GIT_RELEASE, sample_rate=0.01)
+        sentry_sdk.init(
+            self.config.sentry.script_dsn, release=GIT_RELEASE, sample_rate=0.01
+        )
 
     def context(self, use_two_phase_commit=None):
         # type: (Optional[bool]) -> ScriptContext
         db = DatabaseContext(self, use_two_phase_commit=use_two_phase_commit)
         redis = self.get_redis()
-        return ScriptContext(config=self.config, db=db, redis=redis, index=self.index, statsd=self.statsd)
+        return ScriptContext(
+            config=self.config, db=db, redis=redis, index=self.index, statsd=self.statsd
+        )
 
 
 def run_script(func, option_cb=None, master_only=False):
     parser = OptionParser()
-    parser.add_option("-c", "--config", dest="config",
-        help="configuration file", metavar="FILE")
-    parser.add_option("-q", "--quiet", dest="quiet", action="store_true",
-        default=False, help="don't print info messages to stdout")
+    parser.add_option(
+        "-c", "--config", dest="config", help="configuration file", metavar="FILE"
+    )
+    parser.add_option(
+        "-q",
+        "--quiet",
+        dest="quiet",
+        action="store_true",
+        default=False,
+        help="don't print info messages to stdout",
+    )
     if option_cb is not None:
         option_cb(parser)
     (options, args) = parser.parse_args()
     if not options.config:
-        parser.error('no configuration file')
+        parser.error("no configuration file")
     script = Script(options.config)
     script.setup_console_logging(options.quiet)
     script.setup_sentry()
-    if master_only and script.config.cluster.role != 'master':
+    if master_only and script.config.cluster.role != "master":
         logger.debug("Not running script %s on a slave server", sys.argv[0])
     else:
         logger.debug("Running script %s", sys.argv[0])

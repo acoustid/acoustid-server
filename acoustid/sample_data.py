@@ -1,17 +1,22 @@
-import random
 import datetime
+import random
+
 from .models import Account, Application, StatsLookups
 
 
 def create_sample_data(session):
     rnd = random.WichmannHill(1)
 
-    account_1234 = Account(id=1234, name='user1234', apikey='26ec5efff4a6')
+    account_1234 = Account(id=1234, name="user1234", apikey="26ec5efff4a6")
     session.add(account_1234)
-    account_1235 = Account(id=1235, name='lukz', mbuser='lukz', apikey='2112c535e9e6', is_admin=True)
+    account_1235 = Account(
+        id=1235, name="lukz", mbuser="lukz", apikey="2112c535e9e6", is_admin=True
+    )
     session.add(account_1235)
 
-    application_1234 = Application(account=account_1234, name='Test App', version='1.0', apikey='617f98b2d7cc')
+    application_1234 = Application(
+        account=account_1234, name="Test App", version="1.0", apikey="617f98b2d7cc"
+    )
     session.add(application_1234)
 
     unflushed = 0
@@ -27,7 +32,9 @@ def create_sample_data(session):
             session.flush()
             unflushed = 0
 
-    application_1235 = Application(account=account_1235, name='Test App 2', version='0.2', apikey='c24d2e31d8db')
+    application_1235 = Application(
+        account=account_1235, name="Test App 2", version="0.2", apikey="c24d2e31d8db"
+    )
     session.add(application_1235)
 
     unflushed = 0

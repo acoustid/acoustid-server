@@ -2,12 +2,15 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
-from typing import Dict, Any, Optional, List, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Optional
+
 from sqlalchemy import sql
 from sqlalchemy.exc import OperationalError
-from acoustid import tables as schema, const, chromaprint
-from acoustid.indexclient import Index, IndexClientPool, IndexClientError
+
+from acoustid import chromaprint, const
+from acoustid import tables as schema
 from acoustid.db import FingerprintDB, IngestDB
+from acoustid.indexclient import Index, IndexClientError, IndexClientPool
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +40,13 @@ def decode_fingerprint(fingerprint_string):
     return fingerprint
 
 
-FingerprintMatch = NamedTuple('FingerprintMatch', [('fingerprint_id', int), ('track_id', int), ('track_gid', str), ('score', float)])
+FingerprintMatch = NamedTuple(
+    "FingerprintMatch",
+    [("fingerprint_id", int), ("track_id", int), ("track_gid", str), ("score", float)],
+)
 
 
 class FingerprintSearcher(object):
-
     def __init__(self, db, index_pool, fast=True, timeout=None):
         # type: (FingerprintDB, IndexClientPool, bool, Optional[float]) -> None
         self.db = db
@@ -58,19 +63,31 @@ class FingerprintSearcher(object):
         f_columns = [
             schema.fingerprint.c.id,
             schema.fingerprint.c.track_id,
-            sql.func.acoustid_compare2(schema.fingerprint.c.fingerprint, fp,
-                                       self.max_offset).label('score'),
+            sql.func.acoustid_compare2(
+                schema.fingerprint.c.fingerprint, fp, self.max_offset
+            ).label("score"),
         ]
         f_where = sql.and_(
             condition,
-            schema.fingerprint.c.length.between(length - self.max_length_diff,
-                                                length + self.max_length_diff))
-        f = sql.select(f_columns, f_where).alias('f')
+            schema.fingerprint.c.length.between(
+                length - self.max_length_diff, length + self.max_length_diff
+            ),
+        )
+        f = sql.select(f_columns, f_where).alias("f")
         # construct the main query
-        columns = [f.c.id, f.c.track_id, schema.track.c.gid.label('track_gid'), f.c.score]
+        columns = [
+            f.c.id,
+            f.c.track_id,
+            schema.track.c.gid.label("track_gid"),
+            f.c.score,
+        ]
         src = f.join(schema.track, schema.track.c.id == f.c.track_id)
-        query = sql.select(columns, f.c.score > self.min_score, src,
-                           order_by=[f.c.score.desc(), f.c.id])
+        query = sql.select(
+            columns,
+            f.c.score > self.min_score,
+            src,
+            order_by=[f.c.score.desc(), f.c.id],
+        )
         if max_results:
             query = query.limit(max_results)
         return query
@@ -78,7 +95,9 @@ class FingerprintSearcher(object):
     def _search_index(self, fp, length, index, max_candidates=None, min_score_pct=None):
         # type: (List[int], int, Index, Optional[int], Optional[float]) -> Optional[sql.ClauseElement]
         # index search
-        fp_query = self.db.execute(sql.select([sql.func.acoustid_extract_query(fp)])).scalar()
+        fp_query = self.db.execute(
+            sql.select([sql.func.acoustid_extract_query(fp)])
+        ).scalar()
         if not fp_query:
             return None
         results = index.search(fp_query)
@@ -105,13 +124,16 @@ class FingerprintSearcher(object):
         # type: (List[int], int, int) -> Optional[sql.ClauseElement]
         # construct the query
         condition = sql.and_(
-            sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint).op('&&')(sql.func.acoustid_extract_query(fp)),
-            schema.fingerprint.c.id > min_fingerprint_id)
+            sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint).op("&&")(
+                sql.func.acoustid_extract_query(fp)
+            ),
+            schema.fingerprint.c.id > min_fingerprint_id,
+        )
         return condition
 
     def _get_max_indexed_fingerprint_id(self, index):
         # type: (Index) -> int
-        return int(index.get_attribute('max_document_id') or '0')
+        return int(index.get_attribute("max_document_id") or "0")
 
     def search(self, fp, length, max_results=None):
         # type: (List[int], int, Optional[int]) -> List[FingerprintMatch]
@@ -129,7 +151,13 @@ class FingerprintSearcher(object):
                 max_indexed_fingerprint_id = self._get_max_indexed_fingerprint_id(index)
 
             try:
-                condition = self._search_index(fp, length, index, max_candidates=max_candidates, min_score_pct=min_score_pct)
+                condition = self._search_index(
+                    fp,
+                    length,
+                    index,
+                    max_candidates=max_candidates,
+                    min_score_pct=min_score_pct,
+                )
                 if condition is not None:
                     conditions.append(condition)
             except IndexClientError:
@@ -145,67 +173,89 @@ class FingerprintSearcher(object):
         if not conditions:
             return []
 
-        query = self._create_search_query(fp, length, sql.or_(*conditions), max_results=max_results)
+        query = self._create_search_query(
+            fp, length, sql.or_(*conditions), max_results=max_results
+        )
         if self.timeout:
             timeout_ms = int(self.timeout * 1000)
             self.db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
         try:
             results = self.db.execute(query)
         except OperationalError as ex:
-            if 'canceling statement due to statement timeout' in str(ex):
+            if "canceling statement due to statement timeout" in str(ex):
                 return []
             raise
         matches = [FingerprintMatch(*result) for result in results]
         return matches
 
 
-def insert_fingerprint(fingerprint_db, ingest_db, data, submission_id=None, source_id=None):
+def insert_fingerprint(
+    fingerprint_db, ingest_db, data, submission_id=None, source_id=None
+):
     # type: (FingerprintDB, IngestDB, Dict[str, Any], Optional[int], Optional[int]) -> int
     """
     Insert a new fingerprint into the database
     """
-    insert_stmt = schema.fingerprint.insert().values({
-        'fingerprint': data['fingerprint'],
-        'length': data['length'],
-        'bitrate': data.get('bitrate'),
-        'format_id': data.get('format_id'),
-        'track_id': data['track_id'],
-        'submission_count': 1,
-    })
+    insert_stmt = schema.fingerprint.insert().values(
+        {
+            "fingerprint": data["fingerprint"],
+            "length": data["length"],
+            "bitrate": data.get("bitrate"),
+            "format_id": data.get("format_id"),
+            "track_id": data["track_id"],
+            "submission_count": 1,
+        }
+    )
     fingerprint_id = fingerprint_db.execute(insert_stmt).inserted_primary_key[0]
     if submission_id and source_id:
-        insert_stmt = schema.fingerprint_source.insert().values({
-            'fingerprint_id': fingerprint_id,
-            'submission_id': submission_id,
-            'source_id': source_id,
-        })
+        insert_stmt = schema.fingerprint_source.insert().values(
+            {
+                "fingerprint_id": fingerprint_id,
+                "submission_id": submission_id,
+                "source_id": source_id,
+            }
+        )
         ingest_db.execute(insert_stmt)
     logger.debug("Inserted fingerprint %r", fingerprint_id)
     return fingerprint_id
 
 
-def inc_fingerprint_submission_count(fingerprint_db, ingest_db, fingerprint_id, submission_id=None, source_id=None):
+def inc_fingerprint_submission_count(
+    fingerprint_db, ingest_db, fingerprint_id, submission_id=None, source_id=None
+):
     # type: (FingerprintDB, IngestDB, int, Optional[int], Optional[int]) -> None
-    update_stmt = schema.fingerprint.update().where(schema.fingerprint.c.id == fingerprint_id)
-    fingerprint_db.execute(update_stmt.values(submission_count=sql.text('submission_count+1')))
+    update_stmt = schema.fingerprint.update().where(
+        schema.fingerprint.c.id == fingerprint_id
+    )
+    fingerprint_db.execute(
+        update_stmt.values(submission_count=sql.text("submission_count+1"))
+    )
     if submission_id and source_id:
-        insert_stmt = schema.fingerprint_source.insert().values({
-            'fingerprint_id': fingerprint_id,
-            'submission_id': submission_id,
-            'source_id': source_id,
-        })
+        insert_stmt = schema.fingerprint_source.insert().values(
+            {
+                "fingerprint_id": fingerprint_id,
+                "submission_id": submission_id,
+                "source_id": source_id,
+            }
+        )
         ingest_db.execute(insert_stmt)
 
 
 def update_fingerprint_index(fingerprint_db, index, limit=1000):
     # type: (FingerprintDB, Index, int) -> None
-    max_id = int(index.get_attribute('max_document_id') or '0')
+    max_id = int(index.get_attribute("max_document_id") or "0")
     last_id = max_id
-    query = sql.select([
-        schema.fingerprint.c.id,
-        sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint),
-    ]).where(schema.fingerprint.c.id > max_id).\
-        order_by(schema.fingerprint.c.id).limit(limit)
+    query = (
+        sql.select(
+            [
+                schema.fingerprint.c.id,
+                sql.func.acoustid_extract_query(schema.fingerprint.c.fingerprint),
+            ]
+        )
+        .where(schema.fingerprint.c.id > max_id)
+        .order_by(schema.fingerprint.c.id)
+        .limit(limit)
+    )
     in_transaction = False
     for id, fingerprint in fingerprint_db.execute(query):
         if not in_transaction:

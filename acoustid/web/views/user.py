@@ -1,30 +1,37 @@
-import json
 import base64
-import six.moves.urllib.request as urllib2
+import json
 import logging
 import random
+
+import six.moves.urllib.request as urllib2
+from flask import (
+    Blueprint,
+    current_app,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from itsdangerous import URLSafeSerializer
-from rauth import OAuth2Service
-from openid import oidutil, fetchers
+from openid import fetchers, oidutil
 from openid.consumer import consumer as openid
 from openid.extensions import ax
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
-from acoustid.web import db
-from acoustid.web.utils import require_user, is_our_url
-from acoustid.models import Account, AccountOpenID, AccountGoogle
+from rauth import OAuth2Service
+
+from acoustid.data.account import insert_account, lookup_account_id_by_openid
+from acoustid.models import Account, AccountGoogle, AccountOpenID
 from acoustid.utils import generate_api_key
-from acoustid.data.account import (
-    lookup_account_id_by_openid,
-    insert_account,
-)
+from acoustid.web import db
+from acoustid.web.utils import is_our_url, require_user
 
 logger = logging.getLogger(__name__)
 
-user_page = Blueprint('user', __name__)
+user_page = Blueprint("user", __name__)
 
 
 # monkey-patch uidutil.log to use the standard logging framework
-openid_logger = logging.getLogger('openid')
+openid_logger = logging.getLogger("openid")
 
 
 def log_openid_messages(message, level=0):
@@ -40,21 +47,22 @@ fetcher.urlopen = lambda req: urllib2.urlopen(req, timeout=5)
 fetchers.setDefaultFetcher(fetcher)
 
 
-@user_page.route('/login', methods=['GET', 'POST'])
+@user_page.route("/login", methods=["GET", "POST"])
 def login():
-    if 'id' in session:
-        return redirect(url_for('general.index'))
-    errors = list(request.args.getlist('error'))
-    if request.method == 'POST':
-        login_method = request.form.get('login')
-        if login_method == 'musicbrainz':
+    if "id" in session:
+        return redirect(url_for("general.index"))
+    errors = list(request.args.getlist("error"))
+    if request.method == "POST":
+        login_method = request.form.get("login")
+        if login_method == "musicbrainz":
             return musicbrainz_login()
-        elif login_method == 'google':
+        elif login_method == "google":
             return google_login()
-        elif login_method == 'openid':
+        elif login_method == "openid":
             return openid_login()
-    return render_template('login.html', errors=errors,
-        return_url=request.values.get('return_url'))
+    return render_template(
+        "login.html", errors=errors, return_url=request.values.get("return_url")
+    )
 
 
 def find_or_create_musicbrainz_user(mb_user_name):
@@ -74,102 +82,117 @@ def find_or_create_musicbrainz_user(mb_user_name):
 
 
 def login_user_and_redirect(user_id, return_url=None):
-    session['id'] = user_id
+    session["id"] = user_id
     if not return_url:
-        return_url = request.values.get('return_url')
+        return_url = request.values.get("return_url")
     if return_url and is_our_url(return_url):
         return redirect(return_url)
-    return redirect(url_for('general.index'))
+    return redirect(url_for("general.index"))
 
 
 def handle_musicbrainz_oauth2_login():
     musicbrainz = OAuth2Service(
-        name='musicbrainz',
-        client_id=current_app.config['MB_OAUTH_CLIENT_ID'],
-        client_secret=current_app.config['MB_OAUTH_CLIENT_SECRET'],
-        base_url='https://musicbrainz.org',
-        authorize_url='https://musicbrainz.org/oauth2/authorize',
-        access_token_url='https://musicbrainz.org/oauth2/token',
+        name="musicbrainz",
+        client_id=current_app.config["MB_OAUTH_CLIENT_ID"],
+        client_secret=current_app.config["MB_OAUTH_CLIENT_SECRET"],
+        base_url="https://musicbrainz.org",
+        authorize_url="https://musicbrainz.org/oauth2/authorize",
+        access_token_url="https://musicbrainz.org/oauth2/token",
     )
 
-    serializer = URLSafeSerializer(current_app.config['SECRET_KEY'])
+    serializer = URLSafeSerializer(current_app.config["SECRET_KEY"])
 
-    code = request.args.get('code')
+    code = request.args.get("code")
     if not code:
         token = str(random.getrandbits(64))
-        session['mb_login_token'] = token
-        url = musicbrainz.get_authorize_url(**{
-            'response_type': 'code',
-            'scope': 'profile',
-            'redirect_uri': url_for('.musicbrainz_login', _external=True),
-            'state': serializer.dumps({
-                'return_url': request.values.get('return_url'),
-                'token': token,
-            }),
-        })
+        session["mb_login_token"] = token
+        url = musicbrainz.get_authorize_url(
+            **{
+                "response_type": "code",
+                "scope": "profile",
+                "redirect_uri": url_for(".musicbrainz_login", _external=True),
+                "state": serializer.dumps(
+                    {
+                        "return_url": request.values.get("return_url"),
+                        "token": token,
+                    }
+                ),
+            }
+        )
         return redirect(url)
 
-    serialized_state = request.args.get('state')
+    serialized_state = request.args.get("state")
     if serialized_state:
         state = serializer.loads(serialized_state)
     else:
         state = {}
 
-    token = session.get('mb_login_token')
+    token = session.get("mb_login_token")
     if not token:
-        raise Exception('token not found in session')
+        raise Exception("token not found in session")
 
-    if token != state.get('token'):
-        raise Exception('token from session does not match token from oauth2 state')
+    if token != state.get("token"):
+        raise Exception("token from session does not match token from oauth2 state")
 
-    auth_session = musicbrainz.get_auth_session(data={
-        'grant_type': 'authorization_code',
-        'code': code,
-        'redirect_uri': url_for('.musicbrainz_login', _external=True),
-    }, decoder=json.loads)
+    auth_session = musicbrainz.get_auth_session(
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": url_for(".musicbrainz_login", _external=True),
+        },
+        decoder=json.loads,
+    )
 
-    response = auth_session.get('oauth2/userinfo').json()
+    response = auth_session.get("oauth2/userinfo").json()
 
-    user = find_or_create_musicbrainz_user(response['sub'])
+    user = find_or_create_musicbrainz_user(response["sub"])
     logger.info('MusicBrainz user %s "%s" logged in', user.id, user.name)
 
-    return login_user_and_redirect(user.id, return_url=state.get('return_url'))
+    return login_user_and_redirect(user.id, return_url=state.get("return_url"))
 
 
-@user_page.route('/login/musicbrainz')
+@user_page.route("/login/musicbrainz")
 def musicbrainz_login():
     try:
         response = handle_musicbrainz_oauth2_login()
         db.session.commit()
     except Exception:
-        logger.exception('MusicBrainz login failed')
+        logger.exception("MusicBrainz login failed")
         db.session.rollback()
-        return redirect(url_for('.login', error='MusicBrainz login failed'))
+        return redirect(url_for(".login", error="MusicBrainz login failed"))
     return response
 
 
 def handle_openid_login_request():
-    openid_url = request.form['openid_identifier']
+    openid_url = request.form["openid_identifier"]
     try:
         consumer = openid.Consumer(session, None)
         openid_req = consumer.begin(openid_url)
     except openid.DiscoveryFailure:
-        logger.exception('Error in OpenID discovery')
+        logger.exception("Error in OpenID discovery")
         raise
     else:
         if openid_req is None:
-            raise Exception('No OpenID services found for the given URL')
+            raise Exception("No OpenID services found for the given URL")
         else:
             ax_req = ax.FetchRequest()
-            ax_req.add(ax.AttrInfo('http://schema.openid.net/contact/email',
-                      alias='email'))
-            ax_req.add(ax.AttrInfo('http://axschema.org/namePerson/friendly',
-                      alias='nickname'))
+            ax_req.add(
+                ax.AttrInfo("http://schema.openid.net/contact/email", alias="email")
+            )
+            ax_req.add(
+                ax.AttrInfo("http://axschema.org/namePerson/friendly", alias="nickname")
+            )
             openid_req.addExtension(ax_req)
-            url = openid_req.redirectURL(get_openid_realm(),
-                url_for('.openid_login', return_url=request.values.get('return_url'), _external=True))
+            url = openid_req.redirectURL(
+                get_openid_realm(),
+                url_for(
+                    ".openid_login",
+                    return_url=request.values.get("return_url"),
+                    _external=True,
+                ),
+            )
             return redirect(url)
-    raise Exception('OpenID login failed')
+    raise Exception("OpenID login failed")
 
 
 def handle_openid_login_response():
@@ -182,8 +205,8 @@ def handle_openid_login_response():
         ax_resp = ax.FetchResponse.fromSuccessResponse(info)
         if ax_resp:
             attrs = {
-                'email': 'http://schema.openid.net/contact/email',
-                'name': 'http://schema.openid.net/namePerson/friendly',
+                "email": "http://schema.openid.net/contact/email",
+                "name": "http://schema.openid.net/namePerson/friendly",
             }
             for name, uri in attrs.items():
                 try:
@@ -194,59 +217,78 @@ def handle_openid_login_response():
                     pass
         account_id = lookup_account_id_by_openid(conn, openid_url)
         if not account_id:
-            account_id, account_api_key = insert_account(conn, {
-                'name': 'OpenID User',
-                'openid': openid_url,
-            })
-        logger.info("Successfuly identified OpenID user %s (%d) with email '%s' and nickname '%s'",
-            openid_url, account_id, values.get('email', ''), values.get('name', ''))
+            account_id, account_api_key = insert_account(
+                conn,
+                {
+                    "name": "OpenID User",
+                    "openid": openid_url,
+                },
+            )
+        logger.info(
+            "Successfuly identified OpenID user %s (%d) with email '%s' and nickname '%s'",
+            openid_url,
+            account_id,
+            values.get("email", ""),
+            values.get("name", ""),
+        )
         return login_user_and_redirect(account_id)
     elif info.status == openid.CANCEL:
-        raise Exception('OpenID login has been canceled')
+        raise Exception("OpenID login has been canceled")
     else:
-        raise Exception('OpenID login failed')
+        raise Exception("OpenID login failed")
 
 
 def handle_openid_login():
-    if 'openid.mode' in request.args:
+    if "openid.mode" in request.args:
         return handle_openid_login_response()
     else:
         return handle_openid_login_request()
 
 
-@user_page.route('/login/openid')
+@user_page.route("/login/openid")
 def openid_login():
     try:
         response = handle_openid_login()
         db.session.commit()
     except Exception:
-        logger.exception('OpenID login failed')
+        logger.exception("OpenID login failed")
         db.session.rollback()
-        return redirect(url_for('.login', error='OpenID login failed'))
+        return redirect(url_for(".login", error="OpenID login failed"))
     return response
 
 
 def get_openid_realm():
-    return url_for('general.index', _external=True).rstrip('/')
+    return url_for("general.index", _external=True).rstrip("/")
 
 
 def find_or_create_google_user(google_user_id, openid=None):
-    user = db.session.query(Account).join(AccountGoogle).\
-        filter(AccountGoogle.google_user_id == google_user_id).first()
+    user = (
+        db.session.query(Account)
+        .join(AccountGoogle)
+        .filter(AccountGoogle.google_user_id == google_user_id)
+        .first()
+    )
     if user is not None:
         return user
 
     if openid is not None:
-        user = db.session.query(Account).join(AccountOpenID).\
-            filter(AccountOpenID.openid == openid).first()
+        user = (
+            db.session.query(Account)
+            .join(AccountOpenID)
+            .filter(AccountOpenID.openid == openid)
+            .first()
+        )
         if user is not None:
-            db.session.query(AccountOpenID).\
-                filter(AccountOpenID.openid == openid).delete()
-            logger.info("Migrated OpenID user %s to Google user %s", openid, google_user_id)
+            db.session.query(AccountOpenID).filter(
+                AccountOpenID.openid == openid
+            ).delete()
+            logger.info(
+                "Migrated OpenID user %s to Google user %s", openid, google_user_id
+            )
 
     if user is None:
         user = Account()
-        user.name = 'Google Account'
+        user.name = "Google Account"
         user.apikey = generate_api_key()
         user.submission_count = 0
         db.session.add(user)
@@ -257,78 +299,87 @@ def find_or_create_google_user(google_user_id, openid=None):
     google_user.account = user
     google_user.google_user_id = google_user_id
     db.session.add(google_user)
-    logger.info("Associated user %s (%s) with Google user %s", user.id, user.name, google_user_id)
+    logger.info(
+        "Associated user %s (%s) with Google user %s",
+        user.id,
+        user.name,
+        google_user_id,
+    )
 
     return user
 
 
 def handle_google_oauth2_login():
     google = OAuth2Service(
-        name='google',
-        client_id=current_app.config['GOOGLE_OAUTH_CLIENT_ID'],
-        client_secret=current_app.config['GOOGLE_OAUTH_CLIENT_SECRET'],
-        base_url='https://google.com',
-        authorize_url='https://accounts.google.com/o/oauth2/auth',
-        access_token_url='https://www.googleapis.com/oauth2/v3/token',
+        name="google",
+        client_id=current_app.config["GOOGLE_OAUTH_CLIENT_ID"],
+        client_secret=current_app.config["GOOGLE_OAUTH_CLIENT_SECRET"],
+        base_url="https://google.com",
+        authorize_url="https://accounts.google.com/o/oauth2/auth",
+        access_token_url="https://www.googleapis.com/oauth2/v3/token",
     )
 
-    code = request.args.get('code')
+    code = request.args.get("code")
     if not code:
-        url = google.get_authorize_url(**{
-            'response_type': 'code',
-            'access_type': 'online',
-            'scope': 'openid',
-            'redirect_uri': url_for('.google_login', _external=True),
-            'openid.realm': get_openid_realm(),
-        })
+        url = google.get_authorize_url(
+            **{
+                "response_type": "code",
+                "access_type": "online",
+                "scope": "openid",
+                "redirect_uri": url_for(".google_login", _external=True),
+                "openid.realm": get_openid_realm(),
+            }
+        )
         return redirect(url)
 
-    response = json.loads(google.get_raw_access_token(data={
-        'grant_type': 'authorization_code',
-        'code': code,
-        'redirect_uri': url_for('.google_login', _external=True),
-    }).content)
+    response = json.loads(
+        google.get_raw_access_token(
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": url_for(".google_login", _external=True),
+            }
+        ).content
+    )
 
-    header, payload, secret = str(response['id_token']).split('.')
-    payload += '=' * (4 - (len(payload) % 4))
+    header, payload, secret = str(response["id_token"]).split(".")
+    payload += "=" * (4 - (len(payload) % 4))
     id_token = json.loads(base64.urlsafe_b64decode(payload))
 
-    user = find_or_create_google_user(
-        id_token['sub'], id_token.get('openid_id'))
+    user = find_or_create_google_user(id_token["sub"], id_token.get("openid_id"))
     logger.info('Google user %s "%s" logged in', user.id, user.name)
 
     return login_user_and_redirect(user.id)
 
 
-@user_page.route('/login/google')
+@user_page.route("/login/google")
 def google_login():
     try:
         response = handle_google_oauth2_login()
         db.session.commit()
     except Exception:
-        logger.exception('Google login failed')
+        logger.exception("Google login failed")
         db.session.rollback()
-        return redirect(url_for('.login', error='Google authentication failed'))
+        return redirect(url_for(".login", error="Google authentication failed"))
     return response
 
 
-@user_page.route('/logout')
+@user_page.route("/logout")
 def logout():
-    if 'id' in session:
-        del session['id']
-    return redirect(url_for('general.index'))
+    if "id" in session:
+        del session["id"]
+    return redirect(url_for("general.index"))
 
 
-@user_page.route('/api-key')
+@user_page.route("/api-key")
 def api_key():
     user = require_user()
-    return render_template('apikey.html', title='Your API Key',
-        apikey=user.apikey)
+    return render_template("apikey.html", title="Your API Key", apikey=user.apikey)
 
 
-@user_page.route('/new-api-key')
+@user_page.route("/new-api-key")
 def new_api_key():
     user = require_user()
     user.apikey = generate_api_key()
     db.session.commit()
-    return redirect(url_for('.api_key'))
+    return redirect(url_for(".api_key"))

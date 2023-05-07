@@ -1,10 +1,11 @@
 # Copyright (C) 2014 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from typing import Dict, Callable, Any
-from sqlalchemy.engine import Engine, Connection
+from typing import Any, Callable, Dict
+
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import scoped_session, sessionmaker
-from acoustid.script import Script
+
 from acoustid.db import (
     AppDB,
     FingerprintDB,
@@ -13,10 +14,10 @@ from acoustid.db import (
     Session,
     get_session_args,
 )
+from acoustid.script import Script
 
 
 class Database(object):
-
     def __init__(self):
         self.engines = {}  # type: Dict[str, Engine]
         self.session_factory = sessionmaker()
@@ -31,26 +32,26 @@ class Database(object):
     def connection(self, bind_key, read_only=False):
         # type: (str, bool) -> Connection
         if read_only:
-            read_only_bind_key = bind_key + ':ro'
+            read_only_bind_key = bind_key + ":ro"
             if read_only_bind_key in self.engines:
                 bind_key = read_only_bind_key
         return self.session.connection(bind=self.engines[bind_key])
 
     def get_app_db(self, read_only=False):
         # type: (bool) -> AppDB
-        return AppDB(self.connection('app', read_only))
+        return AppDB(self.connection("app", read_only))
 
     def get_fingerprint_db(self, read_only=False):
         # type: (bool) -> FingerprintDB
-        return FingerprintDB(self.connection('fingerprint', read_only))
+        return FingerprintDB(self.connection("fingerprint", read_only))
 
     def get_ingest_db(self, read_only=False):
         # type: (bool) -> IngestDB
-        return IngestDB(self.connection('ingest', read_only))
+        return IngestDB(self.connection("ingest", read_only))
 
     def get_musicbrainz_db(self, read_only=True):
         # type: (bool) -> MusicBrainzDB
-        return MusicBrainzDB(self.connection('musicbrainz', read_only))
+        return MusicBrainzDB(self.connection("musicbrainz", read_only))
 
 
 db = Database()

@@ -2,32 +2,32 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import errno
-import socket
-import select
-import time
 import logging
-from typing import List, Any
-from collections import namedtuple, deque
+import select
+import socket
+import time
+from collections import deque, namedtuple
+from typing import Any, List
 
 logger = logging.getLogger(__name__)
 
-CRLF = b'\r\n'
+CRLF = b"\r\n"
 
 
 def encode_fp(data):
-    return ','.join(map(str, data))
+    return ",".join(map(str, data))
 
 
-Result = namedtuple('Result', ['id', 'score'])
+Result = namedtuple("Result", ["id", "score"])
 
 
 class IndexClientError(Exception):
     """Base class for all errors."""
+
     pass
 
 
 class Index(object):
-
     def begin(self):
         # type: () -> None
         raise NotImplementedError(self.begin)
@@ -50,8 +50,7 @@ class Index(object):
 
 
 class IndexClient(Index):
-
-    def __init__(self, host='127.0.0.1', port=6080, timeout=10):
+    def __init__(self, host="127.0.0.1", port=6080, timeout=10):
         self.host = host
         self.port = port
         self.timeout = timeout
@@ -60,35 +59,44 @@ class IndexClient(Index):
         self.in_transaction = False
         self.created = time.time()
         self.sock = None
-        self._buffer = b''
+        self._buffer = b""
         self._connect()
 
     def __str__(self):
         if self.sock is not None:
-            return '{}->{}:{}'.format(self.sock.getsockname(), self.host, self.port)
+            return "{}->{}:{}".format(self.sock.getsockname(), self.host, self.port)
         else:
-            return '{}:{}'.format(self.host, self.port)
+            return "{}:{}".format(self.host, self.port)
 
     def __repr__(self):
-        return '<%s(%s, %s) instance at %s>' % (self.__class__.__name__,
-            self.host, self.port, hex(id(self)))
+        return "<%s(%s, %s) instance at %s>" % (
+            self.__class__.__name__,
+            self.host,
+            self.port,
+            hex(id(self)),
+        )
 
     def __del__(self):
         if self.sock is not None:
-            logger.warn('Deleted without being explicitly closed')
+            logger.warn("Deleted without being explicitly closed")
             self.close()
 
     def _connect(self):
         logger.debug("Connecting to index server at %s:%s", self.host, self.port)
         try:
-            self.sock = socket.create_connection((self.host, self.port), self.connect_timeout)
+            self.sock = socket.create_connection(
+                (self.host, self.port), self.connect_timeout
+            )
             self.sock.setblocking(0)
         except socket.error as e:
-            raise IndexClientError('unable to connect to the index server at %s:%s (%s)' % (self.host, self.port, e))
+            raise IndexClientError(
+                "unable to connect to the index server at %s:%s (%s)"
+                % (self.host, self.port, e)
+            )
 
     def _putline(self, line):
         # type: (str) -> None
-        request = b'%s%s' % (line.encode('utf8'), CRLF)
+        request = b"%s%s" % (line.encode("utf8"), CRLF)
         logger.debug("Sending request %r", request)
         self.sock.sendall(request)
 
@@ -99,9 +107,11 @@ class IndexClient(Index):
         deadline = time.time() + timeout
         while pos == -1:
             try:
-                ready_to_read, ready_to_write, in_error = select.select([self.sock], [], [self.sock], self.socket_timeout)
+                ready_to_read, ready_to_write, in_error = select.select(
+                    [self.sock], [], [self.sock], self.socket_timeout
+                )
             except select.error as e:
-                if getattr(e, 'errno', None) == errno.EINTR:
+                if getattr(e, "errno", None) == errno.EINTR:
                     continue
                 self.close()
                 raise
@@ -131,57 +141,60 @@ class IndexClient(Index):
                 raise IndexClientError("read timeout exceeded")
         line = self._buffer[:pos]
         logger.debug("Received response %r", line)
-        self._buffer = self._buffer[pos + len(CRLF):]
-        return line.decode('utf8')
+        pos += len(CRLF)
+        self._buffer = self._buffer[pos:]
+        return line.decode("utf8")
 
     def _request(self, request, timeout=None):
         self._putline(request)
         line = self._getline(timeout=timeout)
-        if line.startswith('OK '):
+        if line.startswith("OK "):
             return line[3:]
-        if 'unknown command' in line:
+        if "unknown command" in line:
             self.close()
         raise IndexClientError(line)
 
     def ping(self):
-        self._request('echo', timeout=1.0)
+        self._request("echo", timeout=1.0)
         return True
 
     def get_attribute(self, name):
-        return self._request('get attribute %s' % (name,))
+        return self._request("get attribute %s" % (name,))
 
     def set_attribute(self, name, value):
-        self._request('set attribute %s %s' % (name, value))
+        self._request("set attribute %s %s" % (name, value))
         return True
 
     def search(self, fingerprint):
-        line = self._request('search %s' % (encode_fp(fingerprint),))
+        line = self._request("search %s" % (encode_fp(fingerprint),))
         if not line:
             return []
-        matches = [Result(*map(int, r.split(':'))) for r in line.split(' ')]
+        matches = [Result(*map(int, r.split(":"))) for r in line.split(" ")]
         return matches
 
     def begin(self):
         if self.in_transaction:
-            raise IndexClientError('called begin() while in transaction')
-        self._request('begin')
+            raise IndexClientError("called begin() while in transaction")
+        self._request("begin")
         self.in_transaction = True
 
     def commit(self):
         if not self.in_transaction:
-            raise IndexClientError('called commit() without a transaction')
-        self._request('commit', timeout=60.0 * 10)
+            raise IndexClientError("called commit() without a transaction")
+        self._request("commit", timeout=60.0 * 10)
         self.in_transaction = False
 
     def rollback(self):
         if not self.in_transaction:
-            raise IndexClientError('called rollback() without a transaction')
-        self._request('rollback')
+            raise IndexClientError("called rollback() without a transaction")
+        self._request("rollback")
         self.in_transaction = False
 
     def insert(self, id, fingerprint):
         # logger.debug("Inserting %s %s", id, fingerprint)
-        return self._request('insert %d %s' % (id, encode_fp(fingerprint)), timeout=60.0 * 10)
+        return self._request(
+            "insert %d %s" % (id, encode_fp(fingerprint)), timeout=60.0 * 10
+        )
 
     def close(self):
         try:
@@ -198,7 +211,6 @@ class IndexClient(Index):
 
 
 class IndexClientWrapper(Index):
-
     def __init__(self, pool=None, client=None):
         self._pool = pool
         self._client = client
@@ -229,7 +241,6 @@ class IndexClientWrapper(Index):
 
 
 class IndexClientPool(object):
-
     def __init__(self, max_idle_clients=5, recycle=-1, **kwargs):
         self.max_idle_clients = max_idle_clients
         self.recycle = recycle
@@ -261,7 +272,9 @@ class IndexClientPool(object):
             client = self.clients.popleft()
             try:
                 if self.recycle > 0 and client.created + self.recycle < time.time():
-                    logger.debug("Recycling connection %s after %d seconds", client, self.recycle)
+                    logger.debug(
+                        "Recycling connection %s after %d seconds", client, self.recycle
+                    )
                     raise IndexClientError()
                 else:
                     client.ping()

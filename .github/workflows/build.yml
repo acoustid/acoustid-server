@@ -56,7 +56,7 @@ jobs:
 
       - name: Lint on the source code
         run: |
-            tox -e flake8,mypy
+            tox -e flake8,mypy,isort,black
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
 

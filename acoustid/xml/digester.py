@@ -89,14 +89,14 @@ class Digester(ContentHandler):
         assert self._active_rules == 0
         assert len(self._path) == 0
         for a in self._rules.values():
-            for r in [x for x in a if x and hasattr(x.finish, '__call__')]:
+            for r in [x for x in a if x and hasattr(x.finish, "__call__")]:
                 r.finish()
 
     def startElement(self, tag, attrs):
         self._path.append(tag)
         if len(self._cdata) > 0:
             self._cdata = []
-        rset = self._rules.get('/'.join(self._path))
+        rset = self._rules.get("/".join(self._path))
         for r in rset if rset is not None else []:
             self._active_rules += 1
             r._storedAttrs = attrs.copy()
@@ -108,9 +108,9 @@ class Digester(ContentHandler):
             self._cdata.append(content)
 
     def endElement(self, tag):
-        rset = self._rules.get('/'.join(self._path))
+        rset = self._rules.get("/".join(self._path))
         if rset is not None:
-            body = ''.join(self._cdata) if len(self._cdata) > 0 else ''
+            body = "".join(self._cdata) if len(self._cdata) > 0 else ""
             for r in rset:
                 self._active_rules -= 1
                 r.body(tag, r._storedAttrs, body)

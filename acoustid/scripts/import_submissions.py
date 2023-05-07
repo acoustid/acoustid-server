@@ -6,9 +6,10 @@
 import json
 import logging
 import time
-from typing import Optional, Dict, Any
-from acoustid.script import Script
+from typing import Any, Dict, Optional
+
 from acoustid.data.submission import import_queued_submissions
+from acoustid.script import Script
 
 logger = logging.getLogger(__file__)
 
@@ -19,7 +20,7 @@ def do_import(script: Script, limit: int = 100) -> int:
     while count > 0 and count < limit:
         with script.context() as ctx:
             if ctx.statsd is not None:
-                ctx.statsd.incr('importer_running', 1)
+                ctx.statsd.incr("importer_running", 1)
             ingest_db = ctx.db.get_ingest_db()
             app_db = ctx.db.get_app_db()
             fingerprint_db = ctx.db.get_fingerprint_db()
@@ -27,13 +28,17 @@ def do_import(script: Script, limit: int = 100) -> int:
             timeout_ms = 20 * 1000
             ingest_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
             app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
-            fingerprint_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+            fingerprint_db.execute(
+                "SET LOCAL statement_timeout TO {}".format(timeout_ms)
+            )
 
-            count = import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index, limit=1)
+            count = import_queued_submissions(
+                ingest_db, app_db, fingerprint_db, ctx.index, limit=1
+            )
             ctx.db.session.commit()
 
             if ctx.statsd is not None:
-                ctx.statsd.incr('imported_submissions', count)
+                ctx.statsd.incr("imported_submissions", count)
 
             total_count += count
 
@@ -42,7 +47,7 @@ def do_import(script: Script, limit: int = 100) -> int:
 
 def run_import_on_master(script):
     # type: (Script) -> None
-    logger.info('Importer running in master mode')
+    logger.info("Importer running in master mode")
     # listen for new submissins and import them as they come
 
     min_delay = 1.0
@@ -56,7 +61,7 @@ def run_import_on_master(script):
             imported = do_import(script)
             logger.info("Imported %d submissions", imported)
         except Exception:
-            logger.exception('Failed to import submissions')
+            logger.exception("Failed to import submissions")
             imported = 0
 
         if imported == 0:
@@ -64,22 +69,22 @@ def run_import_on_master(script):
         else:
             delay = max(delay / delay_update_coefficient, min_delay)
 
-        logger.debug('Waiting %s seconds...', delay)
+        logger.debug("Waiting %s seconds...", delay)
         time.sleep(delay)
 
 
 def run_import_on_slave(script):
     # type: (Script) -> None
-    logger.info('Importer running in slave mode, not doing anything')
+    logger.info("Importer running in slave mode, not doing anything")
     while True:
         delay = 60
-        logger.debug('Waiting %d seconds...', delay)
+        logger.debug("Waiting %d seconds...", delay)
         time.sleep(delay)
 
 
 def run_import(script):
     # type: (Script) -> None
-    if script.config.cluster.role == 'master':
+    if script.config.cluster.role == "master":
         run_import_on_master(script)
     else:
         run_import_on_slave(script)
