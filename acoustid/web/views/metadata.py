@@ -1,5 +1,7 @@
 import logging
 
+from typing import Any
+
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 from sqlalchemy import sql
 from sqlalchemy.orm import load_only
@@ -20,10 +22,10 @@ metadata_page = Blueprint("metadata", __name__)
 
 @metadata_page.route("/track/<track_id_or_gid>")
 def track(track_id_or_gid):
-    # xtype: (str) -> str
-
     fingerprint_db = db.get_fingerprint_db()
     musicbrainz_db = db.get_musicbrainz_db()
+
+    show_disabled = request.args.get("disabled") == "1"
 
     if is_uuid(track_id_or_gid):
         track_gid = track_id_or_gid
@@ -40,7 +42,7 @@ def track(track_id_or_gid):
         abort(404)
 
     title = 'Track "%s"' % (track_gid,)
-    track = {"id": track_id}
+    track = {"id": track_id, "gid": track_gid}
 
     query = sql.select(
         [
@@ -65,12 +67,19 @@ def track(track_id_or_gid):
 
     metadata = lookup_recording_metadata(musicbrainz_db, [r["mbid"] for r in mbids])
 
+    num_disabled = 0
+    num_enabled = 0
+
     recordings = []
     for mbid in mbids:
         recording = metadata.get(mbid["mbid"], {})
         recording["mbid"] = mbid["mbid"]
         recording["submission_count"] = mbid["submission_count"]
         recording["disabled"] = mbid["disabled"]
+        if recording["disabled"]:
+            num_disabled += 1
+        else:
+            num_enabled += 1
         recordings.append(recording)
     recordings.sort(key=lambda r: r.get("name", r.get("mbid")))
 
@@ -135,6 +144,9 @@ def track(track_id_or_gid):
         track=track,
         edits=edits,
         user_metadata=user_metadata,
+        show_disabled=show_disabled,
+        num_disabled=num_disabled,
+        num_enabled=num_enabled,
     )
 
 
