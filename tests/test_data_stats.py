@@ -1,7 +1,6 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import assert_equals
 from tests import prepare_database, with_database
 from acoustid.data.stats import (
     find_current_stats,
@@ -20,5 +19,5 @@ def test_find_current_stats(conn):
         ('track.all', 14, '2011-04-27');
     """)
     stats = find_current_stats(conn)
-    assert_equals(4, stats['account.all'])
-    assert_equals(14, stats['track.all'])
+    assert 4 == stats['account.all']
+    assert 14 == stats['track.all']

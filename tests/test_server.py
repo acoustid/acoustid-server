@@ -1,7 +1,6 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from nose.tools import assert_equals
 import gzip
 import wsgiref.util
 from six import BytesIO
@@ -22,7 +21,7 @@ def dummy_start_response(status, headers, exc_info=None):
 def test_gzip_request_middleware():
     # type: () -> None
     def app(environ, start_response):
-        assert_equals(b'Hello world!', environ['wsgi.input'].read(int(environ['CONTENT_LENGTH'])))
+        assert environ['wsgi.input'].read() == b'Hello world!'
     gzcontent = BytesIO()
     f = gzip.GzipFile(fileobj=gzcontent, mode='w')
     f.write(b'Hello world!')
@@ -41,7 +40,7 @@ def test_gzip_request_middleware():
 def test_gzip_request_middleware_invalid_gzip():
     # type: () -> None
     def app(environ, start_response):
-        assert_equals(b'Hello world!', environ['wsgi.input'].read(int(environ['CONTENT_LENGTH'])))
+        assert environ['wsgi.input'].read() == b'Hello world!'
     data = b'Hello world!'
     environ = {
         u'HTTP_CONTENT_ENCODING': 'gzip',
@@ -56,7 +55,7 @@ def test_gzip_request_middleware_invalid_gzip():
 def test_replace_double_slashes():
     # type: () -> None
     def app(environ, start_response):
-        assert_equals('/v2/user/lookup', environ['PATH_INFO'])
+        assert environ['PATH_INFO'] == '/v2/user/lookup'
     environ = {u'PATH_INFO': '/v2//user//lookup'}
     wsgiref.util.setup_testing_defaults(environ)
     mw = replace_double_slashes(app)
@@ -72,7 +71,7 @@ def test_add_cors_headers():
         # type: (str, List[Tuple[str, str]], Any) -> Callable[[bytes], None]
         h = dict(headers)
         print(h)
-        assert_equals(h['Access-Control-Allow-Origin'], '*')
+        assert h['Access-Control-Allow-Origin'] == '*'
         return dummy_start_response(status, headers, exc_info=exc_info)
 
     environ = {}  # type: WSGIEnvironment

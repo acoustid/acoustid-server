@@ -1,6 +1,6 @@
 -c requirements.txt
-nose
 flake8
+pytest
 functools32 ; python_version < "3.2"
 mypy ; python_version >= "3"
 sqlalchemy-stubs >= 0.4 ; python_version >= "3"

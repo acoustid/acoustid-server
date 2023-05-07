@@ -82,10 +82,10 @@ one you use for development, but it should have the same structure.
 
 You can then run the test suite like this:
 
-    nosetests -v
+    pytest -v tests/
 
 The first thing it does is setting up the database. Normally you shouldn't
 need to do this more than once, so the next time you can run the test suite
 without the database setup code:
 
-    SKIP_DB_SETUP=1 nosetests -v
+    SKIP_DB_SETUP=1 pytest -v tests/

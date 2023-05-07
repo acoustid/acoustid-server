@@ -5,9 +5,10 @@ import os
 import json
 import pprint
 import difflib
+import functools
+import pytest
 from typing import Any
 from sqlalchemy import Table
-from nose.tools import make_decorator
 from acoustid.db import DatabaseContext
 from acoustid.script import Script
 from acoustid.tables import metadata
@@ -122,6 +123,31 @@ INSERT INTO meta (id, track, artist) VALUES (2, 'Custom Track 2', 'Custom Artist
 INSERT INTO track_meta (track_id, meta_id, submission_count) VALUES (1, 1, 1);
 INSERT INTO track_meta (track_id, meta_id, submission_count) VALUES (1, 2, 10);
 '''
+
+
+def make_decorator(func):
+    """
+    Wraps a test decorator so as to properly replicate metadata
+    of the decorated function, including nose's additional stuff
+    (namely, setup and teardown).
+    """
+    def decorate(newfunc):
+        if hasattr(func, 'compat_func_name'):
+            name = func.compat_func_name
+        else:
+            name = func.__name__
+        newfunc.__dict__ = func.__dict__
+        newfunc.__doc__ = func.__doc__
+        newfunc.__module__ = func.__module__
+        if not hasattr(newfunc, 'compat_co_firstlineno'):
+            newfunc.compat_co_firstlineno = func.__code__.co_firstlineno
+        try:
+            newfunc.__name__ = name
+        except TypeError:
+            # can't set func name in 2.3
+            newfunc.compat_func_name = name
+        return newfunc
+    return decorate
 
 
 def with_database(func):
@@ -252,3 +278,8 @@ def assert_dict_equals(d1, d2, msg=None):
 
 def assert_json_equals(expected, actual):
     assert_dict_equals(expected, json.loads(actual))
+
+
+def assert_raises(exc_class, func, *args):
+    with pytest.raises(exc_class):
+        func(*args)
