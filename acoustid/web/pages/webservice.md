@@ -245,13 +245,9 @@ The AcoustID database depends on user-submitted content. This method can be used
 submit new audio fingerprints and their corresponding metadata to the database.
 Multiple fingerprints can be submitted in one call.
 
-Submissions are processed asynchronously by a background job. However, this
-normally only takes a few seconds, so if your application needs to get the imported
-AcoustIDs back, you can use the `wait` parameter to wait until the
-submissions are imported. It is not guaranteed that the submissions will be
-imported on time, so your application must be able to handle the case
-when the submission is still in the "pending" status. You can look up the status
-of the pending submissions later.
+Submissions are processed asynchronously by a background job. If you need to wait
+for the submission to be successfully imported, you need to do it on the client side by
+checking the submission status endpoint.
 
 While you can submit a fingerprint without any metadata, it is not very useful
 to do so. If the file has embedded MusicBrainz tags, please send the MusicBrainz
@@ -287,12 +283,6 @@ recording ID. Otherwise you can send the textual metadata.
 		<td>no</td>
 		<td>1.0</td>
 		<td>application's version</td>
-	</tr>
-	<tr>
-		<td>wait</td>
-		<td>no</td>
-		<td>1</td>
-		<td>wait up to N seconds for the submission(s) to import</td>
 	</tr>
 	<tr>
 		<td>user</td>
@@ -376,7 +366,7 @@ recording ID. Otherwise you can send the textual metadata.
 
 #### Examples
 
-Standard asynchronous response:
+Standard request:
 
 <pre><code>https://api.acoustid.org/v2/submit?client={{ client_api_key }}&user=XXX&duration=641&fingerprint=XXX</code></pre>
 
@@ -388,34 +378,16 @@ Standard asynchronous response:
 	  }]
     }
 
-Waiting for the results:
+Batch request:
 
-<pre><code>https://api.acoustid.org/v2/submit?client={{ client_api_key }}&user=XXX&wait=5&duration=641&fingerprint=XXX</code></pre>
-
-    {
-      "status": "ok",
-      "submissions": [{
-        "id": 123456789,
-        "status": "imported",
-        "result": {
-          "id": "9ff43b6a-4f16-427c-93c2-92307ca505e0"
-        }
-	  }]
-    }
-
-Batch submission, waiting for the results and one of the submissions was not imported in time:
-
-<pre><code>https://api.acoustid.org/v2/submit?client={{ client_api_key }}&user=XXX&wait=5&duration.0=641&fingerprint.0=XXX&duration.1=123&fingerprint.1=XXX</code></pre>
+<pre><code>https://api.acoustid.org/v2/submit?client={{ client_api_key }}&user=XXX&&duration.0=641&fingerprint.0=XXX&duration.1=123&fingerprint.1=XXX</code></pre>
 
     {
       "status": "ok",
       "submissions": [{
         "index": 0,
         "id": 123456789,
-        "status": "imported",
-        "result": {
-          "id": "9ff43b6a-4f16-427c-93c2-92307ca505e0"
-        }
+        "status": "pending",
 	  }, {
         "index": 1,
         "id": 123456790,
