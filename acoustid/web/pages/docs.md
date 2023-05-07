@@ -5,5 +5,3 @@ Title: Documentation
 * Components:
     * [Server](/server)
     * [Chromaprint](/chromaprint)
-    * [Fingerprinter](/fingerprinter)
-
