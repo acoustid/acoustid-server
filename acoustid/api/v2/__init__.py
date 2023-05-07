@@ -58,6 +58,11 @@ DEMO_APPLICATION_ID = 2
 
 MAX_META_IDS_PER_TRACK = 10
 
+MAX_FINGERPRINT_QUERIES_PER_REQUEST = 10
+MAX_TRACK_QUERIES_PER_REQUEST = 100
+
+MAX_RESULTS_PER_FINGERPRINT_QUERY = 10
+
 
 def iter_args_suffixes(args, *prefixes):
     results = set()
@@ -745,15 +750,25 @@ class LookupHandler(APIHandler):
 
         assert params.max_duration_diff is not None
 
-        if len(params.fingerprints) > 15:
-            raise errors.RequestTooLargeError()
-
         if params.batch:
             fingerprints = params.fingerprints
         else:
             fingerprints = params.fingerprints[:1]
 
-        max_results = 10
+        num_fingerprint_queries = 0
+        num_track_queries = 0
+
+        for p in fingerprints:
+            if isinstance(p, TrackLookupQuery):
+                num_track_queries += 1
+            elif isinstance(p, FingerprintLookupQuery):
+                num_fingerprint_queries += 1
+
+        if num_fingerprint_queries > MAX_FINGERPRINT_QUERIES_PER_REQUEST:
+            raise errors.RequestTooLargeError()
+
+        if num_track_queries > MAX_TRACK_QUERIES_PER_REQUEST:
+            raise errors.RequestTooLargeError()
 
         all_matches = []
         for p in fingerprints:
@@ -781,7 +796,7 @@ class LookupHandler(APIHandler):
                 )
                 searcher.max_length_diff = params.max_duration_diff
                 matches = searcher.search(
-                    p.fingerprint, p.duration, max_results=max_results
+                    p.fingerprint, p.duration, max_results=MAX_RESULTS_PER_FINGERPRINT_QUERY
                 )
                 self.ctx.db.session.close()
                 fingerprint_search_t1 = time.time()
