@@ -4,72 +4,47 @@ AcoustID Server
 This software is only meant to run on [acoustid.org](https://acoustid.org). Running it on your own server is not supported.
 It's possible, but you need to understand the system well enough and even then it's probably not going to be useful to you.
 
-Installation
-------------
+Local Development
+-----------------
 
-On Ubuntu you can install all dependencies using the following commands (as root):
+You need Python 3.8 or newer to run the code. On Ubuntu, you can install the required
+packages using the following command:
 
-    sudo apt-get install python python-dev python-virtualenv
-
-Start the required services using Docker:
-
-    docker-compose up -d
-
-If you can't use Docker, you will need to install PostgreSQL and Redis from packages:
-
-    sudo apt-get install postgresql postgresql-contrib
-    sudo apt-get install redis-server
-
-And you will also neeed to compile the [pg\_acoustid](https://bitbucket.org/acoustid/pg_acoustid) extension yourself. It's easier to use the ready-made Docker images.
+    sudo apt-get install python3 python3-dev python3-venv
 
 Setup Python virtual environment:
 
-    virtualenv e
-    source e/bin/activate
+    python3 -m venv venv
+    source venv/bin/activate
+
+    export PYTHONPATH=`pwd`
+
     pip install -r requirements.txt
     pip install -r requirements_dev.txt
+
+Start the required services using Docker:
+
+    export COMPOSE_DOCKER_CLI_BUILD=1
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_FILE=docker-compose.yml:docker-compose.localhost.yml
+
+    docker-compose up -d redis postgres index
 
 Prepare the configuration file:
 
     cp acoustid.conf.dist acoustid.conf
     vim acoustid.conf
 
-Create the PostgreSQL database:
+Initialize the local database:
 
-    sudo -u postgres createuser acoustid
-    sudo -u postgres createdb -O acoustid acoustid
+    alembic upgrade head
 
-Install extensions into the newly created database:
+Run the applications:
 
-    sudo -u postgres psql acoustid -c 'CREATE EXTENSION intarray;'
-    sudo -u postgres psql acoustid -c 'CREATE EXTENSION pgcrypto;'
-    sudo -u postgres psql acoustid -c 'CREATE EXTENSION acoustid;'
-
-Create the database structure:
-
-    ./run_psql.sh <sql/CreateTables.sql
-    ./run_psql.sh <sql/CreatePrimaryKeys.sql
-    ./run_psql.sh <sql/CreateFKConstraints.sql
-    ./run_psql.sh <sql/CreateIndexes.sql
-
-Setup a MusicBrainz slave database (without custom extensions):
-
-    cd /path/to/mbslave
-    cp mbslave.conf.default mbslave.conf
-    vim mbslave.conf
-    echo 'CREATE SCHEMA musicbrainz;' | ./mbslave-psql.py
-    sed 's/cube/text/i' sql/CreateTables.sql | ./mbslave-psql.py
-    ./mbslave-import.py mbdump.tar.bz2 mbdump-derived.tar.bz2
-    ./mbslave-psql.py <sql/CreatePrimaryKeys.sql
-    vim sql/CreateFunctions.sql # remove functions that mention "cube"
-    ./mbslave-psql.py <sql/CreateFunctions.sql
-    grep -vE '(collate|page_index|gist)' sql/CreateIndexes.sql | ./mbslave-psql.py
-    ./mbslave-psql.py <sql/CreateViews.sql
-    ./mbslave-psql.py <sql/CreateSimpleViews.sql
-    ./mbslave-sync.py
-
-TODO
-
+    python manage.py run web
+    python manage.py run api
+    python manage.py run cron
+    python manage.py run worker
 
 Local Testing
 -------------
