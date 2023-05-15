@@ -9,10 +9,10 @@ but there are plans to implement a custom special-purpose index server for
 more efficient searches.
 
 The source code is licensed under the [MIT License][mit]. You can dowload it
-from from [Bitbucket][bb].
+from from [GitHub][gh].
 
 [mit]: http://creativecommons.org/licenses/MIT/
-[bb]: https://bitbucket.org/acoustid/acoustid-server
+[gh]: https://github.com/acoustid/acoustid-server
 [gin]: http://developer.postgresql.org/pgdocs/postgres/gin.html
-[bb-index]: https://bitbucket.org/acoustid/acoustid-index
+[bb-index]: https://github.com/acoustid/acoustid-index
 
