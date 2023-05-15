@@ -1,5 +1,5 @@
 - git:
-    repo=https://bitbucket.org/acoustid/pg_acoustid.git
+    repo=https://github.com/acoustid/pg_acoustid.git
     dest=/tmp/pg_acoustid
   register: pg_acoustid_git
 

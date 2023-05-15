@@ -45,5 +45,3 @@ you need an [application API key](/my-applications). You need to
 
 [oid]: http://openid.net/
 
-[code]: https://bitbucket.org/acoustid/acoustid-server/src/master/acoustid/website.py
-
