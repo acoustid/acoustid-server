@@ -3,7 +3,13 @@
 
 import pytest
 
-from acoustid.utils import generate_demo_client_api_key, is_foreignid, is_uuid, singular
+from acoustid.utils import (
+    generate_api_key,
+    generate_demo_client_api_key,
+    is_foreignid,
+    is_uuid,
+    singular,
+)
 
 
 def test_singular() -> None:
