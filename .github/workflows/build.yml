@@ -119,7 +119,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Log in to the Container registry
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
         uses: docker/login-action@v1
         with:
           registry: ${{ env.REGISTRY }}
@@ -130,7 +130,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' && github.actor != 'dependabot[bot]' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:master
