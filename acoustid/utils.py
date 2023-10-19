@@ -14,9 +14,9 @@ from six.moves.urllib.parse import urlencode
 from six.moves.urllib.request import urlopen
 
 
-def generate_api_key(length=10):
+def generate_api_key(length=10) -> str:
     random_bytes = os.urandom(20)
-    return re.sub("[/+=]", "", six.text_type(base64.b64encode(random_bytes)).strip())[
+    return re.sub("[/+=]", "", base64.b64encode(random_bytes).decode('ascii')).strip())[
         :length
     ]
 
