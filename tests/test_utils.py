@@ -3,7 +3,13 @@
 
 import pytest
 
-from acoustid.utils import generate_demo_client_api_key, is_foreignid, is_uuid, singular
+from acoustid.utils import (
+    generate_api_key,
+    generate_demo_client_api_key,
+    is_foreignid,
+    is_uuid,
+    singular,
+)
 
 
 def test_singular() -> None:
@@ -29,3 +35,8 @@ def test_is_foreignid() -> None:
 def test_generate_demo_client_api_key() -> None:
     token = generate_demo_client_api_key("foo")
     assert token != ""
+
+
+def test_generate_api_key() -> None:
+    token = generate_api_key()
+    assert not token.startswith("b'")
