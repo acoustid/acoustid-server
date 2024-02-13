@@ -206,7 +206,6 @@ def make_application(config_path=None):
     assert config_path is not None
     server = Server(config_path)
     server.wsgi_app = GzipRequestMiddleware(server.wsgi_app)  # type: ignore
-    server.wsgi_app = SentryWsgiMiddleware(server.wsgi_app)  # type: ignore
     server.wsgi_app = replace_double_slashes(server.wsgi_app)  # type: ignore
     server.wsgi_app = add_cors_headers(server.wsgi_app)  # type: ignore
     server.wsgi_app = ProxyFix(server.wsgi_app)  # type: ignore
