@@ -7,8 +7,6 @@ import gzip
 import os
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional, Tuple
 
-import sentry_sdk
-from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 from six import BytesIO
 from werkzeug.exceptions import BadRequest, ClientDisconnected, HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -136,9 +134,6 @@ class Server(Script):
             return e(environ, start_response)
         return response(environ, start_response)
 
-    def setup_sentry(self) -> None:
-        sentry_sdk.init(self.config.sentry.api_dsn, release=GIT_RELEASE)
-
 
 class GzipRequestMiddleware(object):
     """WSGI middleware to handle GZip-compressed HTTP requests bodies
@@ -210,9 +205,7 @@ def make_application(config_path=None):
         config_path = os.environ.get("ACOUSTID_CONFIG", "")
     assert config_path is not None
     server = Server(config_path)
-    server.setup_sentry()
     server.wsgi_app = GzipRequestMiddleware(server.wsgi_app)  # type: ignore
-    server.wsgi_app = SentryWsgiMiddleware(server.wsgi_app)  # type: ignore
     server.wsgi_app = replace_double_slashes(server.wsgi_app)  # type: ignore
     server.wsgi_app = add_cors_headers(server.wsgi_app)  # type: ignore
     server.wsgi_app = ProxyFix(server.wsgi_app)  # type: ignore

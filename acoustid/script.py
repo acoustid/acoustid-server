@@ -6,7 +6,6 @@ import sys
 from optparse import OptionParser
 from typing import Any, Optional
 
-import sentry_sdk
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
 from statsd import StatsClient
@@ -121,12 +120,6 @@ class Script(object):
         logging.getLogger().addHandler(handler)
         self._console_logging_configured = True
 
-    def setup_sentry(self):
-        # type: () -> None
-        sentry_sdk.init(
-            self.config.sentry.script_dsn, release=GIT_RELEASE, sample_rate=0.01
-        )
-
     def context(self, use_two_phase_commit=None):
         # type: (Optional[bool]) -> ScriptContext
         db = DatabaseContext(self, use_two_phase_commit=use_two_phase_commit)
@@ -156,7 +149,6 @@ def run_script(func, option_cb=None, master_only=False):
         parser.error("no configuration file")
     script = Script(options.config)
     script.setup_console_logging(options.quiet)
-    script.setup_sentry()
     if master_only and script.config.cluster.role != "master":
         logger.debug("Not running script %s on a slave server", sys.argv[0])
     else:

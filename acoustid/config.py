@@ -453,27 +453,6 @@ class uWSGIConfig(BaseConfig):
         )
 
 
-class SentryConfig(BaseConfig):
-    def __init__(self):
-        self.web_dsn = ""
-        self.api_dsn = ""
-        self.script_dsn = ""
-
-    def read_section(self, parser, section):
-        # type: (RawConfigParser, str) -> None
-        if parser.has_option(section, "web_dsn"):
-            self.web_dsn = parser.get(section, "web_dsn")
-        if parser.has_option(section, "api_dsn"):
-            self.api_dsn = parser.get(section, "api_dsn")
-        if parser.has_option(section, "script_dsn"):
-            self.script_dsn = parser.get(section, "script_dsn")
-
-    def read_env(self, prefix):
-        read_env_item(self, "web_dsn", prefix + "SENTRY_WEB_DSN")
-        read_env_item(self, "api_dsn", prefix + "SENTRY_API_DSN")
-        read_env_item(self, "script_dsn", prefix + "SENTRY_SCRIPT_DSN")
-
-
 class StatsdConfig(BaseConfig):
     def __init__(self):
         # type: () -> None
@@ -572,7 +551,6 @@ class Config(object):
         self.replication = ReplicationConfig()
         self.cluster = ClusterConfig()
         self.rate_limiter = RateLimiterConfig()
-        self.sentry = SentryConfig()
         self.gunicorn = GunicornConfig()
         self.statsd = StatsdConfig()
 
@@ -589,7 +567,6 @@ class Config(object):
         self.replication.read(parser, "replication")
         self.cluster.read(parser, "cluster")
         self.rate_limiter.read(parser, "rate_limiter")
-        self.sentry.read(parser, "sentry")
         self.gunicorn.read(parser, "gunicorn")
         self.statsd.read(parser, "statsd")
 
@@ -607,6 +584,5 @@ class Config(object):
         self.replication.read_env(prefix)
         self.cluster.read_env(prefix)
         self.rate_limiter.read_env(prefix)
-        self.sentry.read_env(prefix)
         self.gunicorn.read_env(prefix)
         self.statsd.read_env(prefix)

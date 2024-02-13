@@ -33,7 +33,6 @@ def run_web_cmd(config, workers=None, threads=None):
     os.environ["ACOUSTID_CONFIG"] = config
     script = Script(config)
     script.setup_console_logging()
-    script.setup_sentry()
     run_web_app(script.config, workers=workers, threads=threads)
 
 
@@ -47,7 +46,6 @@ def run_api_cmd(config, workers=None, threads=None):
     os.environ["ACOUSTID_CONFIG"] = config
     script = Script(config)
     script.setup_console_logging()
-    script.setup_sentry()
     run_api_app(script.config, workers=workers, threads=threads)
 
 
@@ -57,7 +55,6 @@ def run_cron_cmd(config: str) -> None:
     """Run cron."""
     script = Script(config)
     script.setup_console_logging()
-    script.setup_sentry()
     run_cron(script)
 
 
@@ -67,7 +64,6 @@ def run_worker_cmd(config: str) -> None:
     """Run worker."""
     script = Script(config)
     script.setup_console_logging()
-    script.setup_sentry()
     run_worker(script)
 
 
@@ -78,7 +74,6 @@ def run_import_cmd(config):
     """Run import."""
     script = Script(config)
     script.setup_console_logging(verbose=True)
-    script.setup_sentry()
     run_import(script)
 
 
@@ -90,7 +85,6 @@ def run_script_cmd(name, config):
     """Run a built-in script."""
     script = Script(config)
     script.setup_console_logging()
-    script.setup_sentry()
     mod = importlib.import_module("acoustid.scripts.{}".format(name))
     func_name = "run_{}".format(name)
     func = getattr(mod, func_name)
@@ -106,7 +100,6 @@ def shell_cmd(config):
 
     script = Script(config)
     script.setup_console_logging()
-    script.setup_sentry()
     with script.context() as ctx:
         _ = ctx
         IPython.embed()
