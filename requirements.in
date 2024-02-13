@@ -17,7 +17,6 @@ pyasn1
 mbdata==25.0.0
 alembic>=0.8.4,<1.7
 schedule
-sentry-sdk[flask]
 typing
 six
 subprocess32; python_version < "3.2"

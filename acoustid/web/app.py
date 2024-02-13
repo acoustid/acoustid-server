@@ -1,10 +1,8 @@
 import os
 import pickle
 
-import sentry_sdk
 from flask import Flask, request, session
 from flask.sessions import SecureCookieSessionInterface
-from sentry_sdk.integrations.flask import FlaskIntegration
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from acoustid._release import GIT_RELEASE
@@ -42,10 +40,6 @@ def make_application(config_filename=None, tests=False):
     app.acoustid_config_filename = config_filename
 
     app.wsgi_app = ProxyFix(app.wsgi_app)
-
-    sentry_sdk.init(
-        config.sentry.web_dsn, release=GIT_RELEASE, integrations=[FlaskIntegration()]
-    )
 
     # can't use json because of python-openid
     app.session_interface = SecureCookieSessionInterface()
