@@ -29,3 +29,4 @@ statsd
 gevent
 psycogreen
 cachetools
+grpcio

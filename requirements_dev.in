@@ -11,3 +11,4 @@ types-click ; python_version >= "3"
 types-six ; python_version >= "3"
 types-pytz ; python_version >= "3"
 types-redis ; python_version >= "3"
+grpcio-tools
