@@ -29,11 +29,11 @@ class FpstoreClient:
     def close(self) -> None:
         self.session.close()
 
-    def search(
-        self, query: List[int], limit: int = 10, fast_mode: bool = True
-    ) -> List[FpstoreSearchResult]:
+    def _build_search_request(
+        self, query: List[int], limit: int, fast_mode: bool
+    ) -> requests.Request:
         url = f"{self.base_url}/_search"
-        request_body = {
+        body = {
             "fingerprint": {
                 "version": 1,
                 "hashes": [h & 0xFFFFFFFF for h in query],
@@ -41,20 +41,33 @@ class FpstoreClient:
             "limit": limit,
             "fast_mode": fast_mode,
         }
-        logger.info(f"Searching fingerprint store: {url} {request_body}")
 
-        response = self.session.post(url, json=request_body)
+        logger.info(f"Searching fpstore: {url} {body}")
+        return requests.Request("POST", url, json=body)
+
+    def _parse_search_response(
+        self, response: requests.Response
+    ) -> List[FpstoreSearchResult]:
         if response.status_code != 200:
             logger.error(
                 f"Failed to search fingerprint store: {response.status_code} {response.text}"
             )
+            response.raise_for_status()
 
         results = []
         for result in response.json()["results"]:
             results.append(
                 FpstoreSearchResult(
                     fingerprint_id=result["id"],
-                    score=result["score"],
+                    score=result["similarity"],
                 )
             )
         return results
+
+    def search(
+        self, query: List[int], limit: int = 10, fast_mode: bool = True
+    ) -> List[FpstoreSearchResult]:
+        request = self._build_search_request(query, limit, fast_mode)
+        prepared_request = self.session.prepare_request(request)
+        response = self.session.send(prepared_request)
+        return self._parse_search_response(response)
