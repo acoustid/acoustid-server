@@ -205,6 +205,9 @@ class FingerprintSearcher(object):
             logger.info("Matched fingerprint %s", match)
             match = match._replace(score=matching_fingerprint_ids[match.fingerprint_id])
             matches.append(match)
+
+        matches.sort(key=lambda m: -m.score)
+
         return matches
 
     def search(

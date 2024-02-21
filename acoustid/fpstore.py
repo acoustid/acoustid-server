@@ -58,8 +58,8 @@ class FpstoreClient:
         for result in response.json()["results"]:
             results.append(
                 FpstoreSearchResult(
-                    fingerprint_id=result["id"],
-                    score=result["similarity"],
+                    fingerprint_id=int(result["id"]),
+                    score=float(result["similarity"]),
                 )
             )
         logger.info(f"Search results: {results}")
