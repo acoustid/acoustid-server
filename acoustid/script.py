@@ -23,13 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 class ScriptContext(object):
-    def __init__(self, config, db, redis, index, statsd):
-        # type: (Config, DatabaseContext, Redis, IndexClientPool, Optional[StatsClient]) -> None
+    def __init__(
+        self,
+        config: Config,
+        db: DatabaseContext,
+        redis: Redis,
+        index: IndexClientPool,
+        statsd: Optional[StatsClient],
+        fpstore: Optional[FpstoreClient],
+    ) -> None:
         self.config = config
         self.db = db
         self.redis = redis
         self.index = index
         self.statsd = statsd
+        self.fpstore = fpstore
 
     def __enter__(self):
         # type: () -> ScriptContext
@@ -138,7 +146,12 @@ class Script(object):
         db = DatabaseContext(self, use_two_phase_commit=use_two_phase_commit)
         redis = self.get_redis()
         return ScriptContext(
-            config=self.config, db=db, redis=redis, index=self.index, statsd=self.statsd
+            config=self.config,
+            db=db,
+            redis=redis,
+            index=self.index,
+            statsd=self.statsd,
+            fpstore=self.fpstore,
         )
 
 

@@ -170,7 +170,9 @@ class FingerprintSearcher(object):
         if not matching_fingerprints:
             return []
 
-        logger.info("Found %d matching fingerprints via fpstore", len(matching_fingerprints))
+        logger.info(
+            "Found %d matching fingerprints via fpstore", len(matching_fingerprints)
+        )
 
         matching_fingerprint_ids: Dict[int, float] = {}
         for m in matching_fingerprints:
