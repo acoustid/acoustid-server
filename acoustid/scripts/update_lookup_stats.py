@@ -30,26 +30,27 @@ def run_update_lookup_stats(script: Script, partition: int):
     else:
         root_key = f"lookups:{partition:02x}"
     logger.info("Updating lookup stats (key %s)", root_key)
-    db = script.db_engines["app"].connect()
-    redis = script.get_redis()
-    for key, count in redis.hgetall(root_key).items():
-        count = int(count)
-        date, hour, application_id, type = unpack_lookup_stats_key(key)
-        if not count:
-            # the only way this could be 0 is if we already processed it and
-            # nothing touched it since then, so it's safe to delete
-            redis.hdel(root_key, key)
-        else:
-            if script.config.cluster.role == "master":
-                update_lookup_stats(db, application_id, date, hour, type, count)
+    with script.context() as ctx:
+        db = ctx.db.get_app_db()
+        redis = ctx.redis
+        for key, count in redis.hgetall(root_key).items():
+            count = int(count)
+            date, hour, application_id, type = unpack_lookup_stats_key(key)
+            if not count:
+                # the only way this could be 0 is if we already processed it and
+                # nothing touched it since then, so it's safe to delete
+                redis.hdel(root_key, key)
             else:
-                call_internal_api(
-                    script.config,
-                    "update_lookup_stats",
-                    application_id=application_id,
-                    date=date,
-                    hour=hour,
-                    type=type,
-                    count=count,
-                )
-            redis.hincrby(root_key, key, -count)
+                if script.config.cluster.role == "master":
+                    update_lookup_stats(db, application_id, date, hour, type, count)
+                else:
+                    call_internal_api(
+                        script.config,
+                        "update_lookup_stats",
+                        application_id=application_id,
+                        date=date,
+                        hour=hour,
+                        type=type,
+                        count=count,
+                    )
+                redis.hincrby(root_key, key, -count)
