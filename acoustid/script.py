@@ -6,6 +6,8 @@ import sys
 from optparse import OptionParser
 from typing import Any, Optional
 
+import redis.retry
+import redis.backoff
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
 from statsd import StatsClient
@@ -63,16 +65,20 @@ class Script(object):
         self.redis = None
         self.redis_sentinel = None
 
+        redis_retry = redis.retry.Retry(redis.backoff.ExponentialBackoff(), 2)
+
         if self.config.redis.sentinel:
             self.redis_sentinel = RedisSentinel(
                 [(self.config.redis.host, self.config.redis.port)],
                 password=self.config.redis.password,
+                retry=redis_retry,
             )
         else:
             self.redis = Redis(
                 host=self.config.redis.host,
                 port=self.config.redis.port,
                 password=self.config.redis.password,
+                retry=redis_retry,
             )
 
         self._console_logging_configured = False
