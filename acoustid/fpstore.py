@@ -41,8 +41,6 @@ class FpstoreClient:
             "limit": limit,
             "fast_mode": fast_mode,
         }
-
-        logger.info(f"Searching fpstore: {url} {body}")
         return requests.Request("POST", url, json=body)
 
     def _parse_search_response(
@@ -62,7 +60,6 @@ class FpstoreClient:
                     score=float(result["similarity"]),
                 )
             )
-        logger.info(f"Search results: {results}")
         return results
 
     def search(

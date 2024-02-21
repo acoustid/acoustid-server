@@ -162,8 +162,6 @@ class FingerprintSearcher(object):
         if max_results is None:
             max_results = 100
 
-        logger.info("Searching via fpstore")
-
         matching_fingerprints = self.fpstore.search(
             fp, limit=max_results, fast_mode=self.fast
         )
@@ -177,8 +175,6 @@ class FingerprintSearcher(object):
 
         if not matching_fingerprints:
             return []
-
-        logger.info("Found matching fingerprints via fpstore %s", matching_fingerprints)
 
         matching_fingerprint_ids: Dict[int, float] = {}
         for m in matching_fingerprints:
@@ -202,7 +198,6 @@ class FingerprintSearcher(object):
         matches = []
         for result in results:
             match = FingerprintMatch(*result)
-            logger.info("Matched fingerprint %s", match)
             match = match._replace(score=matching_fingerprint_ids[match.fingerprint_id])
             matches.append(match)
 
@@ -210,17 +205,9 @@ class FingerprintSearcher(object):
 
         return matches
 
-    def search(
+    def _search_directly(
         self, fp: List[int], length: int, max_results: Optional[int] = None
     ) -> List[FingerprintMatch]:
-        if self.fpstore is not None:
-            try:
-                matches = self._search_via_fpstore(fp, length, max_results)
-                if matches:
-                    return matches
-            except Exception:
-                logger.exception("Error searching via fpstore")
-
         conditions = []
 
         if self.fast:
@@ -270,6 +257,25 @@ class FingerprintSearcher(object):
                 return []
             raise
         matches = [FingerprintMatch(*result) for result in results]
+        return matches
+
+    def search(
+        self, fp: List[int], length: int, max_results: Optional[int] = None
+    ) -> List[FingerprintMatch]:
+        fpstore_matches = []
+        if self.fpstore is not None:
+            try:
+                fpstore_matches = self._search_via_fpstore(fp, length, max_results)
+            except Exception:
+                logger.exception("Error searching via fpstore")
+
+        matches = self._search_directly(fp, length, max_results)
+
+        logger.info(
+            "Search results %s vs %s",
+            matches,
+            fpstore_matches,
+        )
         return matches
 
 
