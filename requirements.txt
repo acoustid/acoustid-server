@@ -14,13 +14,10 @@ blinker==1.6.2
     # via
     #   -r requirements.in
     #   flask
-    #   sentry-sdk
 cachetools==4.2.1
     # via -r requirements.in
 certifi==2023.7.22
-    # via
-    #   requests
-    #   sentry-sdk
+    # via requests
 cffi==1.15.1
     # via cryptography
 charset-normalizer==2.0.12
@@ -36,9 +33,7 @@ cryptography==39.0.1
 defusedxml==0.6.0
     # via python3-openid
 flask==2.3.2
-    # via
-    #   -r requirements.in
-    #   sentry-sdk
+    # via -r requirements.in
 futures==3.1.1
     # via -r requirements.in
 gevent==23.9.0
@@ -102,8 +97,6 @@ requests==2.31.0
     #   rauth
 schedule==0.6.0
     # via -r requirements.in
-sentry-sdk[flask]==1.22.1
-    # via -r requirements.in
 six==1.14.0
     # via
     #   -r requirements.in
@@ -118,10 +111,8 @@ statsd==3.3.0
 typing==3.7.4.1
     # via -r requirements.in
 urllib3==1.26.18
-    # via
-    #   requests
-    #   sentry-sdk
-werkzeug==2.3.3
+    # via requests
+werkzeug==2.3.8
     # via
     #   -r requirements.in
     #   flask

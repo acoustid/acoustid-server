@@ -37,7 +37,7 @@ def test_gzip_request_middleware():
     data = gzcontent.getvalue()
     environ = {
         "HTTP_CONTENT_ENCODING": "gzip",
-        "CONTENT_LENGTH": len(data),
+        "CONTENT_LENGTH": str(len(data)),
         "wsgi.input": BytesIO(data),
     }
     wsgiref.util.setup_testing_defaults(environ)
@@ -53,7 +53,7 @@ def test_gzip_request_middleware_invalid_gzip():
     data = b"Hello world!"
     environ = {
         "HTTP_CONTENT_ENCODING": "gzip",
-        "CONTENT_LENGTH": len(data),
+        "CONTENT_LENGTH": str(len(data)),
         "wsgi.input": BytesIO(data),
     }
     wsgiref.util.setup_testing_defaults(environ)
