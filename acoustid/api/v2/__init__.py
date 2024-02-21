@@ -233,6 +233,8 @@ class APIHandler(Handler):
         except errors.WebServiceError as e:
             if not isinstance(e, errors.TooManyRequests):
                 logger.warning("WS error: %s", e.message)
+            if self.ctx.statsd is not None:
+                self.ctx.statsd.incr("api.handled_errors_total,code={},request={}".format(e.code, request_type))
             return self._error(
                 e.code, e.message, getattr(params, "format", "unknown"), status=e.status
             )
