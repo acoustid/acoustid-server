@@ -28,42 +28,52 @@ ERROR_UNKNOWN_APPLICATION = 17
 ERROR_FINGERPRINT_NOT_FOUND = 18
 ERROR_REQUEST_TOO_LARGE = 19
 
+error_name_by_code = {}
+for name, value in list(globals().items()):
+    if name.startswith("ERROR_"):
+        name = name[6:].lower()
+        error_name_by_code[value] = name
+
 
 class WebServiceError(Exception):
     status = 400
 
-    def __init__(self, code, message):
+    @property
+    def code_name(self) -> str:
+        return error_name_by_code.get(self.code, "unknown")
+
+    def __init__(self, code: int, message: str) -> None:
         self.code = code
         self.message = message
 
 
 class UnknownFormatError(WebServiceError):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         message = 'unknown format "%s"' % (name,)
         WebServiceError.__init__(self, ERROR_UNKNOWN_FORMAT, message)
 
 
 class MissingParameterError(WebServiceError):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         message = 'missing required parameter "%s"' % (name,)
         WebServiceError.__init__(self, ERROR_MISSING_PARAMETER, message)
         self.parameter = name
 
 
 class InvalidFingerprintError(WebServiceError):
-    def __init__(self):
+    def __init__(self) -> None:
         message = "invalid fingerprint"
         WebServiceError.__init__(self, ERROR_INVALID_FINGERPRINT, message)
 
 
 class InvalidAPIKeyError(WebServiceError):
-    def __init__(self):
+    def __init__(self) -> None:
         message = "invalid API key"
         WebServiceError.__init__(self, ERROR_INVALID_APIKEY, message)
 
 
 class InvalidUserAPIKeyError(WebServiceError):
-    def __init__(self):
+    def __init__(self) -> None:
         message = 'invalid user API key ("User with the API key does not exist")'
         WebServiceError.__init__(self, ERROR_INVALID_USER_APIKEY, message)
 
@@ -71,20 +81,20 @@ class InvalidUserAPIKeyError(WebServiceError):
 class InternalError(WebServiceError):
     status = 500
 
-    def __init__(self):
+    def __init__(self) -> None:
         message = "internal error"
         WebServiceError.__init__(self, ERROR_INTERNAL, message)
 
 
 class InvalidUUIDError(WebServiceError):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         message = 'parameter "%s" is not a valid UUID' % (name,)
         WebServiceError.__init__(self, ERROR_INVALID_UUID, message)
         self.parameter = name
 
 
 class InvalidForeignIDError(WebServiceError):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         message = (
             'parameter "%s" is not a valid foreign ID, it must be in the format vendor:id'
             % (name,)
@@ -94,21 +104,21 @@ class InvalidForeignIDError(WebServiceError):
 
 
 class InvalidDurationError(WebServiceError):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         message = 'parameter "%s" must be a positive integer' % (name,)
         WebServiceError.__init__(self, ERROR_INVALID_DURATION, message)
         self.parameter = name
 
 
 class InvalidBitrateError(WebServiceError):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         message = 'parameter "%s" must be a positive integer' % (name,)
         WebServiceError.__init__(self, ERROR_INVALID_BITRATE, message)
         self.parameter = name
 
 
 class InvalidMaxDurationDiffError(WebServiceError):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         message = 'parameter "%s" must be between %d and %d' % (
             name,
             1,
@@ -119,7 +129,7 @@ class InvalidMaxDurationDiffError(WebServiceError):
 
 
 class NotAllowedError(WebServiceError):
-    def __init__(self):
+    def __init__(self) -> None:
         message = "not allowed"
         WebServiceError.__init__(self, ERROR_NOT_ALLOWED, message)
 
@@ -127,7 +137,7 @@ class NotAllowedError(WebServiceError):
 class ServiceUnavailable(WebServiceError):
     status = 503
 
-    def __init__(self):
+    def __init__(self) -> None:
         message = "service currently unavailable, try again later"
         WebServiceError.__init__(self, ERROR_SERVICE_UNAVAILABLE, message)
 
@@ -135,25 +145,25 @@ class ServiceUnavailable(WebServiceError):
 class TooManyRequests(WebServiceError):
     status = 429
 
-    def __init__(self, rate):
+    def __init__(self, rate) -> None:
         message = "rate limit (%f requests per second) exceeded, try again later" % rate
         WebServiceError.__init__(self, ERROR_TOO_MANY_REQUESTS, message)
 
 
 class InvalidMusicBrainzAccessTokenError(WebServiceError):
-    def __init__(self):
+    def __init__(self) -> None:
         message = "invalid MusicBrainz access token"
         WebServiceError.__init__(self, ERROR_INVALID_MUSICBRAINZ_ACCESS_TOKEN, message)
 
 
 class InsecureRequestError(WebServiceError):
-    def __init__(self):
+    def __init__(self) -> None:
         message = "only requests over HTTPS are allowed here"
         WebServiceError.__init__(self, ERROR_INSECURE_REQUEST, message)
 
 
 class UnknownApplicationError(WebServiceError):
-    def __init__(self):
+    def __init__(self) -> None:
         message = "unknown application"
         WebServiceError.__init__(self, ERROR_UNKNOWN_APPLICATION, message)
 
@@ -161,7 +171,7 @@ class UnknownApplicationError(WebServiceError):
 class FingerprintNotFoundError(WebServiceError):
     status = 404
 
-    def __init__(self):
+    def __init__(self) -> None:
         message = "fingerprint not found"
         WebServiceError.__init__(self, ERROR_FINGERPRINT_NOT_FOUND, message)
 
@@ -169,6 +179,6 @@ class FingerprintNotFoundError(WebServiceError):
 class RequestTooLargeError(WebServiceError):
     status = 413
 
-    def __init__(self):
+    def __init__(self) -> None:
         message = "request too large"
         WebServiceError.__init__(self, ERROR_REQUEST_TOO_LARGE, message)

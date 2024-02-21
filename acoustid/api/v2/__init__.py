@@ -237,7 +237,7 @@ class APIHandler(Handler):
             if self.ctx.statsd is not None:
                 self.ctx.statsd.incr(
                     "api.handled_errors_total,code={},request={}".format(
-                        e.code, request_type
+                        e.code_name, request_type
                     )
                 )
             return self._error(
