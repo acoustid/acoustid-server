@@ -6,8 +6,8 @@ import sys
 from optparse import OptionParser
 from typing import Any, Optional
 
-import redis.retry
 import redis.backoff
+import redis.retry
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
 from statsd import StatsClient
