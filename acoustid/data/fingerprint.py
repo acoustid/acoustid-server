@@ -163,15 +163,8 @@ class FingerprintSearcher(object):
             max_results = 100
 
         matching_fingerprints = self.fpstore.search(
-            fp, limit=max_results, fast_mode=self.fast
+            fp, limit=max_results, fast_mode=self.fast, min_score=self.min_score
         )
-
-        tmp_matching_fingerprints = []
-        for m in matching_fingerprints:
-            if m.score < self.min_score:
-                continue
-            tmp_matching_fingerprints.append(m)
-        matching_fingerprints = tmp_matching_fingerprints
 
         if not matching_fingerprints:
             return []

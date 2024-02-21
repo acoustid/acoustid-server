@@ -30,7 +30,7 @@ class FpstoreClient:
         self.session.close()
 
     def _build_search_request(
-        self, query: List[int], limit: int, fast_mode: bool
+        self, query: List[int], limit: int, fast_mode: bool, min_score: float
     ) -> requests.Request:
         url = f"{self.base_url}/_search"
         body = {
@@ -40,6 +40,7 @@ class FpstoreClient:
             },
             "limit": limit,
             "fast_mode": fast_mode,
+            "min_score": min_score,
         }
         return requests.Request("POST", url, json=body)
 
@@ -57,15 +58,16 @@ class FpstoreClient:
             results.append(
                 FpstoreSearchResult(
                     fingerprint_id=int(result["id"]),
-                    score=float(result["similarity"]),
+                    score=float(result["score"]),
                 )
             )
         return results
 
     def search(
-        self, query: List[int], limit: int = 10, fast_mode: bool = True
+        self, query: List[int], limit: int = 10, fast_mode: bool = True,
+        min_score: float = 0.0
     ) -> List[FpstoreSearchResult]:
-        request = self._build_search_request(query, limit, fast_mode)
+        request = self._build_search_request(query, limit, fast_mode, min_score)
         prepared_request = self.session.prepare_request(request)
         response = self.session.send(prepared_request)
         return self._parse_search_response(response)
