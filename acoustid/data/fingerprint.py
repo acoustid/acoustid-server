@@ -204,7 +204,12 @@ class FingerprintSearcher(object):
         self, fp: List[int], length: int, max_results: Optional[int] = None
     ) -> List[FingerprintMatch]:
         if self.fpstore is not None:
-            return self._search_via_fpstore(fp, length, max_results)
+            try:
+                matches = self._search_via_fpstore(fp, length, max_results)
+                if matches:
+                    return matches
+            except Exception:
+                logger.exception("Error searching via fpstore")
 
         conditions = []
 

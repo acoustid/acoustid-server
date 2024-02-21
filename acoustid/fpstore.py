@@ -1,9 +1,12 @@
+import logging
 from dataclasses import dataclass
 from typing import List
 
 import requests
 
 from acoustid.config import FpstoreConfig
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -38,9 +41,13 @@ class FpstoreClient:
             "limit": limit,
             "fast_mode": fast_mode,
         }
+        logger.info(f"Searching fingerprint store: {url} {request_body}")
 
         response = self.session.get(url, json=request_body)
-        response.raise_for_status()
+        if response.status_code != 200:
+            logger.error(
+                f"Failed to search fingerprint store: {response.status_code} {response.text}"
+            )
 
         results = []
         for result in response.json()["results"]:
