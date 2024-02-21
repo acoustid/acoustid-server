@@ -155,18 +155,7 @@ class APIHandler(Handler):
         response_data = {"status": "ok"}
         response_data.update(data)
         t0 = time.time()
-        try:
-            return serialize_response(response_data, format)
-        finally:
-            t1 = time.time()
-            if self.ctx.statsd is not None:
-                request_type = self.__class__.__name__
-                self.ctx.statsd.timing(
-                    "serialize_response,format={},request={}".format(
-                        format, request_type
-                    ),
-                    1000 * (t1 - t0),
-                )
+        return serialize_response(response_data, format)
 
     def _rate_limit(self, user_ip, application_id):
         # type: (str, Optional[int]) -> None
@@ -207,6 +196,7 @@ class APIHandler(Handler):
         self.is_secure = req.is_secure
         self.user_agent = req.user_agent
         self.rate_limiter = RateLimiter(self.ctx.redis, "rl")
+        request_type = self.__class__.__name__
         try:
             t0 = time.time()
             try:
@@ -215,9 +205,8 @@ class APIHandler(Handler):
                     self.ctx.db.session.close()
                     application_id = getattr(params, "application_id", None)
                     if self.ctx.statsd is not None:
-                        request_type = self.__class__.__name__
                         self.ctx.statsd.incr(
-                            "requests,app={},request={}".format(
+                            "api.requests_total,app={},request={}".format(
                                 application_id, request_type
                             )
                         )
@@ -230,14 +219,15 @@ class APIHandler(Handler):
                 except HTTPException:
                     raise
                 except Exception:
+                    if self.ctx.statsd is not None:
+                        self.ctx.statsd.incr("api.unhandled_errors_total,request={}".format(request_type))
                     logger.exception("Error while handling API request")
                     raise errors.InternalError()
             finally:
                 t1 = time.time()
                 if self.ctx.statsd is not None:
-                    request_type = self.__class__.__name__
                     self.ctx.statsd.timing(
-                        "request_duration,request={}".format(request_type),
+                        "api.request_duration_seconds,request={}".format(request_type),
                         1000 * (t1 - t0),
                     )
         except errors.WebServiceError as e:
@@ -804,10 +794,6 @@ class LookupHandler(APIHandler):
                 fingerprint_search_t1 = time.time()
                 if statsd is not None:
                     statsd.incr("api.lookup.matches", len(matches))
-                    statsd.timing(
-                        "api.lookup.fingerprint_search",
-                        fingerprint_search_t1 - fingerprint_search_t0,
-                    )
             all_matches.append(matches)
 
         self.ctx.db.session.close()
@@ -840,16 +826,6 @@ class LookupHandler(APIHandler):
                 inject_metadata_t0 = time.time()
                 self.inject_metadata(params.meta, result_map)
                 inject_metadata_t1 = time.time()
-                if statsd is not None:
-                    statsd.timing(
-                        "api.lookup.inject_metadata",
-                        inject_metadata_t1 - inject_metadata_t0,
-                    )
-
-        if fingerprints:
-            time_total = time.time() - t
-            if statsd is not None:
-                statsd.timing("api.lookup.total", time_total)
 
         if statsd is not None:
             statsd.send()
