@@ -35,7 +35,7 @@ def get_session_args(script, use_two_phase_commit=None):
 
     if script.config.databases.use_two_phase_commit:
         kwargs["twophase"] = script.config.databases.use_two_phase_commit
-    if use_two_phase_commit is not None:
+    if use_two_phase_commit:
         kwargs["twophase"] = use_two_phase_commit
 
     if script.config.databases.use_auto_commit:

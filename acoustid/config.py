@@ -245,6 +245,22 @@ class IndexConfig(BaseConfig):
         read_env_item(self, "port", prefix + "INDEX_PORT", convert=int)
 
 
+class FpstoreConfig(BaseConfig):
+    def __init__(self) -> None:
+        self.host = "127.0.0.1"
+        self.port = 4659
+
+    def read_section(self, parser: RawConfigParser, section: str) -> None:
+        if parser.has_option(section, "host"):
+            self.host = parser.get(section, "host")
+        if parser.has_option(section, "port"):
+            self.port = parser.getint(section, "port")
+
+    def read_env(self, prefix: str) -> None:
+        read_env_item(self, "host", prefix + "FPSTORE_HOST")
+        read_env_item(self, "port", prefix + "FPSTORE_PORT", convert=int)
+
+
 class RedisConfig(BaseConfig):
     def __init__(self):
         self.host = "127.0.0.1"
@@ -542,11 +558,12 @@ class RateLimiterConfig(BaseConfig):
 
 
 class Config(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.databases = DatabasesConfig()
         self.logging = LoggingConfig()
         self.website = WebSiteConfig()
         self.index = IndexConfig()
+        self.fpstore = FpstoreConfig()
         self.redis = RedisConfig()
         self.replication = ReplicationConfig()
         self.cluster = ClusterConfig()
@@ -554,8 +571,7 @@ class Config(object):
         self.gunicorn = GunicornConfig()
         self.statsd = StatsdConfig()
 
-    def read(self, path):
-        # type: (str) -> None
+    def read(self, path: str) -> None:
         logger.info("Loading configuration file %s", path)
         parser = RawConfigParser()
         parser.read(path)
@@ -563,6 +579,7 @@ class Config(object):
         self.logging.read(parser, "logging")
         self.website.read(parser, "website")
         self.index.read(parser, "index")
+        self.fpstore.read(parser, "fpstore")
         self.redis.read(parser, "redis")
         self.replication.read(parser, "replication")
         self.cluster.read(parser, "cluster")
@@ -570,8 +587,7 @@ class Config(object):
         self.gunicorn.read(parser, "gunicorn")
         self.statsd.read(parser, "statsd")
 
-    def read_env(self, tests=False):
-        # type: (bool) -> None
+    def read_env(self, tests: bool = False) -> None:
         if tests:
             prefix = "ACOUSTID_TEST_"
         else:
@@ -580,6 +596,7 @@ class Config(object):
         self.logging.read_env(prefix)
         self.website.read_env(prefix)
         self.index.read_env(prefix)
+        self.fpstore.read_env(prefix)
         self.redis.read_env(prefix)
         self.replication.read_env(prefix)
         self.cluster.read_env(prefix)
