@@ -15,6 +15,7 @@ from statsd import StatsClient
 from acoustid._release import GIT_RELEASE
 from acoustid.config import Config
 from acoustid.db import DatabaseContext
+from acoustid.fpstore import FpstoreClient
 from acoustid.indexclient import IndexClientPool
 from acoustid.utils import LocalSysLogHandler
 
@@ -80,6 +81,12 @@ class Script(object):
                 password=self.config.redis.password,
                 retry=redis_retry,
             )
+
+        self.fpstore = (
+            FpstoreClient(self.config.fpstore)
+            if self.config.fpstore.is_enabled()
+            else None
+        )
 
         self._console_logging_configured = False
         if not tests:
@@ -171,3 +178,6 @@ def run_script(func, option_cb=None, master_only=False):
         engine.dispose()
 
     script.index.dispose()
+
+    if script.fpstore:
+        script.fpstore.close()
