@@ -217,10 +217,16 @@ class APIHandler(Handler):
                     raise errors.RequestTooLargeError()
                 except HTTPException:
                     raise
-                except Exception:
+                except Exception as exc:
                     if self.ctx.statsd is not None:
+                        exc_str = str(exc)
+                        cause = "unknown"
+                        if "redis" in exc_str:
+                            cause = "redis"
+                        elif "sqlalchemy" in exc_str or "psycopg2" in exc_str:
+                            cause = "postgres"
                         self.ctx.statsd.incr(
-                            "api.unhandled_errors_total,request={}".format(request_type)
+                            f"api.unhandled_errors_total,request={request_type},cause={cause}"
                         )
                     logger.exception("Error while handling API request")
                     raise errors.InternalError()
