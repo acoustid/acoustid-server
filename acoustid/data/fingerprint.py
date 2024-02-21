@@ -162,11 +162,15 @@ class FingerprintSearcher(object):
         if max_results is None:
             max_results = 100
 
+        logger.info("Searching via fpstore")
+
         matching_fingerprints = self.fpstore.search(
             fp, limit=max_results, fast_mode=self.fast
         )
         if not matching_fingerprints:
             return []
+
+        logger.info("Found %d matching fingerprints via fpstore", len(matching_fingerprints))
 
         matching_fingerprint_ids: Dict[int, float] = {}
         for m in matching_fingerprints:
