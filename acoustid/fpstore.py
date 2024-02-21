@@ -36,7 +36,7 @@ class FpstoreClient:
         request_body = {
             "fingerprint": {
                 "version": 1,
-                "hashes": query,
+                "hashes": [h & 0xFFFFFFFF for h in query],
             },
             "limit": limit,
             "fast_mode": fast_mode,
