@@ -65,7 +65,13 @@ class FingerprintSearcher(object):
         self.fast = fast
         self.timeout = timeout
 
-    def _create_search_query(self, length: int, condition: Any, max_results: Optional[int], compare_to: Optional[List[int]] = None) -> Any:
+    def _create_search_query(
+        self,
+        length: int,
+        condition: Any,
+        max_results: Optional[int],
+        compare_to: Optional[List[int]] = None,
+    ) -> Any:
         # construct the subquery
         f_columns: List[Any] = [
             schema.fingerprint.c.id,
@@ -148,13 +154,17 @@ class FingerprintSearcher(object):
         # type: (Index) -> int
         return int(index.get_attribute("max_document_id") or "0")
 
-    def _search_via_fpstore(self, fp: List[int], length: int, max_results: Optional[int] = None) -> List[FingerprintMatch]:
+    def _search_via_fpstore(
+        self, fp: List[int], length: int, max_results: Optional[int] = None
+    ) -> List[FingerprintMatch]:
         assert self.fpstore is not None
 
         if max_results is None:
             max_results = 100
 
-        matching_fingerprints = self.fpstore.search(fp, limit=max_results, fast_mode=self.fast)
+        matching_fingerprints = self.fpstore.search(
+            fp, limit=max_results, fast_mode=self.fast
+        )
         if not matching_fingerprints:
             return []
 
@@ -163,7 +173,9 @@ class FingerprintSearcher(object):
             matching_fingerprint_ids[m.fingerprint_id] = m.score
 
         query = self._create_search_query(
-            length, schema.fingerprint.c.id.in_(matching_fingerprint_ids.keys()), max_results=max_results
+            length,
+            schema.fingerprint.c.id.in_(matching_fingerprint_ids.keys()),
+            max_results=max_results,
         )
         if self.timeout:
             timeout_ms = int(self.timeout * 1000)
@@ -182,7 +194,9 @@ class FingerprintSearcher(object):
             matches.append(match)
         return matches
 
-    def search(self, fp: List[int], length: int, max_results: Optional[int] = None) -> List[FingerprintMatch]:
+    def search(
+        self, fp: List[int], length: int, max_results: Optional[int] = None
+    ) -> List[FingerprintMatch]:
         if self.fpstore is not None:
             return self._search_via_fpstore(fp, length, max_results)
 
