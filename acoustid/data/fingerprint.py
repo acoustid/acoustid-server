@@ -266,16 +266,18 @@ class FingerprintSearcher(object):
         if self.fpstore is not None:
             try:
                 fpstore_matches = self._search_via_fpstore(fp, length, max_results)
+                return fpstore_matches
             except Exception:
                 logger.exception("Error searching via fpstore")
 
         matches = self._search_directly(fp, length, max_results)
 
-        logger.info(
+        logger.debug(
             "Search results %s vs %s",
             matches,
             fpstore_matches,
         )
+
         return matches
 
 
