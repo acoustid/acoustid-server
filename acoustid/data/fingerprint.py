@@ -167,12 +167,18 @@ class FingerprintSearcher(object):
         matching_fingerprints = self.fpstore.search(
             fp, limit=max_results, fast_mode=self.fast
         )
+
+        tmp_matching_fingerprints = []
+        for m in matching_fingerprints:
+            if m.score < self.min_score:
+                continue
+            tmp_matching_fingerprints.append(m)
+        matching_fingerprints = tmp_matching_fingerprints
+
         if not matching_fingerprints:
             return []
 
-        logger.info(
-            "Found %d matching fingerprints via fpstore", len(matching_fingerprints)
-        )
+        logger.info("Found matching fingerprints via fpstore %s", matching_fingerprints)
 
         matching_fingerprint_ids: Dict[int, float] = {}
         for m in matching_fingerprints:
@@ -196,6 +202,7 @@ class FingerprintSearcher(object):
         matches = []
         for result in results:
             match = FingerprintMatch(*result)
+            logger.info("Matched fingerprint %s", match)
             match = match._replace(score=matching_fingerprint_ids[match.fingerprint_id])
             matches.append(match)
         return matches

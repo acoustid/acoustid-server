@@ -62,6 +62,7 @@ class FpstoreClient:
                     score=result["similarity"],
                 )
             )
+        logger.info(f"Search results: {results}")
         return results
 
     def search(
