@@ -154,7 +154,6 @@ class APIHandler(Handler):
         # type: (Dict[str, Any], str) -> Response
         response_data = {"status": "ok"}
         response_data.update(data)
-        t0 = time.time()
         return serialize_response(response_data, format)
 
     def _rate_limit(self, user_ip, application_id):
@@ -220,7 +219,9 @@ class APIHandler(Handler):
                     raise
                 except Exception:
                     if self.ctx.statsd is not None:
-                        self.ctx.statsd.incr("api.unhandled_errors_total,request={}".format(request_type))
+                        self.ctx.statsd.incr(
+                            "api.unhandled_errors_total,request={}".format(request_type)
+                        )
                     logger.exception("Error while handling API request")
                     raise errors.InternalError()
             finally:
@@ -234,7 +235,11 @@ class APIHandler(Handler):
             if not isinstance(e, errors.TooManyRequests):
                 logger.warning("WS error: %s", e.message)
             if self.ctx.statsd is not None:
-                self.ctx.statsd.incr("api.handled_errors_total,code={},request={}".format(e.code, request_type))
+                self.ctx.statsd.incr(
+                    "api.handled_errors_total,code={},request={}".format(
+                        e.code, request_type
+                    )
+                )
             return self._error(
                 e.code, e.message, getattr(params, "format", "unknown"), status=e.status
             )
@@ -727,10 +732,6 @@ class LookupHandler(APIHandler):
         # type: (APIHandlerParams) -> Dict[str, Any]
         assert isinstance(params, LookupHandlerParams)
 
-        import time
-
-        t = time.time()
-
         if self.ctx.statsd is not None:
             statsd = self.ctx.statsd.pipeline()
         else:
@@ -780,7 +781,6 @@ class LookupHandler(APIHandler):
                 else:
                     matches = []
             elif isinstance(p, FingerprintLookupQuery):
-                fingerprint_search_t0 = time.time()
                 searcher = FingerprintSearcher(
                     self.ctx.db.get_fingerprint_db(read_only=True),
                     self.ctx.index,
@@ -793,7 +793,6 @@ class LookupHandler(APIHandler):
                     max_results=MAX_RESULTS_PER_FINGERPRINT_QUERY,
                 )
                 self.ctx.db.session.close()
-                fingerprint_search_t1 = time.time()
                 if statsd is not None:
                     statsd.incr("api.lookup.matches", len(matches))
             all_matches.append(matches)
@@ -825,9 +824,7 @@ class LookupHandler(APIHandler):
 
         if self.ctx.config.website.search_return_metadata:
             if params.meta and result_map:
-                inject_metadata_t0 = time.time()
                 self.inject_metadata(params.meta, result_map)
-                inject_metadata_t1 = time.time()
 
         if statsd is not None:
             statsd.send()
