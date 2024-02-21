@@ -43,7 +43,7 @@ class FpstoreClient:
         }
         logger.info(f"Searching fingerprint store: {url} {request_body}")
 
-        response = self.session.get(url, json=request_body)
+        response = self.session.post(url, json=request_body)
         if response.status_code != 200:
             logger.error(
                 f"Failed to search fingerprint store: {response.status_code} {response.text}"
