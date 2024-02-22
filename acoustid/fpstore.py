@@ -64,8 +64,11 @@ class FpstoreClient:
         return results
 
     def search(
-        self, query: List[int], limit: int = 10, fast_mode: bool = True,
-        min_score: float = 0.0
+        self,
+        query: List[int],
+        limit: int = 10,
+        fast_mode: bool = True,
+        min_score: float = 0.0,
     ) -> List[FpstoreSearchResult]:
         request = self._build_search_request(query, limit, fast_mode, min_score)
         prepared_request = self.session.prepare_request(request)
