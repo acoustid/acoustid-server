@@ -15,6 +15,7 @@ from statsd import StatsClient
 from acoustid._release import GIT_RELEASE
 from acoustid.config import Config
 from acoustid.db import DatabaseContext
+from acoustid.fpstore import FpstoreClient
 from acoustid.indexclient import IndexClientPool
 from acoustid.utils import LocalSysLogHandler
 
@@ -22,13 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 class ScriptContext(object):
-    def __init__(self, config, db, redis, index, statsd):
-        # type: (Config, DatabaseContext, Redis, IndexClientPool, Optional[StatsClient]) -> None
+    def __init__(
+        self,
+        config: Config,
+        db: DatabaseContext,
+        redis: Redis,
+        index: IndexClientPool,
+        statsd: Optional[StatsClient],
+        fpstore: Optional[FpstoreClient],
+    ) -> None:
         self.config = config
         self.db = db
         self.redis = redis
         self.index = index
         self.statsd = statsd
+        self.fpstore = fpstore
 
     def __enter__(self):
         # type: () -> ScriptContext
@@ -81,6 +90,12 @@ class Script(object):
                 retry=redis_retry,
             )
 
+        self.fpstore = (
+            FpstoreClient(self.config.fpstore)
+            if self.config.fpstore.is_enabled()
+            else None
+        )
+
         self._console_logging_configured = False
         if not tests:
             self.setup_logging()
@@ -131,7 +146,12 @@ class Script(object):
         db = DatabaseContext(self, use_two_phase_commit=use_two_phase_commit)
         redis = self.get_redis()
         return ScriptContext(
-            config=self.config, db=db, redis=redis, index=self.index, statsd=self.statsd
+            config=self.config,
+            db=db,
+            redis=redis,
+            index=self.index,
+            statsd=self.statsd,
+            fpstore=self.fpstore,
         )
 
 
@@ -171,3 +191,6 @@ def run_script(func, option_cb=None, master_only=False):
         engine.dispose()
 
     script.index.dispose()
+
+    if script.fpstore:
+        script.fpstore.close()

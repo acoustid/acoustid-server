@@ -247,7 +247,7 @@ class IndexConfig(BaseConfig):
 
 class FpstoreConfig(BaseConfig):
     def __init__(self) -> None:
-        self.host = "127.0.0.1"
+        self.host = ""
         self.port = 4659
 
     def read_section(self, parser: RawConfigParser, section: str) -> None:
@@ -259,6 +259,9 @@ class FpstoreConfig(BaseConfig):
     def read_env(self, prefix: str) -> None:
         read_env_item(self, "host", prefix + "FPSTORE_HOST")
         read_env_item(self, "port", prefix + "FPSTORE_PORT", convert=int)
+
+    def is_enabled(self) -> bool:
+        return bool(self.host)
 
 
 class RedisConfig(BaseConfig):

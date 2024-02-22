@@ -788,8 +788,9 @@ class LookupHandler(APIHandler):
                     matches = []
             elif isinstance(p, FingerprintLookupQuery):
                 searcher = FingerprintSearcher(
-                    self.ctx.db.get_fingerprint_db(read_only=True),
-                    self.ctx.index,
+                    db=self.ctx.db.get_fingerprint_db(read_only=True),
+                    index_pool=self.ctx.index,
+                    fpstore=self.ctx.fpstore,
                     timeout=self.ctx.config.website.search_timeout,
                 )
                 searcher.max_length_diff = params.max_duration_diff

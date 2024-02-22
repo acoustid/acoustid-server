@@ -42,7 +42,9 @@ def run_update_user_agent_stats(script: Script, partition: int):
                 redis.hdel(root_key, key)
             else:
                 if script.config.cluster.role == "master":
-                    update_user_agent_stats(db, application_id, date, user_agent, ip, count)
+                    update_user_agent_stats(
+                        db, application_id, date, user_agent, ip, count
+                    )
                 else:
                     call_internal_api(
                         script.config,
