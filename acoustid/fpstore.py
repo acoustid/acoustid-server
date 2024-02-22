@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import requests
 
@@ -30,7 +30,12 @@ class FpstoreClient:
         self.session.close()
 
     def _build_search_request(
-        self, query: List[int], limit: int, fast_mode: bool, min_score: float
+        self,
+        query: List[int],
+        limit: int,
+        fast_mode: bool,
+        min_score: float,
+        timeout: float,
     ) -> requests.Request:
         url = f"{self.base_url}/_search"
         body = {
@@ -42,7 +47,10 @@ class FpstoreClient:
             "fast_mode": fast_mode,
             "min_score": min_score,
         }
-        return requests.Request("POST", url, json=body)
+        headers = {
+            "Grpc-Timeout": f"{int(timeout * 1000)}m",
+        }
+        return requests.Request("POST", url, json=body, headers=headers)
 
     def _parse_search_response(
         self, response: requests.Response
@@ -69,8 +77,13 @@ class FpstoreClient:
         limit: int = 10,
         fast_mode: bool = True,
         min_score: float = 0.0,
+        timeout: Optional[float] = None,
     ) -> List[FpstoreSearchResult]:
-        request = self._build_search_request(query, limit, fast_mode, min_score)
+        if timeout is None:
+            timeout = 5.0
+        request = self._build_search_request(
+            query, limit, fast_mode, min_score, timeout
+        )
         prepared_request = self.session.prepare_request(request)
-        response = self.session.send(prepared_request)
+        response = self.session.send(prepared_request, timeout=(timeout + 0.1))
         return self._parse_search_response(response)
