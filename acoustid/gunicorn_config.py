@@ -10,17 +10,15 @@ logconfig_dict = {
             "qualname": "gunicorn.error",
         },
         "gunicorn.access": {
-            "level": "INFO",
-            "handlers": ["console"],
+            "level": "ERROR",
+            "handlers": ["null"],
             "propagate": False,
             "qualname": "gunicorn.access",
         },
     },
     "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "generic",
-            "stream": "ext://sys.stdout",
+        "null": {
+            "class": "logging.NullHandler",
         },
         "error_console": {
             "class": "logging.StreamHandler",
@@ -31,11 +29,6 @@ logconfig_dict = {
     "formatters": {
         "json": {
             "class": "acoustid.logging.JsonLogFormatter",
-        },
-        "generic": {
-            "format": "%(asctime)s [%(process)d] [%(levelname)s] %(message)s",
-            "datefmt": "[%Y-%m-%d %H:%M:%S %z]",
-            "class": "logging.Formatter",
         },
     },
 }
