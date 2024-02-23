@@ -17,7 +17,6 @@ from acoustid.config import Config
 from acoustid.db import DatabaseContext
 from acoustid.fpstore import FpstoreClient
 from acoustid.indexclient import IndexClientPool
-from acoustid.utils import LocalSysLogHandler
 
 logger = logging.getLogger(__name__)
 
@@ -108,23 +107,12 @@ class Script(object):
             assert self.redis is not None
             return self.redis
 
-    def setup_logging(self):
-        # type: () -> None
+    def setup_logging(self) -> None:
         for logger_name, level in sorted(self.config.logging.levels.items()):
             logging.getLogger(logger_name).setLevel(level)
-        if self.config.logging.syslog:
-            handler = LocalSysLogHandler(
-                ident="acoustid",
-                facility=self.config.logging.syslog_facility,
-                log_pid=True,
-            )
-            handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
-            logging.getLogger().addHandler(handler)
-        else:
-            self.setup_console_logging()
+        self.setup_console_logging()
 
-    def setup_console_logging(self, quiet=False, verbose=False):
-        # type: (bool, bool) -> None
+    def setup_console_logging(self, quiet: bool = False, verbose: bool = False) -> None:
         if self._console_logging_configured:
             return
         handler = logging.StreamHandler()

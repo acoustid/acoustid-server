@@ -45,8 +45,6 @@ port=6379
 [logging]
 level=WARNING
 #level.sqlalchemy=INFO
-#syslog=no
-#syslog_facility=local1
 
 [website]
 base_url=http://acoustid.org/
