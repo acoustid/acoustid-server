@@ -305,8 +305,6 @@ def get_logging_level_names():
 class LoggingConfig(BaseConfig):
     def __init__(self):
         self.levels = {}
-        self.syslog = False
-        self.syslog_facility = None
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
@@ -318,10 +316,6 @@ class LoggingConfig(BaseConfig):
                 self.levels[name.split(".", 1)[1]] = level_names[
                     parser.get(section, name)
                 ]
-        if parser.has_option(section, "syslog"):
-            self.syslog = parser.getboolean(section, "syslog")
-        if parser.has_option(section, "syslog_facility"):
-            self.syslog_facility = parser.get(section, "syslog_facility")
 
     def read_env(self, prefix):
         # type: (str) -> None
