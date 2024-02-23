@@ -162,13 +162,18 @@ class FingerprintSearcher(object):
         if max_results is None:
             max_results = 100
 
-        matching_fingerprints = self.fpstore.search(
-            fp,
-            limit=max_results,
-            fast_mode=self.fast,
-            min_score=self.min_score,
-            timeout=self.timeout,
-        )
+        try:
+            matching_fingerprints = self.fpstore.search(
+                fp,
+                limit=max_results,
+                fast_mode=self.fast,
+                min_score=self.min_score,
+                timeout=self.timeout,
+            )
+        except TimeoutError:
+            if self.fast:
+                return []
+            raise
 
         if not matching_fingerprints:
             return []

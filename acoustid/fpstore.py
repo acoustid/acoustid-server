@@ -56,10 +56,16 @@ class FpstoreClient:
         self, response: requests.Response
     ) -> List[FpstoreSearchResult]:
         if response.status_code != 200:
-            logger.error(
-                f"Failed to search fingerprint store: {response.status_code} {response.text}"
-            )
-            response.raise_for_status()
+            if response.status_code == 504:
+                logger.warning(
+                    f"Timeout while searching fingerprint store: {response.status_code} {response.text}"
+                )
+                raise TimeoutError()
+            else:
+                logger.error(
+                    f"Failed to search fingerprint store: {response.status_code} {response.text}"
+                )
+                response.raise_for_status()
 
         results = []
         for result in response.json()["results"]:
