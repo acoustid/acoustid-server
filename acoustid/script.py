@@ -17,6 +17,7 @@ from acoustid.config import Config
 from acoustid.db import DatabaseContext
 from acoustid.fpstore import FpstoreClient
 from acoustid.indexclient import IndexClientPool
+from acoustid.logging import JsonLogFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +117,7 @@ class Script(object):
         if self._console_logging_configured:
             return
         handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter(
-                "[%(asctime)s] [%(process)s] [%(levelname)s] %(message)s",
-                "%Y-%m-%d %H:%M:%S %z",
-            )
-        )
+        handler.setFormatter(JsonLogFormatter())
         if verbose:
             handler.setLevel(logging.DEBUG)
         if quiet:

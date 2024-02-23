@@ -146,6 +146,7 @@ def run_api_app(config, workers=None, threads=None):
     ]
     if config.statsd.enabled:
         args.extend(["--statsd-prefix", "{}service.api".format(config.statsd.prefix)])
+    args.extend(["--config", "python:acoustid.gunicorn_config"])
     return run_gunicorn(config, args)
 
 
@@ -158,4 +159,5 @@ def run_web_app(config, workers=None, threads=None):
     ]
     if config.statsd.enabled:
         args.extend(["--statsd-prefix", "{}service.web".format(config.statsd.prefix)])
+    args.extend(["--config", "python:acoustid.gunicorn_config"])
     return run_gunicorn(config, args)
