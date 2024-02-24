@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import contextvars
 import json
 import logging
 import operator
@@ -187,10 +188,11 @@ class APIHandler(Handler):
                 raise errors.TooManyRequests(ip_rate_limit)
 
     def handle(self, req: Request) -> Response:
-        ctx = initialize_trace_id()
+        ctx = contextvars.copy_context()
         return ctx.run(self._handle_inside_context, req)
 
     def _handle_inside_context(self, req: Request) -> Response:
+        initialize_trace_id()
         params = self.params_class(self.ctx.config)
         if req.access_route:
             self.user_ip = req.access_route[0]

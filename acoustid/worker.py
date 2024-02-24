@@ -1,6 +1,7 @@
 # Copyright (C) 2023 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import contextvars
 import logging
 import time
 
@@ -15,6 +16,7 @@ from acoustid.scripts.update_user_agent_stats import (
     run_update_user_agent_stats,
 )
 from acoustid.tasks import dequeue_task
+from acoustid.tracing import initialize_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,33 @@ TASKS = {
     "update_user_agent_stats": run_update_user_agent_stats,
     "update_all_user_agent_stats": run_update_all_user_agent_stats,
 }
+
+
+def handle_task(script: Script, name: str, kwargs: dict) -> None:
+    initialize_trace_id()
+
+    func = TASKS.get(name)
+    if func is None:
+        logger.error("Unknown task: %s", name)
+        return
+
+    with script.context() as ctx:
+        if ctx.statsd is not None:
+            ctx.statsd.incr(f"tasks_started_total,task={name}")
+
+    logger.info("Running task %s(%s)", name, kwargs)
+
+    try:
+        initialize_trace_id().run(func, script, **kwargs)
+    except Exception:
+        logger.exception("Error running task: %s", name)
+        return
+
+    with script.context() as ctx:
+        if ctx.statsd is not None:
+            ctx.statsd.incr(f"tasks_finished_total,task={name}")
+
+    logger.debug("Finished task %s(%s)", name, kwargs)
 
 
 def run_worker(script: Script) -> None:
@@ -41,25 +70,5 @@ def run_worker(script: Script) -> None:
                     time.sleep(1.0)
                     continue
 
-                func = TASKS.get(name)
-                if func is None:
-                    logger.error("Unknown task: %s", name)
-                    continue
-
-                with script.context() as ctx:
-                    if ctx.statsd is not None:
-                        ctx.statsd.incr(f"tasks_started_total,task={name}")
-
-                logger.info("Running task %s(%s)", name, kwargs)
-
-                try:
-                    func(script, **kwargs)  # type: ignore
-                except Exception:
-                    logger.exception("Error running task: %s", name)
-                    continue
-
-                with script.context() as ctx:
-                    if ctx.statsd is not None:
-                        ctx.statsd.incr(f"tasks_finished_total,task={name}")
-
-                logger.debug("Finished task %s(%s)", name, kwargs)
+                cvctx = contextvars.copy_context()
+                cvctx.run(handle_task, script, name, kwargs)
