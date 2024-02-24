@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import contextvars
 import json
 import logging
 import operator
@@ -43,6 +44,7 @@ from acoustid.data.track import lookup_mbids, lookup_meta_ids, resolve_track_gid
 from acoustid.db import DatabaseContext
 from acoustid.handler import Handler
 from acoustid.ratelimiter import RateLimiter
+from acoustid.tracing import initialize_trace_id
 from acoustid.utils import check_demo_client_api_key, is_foreignid, is_uuid
 
 if TYPE_CHECKING:
@@ -185,8 +187,12 @@ class APIHandler(Handler):
             if self.rate_limiter.limit("ip", user_ip, ip_rate_limit):
                 raise errors.TooManyRequests(ip_rate_limit)
 
-    def handle(self, req):
-        # type: (Request) -> Response
+    def handle(self, req: Request) -> Response:
+        ctx = contextvars.copy_context()
+        return ctx.run(self._handle_inside_context, req)
+
+    def _handle_inside_context(self, req: Request) -> Response:
+        initialize_trace_id()
         params = self.params_class(self.ctx.config)
         if req.access_route:
             self.user_ip = req.access_route[0]
@@ -799,7 +805,8 @@ class LookupHandler(APIHandler):
                 )
                 self.ctx.db.session.close()
                 if statsd is not None:
-                    statsd.incr("api.lookup.matches", len(matches))
+                    statsd.incr("api.lookup.searches.total")
+                    statsd.incr("api.lookup.matches.total", len(matches))
             all_matches.append(matches)
 
         self.ctx.db.session.close()
