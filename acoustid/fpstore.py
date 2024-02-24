@@ -5,6 +5,7 @@ from typing import List, Optional
 import requests
 
 from acoustid.config import FpstoreConfig
+from acoustid.tracing import get_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,9 @@ class FpstoreClient:
         headers = {
             "Grpc-Timeout": f"{int(timeout * 1000)}m",
         }
+        trace_id = get_trace_id()
+        if trace_id is not None:
+            headers["Grpc-Metadata-trace_id"] = trace_id
         return requests.Request("POST", url, json=body, headers=headers)
 
     def _parse_search_response(

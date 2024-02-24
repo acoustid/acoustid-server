@@ -43,6 +43,7 @@ from acoustid.data.track import lookup_mbids, lookup_meta_ids, resolve_track_gid
 from acoustid.db import DatabaseContext
 from acoustid.handler import Handler
 from acoustid.ratelimiter import RateLimiter
+from acoustid.tracing import initialize_trace_id
 from acoustid.utils import check_demo_client_api_key, is_foreignid, is_uuid
 
 if TYPE_CHECKING:
@@ -185,8 +186,11 @@ class APIHandler(Handler):
             if self.rate_limiter.limit("ip", user_ip, ip_rate_limit):
                 raise errors.TooManyRequests(ip_rate_limit)
 
-    def handle(self, req):
-        # type: (Request) -> Response
+    def handle(self, req: Request) -> Response:
+        ctx = initialize_trace_id()
+        return ctx.run(self._handle_inside_context, req)
+
+    def _handle_inside_context(self, req: Request) -> Response:
         params = self.params_class(self.ctx.config)
         if req.access_route:
             self.user_ip = req.access_route[0]
