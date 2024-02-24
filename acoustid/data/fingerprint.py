@@ -264,23 +264,10 @@ class FingerprintSearcher(object):
     def search(
         self, fp: List[int], length: int, max_results: Optional[int] = None
     ) -> List[FingerprintMatch]:
-        fpstore_matches = []
         if self.fpstore is not None:
-            try:
-                fpstore_matches = self._search_via_fpstore(fp, length, max_results)
-                return fpstore_matches
-            except Exception:
-                logger.exception("Error searching via fpstore")
-
-        matches = self._search_directly(fp, length, max_results)
-
-        logger.debug(
-            "Search results %s vs %s",
-            matches,
-            fpstore_matches,
-        )
-
-        return matches
+            return self._search_via_fpstore(fp, length, max_results)
+        else:
+            return self._search_directly(fp, length, max_results)
 
 
 def insert_fingerprint(
