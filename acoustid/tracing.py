@@ -8,7 +8,7 @@ trace_id: ContextVar[Optional[str]] = ContextVar("trace_id", default=None)
 
 def generate_trace_id() -> str:
     raw_trace_id = uuid.uuid4().bytes
-    return base64.b32encode(raw_trace_id).decode("ascii")
+    return base64.b32encode(raw_trace_id).decode("ascii").rstrip("=")
 
 
 def get_trace_id() -> Optional[str]:
