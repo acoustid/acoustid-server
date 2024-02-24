@@ -799,7 +799,8 @@ class LookupHandler(APIHandler):
                 )
                 self.ctx.db.session.close()
                 if statsd is not None:
-                    statsd.incr("api.lookup.matches", len(matches))
+                    statsd.incr("api.lookup.searches.total")
+                    statsd.incr("api.lookup.matches.total", len(matches))
             all_matches.append(matches)
 
         self.ctx.db.session.close()
