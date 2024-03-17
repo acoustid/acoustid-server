@@ -34,6 +34,11 @@ def fix_meta(values):
         if track_no > 10000:
             values = dict(values)
             del values["track_no"]
+    disc_no = values.get("disc_no", None)
+    if disc_no:
+        if disc_no > 10000:
+            values = dict(values)
+            del values["disc_no"]
     return values
 
 
