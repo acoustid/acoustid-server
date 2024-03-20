@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=requirements_dev.txt requirements_dev.in
 #
-black==23.3.0
+black==24.3.0
     # via -r requirements_dev.in
 cffi==1.15.1
     # via
@@ -76,7 +76,8 @@ types-requests==2.25.6 ; python_version >= "3"
     # via -r requirements_dev.in
 types-six==0.1.9 ; python_version >= "3"
     # via -r requirements_dev.in
-typing-extensions==3.10.0.0
+typing-extensions==4.10.0
     # via
+    #   black
     #   mypy
     #   sqlalchemy-stubs
