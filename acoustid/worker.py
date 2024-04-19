@@ -4,7 +4,7 @@
 import contextvars
 import logging
 import time
-from typing import Dict, Callable
+from typing import Callable, Dict
 
 from acoustid.script import Script
 from acoustid.scripts.update_lookup_stats import (
