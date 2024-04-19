@@ -45,7 +45,7 @@ def handle_task(script: Script, name: str, kwargs: dict) -> None:
     logger.info("Running task %s(%s)", name, kwargs)
 
     try:
-        initialize_trace_id().run(func, script, **kwargs)
+        func(script, **kwargs)
     except Exception:
         logger.exception("Error running task: %s", name)
         return
