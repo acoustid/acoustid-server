@@ -54,3 +54,4 @@ def run_update_lookup_stats(script: Script, partition: int):
                         count=count,
                     )
                 redis.hincrby(root_key, key, -count)
+        ctx.db.session.commit()
