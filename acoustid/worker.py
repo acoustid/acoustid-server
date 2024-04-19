@@ -4,6 +4,7 @@
 import contextvars
 import logging
 import time
+from typing import Dict, Callable
 
 from acoustid.script import Script
 from acoustid.scripts.update_lookup_stats import (
@@ -21,7 +22,9 @@ from acoustid.tracing import initialize_trace_id
 logger = logging.getLogger(__name__)
 
 
-TASKS = {
+TaskFunc = Callable[..., None]
+
+TASKS: Dict[str, TaskFunc] = {
     "update_stats": run_update_stats,
     "update_lookup_stats": run_update_lookup_stats,
     "update_all_lookup_stats": run_update_all_lookup_stats,
