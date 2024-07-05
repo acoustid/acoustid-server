@@ -122,7 +122,9 @@ class UserCreateMusicBrainzHandler(APIHandler):
                     "created_from": self.user_ip,
                 },
             )
-        return {"user": {"apikey": api_key}}
+        result = {"user": {"apikey": api_key}}
+        self.ctx.db.session.commit()
+        return result
 
 
 class UserCreateAnonymousHandlerParams(APIHandlerParams):
@@ -144,7 +146,9 @@ class UserCreateAnonymousHandler(APIHandler):
                 "application_version": params.application_version,
             },
         )
-        return {"user": {"apikey": api_key}}
+        result = {"user": {"apikey": api_key}}
+        self.ctx.db.session.commit()
+        return result
 
 
 class UserLookupHandlerParams(APIHandlerParams):
