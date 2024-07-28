@@ -35,7 +35,7 @@ jobs:
         ports:
           - 6379/tcp
       index:
-        image: quay.io/acoustid/acoustid-index:2018.01.13
+        image: ghcr.io/acoustid/acoustid-index:stable
         ports:
           - 6080/tcp
 
