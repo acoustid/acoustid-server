@@ -14,6 +14,7 @@ from sqlalchemy import Table
 from acoustid.db import DatabaseContext
 from acoustid.script import Script
 from acoustid.tables import metadata
+from acoustid import tables
 
 TEST_2_LENGTH = 320
 TEST_2_FP = "AQABVtuUZFGShAqO-h9OHD96SvhwBVNCKQnOIYmiIc-ENwF7TDe8Hr0W_AjhvRCP2sfT4DTS7zjyOYeqaI-RSxee5RmaWzhOHnlcaB6HnPgpdE-DkWIH2ysYG_Eh9zJCyfCXGOdw-EGoD2p69IavWOhzMD-a9tBx9FgPVz2qNDvQH3744ISIXRKeHto5_MhyeMtxc-COnYJ_lHLwRAgPvShz_Hga4zd8HD9UKXWOPP3xRLmGnlbQHKfxGPeRvAt6UngMvcF-gkpRi0bUZjGaH6FUHb_xGDt6aHmM__ghfkmH70B4fWiuCj8y8uj3oImZY8d3NFWWHuGF-3hCPEd_uEOyE_nw4w8ueXi24znCHOHxSWtw9BnSBzrSHF2Y4S0e_EioZoh9XMGfo2dqNMeP80aQPM5xGT9efMeTYL-KIqmHdDraHs-P8IcYjoj0I7_Q43iJ9BF64nSKKth2SjG-cvCHH-2OL8txHsUt9HhF4LiK5j16lAf1FkjvQiN55FSOkkOPkmj4GK-OH80eIeyh98HhE_qhPwjzKAV-HJ2OZkd4Q_vhp0d_6Id-_IeWW9CKoP3RKM-Bo3mOfvhxND_6HMgZ6EfXHB-8Q8-iok1znOi-ozmx54P2Dg5V_PCgLxy8KiH6C0cbHU3Ebtiho9Rxw8er47tw7jgRNxl84ziPJ-B1_DiNNClzaGSCvMGPGxePMD5qZYEuAwdTXYSYcIkmodc2nMqg_WgqBk_yBdVx0vCjQD8uhNRxXTgvVFSOSOmx61C1KMaNsFwM93h-PBdmFm8o45nxDabx48cTbGl4hHuhasjSwPtxPvAV1A7yQMukREERR-nxL8j-EbWYQ8sj4joABQQmjQhkjLFCKSAo4QoxYiQwQhgmkGjCKGAIMMA4BIwQwjhAFMBUCCUAYEIxpYxUCDlEjJYOScSMgsIIAgADwjKEFBAUCkMEMYAagoARzAAHCDCIISKANkgYYBiQwgDDjHEMIGWZFUBQLhgohBGkhECOMEAMIYghogTgQghgiSLCYUegAsJApIQjxABNDFWCa6AIAQ4Q4KgAgIABgGDCMNGIMgQJRQAQTACpgBNIJkUcBMkpoKAgXCjAgAAGKIcYIVAYbZgwggkEmKLEiYGYAYQQShFAAAQBFEEAEuEIgwYRQoARnBkAmAGMEAGFGIgQBigCwAkABEIA"
@@ -1947,6 +1948,8 @@ def create_tables(db):
 
 def truncate_tables(db):
     # type: (DatabaseContext) -> None
+    conn = db.connection(tables.account.info["bind_key"])
+    conn.execute(tables.account.update().values(application_id=None))
     for table in reversed(metadata.sorted_tables):
         assert table.info is not None
         conn = db.connection(table.info["bind_key"])
