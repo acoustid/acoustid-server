@@ -76,7 +76,7 @@ def run_update_stats(script):
             logger.info("Updating stats %s", name)
             value = ctx.db.connection(bind_key).execute(query).scalar()
             ctx.db.get_app_db().execute(insert.values({"name": name, "value": value}))
-            ctx.statsd.gauge(name.replace('.', '_'), value)
+            ctx.statsd.gauge(name.replace(".", "_"), value)
 
         for i, value in get_track_count_stats(
             ctx.db.get_fingerprint_db(), MBID_TRACK_QUERY
