@@ -42,7 +42,7 @@ greenlet==2.0.2
     # via gevent
 gunicorn==20.1.0
     # via -r requirements.in
-idna==2.8
+idna==3.7
     # via requests
 itsdangerous==2.1.2
     # via flask
