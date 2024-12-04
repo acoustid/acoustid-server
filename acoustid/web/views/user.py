@@ -3,7 +3,7 @@ import json
 import logging
 import random
 
-import six.moves.urllib.request as urllib2
+import urllib.request as urllib2
 from flask import (
     Blueprint,
     current_app,

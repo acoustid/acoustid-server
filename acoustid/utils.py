@@ -8,9 +8,8 @@ import os
 import re
 from logging import Handler
 
-import six
-from six.moves.urllib.parse import urlencode
-from six.moves.urllib.request import urlopen
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 
 def generate_api_key(length=10) -> str:
