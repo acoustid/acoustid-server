@@ -3,8 +3,8 @@
 
 import logging
 import os.path
-from typing import Any, Callable, Dict, List, Optional
 from configparser import RawConfigParser
+from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine

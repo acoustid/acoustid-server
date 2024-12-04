@@ -3,9 +3,9 @@
 
 import datetime
 import logging
+import urllib.parse
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-import urllib.parse
 from sqlalchemy import sql
 from sqlalchemy.dialects.postgresql import insert
 

@@ -7,7 +7,6 @@ import hmac
 import os
 import re
 from logging import Handler
-
 from urllib.parse import urlencode
 from urllib.request import urlopen
 

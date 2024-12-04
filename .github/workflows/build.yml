@@ -76,7 +76,7 @@ jobs:
 
       - name: Run tests
         run: |
-          tox -e py${{ matrix.python_version }}
+          tox -e py3
         env:
           PYTHON_VERSION: ${{ matrix.python_version }}
           ACOUSTID_TEST_DATABASE_APP_HOST: localhost

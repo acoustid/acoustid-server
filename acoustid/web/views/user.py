@@ -2,8 +2,8 @@ import base64
 import json
 import logging
 import random
-
 import urllib.request as urllib2
+
 from flask import (
     Blueprint,
     current_app,
