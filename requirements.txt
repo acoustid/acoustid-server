@@ -40,7 +40,7 @@ gevent==23.9.0
     # via -r requirements.in
 greenlet==2.0.2
     # via gevent
-gunicorn==20.1.0
+gunicorn==22.0.0
     # via -r requirements.in
 idna==3.7
     # via requests
@@ -63,6 +63,8 @@ mbdata==25.0.0
     # via -r requirements.in
 ndg-httpsclient==0.5.1
     # via -r requirements.in
+packaging==24.2
+    # via gunicorn
 psycogreen==1.0.2
     # via -r requirements.in
 psycopg2==2.8.3
