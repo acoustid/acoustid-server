@@ -118,6 +118,7 @@ def test_import_submission_with_foreignid(ctx):
             "source_id": 1,
             "format_id": 1,
             "foreignid_id": 1,
+            "meta": {"track": "foo"},
         },
     )
     query = tables.submission.select(tables.submission.c.id == submission_id)
@@ -144,6 +145,7 @@ def test_import_submission_with_foreignid(ctx):
             "source_id": 1,
             "format_id": 1,
             "foreignid": "foo:123",
+            "meta": {"track": "foo"},
         },
     )
     query = tables.submission.select(tables.submission.c.id == submission_id)
@@ -227,6 +229,7 @@ def test_import_submission(ctx):
             "bitrate": 192,
             "source_id": 1,
             "format_id": 1,
+            "meta": {"track": "foo"},
         },
     )
     query = tables.submission.select(tables.submission.c.id == submission_id)
@@ -587,6 +590,7 @@ def test_import_queued_submissions(ctx):
             "bitrate": 192,
             "source_id": 1,
             "format_id": 1,
+            "meta": {"track": "Foo 2"},
         },
     )
     insert_submission(
@@ -597,6 +601,7 @@ def test_import_queued_submissions(ctx):
             "bitrate": 192,
             "source_id": 1,
             "format_id": 1,
+            "meta": {"track": "Foo 3"},
         },
     )
 

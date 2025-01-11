@@ -704,6 +704,7 @@ def test_submit_handler_foreignid(ctx):
         "fingerprint": TEST_1_FP,
         "bitrate": 192,
         "foreignid": "foo:123",
+        "track": "Voodoo People",
         "fileformat": "FLAC",
     }
     builder = EnvironBuilder(method="POST", data=values)
