@@ -88,7 +88,7 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     )
     has_meta = submission["meta_id"] or submission["meta"]
 
-    if not has_mbid and not has_puid and not has_puid:
+    if not has_mbid and not has_puid and not has_meta:
         logger.info("Skipping, missing metadata")
         return None
 
