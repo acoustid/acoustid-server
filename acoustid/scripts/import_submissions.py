@@ -26,6 +26,7 @@ def do_import(script: Script, limit: int = 100) -> int:
             fingerprint_db = ctx.db.get_fingerprint_db()
 
             timeout_ms = 20 * 1000
+            ingest_db.execute("SET LOCAL enable_seqscan TO off")
             ingest_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
             app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
             fingerprint_db.execute(
