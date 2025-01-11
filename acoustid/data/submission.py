@@ -78,8 +78,14 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         "Importing submission %d with MBIDs %s", submission["id"], submission["mbid"]
     )
 
-    has_mbid = submission["mbid"] and submission["mbid"] != "00000000-0000-0000-0000-000000000000"
-    has_puid = submission["puid"] and submission["puid"] != "00000000-0000-0000-0000-000000000000"
+    has_mbid = (
+        submission["mbid"]
+        and submission["mbid"] != "00000000-0000-0000-0000-000000000000"
+    )
+    has_puid = (
+        submission["puid"]
+        and submission["puid"] != "00000000-0000-0000-0000-000000000000"
+    )
     has_meta = submission["meta_id"] or submission["meta"]
 
     if not has_mbid and not has_puid and not has_puid:
