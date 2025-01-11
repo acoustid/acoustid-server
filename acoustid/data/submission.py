@@ -78,6 +78,14 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         "Importing submission %d with MBIDs %s", submission["id"], submission["mbid"]
     )
 
+    has_mbid = submission["mbid"] and submission["mbid"] != "00000000-0000-0000-0000-000000000000"
+    has_puid = submission["puid"] and submission["puid"] != "00000000-0000-0000-0000-000000000000"
+    has_meta = submission["meta_id"] or submission["meta"]
+
+    if not has_mbid and not has_puid and not has_puid:
+        logger.info("Skipping, missing metadata")
+        return None
+
     num_unique_items = len(set(submission["fingerprint"]))
     if num_unique_items < const.FINGERPRINT_MIN_UNIQUE_ITEMS:
         logger.info("Skipping, has only %d unique items", num_unique_items)
@@ -184,10 +192,7 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
 
     submission_result["fingerprint_id"] = fingerprint["id"]
 
-    if (
-        submission["mbid"]
-        and submission["mbid"] != "00000000-0000-0000-0000-000000000000"
-    ):
+    if has_mbid:
         insert_mbid(
             fingerprint_db,
             ingest_db,
@@ -198,10 +203,7 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         )
         submission_result["mbid"] = submission["mbid"]
 
-    if (
-        submission["puid"]
-        and submission["puid"] != "00000000-0000-0000-0000-000000000000"
-    ):
+    if has_puid:
         insert_puid(
             fingerprint_db,
             ingest_db,
@@ -212,7 +214,7 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         )
         submission_result["puid"] = submission["puid"]
 
-    if submission["meta_id"] or submission["meta"]:
+    if has_meta:
         meta_id = submission["meta_id"]  # type: Optional[int]
         meta_gid = None  # type: Optional[uuid.UUID]
         if meta_id is None:
