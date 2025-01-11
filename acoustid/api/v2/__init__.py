@@ -990,6 +990,8 @@ class SubmitHandler(APIHandler):
                     values["meta"] = meta_values
                 if p["foreignid"]:
                     values["foreignid"] = p["foreignid"]
+                if values.get("mbid") is None and values.get("puid") is None and values.get("meta") is None:
+                    continue
                 id = insert_submission(ingest_db, values)
                 ids.add(id)
                 submission = {"id": id, "status": "pending"}
