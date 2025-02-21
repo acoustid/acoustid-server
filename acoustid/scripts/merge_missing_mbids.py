@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def try_lock(db: sa.engine.Connection, name: str, params: str) -> bool:
-    lock_id1 = zlib.crc32(name.encode()) & 0x7fffffff
-    lock_id2 = zlib.crc32(params.encode()) & 0x7fffffff
+    lock_id1 = zlib.crc32(name.encode()) & 0x7FFFFFFF
+    lock_id2 = zlib.crc32(params.encode()) & 0x7FFFFFFF
     return db.execute(
         sa.text("SELECT pg_try_advisory_xact_lock(:lock_id1, :lock_id2)"),
         {"lock_id1": lock_id1, "lock_id2": lock_id2},
