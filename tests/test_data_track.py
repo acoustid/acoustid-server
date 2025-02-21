@@ -200,7 +200,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'b81f83ee-4
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 1);
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3', 1);
 INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
-    (7134047, 'd575d506-4da4-11e0-b951-0025225356f3'),
+    (7134047, 'd575d506-4da4-11e0-b951-0025225356f3');
 """,
     )
     merge_missing_mbid(
