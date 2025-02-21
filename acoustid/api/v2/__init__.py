@@ -42,9 +42,9 @@ from acoustid.data.stats import update_lookup_counter, update_user_agent_counter
 from acoustid.data.submission import insert_submission, lookup_submission_status
 from acoustid.data.track import lookup_mbids, lookup_meta_ids, resolve_track_gid
 from acoustid.db import DatabaseContext
-from acoustid.tasks import enqueue_task
 from acoustid.handler import Handler
 from acoustid.ratelimiter import RateLimiter
+from acoustid.tasks import enqueue_task
 from acoustid.tracing import initialize_trace_id
 from acoustid.utils import check_demo_client_api_key, is_foreignid, is_uuid
 
@@ -341,7 +341,9 @@ class LookupHandler(APIHandler):
     params_class = LookupHandlerParams
     recordings_name = "recordings"
 
-    def check_for_missing_recordings(self, expected_mbids: Iterable[str], meta: List[Dict[str, Any]]) -> None:
+    def check_for_missing_recordings(
+        self, expected_mbids: Iterable[str], meta: List[Dict[str, Any]]
+    ) -> None:
         missing_mbids = set(expected_mbids) - set(m["recording_id"] for m in meta)
         if missing_mbids:
             for mbid in missing_mbids:

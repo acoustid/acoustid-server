@@ -146,7 +146,12 @@ def merge_mbids(fingerprint_db, ingest_db, target_mbid, source_mbids):
         )
 
 
-def merge_missing_mbid(fingerprint_db: FingerprintDB, ingest_db: IngestDB, musicbrainz_db: MusicBrainzDB, old_mbid: str):
+def merge_missing_mbid(
+    fingerprint_db: FingerprintDB,
+    ingest_db: IngestDB,
+    musicbrainz_db: MusicBrainzDB,
+    old_mbid: str,
+):
     """
     Lookup which MBIDs has been merged in MusicBrainz and merge then
     in the AcoustID database as well.

@@ -7,6 +7,7 @@ import time
 from typing import Callable, Dict
 
 from acoustid.script import Script
+from acoustid.scripts.merge_missing_mbids import run_merge_missing_mbid
 from acoustid.scripts.update_lookup_stats import (
     run_update_all_lookup_stats,
     run_update_lookup_stats,
@@ -16,7 +17,6 @@ from acoustid.scripts.update_user_agent_stats import (
     run_update_all_user_agent_stats,
     run_update_user_agent_stats,
 )
-from acoustid.scripts.merge_missing_mbids import run_merge_missing_mbid
 from acoustid.tasks import dequeue_task
 from acoustid.tracing import initialize_trace_id
 
