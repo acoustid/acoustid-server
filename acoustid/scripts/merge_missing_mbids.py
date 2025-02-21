@@ -21,4 +21,9 @@ def run_merge_missing_mbid(script: Script, mbid: str):
         fingerprint_db = stack.enter_context(script.db_engines["fingerprint"].begin())
         ingest_db = stack.enter_context(script.db_engines["ingest"].begin())
         musicbrainz_db = stack.enter_context(script.db_engines["musicbrainz"].begin())
-        merge_missing_mbid(fingerprint_db, ingest_db, musicbrainz_db, mbid)
+        merge_missing_mbid(
+            fingerprint_db=fingerprint_db,
+            ingest_db=ingest_db,
+            musicbrainz_db=musicbrainz_db,
+            old_mbid=mbid,
+        )
