@@ -7,6 +7,7 @@ import time
 from typing import Callable, Dict
 
 from acoustid.script import Script
+from acoustid.scripts.merge_missing_mbids import run_merge_missing_mbid
 from acoustid.scripts.update_lookup_stats import (
     run_update_all_lookup_stats,
     run_update_lookup_stats,
@@ -30,6 +31,7 @@ TASKS: Dict[str, TaskFunc] = {
     "update_all_lookup_stats": run_update_all_lookup_stats,
     "update_user_agent_stats": run_update_user_agent_stats,
     "update_all_user_agent_stats": run_update_all_user_agent_stats,
+    "merge_missing_mbid": run_merge_missing_mbid,
 }
 
 

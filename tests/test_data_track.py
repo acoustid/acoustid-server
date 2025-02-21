@@ -9,7 +9,7 @@ from acoustid.data.track import (
     can_merge_tracks,
     insert_track,
     merge_mbids,
-    merge_missing_mbids,
+    merge_missing_mbid,
     merge_tracks,
 )
 from acoustid.script import ScriptContext
@@ -186,8 +186,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
 
 
 @with_script_context
-def test_merge_missing_mbids(ctx):
-    # type: (ScriptContext) -> None
+def test_merge_missing_mbid(ctx: ScriptContext) -> None:
     from mbdata.sample_data import create_sample_data
     from sqlalchemy.orm import Session
 
@@ -200,15 +199,16 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '97edb73c-4
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 1);
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 1);
 INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, 'd575d506-4da4-11e0-b951-0025225356f3', 1);
-INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (3, '97edb73c-4dac-11e0-9096-0025225356f3', 1);
-INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (4, '5d0290a6-4dad-11e0-a47a-0025225356f3', 1);
 INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
-    (7134047, 'd575d506-4da4-11e0-b951-0025225356f3'),
-    (7134048, '5d0290a6-4dad-11e0-a47a-0025225356f3'),
-    (7134049, 'b44dfb2a-4dad-11e0-bae4-0025225356f3');
+    (7134047, 'd575d506-4da4-11e0-b951-0025225356f3');
 """,
     )
-    merge_missing_mbids(ctx.db.get_fingerprint_db(), ctx.db.get_ingest_db())
+    merge_missing_mbid(
+        fingerprint_db=ctx.db.get_fingerprint_db(),
+        ingest_db=ctx.db.get_ingest_db(),
+        musicbrainz_db=ctx.db.get_musicbrainz_db(),
+        old_mbid="d575d506-4da4-11e0-b951-0025225356f3",
+    )
     rows = (
         ctx.db.get_fingerprint_db()
         .execute("SELECT track_id, mbid FROM track_mbid ORDER BY track_id, mbid")
@@ -219,8 +219,6 @@ INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3")),
         (1, UUID("b81f83ee-4da4-11e0-9ed8-0025225356f3")),
         (2, UUID("77ef7468-e8f8-4447-9c7e-52b11272c6cc")),
-        (3, UUID("97edb73c-4dac-11e0-9096-0025225356f3")),
-        (4, UUID("e6d2be9c-06b7-4a64-911d-076ad4e79c6f")),
     ]
     assert expected_rows == rows
 

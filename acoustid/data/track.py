@@ -9,7 +9,7 @@ from sqlalchemy import Column, Table, sql
 
 from acoustid import const
 from acoustid import tables as schema
-from acoustid.db import FingerprintDB, IngestDB
+from acoustid.db import FingerprintDB, IngestDB, MusicBrainzDB
 
 logger = logging.getLogger(__name__)
 
@@ -146,26 +146,24 @@ def merge_mbids(fingerprint_db, ingest_db, target_mbid, source_mbids):
         )
 
 
-def merge_missing_mbids(fingerprint_db, ingest_db):
-    # type: (FingerprintDB, IngestDB) -> None
+def merge_missing_mbid(
+    fingerprint_db: FingerprintDB,
+    ingest_db: IngestDB,
+    musicbrainz_db: MusicBrainzDB,
+    old_mbid: str,
+):
     """
     Lookup which MBIDs has been merged in MusicBrainz and merge then
     in the AcoustID database as well.
     """
-    logger.debug("Merging missing MBIDs")
-    results = fingerprint_db.execute(
-        """
-        SELECT DISTINCT tm.mbid AS old_mbid, mt.gid AS new_mbid
-        FROM track_mbid tm
-        JOIN musicbrainz.recording_gid_redirect mgr ON tm.mbid = mgr.gid
-        JOIN musicbrainz.recording mt ON mt.id = mgr.new_id
-    """
-    )
-    merge = {}  # type: Dict[str, List[str]]
-    for old_mbid, new_mbid in results:
-        merge.setdefault(str(new_mbid), []).append(str(old_mbid))
-    for new_mbid, old_mbids in merge.items():
-        merge_mbids(fingerprint_db, ingest_db, new_mbid, old_mbids)
+    new_mbid = musicbrainz_db.execute(
+        sql.select([schema.mb_recording.c.gid])
+        .where(schema.mb_recording.c.id == schema.mb_recording_gid_redirect.c.new_id)
+        .where(schema.mb_recording_gid_redirect.c.gid == old_mbid)
+    ).scalar()
+    if new_mbid:
+        logger.info("Merging MBID %r into %r", old_mbid, new_mbid)
+        merge_mbids(fingerprint_db, ingest_db, new_mbid, [old_mbid])
 
 
 def _merge_tracks_gids(fingerprint_db, ingest_db, name_with_id, target_id, source_ids):
