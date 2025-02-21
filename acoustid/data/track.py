@@ -162,7 +162,6 @@ def merge_missing_mbid(
         .where(schema.mb_recording_gid_redirect.c.gid == old_mbid)
     ).scalar()
     if new_mbid:
-        logger.info("Merging MBID %r into %r", old_mbid, new_mbid)
         merge_mbids(fingerprint_db, ingest_db, new_mbid, [old_mbid])
 
 
