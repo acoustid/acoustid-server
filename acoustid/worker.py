@@ -16,6 +16,7 @@ from acoustid.scripts.update_user_agent_stats import (
     run_update_all_user_agent_stats,
     run_update_user_agent_stats,
 )
+from acoustid.scripts.merge_missing_mbids import run_merge_missing_mbid
 from acoustid.tasks import dequeue_task
 from acoustid.tracing import initialize_trace_id
 
@@ -30,6 +31,7 @@ TASKS: Dict[str, TaskFunc] = {
     "update_all_lookup_stats": run_update_all_lookup_stats,
     "update_user_agent_stats": run_update_user_agent_stats,
     "update_all_user_agent_stats": run_update_all_user_agent_stats,
+    "merge_missing_mbid": run_merge_missing_mbid,
 }
 
 

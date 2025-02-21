@@ -42,6 +42,7 @@ from acoustid.data.stats import update_lookup_counter, update_user_agent_counter
 from acoustid.data.submission import insert_submission, lookup_submission_status
 from acoustid.data.track import lookup_mbids, lookup_meta_ids, resolve_track_gid
 from acoustid.db import DatabaseContext
+from acoustid.tasks import enqueue_task
 from acoustid.handler import Handler
 from acoustid.ratelimiter import RateLimiter
 from acoustid.tracing import initialize_trace_id
@@ -340,6 +341,13 @@ class LookupHandler(APIHandler):
     params_class = LookupHandlerParams
     recordings_name = "recordings"
 
+    def check_for_missing_recordings(self, expected_mbids: Iterable[str], meta: List[Dict[str, Any]]) -> None:
+        missing_mbids = set(expected_mbids) - set(m["recording_id"] for m in meta)
+        if missing_mbids:
+            for mbid in missing_mbids:
+                logger.warning("Missing metadata for MBID %s", mbid)
+                enqueue_task(self.ctx, "merge_missing_mbid", {"mbid": mbid})
+
     def _inject_recording_ids_internal(self, add=True, add_sources=False):
         # type: (bool, bool) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[int, List[str]]]
         el_recording = {}  # type: Dict[str, List[Dict[str, Any]]]
@@ -493,6 +501,7 @@ class LookupHandler(APIHandler):
             load_releases=load_releases,
             load_release_groups=load_release_groups,
         )
+        self.check_for_missing_recordings(recording_els.keys(), metadata)
         if "usermeta" in meta and not metadata:
             user_meta_els = self._inject_user_meta_ids_internal(True)[0]
             recording_els.update(user_meta_els)  # type: ignore
@@ -590,6 +599,7 @@ class LookupHandler(APIHandler):
             load_releases=True,
             load_release_groups=True,
         )
+        self.check_for_missing_recordings(recording_els.keys(), metadata)
         for track_id, track_metadata in self._group_metadata(metadata, track_mbid_map):
             result = {}  # type: Dict[str, Any]
             self._inject_releases_internal(meta, result, track_metadata)
@@ -605,6 +615,7 @@ class LookupHandler(APIHandler):
             load_releases=True,
             load_release_groups=True,
         )
+        self.check_for_missing_recordings(recording_els.keys(), metadata)
         for track_id, track_metadata in self._group_metadata(metadata, track_mbid_map):
             result = {}  # type: Dict[str, Any]
             self._inject_release_groups_internal(meta, result, track_metadata)
@@ -678,6 +689,7 @@ class LookupHandler(APIHandler):
             el_recording.keys(),
             load_releases=True,
         )
+        self.check_for_missing_recordings(el_recording.keys(), metadata)
         last_recording_id = None
         for item in metadata:
             if last_recording_id != item["recording_id"]:
