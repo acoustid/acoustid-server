@@ -158,7 +158,7 @@ def merge_missing_mbid(
     """
     logger.debug("Merging missing MBIDs")
     new_mbid = musicbrainz_db.execute(
-        sql.select(schema.mb_recording.c.gid)
+        sql.select([schema.mb_recording.c.gid])
         .where(schema.mb_recording.c.id == schema.mb_recording_gid_redirect.c.new_id)
         .where(schema.mb_recording_gid_redirect.c.gid == old_mbid)
     ).scalar()
