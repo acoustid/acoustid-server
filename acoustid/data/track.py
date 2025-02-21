@@ -156,13 +156,13 @@ def merge_missing_mbid(
     Lookup which MBIDs has been merged in MusicBrainz and merge then
     in the AcoustID database as well.
     """
-    logger.debug("Merging missing MBIDs")
     new_mbid = musicbrainz_db.execute(
         sql.select([schema.mb_recording.c.gid])
         .where(schema.mb_recording.c.id == schema.mb_recording_gid_redirect.c.new_id)
         .where(schema.mb_recording_gid_redirect.c.gid == old_mbid)
     ).scalar()
     if new_mbid:
+        logger.info("Merging MBID %r into %r", old_mbid, new_mbid)
         merge_mbids(fingerprint_db, ingest_db, new_mbid, [old_mbid])
 
 
