@@ -554,7 +554,7 @@ class RateLimiterConfig(BaseConfig):
         pass  # XXX
 
 
-class NsqProducerConfig(BaseConfig):
+class NSQProducerConfig(BaseConfig):
     def __init__(self) -> None:
         self.nsqd_tcp_addresses: List[Tuple[str, int]] = []
         self.max_pool_size = 20
@@ -597,7 +597,7 @@ class Config(object):
         self.rate_limiter = RateLimiterConfig()
         self.gunicorn = GunicornConfig()
         self.statsd = StatsdConfig()
-        self.nsq_producer = NsqProducerConfig()
+        self.nsq_producer = NSQProducerConfig()
 
     def read(self, path: str) -> None:
         logger.info("Loading configuration file %s", path)
