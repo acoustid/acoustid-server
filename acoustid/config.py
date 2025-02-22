@@ -4,7 +4,7 @@
 import logging
 import os.path
 from configparser import RawConfigParser
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -554,6 +554,36 @@ class RateLimiterConfig(BaseConfig):
         pass  # XXX
 
 
+class NsqProducerConfig(BaseConfig):
+    def __init__(self) -> None:
+        self.nsqd_tcp_addresses: List[Tuple[str, int]] = []
+        self.max_pool_size = 20
+        self.timeout = 2.0
+
+    def read_section(self, parser: RawConfigParser, section: str) -> None:
+        if parser.has_option(section, "nsqd_tcp_addresses"):
+            addresses = parser.get(section, "nsqd_tcp_addresses")
+            self.nsqd_tcp_addresses = []
+            for address in addresses.split(","):
+                host, port_str = address.strip().split(":")
+                self.nsqd_tcp_addresses.append((host, int(port_str)))
+        if parser.has_option(section, "max_pool_size"):
+            self.max_pool_size = parser.getint(section, "max_pool_size")
+        if parser.has_option(section, "timeout"):
+            self.timeout = parser.getfloat(section, "timeout")
+
+    def read_env(self, prefix: str) -> None:
+        addresses_str = os.environ.get(prefix + "NSQD_TCP_ADDRESSES")
+        if addresses_str:
+            self.nsqd_tcp_addresses = []
+            for address in addresses_str.split(","):
+                host, port_str = address.strip().split(":")
+                self.nsqd_tcp_addresses.append((host, int(port_str)))
+
+        read_env_item(self, "max_pool_size", prefix + "NSQ_MAX_POOL_SIZE", convert=int)
+        read_env_item(self, "timeout", prefix + "NSQ_TIMEOUT", convert=float)
+
+
 class Config(object):
     def __init__(self) -> None:
         self.databases = DatabasesConfig()
@@ -567,6 +597,7 @@ class Config(object):
         self.rate_limiter = RateLimiterConfig()
         self.gunicorn = GunicornConfig()
         self.statsd = StatsdConfig()
+        self.nsq_producer = NsqProducerConfig()
 
     def read(self, path: str) -> None:
         logger.info("Loading configuration file %s", path)
@@ -583,6 +614,7 @@ class Config(object):
         self.rate_limiter.read(parser, "rate_limiter")
         self.gunicorn.read(parser, "gunicorn")
         self.statsd.read(parser, "statsd")
+        self.nsq_producer.read(parser, "nsq:producer")
 
     def read_env(self, tests: bool = False) -> None:
         if tests:
@@ -600,3 +632,4 @@ class Config(object):
         self.rate_limiter.read_env(prefix)
         self.gunicorn.read_env(prefix)
         self.statsd.read_env(prefix)
+        self.nsq_producer.read_env(prefix)

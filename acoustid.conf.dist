@@ -63,3 +63,8 @@ import_acoustid=http://data.acoustid.org/replication/acoustid-update-{seq}.xml.b
 
 [rate_limiter]
 #application.123=4
+
+[nsq:producer]
+nsqd_tcp_addresses=127.0.0.1:4150
+max_pool_size=10
+timeout=1.0
