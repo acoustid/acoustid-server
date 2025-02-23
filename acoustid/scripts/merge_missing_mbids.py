@@ -4,6 +4,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import time
 import zlib
 from contextlib import ExitStack
 
@@ -24,12 +25,15 @@ def try_lock(db: sa.engine.Connection, name: str, params: str) -> bool:
     ).scalar()
 
 
-def run_merge_missing_mbid(script: Script, mbid: str):
+def run_merge_missing_mbid(script: Script, mbid: str) -> None:
     if script.config.cluster.role != "master":
         logger.info("Not running merge_missing_mbid in replica mode")
         return
 
     with ExitStack() as stack:
+        redis = script.get_redis()
+        cache_key = "unknown_mbid:{}".format(mbid)
+
         fingerprint_db = stack.enter_context(script.db_engines["fingerprint"].begin())
         if not try_lock(fingerprint_db, "merge_missing_mbid", mbid):
             logger.info("MBID %s is already being merged", mbid)
@@ -38,9 +42,29 @@ def run_merge_missing_mbid(script: Script, mbid: str):
         ingest_db = stack.enter_context(script.db_engines["ingest"].begin())
         musicbrainz_db = stack.enter_context(script.db_engines["musicbrainz"].begin())
 
-        merge_missing_mbid(
+        handled = merge_missing_mbid(
             fingerprint_db=fingerprint_db,
             ingest_db=ingest_db,
             musicbrainz_db=musicbrainz_db,
             old_mbid=mbid,
         )
+        if handled:
+            return
+
+        unknown_since: float | None = None
+        unknown_since_str = redis.get(cache_key)
+        if unknown_since_str:
+            try:
+                unknown_since = float(unknown_since_str)
+            except Exception:
+                pass
+
+        now = time.time()
+        if unknown_since is None:
+            unknown_since = now
+            redis.set(cache_key, str(now))
+
+        if now - unknown_since < 3600 * 24:
+            return
+
+        logger.info("MBID %s has been unknown for too long, disabling", mbid)
