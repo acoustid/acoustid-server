@@ -56,9 +56,9 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
         unknown_since_str = redis.get(cache_key)
         if unknown_since_str:
             try:
-                unknown_since = datetime.fromisoformat(
+                unknown_since = datetime.datetime.fromisoformat(
                     unknown_since_str.decode()
-                ).timestamp()
+                )
             except Exception:
                 pass
 
