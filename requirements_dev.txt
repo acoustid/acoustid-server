@@ -14,7 +14,7 @@ click==8.1.3
     # via
     #   -c requirements.txt
     #   black
-cryptography==39.0.1
+cryptography==44.0.1
     # via
     #   -c requirements.txt
     #   types-pyopenssl
@@ -70,7 +70,8 @@ types-requests==2.25.6 ; python_version >= "3"
     # via -r requirements_dev.in
 types-six==0.1.9 ; python_version >= "3"
     # via -r requirements_dev.in
-typing-extensions==4.10.0
+typing-extensions==4.12.2
     # via
+    #   -c requirements.txt
     #   mypy
     #   sqlalchemy-stubs
