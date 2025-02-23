@@ -1,6 +1,7 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import datetime
 import logging
 from typing import Any, Dict, Iterable, List
 
@@ -10,6 +11,12 @@ from acoustid import tables as schema
 from acoustid.db import MusicBrainzDB
 
 logger = logging.getLogger(__name__)
+
+
+def get_last_replication_date(conn: MusicBrainzDB) -> datetime.datetime:
+    return conn.execute(
+        sql.select([schema.mb_replication_control.c.last_replication_date])
+    ).scalar()
 
 
 def _load_artists(conn, artist_credit_ids):

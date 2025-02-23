@@ -3,13 +3,14 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import datetime
 import logging
-import time
 import zlib
 from contextlib import ExitStack
 
 import sqlalchemy as sa
 
+from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import merge_missing_mbid
 from acoustid.script import Script
 
@@ -51,20 +52,22 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
         if handled:
             return
 
-        unknown_since: float | None = None
+        unknown_since: datetime.datetime | None = None
         unknown_since_str = redis.get(cache_key)
         if unknown_since_str:
             try:
-                unknown_since = float(unknown_since_str)
+                unknown_since = datetime.fromisoformat(
+                    unknown_since_str.decode()
+                ).timestamp()
             except Exception:
                 pass
 
-        now = time.time()
+        now = get_last_replication_date(musicbrainz_db)
         if unknown_since is None:
             unknown_since = now
-            redis.set(cache_key, str(now))
+            redis.set(cache_key, now.isoformat())
 
-        if now - unknown_since < 3600 * 24:
+        if now - unknown_since < datetime.timedelta(days=7):
             return
 
         logger.info("MBID %s has been unknown for too long, disabling", mbid)
