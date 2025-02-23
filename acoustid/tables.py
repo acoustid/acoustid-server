@@ -530,6 +530,8 @@ mb_release_group_secondary_type = mbdata.models.ReleaseGroupSecondaryType.__tabl
 mb_release = mbdata.models.Release.__table__
 mb_track = mbdata.models.Track.__table__
 
+mb_replication_control = mbdata.models.ReplicationControl.__table__
+
 # XXX either stop using this or define view models in mbdata
 mb_release_country = Table(
     "release_event",

@@ -94,12 +94,16 @@ def lookup_tracks(conn, mbids):
     return results
 
 
-def merge_mbids(fingerprint_db, ingest_db, target_mbid, source_mbids):
-    # type: (FingerprintDB, IngestDB, str, List[str]) -> None
+def merge_mbids(
+    fingerprint_db: FingerprintDB,
+    ingest_db: IngestDB,
+    target_mbid: str,
+    source_mbids: List[str],
+) -> None:
     """
     Merge the specified MBIDs.
     """
-    logger.warning("Merging MBIDs %r into %r", source_mbids, target_mbid)
+    logger.info("Merging MBIDs %r into %r", source_mbids, target_mbid)
     query = sql.select(
         [
             sql.func.min(schema.track_mbid.c.id).label("id"),
@@ -151,11 +155,12 @@ def merge_missing_mbid(
     ingest_db: IngestDB,
     musicbrainz_db: MusicBrainzDB,
     old_mbid: str,
-):
+) -> bool:
     """
     Lookup which MBIDs has been merged in MusicBrainz and merge then
     in the AcoustID database as well.
     """
+
     new_mbid = musicbrainz_db.execute(
         sql.select([schema.mb_recording.c.gid])
         .where(schema.mb_recording.c.id == schema.mb_recording_gid_redirect.c.new_id)
@@ -163,6 +168,18 @@ def merge_missing_mbid(
     ).scalar()
     if new_mbid:
         merge_mbids(fingerprint_db, ingest_db, new_mbid, [old_mbid])
+        return True
+
+    new_mbid = musicbrainz_db.execute(
+        sql.select([schema.mb_recording.c.gid]).where(
+            schema.mb_recording.c.gid == old_mbid
+        )
+    ).scalar()
+    if new_mbid:
+        return True
+
+    logger.warning("MBID %r not found in MusicBrainz", old_mbid)
+    return False
 
 
 def _merge_tracks_gids(fingerprint_db, ingest_db, name_with_id, target_id, source_ids):
