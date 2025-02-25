@@ -882,6 +882,7 @@ class SubmissionStatusHandler(APIHandler):
             self.ctx.db.get_fingerprint_db(read_only=True),
             params.ids,
         )
+        logger.info("Submission status: %r %r", response, tracks)
         for submission in response["submissions"]:
             submission_id = submission["id"]
             assert isinstance(submission_id, int)
