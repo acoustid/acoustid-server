@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nsq_client")
 
 MAGIC_V2 = b"  V2"
+
 FRAME_TYPE_RESPONSE = 0
 FRAME_TYPE_ERROR = 1
 FRAME_TYPE_MESSAGE = 2
@@ -107,6 +108,7 @@ class Connection:
             self.last_rdy = count
 
     def _read_response(self) -> bytes:
+        assert self.sock is not None
         size_bytes = self.sock.recv(4)
         size = int.from_bytes(size_bytes, byteorder="big")
         data = self.sock.recv(size)

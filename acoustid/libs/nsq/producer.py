@@ -56,7 +56,7 @@ class NSQPublisher:
         """
         import json
 
-        message = json.dumps(payload)
+        message = json.dumps(payload).encode("utf8")
         return self.publish(topic, message)
 
     def close(self):
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     try:
         # Publish a simple message
         topic = "test_topic"
-        message = "Hello, NSQ!"
+        message = b"Hello, NSQ!"
         if publisher.publish(topic, message):
             print("Message published successfully!")
         else:
