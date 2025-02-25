@@ -884,6 +884,7 @@ class SubmissionStatusHandler(APIHandler):
         )
         for submission in response["submissions"]:
             submission_id = submission["id"]
+            assert isinstance(submission_id, int)
             track_gid = tracks.get(submission_id)
             if track_gid is not None:
                 submission["status"] = "imported"
