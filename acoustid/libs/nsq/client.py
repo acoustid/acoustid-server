@@ -72,17 +72,16 @@ class Connection:
         self.backoff_time = 0
         self.write_queue = queue.Queue()
 
-    def connect(self):
--        self.sock = socket.create_connection((self.host, self.port))
-+        self.sock = socket.create_connection((self.host, self.port), timeout=10)
-+        self.sock.settimeout(10)  # Set timeout for subsequent operations
-         self.sock.send(MAGIC_V2)
-         self._identify()
-         self._subscribe()
-         self.running = True
-         gevent.spawn(self.read_loop)
-         gevent.spawn(self.write_loop)
-         self.update_rdy(1)
+    def connect(self, timeout=10.0):
+        self.sock = socket.create_connection((self.host, self.port), timeout=timeout)
+        self.sock.settimeout(timeout)
+        self.sock.send(MAGIC_V2)
+        self._identify()
+        self._subscribe()
+        self.running = True
+        gevent.spawn(self.read_loop)
+        gevent.spawn(self.write_loop)
+        self.update_rdy(1)
 
     def _identify(self):
         identify = {
