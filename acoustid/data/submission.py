@@ -286,7 +286,9 @@ def import_queued_submissions(
     return count
 
 
-def lookup_submission_status(ingest_db: IngestDB, fingerprint_db: FingerprintDB, ids: Iterable[int]) -> Dict[int, str]:
+def lookup_submission_status(
+    ingest_db: IngestDB, fingerprint_db: FingerprintDB, ids: Iterable[int]
+) -> Dict[int, str]:
     if not ids:
         return {}
 
@@ -316,9 +318,10 @@ def lookup_submission_status(ingest_db: IngestDB, fingerprint_db: FingerprintDB,
 
     results: Dict[int, str] = {}
     for submission_id in ids:
-        if submission_id in fingerprint_ids:
-            fingerprint_id = fingerprint_ids[submission_id]
-            if fingerprint_id in track_gids:
-                results[submission_id] = track_gids[fingerprint_id]
+        fingerprint_id = fingerprint_ids.get(submission_id)
+        if fingerprint_id is not None:
+            track_gid = track_gids.get(fingerprint_id)
+            if track_gid is not None:
+                results[submission_id] = track_gid
 
     return results
