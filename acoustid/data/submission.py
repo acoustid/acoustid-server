@@ -286,8 +286,9 @@ def import_queued_submissions(
     return count
 
 
-def lookup_submission_status(ingest_db, fingerprint_db, ids):
-    # type: (IngestDB, FingerprintDB, Iterable[int]) -> Dict[int, str]
+def lookup_submission_status(
+    ingest_db: IngestDB, fingerprint_db: FingerprintDB, ids: Iterable[int]
+) -> Dict[int, str]:
     if not ids:
         return {}
 
@@ -297,7 +298,7 @@ def lookup_submission_status(ingest_db, fingerprint_db, ids):
             schema.fingerprint_source.c.fingerprint_id,
         ]
     ).where(schema.fingerprint_source.c.submission_id.in_(ids))
-    fingerprint_ids = {}  # type: Dict[int, int]
+    fingerprint_ids: Dict[int, int] = {}
     for submission_id, fingerprint_id in ingest_db.execute(query):
         fingerprint_ids[submission_id] = fingerprint_id
 
@@ -307,18 +308,20 @@ def lookup_submission_status(ingest_db, fingerprint_db, ids):
     source = schema.fingerprint.join(schema.track)
     query = sql.select(
         [schema.fingerprint.c.id, schema.track.c.gid], from_obj=source
-    ).where(schema.fingerprint.c.id.in_(fingerprint_ids))
-    track_gids = {}  # type: Dict[int, str]
+    ).where(schema.fingerprint.c.id.in_(fingerprint_ids.values()))
+    track_gids: Dict[int, str] = {}
     for fingerprint_id, track_gid in fingerprint_db.execute(query):
         track_gids[fingerprint_id] = track_gid
 
     if not track_gids:
         return {}
 
-    results = {}  # type: Dict[int, str]
+    results: Dict[int, str] = {}
     for submission_id in ids:
-        fingerprint_id = fingerprint_ids[submission_id]
-        track_gid = track_gids[fingerprint_id]
-        results[submission_id] = track_gid
+        fingerprint_id = fingerprint_ids.get(submission_id)
+        if fingerprint_id is not None:
+            track_gid = track_gids.get(fingerprint_id)
+            if track_gid is not None:
+                results[submission_id] = track_gid
 
     return results
