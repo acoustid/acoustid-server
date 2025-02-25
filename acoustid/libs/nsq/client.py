@@ -37,13 +37,13 @@ class Message:
         self.timestamp = timestamp
 
     def fin(self):
-        self.conn.send_command(f"FIN {self.id.decode()}")
+        self.conn.fin(self.id)
 
     def req(self, timeout: int = 0):
-        self.conn.send_command(f"REQ {self.id.decode()} {timeout}")
+        self.conn.req(self.id, timeout)
 
     def touch(self):
-        self.conn.send_command(f"TOUCH {self.id.decode()}")
+        self.conn.touch(self.id)
 
 
 class Connection:
@@ -111,6 +111,15 @@ class Connection:
         size = int.from_bytes(size_bytes, byteorder="big")
         data = self.sock.recv(size)
         return data
+
+    def fin(self, msg_id: bytes):
+        self.send_command(f"FIN {msg_id.decode()}")
+
+    def req(self, msg_id: bytes, timeout: int = 0):
+        self.send_command(f"REQ {msg_id.decode()} {timeout}")
+
+    def touch(self, msg_id: bytes):
+        self.send_command(f"TOUCH {msg_id.decode()}")
 
     def read_loop(self):
         while self.running:

@@ -1,5 +1,6 @@
 import gevent
-from .client import Message, Consumer
+
+from .client import Consumer, Message
 
 
 def message_handler(message: Message):
