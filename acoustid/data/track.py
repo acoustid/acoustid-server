@@ -178,7 +178,7 @@ def merge_missing_mbid(
     if new_mbid:
         return True
 
-    logger.warning("MBID %r not found in MusicBrainz", old_mbid)
+    logger.debug("MBID %r not found in MusicBrainz", old_mbid)
     return False
 
 
