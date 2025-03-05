@@ -146,6 +146,7 @@ def merge_mbids(
                 submission_count=row["count"],
                 mbid=target_mbid,
                 disabled=row["all_disabled"],
+                updated=sql.func.current_timestamp(),
             )
         )
 
