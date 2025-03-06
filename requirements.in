@@ -29,3 +29,4 @@ statsd
 gevent
 psycogreen
 cachetools
+werkzeug>=3.1.3
