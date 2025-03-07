@@ -68,7 +68,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     )
     expected_rows = [
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 20, False),
-        (2, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
@@ -122,7 +122,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
     )
     expected_rows = [
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 20, False),
-        (2, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
@@ -153,7 +153,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     )
     expected_rows = [
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 20, False),
-        (2, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
@@ -184,7 +184,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     )
     expected_rows = [
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 20, True),
-        (2, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
