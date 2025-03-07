@@ -160,7 +160,6 @@ def merge_mbids(
             schema.track_mbid.update()
             .where(schema.track_mbid.c.id == target_id)
             .values(
-                merged_into=target_id,
                 submission_count=(
                     schema.track_mbid.c.submission_count + source["submission_count"]
                 ),
