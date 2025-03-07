@@ -94,6 +94,34 @@ def lookup_tracks(conn, mbids):
     return results
 
 
+def disable_mbid(
+    fingerprint_db: FingerprintDB,
+    ingest_db: IngestDB,
+    mbid: str,
+    account_id: int,
+    note: str,
+) -> None:
+    result = fingerprint_db.execute(
+        schema.track_mbid.update()
+        .returning(schema.track_mbid.c.id)
+        .where(schema.track_mbid.c.mbid == mbid)
+        .values(
+            disabled=True,
+            updated=sql.func.current_timestamp(),
+        )
+    )
+    for row in result:
+        ingest_db.execute(
+            schema.track_mbid_change.insert().values(
+                track_mbid_id=row["id"],
+                updated=sql.func.current_timestamp(),
+                note=note,
+                account_id=account_id,
+                disabled=True,
+            )
+        )
+
+
 def merge_mbids(
     fingerprint_db: FingerprintDB,
     ingest_db: IngestDB,
