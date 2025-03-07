@@ -7,6 +7,7 @@ from acoustid.data.submission import insert_submission
 from acoustid.data.track import (
     can_add_fp_to_track,
     can_merge_tracks,
+    disable_mbid,
     insert_track,
     merge_mbids,
     merge_missing_mbid,
@@ -227,6 +228,37 @@ INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
         (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
         (2, UUID("77ef7468-e8f8-4447-9c7e-52b11272c6cc"), 1, False),
         (2, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
+    ]
+    assert expected_rows == rows
+
+
+@with_script_context
+def test_disable_mbid(ctx: ScriptContext) -> None:
+    prepare_database(
+        ctx.db.get_fingerprint_db(),
+        """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4da4-11e0-b951-0025225356f3', 11);
+""",
+    )
+
+    disable_mbid(
+        ctx.db.get_fingerprint_db(),
+        ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
+        142570,
+        "test",
+    )
+
+    rows = (
+        ctx.db.get_fingerprint_db()
+        .execute(
+            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+        )
+        .fetchall()
+    )
+    expected_rows = [
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 11, True),
     ]
     assert expected_rows == rows
 

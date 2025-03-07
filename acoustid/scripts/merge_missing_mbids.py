@@ -11,7 +11,7 @@ from contextlib import ExitStack
 import sqlalchemy as sa
 
 from acoustid.data.musicbrainz import get_last_replication_date
-from acoustid.data.track import merge_missing_mbid
+from acoustid.data.track import disable_mbid, merge_missing_mbid
 from acoustid.script import Script
 
 logger = logging.getLogger(__name__)
@@ -60,9 +60,6 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
             ingest_db_txn.commit()
             return
 
-        fingerprint_db_txn.rollback()
-        ingest_db_txn.rollback()
-
         unknown_since: datetime.datetime | None = None
         unknown_since_str = redis.get(cache_key)
         if unknown_since_str:
@@ -79,6 +76,19 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
             redis.set(cache_key, now.isoformat())
 
         if now - unknown_since < datetime.timedelta(days=7):
+            fingerprint_db_txn.rollback()
+            ingest_db_txn.rollback()
             return
 
         logger.info("MBID %s has been unknown for too long, disabling", mbid)
+        disable_mbid(
+            fingerprint_db=fingerprint_db,
+            ingest_db=ingest_db,
+            mbid=mbid,
+            account_id=142570,  # TODO acoustid_bot ID in production
+            note="MBID has been unknown for too long",
+        )
+        fingerprint_db_txn.prepare()
+        ingest_db_txn.prepare()
+        fingerprint_db_txn.commit()
+        ingest_db_txn.commit()
