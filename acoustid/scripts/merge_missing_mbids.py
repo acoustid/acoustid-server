@@ -35,13 +35,17 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
         redis = script.get_redis()
         cache_key = "unknown_mbid:{}".format(mbid)
 
-        fingerprint_db = stack.enter_context(script.db_engines["fingerprint"].begin())
+        fingerprint_db = stack.enter_context(script.db_engines["fingerprint"].connect())
+        fingerprint_db_txn = stack.enter_context(fingerprint_db.begin_twophase())
+
+        ingest_db = stack.enter_context(script.db_engines["ingest"].connect())
+        ingest_db_txn = stack.enter_context(ingest_db.begin_twophase())
+
+        musicbrainz_db = stack.enter_context(script.db_engines["musicbrainz"].connect())
+
         if not try_lock(fingerprint_db, "merge_missing_mbid", mbid):
             logger.info("MBID %s is already being merged", mbid)
             return
-
-        ingest_db = stack.enter_context(script.db_engines["ingest"].begin())
-        musicbrainz_db = stack.enter_context(script.db_engines["musicbrainz"].begin())
 
         handled = merge_missing_mbid(
             fingerprint_db=fingerprint_db,
@@ -50,7 +54,12 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
             old_mbid=mbid,
         )
         if handled:
+            fingerprint_db_txn.prepare()
+            ingest_db_txn.prepare()
             return
+
+        fingerprint_db_txn.rollback()
+        ingest_db_txn.rollback()
 
         unknown_since: datetime.datetime | None = None
         unknown_since_str = redis.get(cache_key)
