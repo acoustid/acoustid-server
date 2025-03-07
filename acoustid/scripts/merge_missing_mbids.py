@@ -56,6 +56,8 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
         if handled:
             fingerprint_db_txn.prepare()
             ingest_db_txn.prepare()
+            fingerprint_db_txn.commit()
+            ingest_db_txn.commit()
             return
 
         fingerprint_db_txn.rollback()
