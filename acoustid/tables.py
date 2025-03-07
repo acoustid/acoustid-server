@@ -52,7 +52,7 @@ account = Table(
     ),
     Column("lastlogin", DateTime(timezone=True)),
     Column("submission_count", Integer, nullable=False, server_default=sql.literal(0)),
-    Column("application_id", Integer, ForeignKey("application.id")),
+    Column("application_id", Integer, ForeignKey("application.id", use_alter=True)),
     Column("application_version", String),
     Column("created_from", INET),
     Column(
