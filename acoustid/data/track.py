@@ -143,6 +143,9 @@ def merge_mbids(
             # we already have a record with the target mbid, so we update it
             target_id = target["id"]
 
+        if source["merged_into"] is not None and source["merged_into"] != target_id:
+            raise ValueError("source mbid is already merged into another mbid")
+
         # clear submission count and disable flag for source mbid
         fingerprint_db.execute(
             schema.track_mbid.update()
