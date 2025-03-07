@@ -15,5 +15,7 @@
   "python.testing.unittestEnabled": false,
   "files.associations": {
     "Dockerfile.*": "dockerfile"
-  }
+  },
+  "python.defaultInterpreterPath": "venv/bin/python",
+  "editor.formatOnSave": true
 }

@@ -59,6 +59,8 @@ markupsafe==2.1.2
     #   werkzeug
 mbdata==25.0.0
     # via -r requirements.in
+nats-py==2.9.0
+    # via -r requirements.in
 ndg-httpsclient==0.5.1
     # via -r requirements.in
 packaging==24.2
