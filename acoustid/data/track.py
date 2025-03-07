@@ -97,55 +97,97 @@ def lookup_tracks(conn, mbids):
 def merge_mbids(
     fingerprint_db: FingerprintDB,
     ingest_db: IngestDB,
+    source_mbid: str,
     target_mbid: str,
-    source_mbids: List[str],
 ) -> None:
-    """
-    Merge the specified MBIDs.
-    """
-    logger.info("Merging MBIDs %r into %r", source_mbids, target_mbid)
-    query = sql.select(
-        [
-            sql.func.min(schema.track_mbid.c.id).label("id"),
-            sql.func.array_agg(schema.track_mbid.c.id).label("all_ids"),
-            schema.track_mbid.c.track_id,
-            sql.func.every(schema.track_mbid.c.disabled).label("all_disabled"),
-            sql.func.sum(schema.track_mbid.c.submission_count).label("count"),
-        ],
-        schema.track_mbid.c.mbid.in_(source_mbids + [target_mbid]),
-        group_by=schema.track_mbid.c.track_id,
+    logger.info("Merging MBID %r into %r", source_mbid, target_mbid)
+
+    affected_track_mbids_query = (
+        sql.select(
+            [
+                schema.track_mbid.c.id,
+                schema.track_mbid.c.track_id,
+                schema.track_mbid.c.mbid,
+                schema.track_mbid.c.submission_count,
+                schema.track_mbid.c.disabled,
+                schema.track_mbid.c.merged_into,
+            ]
+        )
+        .where(schema.track_mbid.c.mbid.in_([source_mbid, target_mbid]))
+        .with_for_update()
     )
-    rows = fingerprint_db.execute(query).fetchall()
-    to_delete = set()
-    to_update = []
-    for row in rows:
-        old_ids = set(row["all_ids"])
-        old_ids.remove(row["id"])
-        to_delete.update(old_ids)
-        to_update.append((old_ids, row))
-        if old_ids:
-            update_stmt = schema.track_mbid_source.update().where(
-                schema.track_mbid_source.c.track_mbid_id.in_(old_ids)
-            )
-            ingest_db.execute(update_stmt.values(track_mbid_id=row["id"]))
-            update_stmt = schema.track_mbid_change.update().where(
-                schema.track_mbid_change.c.track_mbid_id.in_(old_ids)
-            )
-            ingest_db.execute(update_stmt.values(track_mbid_id=row["id"]))
-    if to_delete:
-        delete_stmt = schema.track_mbid.delete().where(
-            schema.track_mbid.c.id.in_(to_delete)
-        )
-        fingerprint_db.execute(delete_stmt)
-    for old_ids, row in to_update:
-        update_stmt = schema.track_mbid.update().where(
-            schema.track_mbid.c.id == row["id"]
-        )
+    track_mbids_by_track_id: Dict[int, Dict[str, Any]] = {}
+    for row in fingerprint_db.execute(affected_track_mbids_query):
+        track_mbids_by_track_id.setdefault(row["track_id"], {})[row["mbid"]] = row
+
+    for track_id, track_mbids in track_mbids_by_track_id.items():
+        source = track_mbids.get(source_mbid)
+        if source is None:
+            # source mbid not found, skip this track
+            continue
+
+        target = track_mbids.get(target_mbid)
+        if target is None:
+            # we have no record with the target mbid, so we create a new one
+            target_id = fingerprint_db.execute(
+                schema.track_mbid.insert()
+                .returning(schema.track_mbid.c.id)
+                .values(
+                    track_id=track_id,
+                    mbid=target_mbid,
+                    submission_count=0,
+                    disabled=False,
+                )
+            ).scalar()
+        else:
+            # we already have a record with the target mbid, so we update it
+            target_id = target["id"]
+
+        if source["merged_into"] is not None and source["merged_into"] != target_id:
+            raise ValueError("source mbid is already merged into another mbid")
+
+        # clear submission count and disable flag for source mbid
         fingerprint_db.execute(
-            update_stmt.values(
-                submission_count=row["count"],
-                mbid=target_mbid,
-                disabled=row["all_disabled"],
+            schema.track_mbid.update()
+            .where(schema.track_mbid.c.id == source["id"])
+            .values(
+                merged_into=target_id,
+                submission_count=0,
+                disabled=True,
+                updated=sql.func.current_timestamp(),
+            )
+        )
+
+        # update submission count and disable flag for target mbid
+        fingerprint_db.execute(
+            schema.track_mbid.update()
+            .where(schema.track_mbid.c.id == target_id)
+            .values(
+                submission_count=(
+                    schema.track_mbid.c.submission_count + source["submission_count"]
+                ),
+                disabled=sql.and_(
+                    schema.track_mbid.c.disabled,
+                    source["disabled"],
+                ),
+                updated=sql.func.current_timestamp(),
+            )
+        )
+
+        # update track_mbid_source and track_mbid_change tables
+        ingest_db.execute(
+            schema.track_mbid_source.update()
+            .where(schema.track_mbid_source.c.track_mbid_id == source["id"])
+            .values(
+                track_mbid_id=target_id,
+                updated=sql.func.current_timestamp(),
+            )
+        )
+        ingest_db.execute(
+            schema.track_mbid_change.update()
+            .where(schema.track_mbid_change.c.track_mbid_id == source["id"])
+            .values(
+                track_mbid_id=target_id,
                 updated=sql.func.current_timestamp(),
             )
         )
@@ -168,7 +210,7 @@ def merge_missing_mbid(
         .where(schema.mb_recording_gid_redirect.c.gid == old_mbid)
     ).scalar()
     if new_mbid:
-        merge_mbids(fingerprint_db, ingest_db, new_mbid, [old_mbid])
+        merge_mbids(fingerprint_db, ingest_db, old_mbid, new_mbid)
         return True
 
     new_mbid = musicbrainz_db.execute(

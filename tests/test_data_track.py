@@ -55,8 +55,8 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
         "97edb73c-4dac-11e0-9096-0025225356f3",
-        ["d575d506-4da4-11e0-b951-0025225356f3"],
     )
 
     rows = (
@@ -68,6 +68,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     )
     expected_rows = [
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 20, False),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
@@ -108,8 +109,8 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
         "97edb73c-4dac-11e0-9096-0025225356f3",
-        ["d575d506-4da4-11e0-b951-0025225356f3"],
     )
 
     rows = (
@@ -121,6 +122,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
     )
     expected_rows = [
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 20, False),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
@@ -139,8 +141,8 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
         "97edb73c-4dac-11e0-9096-0025225356f3",
-        ["d575d506-4da4-11e0-b951-0025225356f3"],
     )
     rows = (
         ctx.db.get_fingerprint_db()
@@ -151,6 +153,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     )
     expected_rows = [
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 20, False),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
@@ -169,8 +172,8 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
         "97edb73c-4dac-11e0-9096-0025225356f3",
-        ["d575d506-4da4-11e0-b951-0025225356f3"],
     )
     rows = (
         ctx.db.get_fingerprint_db()
@@ -181,6 +184,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     )
     expected_rows = [
         (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 20, True),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
@@ -211,14 +215,18 @@ INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
     )
     rows = (
         ctx.db.get_fingerprint_db()
-        .execute("SELECT track_id, mbid FROM track_mbid ORDER BY track_id, mbid")
+        .execute(
+            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+        )
         .fetchall()
     )
     expected_rows = [
-        (1, UUID("77ef7468-e8f8-4447-9c7e-52b11272c6cc")),
-        (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3")),
-        (1, UUID("b81f83ee-4da4-11e0-9ed8-0025225356f3")),
-        (2, UUID("77ef7468-e8f8-4447-9c7e-52b11272c6cc")),
+        (1, UUID("77ef7468-e8f8-4447-9c7e-52b11272c6cc"), 1, False),
+        (1, UUID("97edb73c-4dac-11e0-9096-0025225356f3"), 1, False),
+        (1, UUID("b81f83ee-4da4-11e0-9ed8-0025225356f3"), 1, False),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
+        (2, UUID("77ef7468-e8f8-4447-9c7e-52b11272c6cc"), 1, False),
+        (2, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 0, True),
     ]
     assert expected_rows == rows
 
