@@ -258,7 +258,7 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
         .fetchall()
     )
     expected_rows = [
-        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 11, False),
+        (1, UUID("d575d506-4da4-11e0-b951-0025225356f3"), 11, True),
     ]
     assert expected_rows == rows
 
