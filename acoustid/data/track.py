@@ -95,20 +95,22 @@ def lookup_tracks(conn, mbids):
 
 
 def merge_mbids(
-        fingerprint_db: FingerprintDB,
-        ingest_db: IngestDB,
-        source_mbid: str,
-        target_mbid: str,
+    fingerprint_db: FingerprintDB,
+    ingest_db: IngestDB,
+    source_mbid: str,
+    target_mbid: str,
 ) -> None:
     logger.info("Merging MBID %r into %r", source_mbid, target_mbid)
 
     affected_track_mbids_query = (
-        sql.select([
-            schema.track_mbid.c.id,
-            schema.track_mbid.c.track_id,
-            schema.track_mbid.c.submission_count,
-            schema.track_mbid.c.disabled,
-        ])
+        sql.select(
+            [
+                schema.track_mbid.c.id,
+                schema.track_mbid.c.track_id,
+                schema.track_mbid.c.submission_count,
+                schema.track_mbid.c.disabled,
+            ]
+        )
         .where(schema.track_mbid.c.mbid.in_([source_mbid, target_mbid]))
         .with_for_update()
     )
@@ -157,7 +159,9 @@ def merge_mbids(
             .where(schema.track_mbid.c.id == target_id)
             .values(
                 merged_into=target_id,
-                submission_count=schema.track_mbid.c.submission_count + source["submission_count"],
+                submission_count=(
+                    schema.track_mbid.c.submission_count + source["submission_count"]
+                ),
                 disabled=sql.and_(
                     schema.track_mbid.c.disabled,
                     source["disabled"],
