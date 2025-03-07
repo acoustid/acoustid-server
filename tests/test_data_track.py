@@ -55,8 +55,8 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
         "97edb73c-4dac-11e0-9096-0025225356f3",
-        ["d575d506-4da4-11e0-b951-0025225356f3"],
     )
 
     rows = (
@@ -108,8 +108,8 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
         "97edb73c-4dac-11e0-9096-0025225356f3",
-        ["d575d506-4da4-11e0-b951-0025225356f3"],
     )
 
     rows = (
@@ -139,8 +139,8 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
         "97edb73c-4dac-11e0-9096-0025225356f3",
-        ["d575d506-4da4-11e0-b951-0025225356f3"],
     )
     rows = (
         ctx.db.get_fingerprint_db()
@@ -169,8 +169,8 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
+        "d575d506-4da4-11e0-b951-0025225356f3",
         "97edb73c-4dac-11e0-9096-0025225356f3",
-        ["d575d506-4da4-11e0-b951-0025225356f3"],
     )
     rows = (
         ctx.db.get_fingerprint_db()
