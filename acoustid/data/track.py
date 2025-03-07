@@ -110,7 +110,7 @@ def merge_mbids(
                 schema.track_mbid.c.mbid,
                 schema.track_mbid.c.submission_count,
                 schema.track_mbid.c.disabled,
-                schema.track_mbid.c.merged_info,
+                schema.track_mbid.c.merged_into,
             ]
         )
         .where(schema.track_mbid.c.mbid.in_([source_mbid, target_mbid]))
