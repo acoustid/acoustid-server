@@ -3,7 +3,6 @@ import nats
 from nats.aio.msg import Msg
 import logging
 import click
-import sqlalchemy
 from typing import List, Iterable
 from contextlib import AsyncExitStack
 
@@ -13,6 +12,7 @@ logger = logging.getLogger("aserver.worker")
 async def handle_message(msg: Msg) -> None:
     print(msg.headers)
     print(msg.metadata)
+    await msg.ack()
 
 
 async def worker(
