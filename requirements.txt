@@ -93,7 +93,7 @@ requests==2.32.0
     #   rauth
 schedule==0.6.0
     # via -r requirements.in
-six==1.14.0
+six==1.17.0
     # via
     #   -r requirements.in
     #   mbdata
