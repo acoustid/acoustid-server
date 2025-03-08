@@ -9,7 +9,7 @@ host=127.0.0.1
 port=5432
 
 [database:fingerprint]
-name=acoustid_ingest
+name=acoustid_fingerprint
 user=acoustid
 password=acoustid
 host=127.0.0.1
