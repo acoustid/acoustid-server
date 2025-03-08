@@ -1,15 +1,22 @@
 {
-  "python.pythonPath": ".venv/bin/python",
-  "python.linting.pylintEnabled": false,
-  "python.linting.flake8Enabled": true,
-  "python.linting.flake8Path": ".venv/bin/flake8",
-  "python.linting.mypyEnabled": true,
-  "python.linting.mypyPath": ".venv/bin/mypy",
-  "python.linting.enabled": true,
+  "python.defaultInterpreterPath": ".venv/bin/python",
   "python.testing.pytestEnabled": true,
   "python.testing.pytestPath": ".venv/bin/pytest",
-  "python.testing.unittestEnabled": false,
   "files.associations": {
     "Dockerfile.*": "dockerfile"
-  }
+  },
+  "editor.formatOnSave": true,
+  "black-formatter.path": [
+    ".venv/bin/black"
+  ],
+  "editor.defaultFormatter": "ms-python.black-formatter",
+  "flake8.enabled": true,
+  "flake8.path": [
+    ".venv/bin/flake8"
+  ],
+  "mypy-type-checker.path": [
+    ".venv/bin/mypy"
+  ],
+  "python.experiments.enabled": false,
+  "python.envFile": "${workspaceFolder}/.venv",
 }
