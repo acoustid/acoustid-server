@@ -75,47 +75,24 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
-    engines = {}
     for name, db_config in acoustid_config.databases.databases.items():
         if name.endswith(':ro') or name == 'musicbrainz':
             continue
-        engines[name] = rec = {}
-        rec["engine"] = db_config.create_engine(poolclass=pool.NullPool)
+        logger.info("Migrating database %s" % name)
 
-    for name, rec in engines.items():
-        engine = rec["engine"]
-        rec["connection"] = conn = engine.connect()
+        engine = db_config.create_engine(poolclass=pool.NullPool)
+        with engine.connect() as conn:
 
-        if use_two_phase_commit:
-            rec["transaction"] = conn.begin_twophase()
-        else:
-            rec["transaction"] = conn.begin()
-
-    try:
-        for name, rec in engines.items():
-            logger.info("Migrating database %s" % name)
             context.configure(
-                connection=rec["connection"],
+                connection=conn,
                 upgrade_token="%s_upgrades" % name,
                 downgrade_token="%s_downgrades" % name,
                 target_metadata=target_metadata,
                 include_object=include_object(name),
             )
-            context.run_migrations(engine_name=name)
 
-        if use_two_phase_commit:
-            for rec in engines.values():
-                rec["transaction"].prepare()
-
-        for rec in engines.values():
-            rec["transaction"].commit()
-    except:
-        for rec in engines.values():
-            rec["transaction"].rollback()
-        raise
-    finally:
-        for rec in engines.values():
-            rec["connection"].close()
+            with context.begin_transaction():
+                context.run_migrations(engine_name=name)
 
 
 if context.is_offline_mode():
