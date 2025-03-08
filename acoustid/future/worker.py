@@ -11,9 +11,13 @@ logger = logging.getLogger("aserver.worker")
 
 
 async def handle_message(msg: Msg) -> None:
-    logger.debug("Headers: %s", msg.headers)
-    logger.debug("Metadata: %s", msg.metadata)
-    await msg.ack()
+    try:
+        logger.debug("Headers: %s", msg.headers)
+        logger.debug("Metadata: %s", msg.metadata)
+        await msg.ack()
+    except Exception:
+        logger.exception("Error handling message")
+        await msg.nak()
 
 
 async def worker(
@@ -48,6 +52,7 @@ async def worker(
         await js.subscribe(
             subject=nats_subject,
             queue=nats_queue,
+            manual_ack=True,
             cb=handle_message,
         )
 
