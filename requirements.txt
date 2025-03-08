@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=requirements.txt requirements.in
 #
-alembic==1.6.5
+alembic==1.15.1
     # via -r requirements.in
 attrs==19.2.0
     # via -r requirements.in
@@ -79,10 +79,6 @@ pyopenssl==25.0.0
     # via
     #   -r requirements.in
     #   ndg-httpsclient
-python-dateutil==2.8.2
-    # via alembic
-python-editor==1.0.4
-    # via alembic
 python3-openid==3.1.0 ; python_version >= "3"
     # via -r requirements.in
 pytz==2019.3
@@ -101,7 +97,6 @@ six==1.14.0
     # via
     #   -r requirements.in
     #   mbdata
-    #   python-dateutil
 sqlalchemy==1.4.54
     # via
     #   -r requirements.in
@@ -111,7 +106,9 @@ statsd==3.3.0
 typing==3.7.4.1
     # via -r requirements.in
 typing-extensions==4.12.2
-    # via pyopenssl
+    # via
+    #   alembic
+    #   pyopenssl
 urllib3==1.26.19
     # via requests
 werkzeug==2.3.8
