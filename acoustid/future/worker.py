@@ -1,10 +1,11 @@
 import asyncio
+import logging
+from contextlib import AsyncExitStack
+from typing import Iterable, List
+
+import click
 import nats
 from nats.aio.msg import Msg
-import logging
-import click
-from typing import List, Iterable
-from contextlib import AsyncExitStack
 
 logger = logging.getLogger("aserver.worker")
 
