@@ -12,15 +12,12 @@ packages using the following command:
 
     sudo apt install python3 python3-dev python3-venv
 
+You also need uv, see their [installation instructions](https://docs.astral.sh/uv/getting-started/installation/).
+
 Setup Python virtual environment:
 
-    python3 -m venv venv
-    source venv/bin/activate
-
-    export PYTHONPATH=`pwd`
-
-    pip install -r requirements.txt
-    pip install -r requirements_dev.txt
+    uv sync
+    source .venv/bin/activate
 
 Start the required services using Docker:
 
@@ -35,7 +32,7 @@ Prepare the configuration file:
 
 Initialize the local database:
 
-    alembic upgrade head
+    uv run alembic upgrade head
 
 Run the applications:
 
