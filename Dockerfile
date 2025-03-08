@@ -7,7 +7,7 @@ RUN apt-get update && \
         libchromaprint1 libchromaprint-tools libpq5 libffi8 libssl3 libpcre3 \
         curl nginx dumb-init
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.6 /uv /uvx /bin/
 
 RUN useradd -ms /bin/bash acoustid
 WORKDIR /opt/acoustid/server
