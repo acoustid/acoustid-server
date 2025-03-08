@@ -1,0 +1,13 @@
+services:
+
+  redis:
+    ports:
+      - 127.0.0.1:6379:6379
+
+  postgres:
+    ports:
+      - 127.0.0.1:5432:5432
+
+  index:
+    ports:
+      - 127.0.0.1:6080:6080
