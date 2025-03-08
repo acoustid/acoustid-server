@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     services:
+
       postgresql:
         image: quay.io/acoustid/postgresql:master
         ports:
@@ -31,10 +32,12 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
       redis:
         image: redis
         ports:
           - 6379/tcp
+
       index:
         image: ghcr.io/acoustid/acoustid-index:stable
         ports:
@@ -54,6 +57,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Install additional requirements
         run: |
