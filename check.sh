@@ -5,7 +5,7 @@ set -eux
 check_requirements() {
     temp_file=$(mktemp)
     trap 'rm -f "$temp_file"' EXIT
-    uv export --no-dev > "$temp_file"
+    uv export --no-dev --no-emit-project > "$temp_file"
     if ! diff -u requirements.txt "$temp_file"; then
         echo "requirements.txt is out of sync with pyproject.toml"
         exit 1
