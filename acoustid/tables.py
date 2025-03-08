@@ -310,7 +310,7 @@ fingerprint = Table(
     metadata,
     Column("id", Integer, primary_key=True),
     Column("fingerprint", ARRAY(Integer), nullable=False),
-    Column("length", SmallInteger, CheckConstraint("length>0"), nullable=False),
+    Column("length", Integer, CheckConstraint("length>0"), nullable=False),
     Column("bitrate", SmallInteger, CheckConstraint("bitrate>0")),
     Column("format_id", Integer),
     Column(
