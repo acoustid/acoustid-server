@@ -2,7 +2,19 @@
 
 set -eux
 
+check_requirements() {
+    temp_file=$(mktemp)
+    uv export --no-dev > "$temp_file"
+    if ! diff -u requirements.txt "$temp_file"; then
+        echo "requirements.txt is out of sync with pyproject.toml"
+        rm "$temp_file"
+        exit 1
+    fi
+    rm "$temp_file"
+}
+
 run_lint() {
+    check_requirements
     uv run isort --check acoustid/ tests/
     uv run black --check acoustid/ tests/
     uv run flake8 acoustid/ tests/
