@@ -17,6 +17,7 @@ dependencies = [
     { name = "gunicorn" },
     { name = "markdown" },
     { name = "mbdata" },
+    { name = "nats-py" },
     { name = "psycogreen" },
     { name = "psycopg2" },
     { name = "python3-openid" },
@@ -57,6 +58,7 @@ requires-dist = [
     { name = "gunicorn" },
     { name = "markdown", specifier = "==3.1.1" },
     { name = "mbdata", specifier = "==25.0.0" },
+    { name = "nats-py", specifier = ">=2.9.0" },
     { name = "psycogreen" },
     { name = "psycopg2" },
     { name = "python3-openid", specifier = "==3.1.0" },
@@ -500,6 +502,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/98/a4/1ab47638b92648243
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl", hash = "sha256:4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d", size = 4695 },
 ]
+
+[[package]]
+name = "nats-py"
+version = "2.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/dc/9a01dd9561b736622c0aa3a19f6b40f3eeb22051eaea1475ceb81d5da48d/nats_py-2.9.0.tar.gz", hash = "sha256:01886eb9e0a87f0ec630652cf1fae65d2a8556378a609bc6cc07d2ea60c8d0dd", size = 110714 }
 
 [[package]]
 name = "packaging"
