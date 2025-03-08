@@ -42,3 +42,7 @@ dev = [
     "types-requests>=2.32.0.20250306",
     "types-six>=1.17.0.20250304",
 ]
+
+[tool.setuptools.packages.find]
+include = ["acoustid*"]
+namespaces = false
