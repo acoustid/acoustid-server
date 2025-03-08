@@ -56,7 +56,7 @@ def serialize_xml(data, **kwargs):
 
 
 def serialize_json(data, callback=None, **kwargs):
-    # type: (Union[List[Any], Dict[str, Any], int, float, str], str, **Any) -> Response
+    # type: (Union[List[Any], Dict[str, Any], int, float, str], str | None, **Any) -> Response
     res = json.dumps(data, sort_keys=True)
     if callback:
         res = "%s(%s)" % (callback, res)

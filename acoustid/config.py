@@ -40,7 +40,7 @@ def read_config_str_option(parser, section, obj, key, name):
 
 
 def read_env_item(obj, key, name, convert=None):
-    # type: (Any, str, str, Callable[[str], Any]) -> None
+    # type: (Any, str, str, Callable[[str], Any] | None) -> None
     value = None
     if name in os.environ:
         value = os.environ[name]

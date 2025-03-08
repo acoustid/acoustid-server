@@ -16,9 +16,6 @@ jobs:
 
   test:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        python_version: [ '3.12' ]
 
     services:
       postgresql:
@@ -51,23 +48,20 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python_version }}
-          cache: pip
-          cache-dependency-path: requirements*.txt
+          python-version-file: pyproject.toml
 
-      - name: Install tox
-        run: pip install tox
-
-      - name: Lint on the source code
-        run: |
-            tox -e flake8,mypy,isort,black
-        env:
-          PYTHON_VERSION: ${{ matrix.python_version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Install additional requirements
         run: |
           sudo apt-get update
           sudo apt-get install libchromaprint1 libpq-dev
+
+      - name: Lint on the source code
+        run: ./check.sh --lint
 
       - name: Setup database
         run: |
@@ -79,10 +73,8 @@ jobs:
           PGDATABASE: postgres
 
       - name: Run tests
-        run: |
-          tox -e py3
+        run: ./check.sh --test
         env:
-          PYTHON_VERSION: ${{ matrix.python_version }}
           ACOUSTID_TEST_DATABASE_APP_HOST: localhost
           ACOUSTID_TEST_DATABASE_APP_PORT: ${{ job.services.postgresql.ports['5432'] }}
           ACOUSTID_TEST_DATABASE_APP_RO_HOST: localhost
