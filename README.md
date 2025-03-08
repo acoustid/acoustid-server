@@ -7,10 +7,10 @@ It's possible, but you need to understand the system well enough and even then i
 Local Development
 -----------------
 
-You need Python 3.8 or newer to run the code. On Ubuntu, you can install the required
+You need Python 3.12 or newer to run the code. On Ubuntu, you can install the required
 packages using the following command:
 
-    sudo apt-get install python3 python3-dev python3-venv
+    sudo apt install python3 python3-dev python3-venv
 
 Setup Python virtual environment:
 
@@ -24,11 +24,9 @@ Setup Python virtual environment:
 
 Start the required services using Docker:
 
-    export COMPOSE_DOCKER_CLI_BUILD=1
-    export DOCKER_BUILDKIT=1
     export COMPOSE_FILE=docker-compose.yml:docker-compose.localhost.yml
 
-    docker-compose up -d redis postgres index
+    docker compose up -d redis postgres index
 
 Prepare the configuration file:
 
