@@ -81,7 +81,7 @@ pyopenssl==25.0.0
     #   ndg-httpsclient
 python3-openid==3.1.0 ; python_version >= "3"
     # via -r requirements.in
-pytz==2019.3
+pytz==2025.1
     # via -r requirements.in
 rauth==0.7.3
     # via -r requirements.in
