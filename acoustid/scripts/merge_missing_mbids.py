@@ -10,6 +10,7 @@ from contextlib import ExitStack
 
 import sqlalchemy as sa
 
+from acoustid.data.account import lookup_account_id_by_name
 from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import disable_mbid, merge_missing_mbid
 from acoustid.script import Script
@@ -42,6 +43,7 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
         ingest_db_txn = stack.enter_context(ingest_db.begin_twophase())
 
         musicbrainz_db = stack.enter_context(script.db_engines["musicbrainz"].connect())
+        app_db = stack.enter_context(script.db_engines["app"].connect())
 
         if not try_lock(fingerprint_db, "merge_missing_mbid", mbid):
             logger.info("MBID %s is already being merged", mbid)
@@ -81,11 +83,12 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
             return
 
         logger.info("MBID %s has been unknown for too long, disabling", mbid)
+        acoustid_bot_id = lookup_account_id_by_name(app_db, "acoustid_bot")
         disable_mbid(
             fingerprint_db=fingerprint_db,
             ingest_db=ingest_db,
             mbid=mbid,
-            account_id=142570,  # TODO acoustid_bot ID in production
+            account_id=acoustid_bot_id,
             note="MBID has been unknown for too long",
         )
         fingerprint_db_txn.prepare()
