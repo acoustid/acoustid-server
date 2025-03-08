@@ -22,7 +22,7 @@ def lookup_application_id_by_apikey(conn, apikey, only_active=False):
 
 
 def lookup_application_id(conn, application_id, account_id=None):
-    # type: (AppDB, str, int) -> int
+    # type: (AppDB, str, int | None) -> int
     query = sql.select(
         [schema.application.c.id], schema.application.c.id == application_id
     )

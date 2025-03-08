@@ -6,8 +6,8 @@ from tests import make_web_application
 
 
 @pytest.fixture()
-def app() -> Flask:
-    app = make_web_application()
+def app(config_file) -> Flask:
+    app = make_web_application(config_file)
     app.config["TESTING"] = True
     return app
 

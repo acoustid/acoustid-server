@@ -8,7 +8,7 @@ DEFAULT_LOG_RECORD_KEYS = set(logging.makeLogRecord({}).__dict__.keys())
 
 
 class JsonLogFormatter(logging.Formatter):
-    def formatTime(self, record: logging.LogRecord, datefmt: str = None) -> str:
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
         return (
             datetime.datetime.fromtimestamp(record.created)
             .astimezone()

@@ -52,7 +52,7 @@ account = Table(
     ),
     Column("lastlogin", DateTime(timezone=True)),
     Column("submission_count", Integer, nullable=False, server_default=sql.literal(0)),
-    Column("application_id", Integer, ForeignKey("application.id")),
+    Column("application_id", Integer, ForeignKey("application.id", use_alter=True)),
     Column("application_version", String),
     Column("created_from", INET),
     Column(
@@ -361,6 +361,7 @@ track_mbid = Table(
     Column(
         "disabled", Boolean, default=False, server_default=sql.false(), nullable=False
     ),
+    Column("merged_into", Integer, ForeignKey("track_mbid.id")),
     Index("track_mbid_idx_uniq", "track_id", "mbid", unique=True),
     info={"bind_key": "fingerprint"},
 )
@@ -378,6 +379,7 @@ track_mbid_source = Table(
         server_default=sql.func.current_timestamp(),
         nullable=False,
     ),
+    Column("updated", DateTime(timezone=True)),
     info={"bind_key": "ingest"},
 )
 
@@ -395,6 +397,7 @@ track_mbid_change = Table(
     ),
     Column("disabled", Boolean, nullable=False),
     Column("note", Text),
+    Column("updated", DateTime(timezone=True)),
     info={"bind_key": "ingest"},
 )
 

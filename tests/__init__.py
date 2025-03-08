@@ -1985,11 +1985,9 @@ def prepare_database(conn, sql, params=None):
     conn.execute(sql, params)
 
 
-def setup():
-    # type: () -> None
+def setup(config_file: str) -> None:
     global script
-    config_path = os.path.dirname(os.path.abspath(__file__)) + "/../acoustid-test.conf"
-    script = Script(config_path, tests=True)
+    script = Script(config_file, tests=True)
     if not os.environ.get("SKIP_DB_SETUP"):
         with script.context() as ctx:
             create_tables(ctx.db)
@@ -1997,17 +1995,15 @@ def setup():
             ctx.db.session.commit()
 
 
-def teardown():
-    # type: () -> None
+def teardown() -> None:
     assert script is not None
     script.index.dispose()
 
 
-def make_web_application():
+def make_web_application(config_file: str):
     from acoustid.web.app import make_application
 
-    config_path = os.path.dirname(os.path.abspath(__file__)) + "/../acoustid-test.conf"
-    return make_application(config_path, tests=True)
+    return make_application(config_file, tests=True)
 
 
 def assert_dict_equals(d1, d2, msg=None):

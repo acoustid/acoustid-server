@@ -4,9 +4,7 @@ set -eu
 
 cd $(dirname $0)
 
-source venv/bin/activate
-
 set -eux
 
-isort acoustid/ tests/ 
-black acoustid/ tests/
+uv run isort acoustid/ tests/
+uv run black acoustid/ tests/

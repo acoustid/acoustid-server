@@ -13,6 +13,11 @@ from acoustid.utils import generate_api_key
 logger = logging.getLogger(__name__)
 
 
+def lookup_account_id_by_name(conn: AppDB, name: str) -> int:
+    query = sql.select([schema.account.c.id], schema.account.c.name == name)
+    return conn.execute(query).scalar()
+
+
 def lookup_account_id_by_apikey(conn, apikey):
     # type: (AppDB, str) -> int
     query = sql.select([schema.account.c.id], schema.account.c.apikey == apikey)
