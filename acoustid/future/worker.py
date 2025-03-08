@@ -1,7 +1,7 @@
 import asyncio
 import logging
+from collections.abc import Iterable
 from contextlib import AsyncExitStack
-from typing import Iterable, List
 
 import click
 import nats
@@ -17,7 +17,7 @@ async def handle_message(msg: Msg) -> None:
 
 
 async def worker(
-    nats_servers: List[str],
+    nats_servers: list[str],
     postgres_app_dsn: str,
     postgres_fingerprint_dsn: str,
     postgres_ingest_dsn: str,
