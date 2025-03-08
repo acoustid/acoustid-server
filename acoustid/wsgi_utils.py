@@ -24,7 +24,7 @@ def call_setpgrp():
 
 class ProcessWrapper(object):
     def __init__(self, args, shutdown_handler=None, shutdown_delay=0.0):
-        # type: (List[six.text_type], Callable[[], None], float) -> None
+        # type: (List[six.text_type], Callable[[], None] | None, float) -> None
         self.name = args[0]
         self.shutdown = False
         self.shutdown_requested_at = None

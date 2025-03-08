@@ -1,0 +1,48 @@
+[project]
+name = "acoustid-server"
+version = "25.3.1"
+description = "AcoustID server"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic",
+    "attrs",
+    "blinker",
+    "cachetools",
+    "click",
+    "flask>=2,<3",
+    "gevent",
+    "gunicorn",
+    "markdown==3.1.1",
+    "mbdata==25.0.0",
+    "psycogreen==1.0.2",
+    "psycopg2==2.9.10",
+    "python3-openid==3.1.0",
+    "pytz",
+    "rauth==0.7.3",
+    "redis==5.0.1",
+    "requests",
+    "schedule==0.6.0",
+    "six",
+    "sqlalchemy>=1.4,<2",
+    "statsd",
+]
+
+[dependency-groups]
+dev = [
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+    "pyflakes",
+    "pytest",
+    "sqlalchemy-stubs",
+    "types-pytz>=2025.1.0.20250204",
+    "types-redis>=4.6.0.20241004",
+    "types-requests>=2.32.0.20250306",
+    "types-six>=1.17.0.20250304",
+]
+
+[tool.setuptools.packages.find]
+include = ["acoustid*"]
+namespaces = false
