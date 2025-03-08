@@ -18,6 +18,8 @@ async def handle_message(msg: Msg) -> None:
 
 async def worker(
     nats_servers: list[str],
+    nats_subject: str,
+    nats_queue: str,
     postgres_app_dsn: str,
     postgres_fingerprint_dsn: str,
     postgres_ingest_dsn: str,
@@ -44,21 +46,24 @@ async def worker(
 
         js = nc.jetstream()
         await js.subscribe(
-            subject="tasks",
-            queue="worker",
-            durable="file",
+            subject=nats_subject,
+            queue=nats_queue,
             cb=handle_message,
         )
 
 
 @click.command()
 @click.option("nats_servers", "--nats-server", multiple=True, required=True)
+@click.option("--nats-subject", default="tasks")
+@click.option("--nats-queue", default="worker")
 @click.option("--postgres-app-dsn", required=True)
 @click.option("--postgres-fingerprint-dsn", required=True)
 @click.option("--postgres-ingest-dsn", required=True)
 @click.option("--postgres-musicbrainz-dsn", required=True)
 def main(
     nats_servers: Iterable[str],
+    nats_subject: str,
+    nats_queue: str,
     postgres_app_dsn: str,
     postgres_fingerprint_dsn: str,
     postgres_ingest_dsn: str,
@@ -67,6 +72,8 @@ def main(
     asyncio.run(
         worker(
             nats_servers=list(nats_servers),
+            nats_subject=nats_subject,
+            nats_queue=nats_queue,
             postgres_app_dsn=postgres_app_dsn,
             postgres_fingerprint_dsn=postgres_fingerprint_dsn,
             postgres_ingest_dsn=postgres_ingest_dsn,
