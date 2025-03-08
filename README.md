@@ -32,14 +32,14 @@ Prepare the configuration file:
 
 Initialize the local database:
 
-    uv run alembic upgrade head
+    alembic upgrade head
 
 Run the applications:
 
-    python manage.py run web
-    python manage.py run api
-    python manage.py run cron
-    python manage.py run worker
+    aserver run web
+    aserver run api
+    aserver run cron
+    aserver run worker
 
 Local Testing
 -------------
@@ -51,7 +51,7 @@ You can use the provided `docker-compose.yml` file to quickly set up a test envi
     export COMPOSE_FILE=docker-compose.yml:docker-compose.localhost.yml
     export COMPOSE_PROFILES=frontend,backend
 
-    docker-compose up -d
+    docker compose up -d
 
 Database migrations
 -------------------

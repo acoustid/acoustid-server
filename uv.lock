@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 [[package]]
 name = "acoustid-server"
 version = "25.3.1"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "attrs" },
