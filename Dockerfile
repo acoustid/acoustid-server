@@ -2,7 +2,7 @@
 FROM ubuntu:24.04 AS base
 
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
         python3 python3-venv \
         libchromaprint1 libchromaprint-tools libpq5 libffi8 libssl3 libpcre3 \
         curl nginx dumb-init
@@ -15,7 +15,7 @@ WORKDIR /opt/acoustid/server
 FROM base AS builder
 
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
         python3 python3-dev python3-venv gcc \
         libchromaprint1 libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev
 
