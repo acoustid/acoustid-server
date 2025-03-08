@@ -10,9 +10,9 @@ from contextlib import ExitStack
 
 import sqlalchemy as sa
 
+from acoustid.data.account import lookup_account_id_by_name
 from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import disable_mbid, merge_missing_mbid
-from acoustid.data.account import lookup_account_id_by_name
 from acoustid.script import Script
 
 logger = logging.getLogger(__name__)
