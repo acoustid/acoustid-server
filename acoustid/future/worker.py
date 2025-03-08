@@ -11,8 +11,8 @@ logger = logging.getLogger("aserver.worker")
 
 
 async def handle_message(msg: Msg) -> None:
-    print(msg.headers)
-    print(msg.metadata)
+    logger.debug("Headers: %s", msg.headers)
+    logger.debug("Metadata: %s", msg.metadata)
     await msg.ack()
 
 
