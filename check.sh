@@ -4,13 +4,12 @@ set -eux
 
 check_requirements() {
     temp_file=$(mktemp)
+    trap 'rm -f "$temp_file"' EXIT
     uv export --no-dev > "$temp_file"
     if ! diff -u requirements.txt "$temp_file"; then
         echo "requirements.txt is out of sync with pyproject.toml"
-        rm "$temp_file"
         exit 1
     fi
-    rm "$temp_file"
 }
 
 run_lint() {
