@@ -65,7 +65,7 @@ jobs:
           sudo apt-get install libchromaprint1 libpq-dev
 
       - name: Lint on the source code
-        run: ./check.sh --lint
+        run: ./check.sh --lint --ci
 
       - name: Setup database
         run: |
