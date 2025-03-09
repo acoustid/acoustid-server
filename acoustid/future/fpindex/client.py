@@ -1,6 +1,6 @@
 import logging
 from types import TracebackType
-from typing import Any
+from typing import Any, Literal, overload
 from urllib.parse import urljoin
 
 import aiohttp
@@ -45,6 +45,26 @@ class FingerprintIndexClient:
         """Build a URL for the given path"""
         return urljoin(self.base_url, path)
 
+    @overload
+    async def _request(  # NOQA: E704
+        self,
+        method: Literal["GET", "POST", "PUT", "DELETE"],
+        path: str,
+        data: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        expected_status: list[int] | None = None,
+    ) -> tuple[int, dict]: ...
+
+    @overload
+    async def _request(  # NOQA: E704
+        self,
+        method: Literal["HEAD"],
+        path: str,
+        data: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        expected_status: list[int] | None = None,
+    ) -> tuple[int, None]: ...
+
     async def _request(
         self,
         method: str,
@@ -52,7 +72,7 @@ class FingerprintIndexClient:
         data: dict[str, Any] | None = None,
         timeout: float | None = None,
         expected_status: list[int] | None = None,
-    ) -> tuple[int, Any]:
+    ) -> tuple[int, dict | None]:
         """Send HTTP request and return the response
 
         Args:
@@ -86,17 +106,14 @@ class FingerprintIndexClient:
                         f"Unexpected status {status}: {body}"
                     )
 
-                if (
-                    response.content_length
-                    and response.content_type == "application/json"
-                ):
-                    result = await response.json()
+                if method == "HEAD":
+                    result = None
                 else:
-                    result = await response.text()
+                    result = await response.json()
 
                 return status, result
         except aiohttp.ClientError as e:
-            logger.error("Error making request: %s", e)
+            logger.exception("Error making request")
             raise FingerprintIndexClientError(f"Error making request: {e}") from e
 
     # Index management methods
@@ -257,28 +274,4 @@ class FingerprintIndexClient:
         _, result = await self._request(
             "DELETE", f"/{index_name}/{fingerprint_id}", expected_status=[200]
         )
-        return result
-
-    # System utility methods
-
-    async def healthcheck(self, index_name: str | None = None) -> dict:
-        """Get service health status
-
-        Args:
-            index_name: Optional index name for index-specific health check
-
-        Returns:
-            Health status information
-        """
-        path = f"/{index_name}/_health" if index_name else "/_health"
-        _, result = await self._request("GET", path, expected_status=[200])
-        return result
-
-    async def metrics(self) -> str:
-        """Get Prometheus metrics
-
-        Returns:
-            Metrics in Prometheus format
-        """
-        _, result = await self._request("GET", "/_metrics", expected_status=[200])
         return result
