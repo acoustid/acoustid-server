@@ -50,6 +50,9 @@ def extract_query(hashes: list[int], size: int = 120, start: int = 80) -> list[i
     only the most significant bits, and ensures uniqueness in the result.
     """
 
+    if size <= 0:
+        return []
+
     # Count non-silence hashes
     clean_size = sum(1 for hash in hashes if hash & 0xFFFFFFFF != SILENCE_HASH)
 
