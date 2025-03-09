@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 class FingerprintIndexClientError(Exception):
     """Base exception for fingerprint index client errors"""
 
-    pass
-
 
 class FingerprintIndexClient:
     """Asyncio client for the acoustid-index HTTP API"""
@@ -35,7 +33,7 @@ class FingerprintIndexClient:
 
     async def close(self):
         """Close the HTTP session"""
-        await self._session.close()
+        await self.session.close()
 
     def _url(self, path: str) -> str:
         """Build a URL for the given path"""
