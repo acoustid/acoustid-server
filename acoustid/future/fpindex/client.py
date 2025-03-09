@@ -1,6 +1,5 @@
-import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Tuple
 from urllib.parse import urljoin
 
 import aiohttp
@@ -46,9 +45,9 @@ class FingerprintIndexClient:
         self,
         method: str,
         path: str,
-        data: Optional[Dict] = None,
-        timeout: Optional[float] = None,
-        expected_status: Optional[List[int]] = None,
+        data: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        expected_status: list[int] | None = None,
     ) -> Tuple[int, Any]:
         """Send HTTP request and return the response
 
@@ -104,7 +103,7 @@ class FingerprintIndexClient:
         except FingerprintIndexClientError:
             return False
 
-    async def get_index_info(self, index_name: str) -> Dict:
+    async def get_index_info(self, index_name: str) -> dict:
         """Get information about an index
 
         Args:
@@ -116,7 +115,7 @@ class FingerprintIndexClient:
         _, result = await self._request("GET", f"/{index_name}", expected_status=[200])
         return result
 
-    async def create_index(self, index_name: str) -> Dict:
+    async def create_index(self, index_name: str) -> dict:
         """Create a new index
 
         Args:
@@ -130,7 +129,7 @@ class FingerprintIndexClient:
         )
         return result
 
-    async def delete_index(self, index_name: str) -> Dict:
+    async def delete_index(self, index_name: str) -> dict:
         """Delete an index
 
         Args:
@@ -146,7 +145,7 @@ class FingerprintIndexClient:
 
     # Fingerprint management methods
 
-    async def update(self, index_name: str, changes: List[Dict]) -> Dict:
+    async def update(self, index_name: str, changes: list[dict[str, Any]]) -> dict:
         """Perform multiple operations on an index
 
         Args:
@@ -163,8 +162,8 @@ class FingerprintIndexClient:
         return result
 
     async def search(
-        self, index_name: str, query: List[int], timeout: Optional[float] = None
-    ) -> Dict:
+        self, index_name: str, query: list[int], timeout: float | None = None
+    ) -> dict:
         """Search for a fingerprint in the index
 
         Args:
@@ -184,9 +183,7 @@ class FingerprintIndexClient:
         )
         return result
 
-    async def fingerprint_exists(
-        self, index_name: str, fingerprint_id: Union[int, str]
-    ) -> bool:
+    async def fingerprint_exists(self, index_name: str, fingerprint_id: int) -> bool:
         """Check if fingerprint exists
 
         Args:
@@ -204,9 +201,7 @@ class FingerprintIndexClient:
         except FingerprintIndexClientError:
             return False
 
-    async def get_fingerprint_info(
-        self, index_name: str, fingerprint_id: Union[int, str]
-    ) -> Dict:
+    async def get_fingerprint_info(self, index_name: str, fingerprint_id: int) -> dict:
         """Get information about a fingerprint
 
         Args:
@@ -222,8 +217,8 @@ class FingerprintIndexClient:
         return result
 
     async def update_fingerprint(
-        self, index_name: str, fingerprint_id: Union[int, str], hashes: List[int]
-    ) -> Dict:
+        self, index_name: str, fingerprint_id: int, hashes: list[int]
+    ) -> dict:
         """Update a single fingerprint
 
         Args:
@@ -240,9 +235,7 @@ class FingerprintIndexClient:
         )
         return result
 
-    async def delete_fingerprint(
-        self, index_name: str, fingerprint_id: Union[int, str]
-    ) -> Dict:
+    async def delete_fingerprint(self, index_name: str, fingerprint_id: int) -> dict:
         """Delete a single fingerprint
 
         Args:
@@ -259,7 +252,7 @@ class FingerprintIndexClient:
 
     # System utility methods
 
-    async def healthcheck(self, index_name: Optional[str] = None) -> Dict:
+    async def healthcheck(self, index_name: str | None = None) -> dict:
         """Get service health status
 
         Args:
