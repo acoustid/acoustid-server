@@ -1,9 +1,0 @@
-Redis Usage
-===========
-
-Per-application lookup statistics
----------------------------------
-
-* hash "lookups"
-  - key "YYYY-MM-DD:HH:APP_ID:(hit|miss)"
-  - number of lookups
