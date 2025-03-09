@@ -30,6 +30,56 @@ def to_signed(hashes: list[int]) -> list[int]:
     return [h - 0x100000000 if h & 0x80000000 else h for h in hashes]
 
 
+def extract_query(hashes: list[int], size: int = 120, start: int = 80) -> list[int]:
+    """Extracts a subset of fingerprint hashes for querying.
+
+    Args:
+        hashes: List of integer hash values representing the fingerprint.
+        size: Target size for the query, defaults to 120.
+        start: Starting index for the query, defaults to 80.
+
+    Returns:
+        A list of hash values to be used for querying.
+
+    The function filters out silence hashes, masks each hash to keep
+    only the most significant bits, and ensures uniqueness in the result.
+    """
+    NUM_QUERY_BITS = 28
+    QUERY_BIT_MASK = ((1 << NUM_QUERY_BITS) - 1) << (32 - NUM_QUERY_BITS)
+    SILENCE_HASH = 627964279
+
+    # Count non-silence hashes
+    clean_size = sum(1 for hash in hashes if hash & 0xFFFFFFFF != SILENCE_HASH)
+
+    if clean_size <= 0:
+        return []
+
+    query = [0] * size
+    query_hashes = set()
+    query_size = 0
+
+    start_idx = max(0, min(clean_size - size, start))
+
+    for i in range(start_idx, len(hashes)):
+        if query_size >= size:
+            break
+
+        hash_val = hashes[i] & 0xFFFFFFFF
+        if hash_val == SILENCE_HASH:
+            continue
+
+        hash_val &= QUERY_BIT_MASK
+
+        if hash_val in query_hashes:
+            continue
+
+        query_hashes.add(hash_val)
+        query[query_size] = hash_val
+        query_size += 1
+
+    return query[:query_size]
+
+
 def compress_fingerprint(
     hashes: list[int], version: int, *, signed: bool = False
 ) -> bytes:
