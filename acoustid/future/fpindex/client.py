@@ -14,7 +14,7 @@ class FingerprintIndexClientError(Exception):
 class FingerprintIndexClient:
     """Asyncio client for the acoustid-index HTTP API"""
 
-    def __init__(self, base_url: str, timeout: float = 30.0):
+    def __init__(self, base_url: str, timeout: float = 30.0) -> None:
         """Initialize the client with the base URL of the index service
 
         Args:
@@ -26,9 +26,14 @@ class FingerprintIndexClient:
         self.session = aiohttp.ClientSession()
 
     async def __aenter__(self):
-        pass
+        return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
+    ) -> None:
         await self.close()
 
     async def close(self):
