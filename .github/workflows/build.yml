@@ -39,10 +39,11 @@ jobs:
           - 6379/tcp
 
       nats:
+        # TODO find a way to enable jetstream, GA don't support specifying command for services
         image: nats:2.10
-        options: "-js"
         ports:
           - 4222/tcp
+
       index:
         image: ghcr.io/acoustid/acoustid-index:stable
         ports:
