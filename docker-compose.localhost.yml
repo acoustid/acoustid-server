@@ -1,5 +1,9 @@
 services:
 
+  nats:
+    ports:
+      - 127.0.0.1:4222:4222
+
   redis:
     ports:
       - 127.0.0.1:6379:6379
