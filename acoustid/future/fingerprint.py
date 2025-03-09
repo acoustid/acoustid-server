@@ -6,6 +6,22 @@ MAGIC = ord("F") << 0 | ord("p") << 8
 FORMAT = 1  # version of the binary encoding format
 
 
+# Binary fingerprint format v1:
+#
+# +--------+--------+--------+--------+
+# | magic  | format | ver    | diffs  |
+# +--------+--------+--------+--------+
+# | 2B     | 1B     | 1B     | 4B[]   |
+# +--------+--------+--------+--------+
+#
+# magic: 2-byte magic number ("Fp")
+# format: 1-byte format version number
+# ver: 1-byte fingerprint algorithm version
+# diffs: array of 4-byte XOR differences between consecutive hash values (little-endian)
+#
+# After encoding to the binary format, the data is compressed using zstd.
+
+
 def compress_fingerprint(hashes: list[int], version: int) -> bytes:
     """Compresses a list of fingerprint hashes using zstd compression.
 
