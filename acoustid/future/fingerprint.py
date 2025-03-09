@@ -3,7 +3,7 @@ import struct
 import zstd
 
 MAGIC = ord("F") << 0 | ord("p") << 8
-FORMAT = 1
+FORMAT = 1  # version of the binary encoding format
 
 
 def compress_fingerprint(hashes: list[int], version: int) -> bytes:
@@ -39,9 +39,9 @@ def decompress_fingerprint(data: bytes) -> tuple[list[int], int]:
     data = zstd.decompress(data)
     magic, format, version, *diffs = struct.unpack(f"<HBB{len(data) // 4 - 1}i", data)
     if magic != MAGIC:
-        raise ValueError("Invalid fingerprint magic")
+        raise ValueError(f"Invalid fingerprint magic: {magic:#x}, expected: {MAGIC:#x}")
     if format != FORMAT:
-        raise ValueError("Invalid format version")
+        raise ValueError(f"Invalid format version: {format}, expected: {FORMAT}")
     hashes: list[int] = [0] * len(diffs)
     last_hash = 0
     for i, h in enumerate(diffs):
