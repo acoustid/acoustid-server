@@ -73,22 +73,31 @@ class FingerprintIndexClient:
         if data is not None:
             kwargs["json"] = data
 
-        async with self.session.request(method, url, **kwargs) as response:
-            status = response.status
+        try:
+            async with self.session.request(method, url, **kwargs) as response:
+                status = response.status
 
-            if expected_status and status not in expected_status:
-                body = await response.text()
-                logger.error(
-                    "Unexpected status %s for %s %s: %s", status, method, url, body
-                )
-                raise FingerprintIndexClientError(f"Unexpected status {status}: {body}")
+                if expected_status and status not in expected_status:
+                    body = await response.text()
+                    logger.error(
+                        "Unexpected status %s for %s %s: %s", status, method, url, body
+                    )
+                    raise FingerprintIndexClientError(
+                        f"Unexpected status {status}: {body}"
+                    )
 
-            if response.content_length and response.content_type == "application/json":
-                result = await response.json()
-            else:
-                result = await response.text()
+                if (
+                    response.content_length
+                    and response.content_type == "application/json"
+                ):
+                    result = await response.json()
+                else:
+                    result = await response.text()
 
-            return status, result
+                return status, result
+        except aiohttp.ClientError as e:
+            logger.error("Error making request: %s", e)
+            raise FingerprintIndexClientError(f"Error making request: {e}") from e
 
     # Index management methods
 
