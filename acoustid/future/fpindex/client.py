@@ -1,4 +1,5 @@
 import logging
+from types import TracebackType
 from typing import Any
 from urllib.parse import urljoin
 
@@ -25,18 +26,18 @@ class FingerprintIndexClient:
         self.timeout = timeout
         self.session = aiohttp.ClientSession()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "FingerprintIndexClient":
         return self
 
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: Any | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         await self.close()
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTP session"""
         await self.session.close()
 
@@ -77,7 +78,9 @@ class FingerprintIndexClient:
 
             if expected_status and status not in expected_status:
                 body = await response.text()
-                logger.error(f"Unexpected status {status} for {method} {url}: {body}")
+                logger.error(
+                    "Unexpected status %s for %s %s: %s", status, method, url, body
+                )
                 raise FingerprintIndexClientError(f"Unexpected status {status}: {body}")
 
             if response.content_length and response.content_type == "application/json":
@@ -98,13 +101,10 @@ class FingerprintIndexClient:
         Returns:
             True if index exists, False otherwise
         """
-        try:
-            status, _ = await self._request(
-                "HEAD", f"/{index_name}", expected_status=[200, 404]
-            )
-            return status == 200
-        except FingerprintIndexClientError:
-            return False
+        status, _ = await self._request(
+            "HEAD", f"/{index_name}", expected_status=[200, 404]
+        )
+        return status == 200
 
     async def get_index_info(self, index_name: str) -> dict:
         """Get information about an index
@@ -196,13 +196,10 @@ class FingerprintIndexClient:
         Returns:
             True if fingerprint exists, False otherwise
         """
-        try:
-            status, _ = await self._request(
-                "HEAD", f"/{index_name}/{fingerprint_id}", expected_status=[200, 404]
-            )
-            return status == 200
-        except FingerprintIndexClientError:
-            return False
+        status, _ = await self._request(
+            "HEAD", f"/{index_name}/{fingerprint_id}", expected_status=[200, 404]
+        )
+        return status == 200
 
     async def get_fingerprint_info(self, index_name: str, fingerprint_id: int) -> dict:
         """Get information about a fingerprint
