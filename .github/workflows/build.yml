@@ -40,10 +40,9 @@ jobs:
 
       nats:
         image: nats:2.9.21
-        command: "-js"
+        options: "--js"
         ports:
           - 4222/tcp
-
       index:
         image: ghcr.io/acoustid/acoustid-index:stable
         ports:
