@@ -7,8 +7,8 @@ import zstd
 from acoustid.future.fingerprint import (
     compress_fingerprint,
     decompress_fingerprint,
-    to_unsigned,
     to_signed,
+    to_unsigned,
 )
 from tests import TEST_2_FP_RAW
 
