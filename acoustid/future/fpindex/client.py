@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Tuple
+from typing import Any
 from urllib.parse import urljoin
 
 import aiohttp
@@ -51,7 +51,7 @@ class FingerprintIndexClient:
         data: dict[str, Any] | None = None,
         timeout: float | None = None,
         expected_status: list[int] | None = None,
-    ) -> Tuple[int, Any]:
+    ) -> tuple[int, Any]:
         """Send HTTP request and return the response
 
         Args:
