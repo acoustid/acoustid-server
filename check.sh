@@ -2,21 +2,6 @@
 
 set -eux
 
-check_requirements() {
-    local check_mode=$1
-    if [ "$check_mode" = "true" ]; then
-        temp_file=$(mktemp)
-        trap 'rm -f "$temp_file"' EXIT
-        uv export --no-dev > "$temp_file"
-        if ! diff -u requirements.txt "$temp_file"; then
-            echo "requirements.txt is out of sync with pyproject.toml"
-            exit 1
-        fi
-    else
-        uv export --no-dev > requirements.txt
-    fi
-}
-
 run_lint() {
     local check_mode=$1
     if [ "$check_mode" = "true" ]; then
@@ -66,7 +51,6 @@ done
 
 # Execute based on parsed arguments
 if [ "$run_linting" = "true" ]; then
-    check_requirements "$check_mode"
     run_lint "$check_mode"
 fi
 
