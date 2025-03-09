@@ -22,12 +22,23 @@ FORMAT = 1  # version of the binary encoding format
 # After encoding to the binary format, the data is compressed using zstd.
 
 
-def compress_fingerprint(hashes: list[int], version: int) -> bytes:
+def to_unsigned(hashes: list[int]) -> list[int]:
+    return [h & 0xFFFFFFFF for h in hashes]
+
+
+def to_signed(hashes: list[int]) -> list[int]:
+    return [h - 0x100000000 if h & 0x80000000 else h for h in hashes]
+
+
+def compress_fingerprint(
+    hashes: list[int], version: int, signed: bool = False
+) -> bytes:
     """Compresses a list of fingerprint hashes using zstd compression.
 
     Args:
         hashes: List of integer hash values representing the fingerprint.
         version: The version of the fingerprint algorithm used to generate the hashes.
+        signed: Whether the hashes are signed or unsigned.
 
     Returns:
         Compressed bytes containing the fingerprint data.
@@ -35,16 +46,19 @@ def compress_fingerprint(hashes: list[int], version: int) -> bytes:
     The function computes XOR differences between consecutive hashes to improve
     compression, packs them into bytes and applies zstd compression.
     """
+    if signed:
+        hashes = to_unsigned(hashes)
     diffs = [hashes[i] ^ (hashes[i - 1] if i > 0 else 0) for i in range(len(hashes))]
-    data = struct.pack(f"<HBB{len(diffs)}i", MAGIC, FORMAT, version, *diffs)
+    data = struct.pack(f"<HBB{len(diffs)}I", MAGIC, FORMAT, version, *diffs)
     return zstd.compress(data, 0)
 
 
-def decompress_fingerprint(data: bytes) -> tuple[list[int], int]:
+def decompress_fingerprint(data: bytes, signed: bool = False) -> tuple[list[int], int]:
     """Decompresses fingerprint data back into a list of hash values.
 
     Args:
         data: Compressed bytes containing the fingerprint data.
+        signed: Whether the hashes are signed or unsigned.
 
     Returns:
         Tuple containing a list of integer hash values and the version of the fingerprint.
@@ -58,7 +72,7 @@ def decompress_fingerprint(data: bytes) -> tuple[list[int], int]:
     except zstd.Error as e:
         raise ValueError(f"Failed to decompress fingerprint: {e}") from e
 
-    magic, fmt, version, *diffs = struct.unpack(f"<HBB{len(data) // 4 - 1}i", data)
+    magic, fmt, version, *diffs = struct.unpack(f"<HBB{len(data) // 4 - 1}I", data)
     if magic != MAGIC:
         raise ValueError(f"Invalid fingerprint magic: {magic:#x}, expected: {MAGIC:#x}")
     if fmt != FORMAT:
@@ -69,4 +83,8 @@ def decompress_fingerprint(data: bytes) -> tuple[list[int], int]:
     for i, h in enumerate(diffs):
         last_hash = h ^ last_hash
         hashes[i] = last_hash
+
+    if signed:
+        hashes = to_signed(hashes)
+
     return hashes, version
