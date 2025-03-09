@@ -36,12 +36,18 @@ def decompress_fingerprint(data: bytes) -> tuple[list[int], int]:
     The function decompresses the zstd data, unpacks the bytes into integers,
     and reconstructs the original hash values by reversing the XOR differences.
     """
-    data = zstd.decompress(data)
-    magic, format, version, *diffs = struct.unpack(f"<HBB{len(data) // 4 - 1}i", data)
+
+    try:
+        data = zstd.decompress(data)
+    except zstd.Error as e:
+        raise ValueError(f"Failed to decompress fingerprint: {e}") from e
+
+    magic, fmt, version, *diffs = struct.unpack(f"<HBB{len(data) // 4 - 1}i", data)
     if magic != MAGIC:
         raise ValueError(f"Invalid fingerprint magic: {magic:#x}, expected: {MAGIC:#x}")
-    if format != FORMAT:
-        raise ValueError(f"Invalid format version: {format}, expected: {FORMAT}")
+    if fmt != FORMAT:
+        raise ValueError(f"Invalid format version: {fmt}, expected: {FORMAT}")
+
     hashes: list[int] = [0] * len(diffs)
     last_hash = 0
     for i, h in enumerate(diffs):
