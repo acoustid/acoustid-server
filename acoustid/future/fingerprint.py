@@ -31,7 +31,7 @@ def to_signed(hashes: list[int]) -> list[int]:
 
 
 def compress_fingerprint(
-    hashes: list[int], version: int, signed: bool = False
+    hashes: list[int], version: int, *, signed: bool = False
 ) -> bytes:
     """Compresses a list of fingerprint hashes using zstd compression.
 
@@ -53,7 +53,9 @@ def compress_fingerprint(
     return zstd.compress(data, 0)
 
 
-def decompress_fingerprint(data: bytes, signed: bool = False) -> tuple[list[int], int]:
+def decompress_fingerprint(
+    data: bytes, *, signed: bool = False
+) -> tuple[list[int], int]:
     """Decompresses fingerprint data back into a list of hash values.
 
     Args:
