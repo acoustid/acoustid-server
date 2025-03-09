@@ -39,7 +39,7 @@ jobs:
           - 6379/tcp
 
       nats:
-        image: nats:2.9.21
+        image: nats:2.10
         options: "--js"
         ports:
           - 4222/tcp

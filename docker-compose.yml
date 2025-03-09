@@ -1,6 +1,6 @@
 services:
   nats:
-    image: nats
+    image: nats:2.10
     command:
       - "--js"
 
