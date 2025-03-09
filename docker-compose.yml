@@ -1,4 +1,8 @@
 services:
+  nats:
+    image: nats:2.10
+    command:
+      - "-js"
 
   redis:
     image: redis
