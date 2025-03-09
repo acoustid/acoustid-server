@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from contextlib import AsyncExitStack
 
 import click
-import msgpack
+import msgspec.msgpack
 import nats
 from nats.aio.msg import Msg
 
@@ -15,7 +15,7 @@ async def handle_message(msg: Msg) -> None:
     try:
         logger.debug("Headers: %s", msg.headers)
         logger.debug("Metadata: %s", msg.metadata)
-        payload = msgpack.unpackb(msg.data)
+        payload = msgspec.msgpack.decode(msg.data)
         logger.debug("Payload: %s", payload)
         # TODO handle messages
         await msg.ack()

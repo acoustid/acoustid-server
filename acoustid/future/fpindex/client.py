@@ -1,11 +1,78 @@
 import logging
 from types import TracebackType
-from typing import Any, Literal, overload
+from typing import Annotated, Any, TypeVar, overload
 from urllib.parse import urljoin
 
 import aiohttp
+import msgspec
 
 logger = logging.getLogger(__name__)
+
+
+UInt32 = Annotated[int, msgspec.Meta(gt=0, lt=2**32)]
+UInt64 = Annotated[int, msgspec.Meta(gt=0, lt=2**64)]
+
+
+class ErrorResponse(msgspec.Struct):
+    error: str = msgspec.field(name="e")
+
+
+class Insert(msgspec.Struct):
+    id: UInt32 = msgspec.field(name="i")
+    hashes: list[UInt32] = msgspec.field(name="h")
+
+
+class Delete(msgspec.Struct):
+    id: UInt32 = msgspec.field(name="i")
+
+
+class SetAttribute(msgspec.Struct):
+    name: str = msgspec.field(name="n")
+    value: UInt64 = msgspec.field(name="v")
+
+
+class Change(msgspec.Struct):
+    insert: Insert | None = msgspec.field(name="i", default=None)
+    delete: Delete | None = msgspec.field(name="d", default=None)
+    set_attribute: SetAttribute | None = msgspec.field(name="s", default=None)
+
+
+class UpdateRequest(msgspec.Struct):
+    changes: list[Change] = msgspec.field(name="c")
+
+
+class SearchRequest(msgspec.Struct):
+    query: list[int] = msgspec.field(name="q")
+    timeout: int | None = msgspec.field(name="t", default=None)
+    limit: int | None = msgspec.field(name="l", default=None)
+
+
+class SearchResult(msgspec.Struct):
+    id: UInt32 = msgspec.field(name="i")
+    score: int = msgspec.field(name="s")
+
+
+class SearchResponse(msgspec.Struct):
+    results: list[SearchResult] = msgspec.field(name="r")
+
+
+class GetIndexResponse(msgspec.Struct):
+    version: int = msgspec.field(name="v")
+    segments: int = msgspec.field(name="s")
+    docs: int = msgspec.field(name="d")
+    attributes: dict[str, int] = msgspec.field(name="a")
+
+
+class EmptyResponse(msgspec.Struct):
+    pass
+
+
+class UpdateFingerprintRequest(msgspec.Struct):
+    hashes: list[int] = msgspec.field(name="h")
+
+
+class GetFingerprintResponse(msgspec.Struct):
+    version: int = msgspec.field(name="v")
 
 
 class FingerprintIndexClientError(Exception):
@@ -45,34 +112,42 @@ class FingerprintIndexClient:
         """Build a URL for the given path"""
         return urljoin(self.base_url, path)
 
-    @overload
-    async def _request(  # NOQA: E704
-        self,
-        method: Literal["GET", "POST", "PUT", "DELETE"],
-        path: str,
-        data: dict[str, Any] | None = None,
-        timeout: float | None = None,
-        expected_status: list[int] | None = None,
-    ) -> tuple[int, dict]: ...
+    T = TypeVar("T", bound=msgspec.Struct)
 
     @overload
     async def _request(  # NOQA: E704
         self,
-        method: Literal["HEAD"],
+        method: str,
         path: str,
-        data: dict[str, Any] | None = None,
+        *,
+        expected_status: list[int],
+        expected_response: None,
+        data: msgspec.Struct | None = None,
         timeout: float | None = None,
-        expected_status: list[int] | None = None,
     ) -> tuple[int, None]: ...
+
+    @overload
+    async def _request(  # NOQA: E704
+        self,
+        method: str,
+        path: str,
+        *,
+        expected_status: list[int],
+        expected_response: type[T],
+        data: msgspec.Struct | None = None,
+        timeout: float | None = None,
+    ) -> tuple[int, T]: ...
 
     async def _request(
         self,
         method: str,
         path: str,
-        data: dict[str, Any] | None = None,
+        *,
+        expected_status: list[int],
+        expected_response: type[T] | None,
+        data: msgspec.Struct | None = None,
         timeout: float | None = None,
-        expected_status: list[int] | None = None,
-    ) -> tuple[int, dict | None]:
+    ) -> tuple[int, T | None]:
         """Send HTTP request and return the response
 
         Args:
@@ -89,9 +164,11 @@ class FingerprintIndexClient:
 
         kwargs: dict[str, Any] = {
             "timeout": aiohttp.ClientTimeout(total=timeout or self.timeout),
+            "headers": {"Accept": "application/vnd.msgpack"},
         }
         if data is not None:
-            kwargs["json"] = data
+            kwargs["data"] = msgspec.msgpack.encode(data)
+            kwargs["headers"]["Content-Type"] = "application/vnd.msgpack"
 
         try:
             async with self.session.request(method, url, **kwargs) as response:
@@ -106,12 +183,12 @@ class FingerprintIndexClient:
                         f"Unexpected status {status}: {body}"
                     )
 
-                if method == "HEAD":
-                    result = None
-                else:
-                    result = await response.json()
+                if expected_response is None:
+                    return status, None
 
-                return status, result
+                content = await response.read()
+                return status, msgspec.msgpack.decode(content, type=expected_response)
+
         except aiohttp.ClientError as e:
             logger.exception("Error making request")
             raise FingerprintIndexClientError(f"Error making request: {e}") from e
@@ -128,11 +205,14 @@ class FingerprintIndexClient:
             True if index exists, False otherwise
         """
         status, _ = await self._request(
-            "HEAD", f"/{index_name}", expected_status=[200, 404]
+            "HEAD",
+            f"/{index_name}",
+            expected_status=[200, 404],
+            expected_response=None,
         )
         return status == 200
 
-    async def get_index_info(self, index_name: str) -> dict:
+    async def get_index_info(self, index_name: str) -> GetIndexResponse:
         """Get information about an index
 
         Args:
@@ -141,10 +221,15 @@ class FingerprintIndexClient:
         Returns:
             Dictionary with index information
         """
-        _, result = await self._request("GET", f"/{index_name}", expected_status=[200])
+        _, result = await self._request(
+            "GET",
+            f"/{index_name}",
+            expected_status=[200],
+            expected_response=GetIndexResponse,
+        )
         return result
 
-    async def create_index(self, index_name: str) -> dict:
+    async def create_index(self, index_name: str) -> None:
         """Create a new index
 
         Args:
@@ -153,12 +238,14 @@ class FingerprintIndexClient:
         Returns:
             Response data
         """
-        _, result = await self._request(
-            "PUT", f"/{index_name}", expected_status=[200, 201]
+        _, _ = await self._request(
+            "PUT",
+            f"/{index_name}",
+            expected_status=[200, 201],
+            expected_response=EmptyResponse,
         )
-        return result
 
-    async def delete_index(self, index_name: str) -> dict:
+    async def delete_index(self, index_name: str) -> None:
         """Delete an index
 
         Args:
@@ -167,14 +254,18 @@ class FingerprintIndexClient:
         Returns:
             Response data
         """
-        _, result = await self._request(
-            "DELETE", f"/{index_name}", expected_status=[200]
+        _, _ = await self._request(
+            "DELETE",
+            f"/{index_name}",
+            expected_status=[200],
+            expected_response=EmptyResponse,
         )
-        return result
 
     # Fingerprint management methods
 
-    async def update(self, index_name: str, changes: list[dict[str, Any]]) -> dict:
+    async def update(
+        self, index_name: str, changes: list[Insert | Delete | SetAttribute]
+    ) -> None:
         """Perform multiple operations on an index
 
         Args:
@@ -184,31 +275,47 @@ class FingerprintIndexClient:
         Returns:
             Response data
         """
-        data = {"changes": changes}
-        _, result = await self._request(
-            "POST", f"/{index_name}/_update", data=data, expected_status=[200]
+        wrapped_changes = []
+        for change in changes:
+            if isinstance(change, Insert):
+                wrapped_changes.append(Change(insert=change))
+            elif isinstance(change, Delete):
+                wrapped_changes.append(Change(delete=change))
+            elif isinstance(change, SetAttribute):
+                wrapped_changes.append(Change(set_attribute=change))
+
+        _, _ = await self._request(
+            "POST",
+            f"/{index_name}/_update",
+            data=UpdateRequest(changes=wrapped_changes),
+            expected_status=[200],
+            expected_response=EmptyResponse,
         )
-        return result
 
     async def search(
-        self, index_name: str, query: list[int], timeout: float | None = None
-    ) -> dict:
+        self,
+        index_name: str,
+        query: list[int],
+        timeout: int | None = None,
+        limit: int | None = None,
+    ) -> SearchResponse:
         """Search for a fingerprint in the index
 
         Args:
             index_name: Name of the index
             query: List of hash values
             timeout: Search timeout in seconds
+            limit: Maximum number of results to return
 
         Returns:
             Search results
         """
-        data: dict[str, Any] = {"query": query}
-        if timeout is not None:
-            data["timeout"] = timeout
-
         _, result = await self._request(
-            "POST", f"/{index_name}/_search", data=data, expected_status=[200]
+            "POST",
+            f"/{index_name}/_search",
+            data=SearchRequest(query=query, timeout=timeout, limit=limit),
+            expected_status=[200],
+            expected_response=SearchResponse,
         )
         return result
 
@@ -223,11 +330,16 @@ class FingerprintIndexClient:
             True if fingerprint exists, False otherwise
         """
         status, _ = await self._request(
-            "HEAD", f"/{index_name}/{fingerprint_id}", expected_status=[200, 404]
+            "HEAD",
+            f"/{index_name}/{fingerprint_id}",
+            expected_status=[200, 404],
+            expected_response=None,
         )
         return status == 200
 
-    async def get_fingerprint_info(self, index_name: str, fingerprint_id: int) -> dict:
+    async def get_fingerprint_info(
+        self, index_name: str, fingerprint_id: int
+    ) -> GetFingerprintResponse:
         """Get information about a fingerprint
 
         Args:
@@ -238,13 +350,16 @@ class FingerprintIndexClient:
             Fingerprint information
         """
         _, result = await self._request(
-            "GET", f"/{index_name}/{fingerprint_id}", expected_status=[200]
+            "GET",
+            f"/{index_name}/{fingerprint_id}",
+            expected_status=[200],
+            expected_response=GetFingerprintResponse,
         )
         return result
 
     async def update_fingerprint(
         self, index_name: str, fingerprint_id: int, hashes: list[int]
-    ) -> dict:
+    ) -> None:
         """Update a single fingerprint
 
         Args:
@@ -255,13 +370,15 @@ class FingerprintIndexClient:
         Returns:
             Response data
         """
-        data = {"hashes": hashes}
-        _, result = await self._request(
-            "PUT", f"/{index_name}/{fingerprint_id}", data=data, expected_status=[200]
+        _, _ = await self._request(
+            "PUT",
+            f"/{index_name}/{fingerprint_id}",
+            data=UpdateFingerprintRequest(hashes=hashes),
+            expected_status=[200],
+            expected_response=EmptyResponse,
         )
-        return result
 
-    async def delete_fingerprint(self, index_name: str, fingerprint_id: int) -> dict:
+    async def delete_fingerprint(self, index_name: str, fingerprint_id: int) -> None:
         """Delete a single fingerprint
 
         Args:
@@ -271,7 +388,9 @@ class FingerprintIndexClient:
         Returns:
             Response data
         """
-        _, result = await self._request(
-            "DELETE", f"/{index_name}/{fingerprint_id}", expected_status=[200]
+        _, _ = await self._request(
+            "DELETE",
+            f"/{index_name}/{fingerprint_id}",
+            expected_status=[200],
+            expected_response=EmptyResponse,
         )
-        return result
