@@ -28,14 +28,17 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project
 
-FROM base
-
-COPY --from=builder /opt/acoustid/server/.venv /opt/acoustid/server/.venv
-
 COPY . /opt/acoustid/server
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen
+
+FROM base
+
+COPY --from=builder /opt/acoustid/server/.venv /opt/acoustid/server/.venv
+COPY --from=builder /opt/acoustid/server/acoustid/_ext.*.so /opt/acoustid/server/acoustid/
+
+COPY . /opt/acoustid/server
 
 USER acoustid
 

@@ -5,6 +5,7 @@
 /build
 /acoustid.conf
 /acoustid-test.conf
+/acoustid/ext/*.c
 /.tox
 *.pyc
 *.swp
