@@ -59,7 +59,7 @@ class DatabaseContext(object):
             read_only_bind_key = bind_key + ":ro"
             if read_only_bind_key in self.engines:
                 bind_key = read_only_bind_key
-        return self.session.connection(bind_arguments=dict(bind=self.engines[bind_key]))
+        return self.session.connection(bind_arguments={"bind": self.engines[bind_key]})
 
     def get_app_db(self, read_only=False):
         # type: (bool) -> AppDB
