@@ -7,7 +7,7 @@ import uuid
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 import pytz
-from sqlalchemy import sql
+from sqlalchemy import RowMapping, sql
 
 from acoustid import const
 from acoustid import tables as schema
@@ -62,7 +62,7 @@ def insert_submission_result(ingest_db, values):
 
 
 def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission):
-    # type: (IngestDB, AppDB, FingerprintDB, IndexClientPool, Dict[str, Any]) -> Optional[Dict[str, Any]]
+    # type: (IngestDB, AppDB, FingerprintDB, IndexClientPool, RowMapping) -> Optional[Dict[str, Any]]
     """
     Import the given submission into the main fingerprint database
     """
@@ -98,9 +98,10 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         return None
 
     num_query_items = fingerprint_db.execute(
-        "SELECT icount(acoustid_extract_query(%(fp)s))",
-        dict(fp=submission["fingerprint"]),
-    )
+        sql.select(
+            sql.func.icount(sql.func.acoustid_extract_query(submission["fingerprint"]))
+        )
+    ).scalar()
     if not num_query_items:
         logger.info("Skipping, no data to index")
         return None
@@ -272,16 +273,18 @@ def import_queued_submissions(
     """
     Import the given submission into the main fingerprint database
     """
-    query = schema.submission.select(
-        schema.submission.c.handled.is_(False)
-    ).with_for_update(skip_locked=True)
+    query = (
+        schema.submission.select()
+        .where(schema.submission.c.handled.is_(False))
+        .with_for_update(skip_locked=True)
+    )
     if ids is not None:
         query = query.where(schema.submission.c.id.in_(ids))
     if limit is not None:
         query = query.limit(limit)
     count = 0
     for submission in ingest_db.execute(query):
-        import_submission(ingest_db, app_db, fingerprint_db, index, submission)
+        import_submission(ingest_db, app_db, fingerprint_db, index, submission._mapping)
         count += 1
     return count
 
@@ -293,10 +296,8 @@ def lookup_submission_status(
         return {}
 
     query = sql.select(
-        [
-            schema.fingerprint_source.c.submission_id,
-            schema.fingerprint_source.c.fingerprint_id,
-        ]
+        schema.fingerprint_source.c.submission_id,
+        schema.fingerprint_source.c.fingerprint_id,
     ).where(schema.fingerprint_source.c.submission_id.in_(ids))
     fingerprint_ids: Dict[int, int] = {}
     for submission_id, fingerprint_id in ingest_db.execute(query):
@@ -306,9 +307,14 @@ def lookup_submission_status(
         return {}
 
     source = schema.fingerprint.join(schema.track)
-    query = sql.select(
-        [schema.fingerprint.c.id, schema.track.c.gid], from_obj=source
-    ).where(schema.fingerprint.c.id.in_(fingerprint_ids.values()))
+    query = (
+        sql.select(
+            schema.fingerprint.c.id,
+            schema.track.c.gid,
+        )
+        .select_from(source)
+        .where(schema.fingerprint.c.id.in_(fingerprint_ids.values()))
+    )
     track_gids: Dict[int, str] = {}
     for fingerprint_id, track_gid in fingerprint_db.execute(query):
         track_gids[fingerprint_id] = track_gid
