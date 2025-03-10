@@ -5,7 +5,7 @@ import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-from sqlalchemy import Column, Table, sql
+from sqlalchemy import Column, Table, sql, Row
 
 from acoustid import const
 from acoustid import tables as schema
@@ -14,10 +14,9 @@ from acoustid.db import FingerprintDB, IngestDB, MusicBrainzDB
 logger = logging.getLogger(__name__)
 
 
-def resolve_track_gid(conn, gid):
-    # type: (FingerprintDB, str) -> Optional[int]
-    query = sql.select(
-        [schema.track.c.id, schema.track.c.new_id], schema.track.c.gid == gid
+def resolve_track_gid(conn: FingerprintDB, gid: str) -> int | None:
+    query = sql.select(schema.track.c.id, schema.track.c.new_id).where(
+        schema.track.c.gid == gid
     )
     row = conn.execute(query).first()
     if row is None:
@@ -25,7 +24,7 @@ def resolve_track_gid(conn, gid):
     track_id, new_track_id = row
     if new_track_id is None:
         return track_id
-    query = sql.select([schema.track.c.id], schema.track.c.id == new_track_id)
+    query = sql.select(schema.track.c.id).where(schema.track.c.id == new_track_id)
     return conn.execute(query).scalar()
 
 
@@ -37,11 +36,9 @@ def lookup_mbids(conn, track_ids):
     if not track_ids:
         return {}
     query = sql.select(
-        [
-            schema.track_mbid.c.track_id,
-            schema.track_mbid.c.mbid,
-            schema.track_mbid.c.submission_count,
-        ]
+        schema.track_mbid.c.track_id,
+        schema.track_mbid.c.mbid,
+        schema.track_mbid.c.submission_count,
     )
     query = query.where(
         sql.and_(
@@ -60,11 +57,14 @@ def lookup_meta_ids(conn, track_ids, max_ids_per_track=None):
     # type: (FingerprintDB, Iterable[int], Optional[int]) -> Dict[int, List[int]]
     if not track_ids:
         return {}
-    query = sql.select(
-        [schema.track_meta.c.track_id, schema.track_meta.c.meta_id],
-        sql.and_(schema.track_meta.c.track_id.in_(track_ids)),
-    ).order_by(
-        schema.track_meta.c.track_id, schema.track_meta.c.submission_count.desc()
+    query = (
+        sql.select(schema.track_meta.c.track_id, schema.track_meta.c.meta_id)
+        .where(
+            sql.and_(schema.track_meta.c.track_id.in_(track_ids)),
+        )
+        .order_by(
+            schema.track_meta.c.track_id, schema.track_meta.c.submission_count.desc()
+        )
     )
     results = {}  # type: Dict[int, List[int]]
     for track_id, meta_id in conn.execute(query):
@@ -79,15 +79,19 @@ def lookup_tracks(conn, mbids):
     # type: (FingerprintDB, Iterable[int]) -> Dict[str, List[Dict[str, Any]]]
     if not mbids:
         return {}
-    query = sql.select(
-        [schema.track_mbid.c.track_id, schema.track.c.gid, schema.track_mbid.c.mbid],
-        sql.and_(
-            schema.track_mbid.c.mbid.in_(mbids), schema.track_mbid.c.disabled.is_(False)
-        ),
-        from_obj=schema.track_mbid.join(
-            schema.track, schema.track_mbid.c.track_id == schema.track.c.id
-        ),
-    ).order_by(schema.track_mbid.c.track_id)
+    query = (
+        sql.select(
+            schema.track_mbid.c.track_id, schema.track.c.gid, schema.track_mbid.c.mbid
+        )
+        .where(
+            sql.and_(
+                schema.track_mbid.c.mbid.in_(mbids),
+                schema.track_mbid.c.disabled.is_(False),
+                schema.track_mbid.c.track_id == schema.track.c.id,
+            ),
+        )
+        .order_by(schema.track_mbid.c.track_id)
+    )
     results = {}  # type: Dict[str, List[Dict[str, Any]]]
     for track_id, track_gid, mbid in conn.execute(query):
         results.setdefault(mbid, []).append({"id": track_id, "gid": track_gid})
@@ -113,7 +117,7 @@ def disable_mbid(
     for row in result:
         ingest_db.execute(
             schema.track_mbid_change.insert().values(
-                track_mbid_id=row["id"],
+                track_mbid_id=row.id,
                 updated=sql.func.current_timestamp(),
                 note=note,
                 account_id=account_id,
@@ -132,21 +136,19 @@ def merge_mbids(
 
     affected_track_mbids_query = (
         sql.select(
-            [
-                schema.track_mbid.c.id,
-                schema.track_mbid.c.track_id,
-                schema.track_mbid.c.mbid,
-                schema.track_mbid.c.submission_count,
-                schema.track_mbid.c.disabled,
-                schema.track_mbid.c.merged_into,
-            ]
+            schema.track_mbid.c.id,
+            schema.track_mbid.c.track_id,
+            schema.track_mbid.c.mbid,
+            schema.track_mbid.c.submission_count,
+            schema.track_mbid.c.disabled,
+            schema.track_mbid.c.merged_into,
         )
         .where(schema.track_mbid.c.mbid.in_([source_mbid, target_mbid]))
         .with_for_update()
     )
-    track_mbids_by_track_id: Dict[int, Dict[str, Any]] = {}
+    track_mbids_by_track_id: dict[int, dict[str, Row]] = {}
     for row in fingerprint_db.execute(affected_track_mbids_query):
-        track_mbids_by_track_id.setdefault(row["track_id"], {})[row["mbid"]] = row
+        track_mbids_by_track_id.setdefault(row.track_id, {})[row.mbid] = row
 
     for track_id, track_mbids in track_mbids_by_track_id.items():
         source = track_mbids.get(source_mbid)
@@ -169,15 +171,15 @@ def merge_mbids(
             ).scalar()
         else:
             # we already have a record with the target mbid, so we update it
-            target_id = target["id"]
+            target_id = target.id
 
-        if source["merged_into"] is not None and source["merged_into"] != target_id:
+        if source.merged_into is not None and source.merged_into != target_id:
             raise ValueError("source mbid is already merged into another mbid")
 
         # clear submission count and disable flag for source mbid
         fingerprint_db.execute(
             schema.track_mbid.update()
-            .where(schema.track_mbid.c.id == source["id"])
+            .where(schema.track_mbid.c.id == source.id)
             .values(
                 merged_into=target_id,
                 submission_count=0,
@@ -192,11 +194,11 @@ def merge_mbids(
             .where(schema.track_mbid.c.id == target_id)
             .values(
                 submission_count=(
-                    schema.track_mbid.c.submission_count + source["submission_count"]
+                    schema.track_mbid.c.submission_count + source.submission_count
                 ),
                 disabled=sql.and_(
                     schema.track_mbid.c.disabled,
-                    source["disabled"],
+                    source.disabled,
                 ),
                 updated=sql.func.current_timestamp(),
             )
@@ -205,7 +207,7 @@ def merge_mbids(
         # update track_mbid_source and track_mbid_change tables
         ingest_db.execute(
             schema.track_mbid_source.update()
-            .where(schema.track_mbid_source.c.track_mbid_id == source["id"])
+            .where(schema.track_mbid_source.c.track_mbid_id == source.id)
             .values(
                 track_mbid_id=target_id,
                 updated=sql.func.current_timestamp(),
@@ -213,7 +215,7 @@ def merge_mbids(
         )
         ingest_db.execute(
             schema.track_mbid_change.update()
-            .where(schema.track_mbid_change.c.track_mbid_id == source["id"])
+            .where(schema.track_mbid_change.c.track_mbid_id == source.id)
             .values(
                 track_mbid_id=target_id,
                 updated=sql.func.current_timestamp(),
@@ -233,7 +235,7 @@ def merge_missing_mbid(
     """
 
     new_mbid = musicbrainz_db.execute(
-        sql.select([schema.mb_recording.c.gid])
+        sql.select(schema.mb_recording.c.gid)
         .where(schema.mb_recording.c.id == schema.mb_recording_gid_redirect.c.new_id)
         .where(schema.mb_recording_gid_redirect.c.gid == old_mbid)
     ).scalar()
@@ -242,7 +244,7 @@ def merge_missing_mbid(
         return True
 
     new_mbid = musicbrainz_db.execute(
-        sql.select([schema.mb_recording.c.gid]).where(
+        sql.select(schema.mb_recording.c.gid).where(
             schema.mb_recording.c.gid == old_mbid
         )
     ).scalar()
@@ -271,8 +273,10 @@ def _merge_tracks_gids(fingerprint_db, ingest_db, name_with_id, target_id, sourc
         columns.append(
             sql.func.every(schema.track_mbid.c.disabled).label("all_disabled")
         )
-    query = sql.select(
-        columns, tab.c.track_id.in_(source_ids + [target_id]), group_by=col
+    query = (
+        sql.select(*columns)
+        .where(tab.c.track_id.in_(source_ids + [target_id]))
+        .group_by(col)
     )
     rows = fingerprint_db.execute(query).fetchall()
     to_delete = set()
@@ -369,7 +373,7 @@ def _insert_gid(
 ):
     # type: (FingerprintDB, IngestDB, Table, Table, Column, str, int, Union[str, int], Optional[int], Optional[int]) -> None
     cond = sql.and_(tab.c.track_id == track_id, col == gid)
-    query = sql.select([tab.c.id], cond)
+    query = sql.select(tab.c.id).where(cond)
     id = fingerprint_db.execute(query).scalar()
     if id is not None:
         update_stmt = tab.update().where(cond)
@@ -474,17 +478,18 @@ def calculate_fingerprint_similarity_matrix(conn, track_ids):
     fp2 = schema.fingerprint.alias("fp2")
     src = fp1.join(fp2, fp1.c.id < fp2.c.id)
     cond = sql.and_(fp1.c.track_id.in_(track_ids), fp2.c.track_id.in_(track_ids))
-    query = sql.select(
-        [
+    query = (
+        sql.select(
             fp1.c.id,
             fp2.c.id,
             sql.func.acoustid_compare2(
                 fp1.c.fingerprint, fp2.c.fingerprint, const.TRACK_MAX_OFFSET
             ),
-        ],
-        cond,
-        from_obj=src,
-    ).order_by(fp1.c.id, fp2.c.id)
+        )
+        .where(cond)
+        .select_from(src)
+        .order_by(fp1.c.id, fp2.c.id)
+    )
     result = {}  # type: Dict[int, Dict[int, float]]
     for fp1_id, fp2_id, score in conn.execute(query):
         result.setdefault(fp1_id, {})[fp2_id] = score
@@ -503,19 +508,17 @@ def can_merge_tracks(conn, track_ids):
     cond = sql.and_(fp1.c.track_id.in_(track_ids), fp2.c.track_id.in_(track_ids))
     query = (
         sql.select(
-            [
-                fp1.c.track_id,
-                fp2.c.track_id,
-                sql.func.max(sql.func.abs(fp1.c.length - fp2.c.length)),
-                sql.func.min(
-                    sql.func.acoustid_compare2(
-                        fp1.c.fingerprint, fp2.c.fingerprint, const.TRACK_MAX_OFFSET
-                    )
-                ),
-            ],
-            cond,
-            from_obj=src,
+            fp1.c.track_id,
+            fp2.c.track_id,
+            sql.func.max(sql.func.abs(fp1.c.length - fp2.c.length)),
+            sql.func.min(
+                sql.func.acoustid_compare2(
+                    fp1.c.fingerprint, fp2.c.fingerprint, const.TRACK_MAX_OFFSET
+                )
+            ),
         )
+        .where(cond)
+        .select_from(src)
         .group_by(fp1.c.track_id, fp2.c.track_id)
         .order_by(fp1.c.track_id, fp2.c.track_id)
     )
@@ -538,17 +541,12 @@ def can_merge_tracks(conn, track_ids):
 
 def can_add_fp_to_track(conn, track_id, fingerprint, length):
     # type: (FingerprintDB, int, List[int], int) -> bool
-    cond = schema.fingerprint.c.track_id == track_id
     query = sql.select(
-        [
-            sql.func.acoustid_compare2(
-                schema.fingerprint.c.fingerprint, fingerprint, const.TRACK_MAX_OFFSET
-            ),
-            schema.fingerprint.c.length,
-        ],
-        cond,
-        from_obj=schema.fingerprint,
-    )
+        sql.func.acoustid_compare2(
+            schema.fingerprint.c.fingerprint, fingerprint, const.TRACK_MAX_OFFSET
+        ),
+        schema.fingerprint.c.length,
+    ).where(schema.fingerprint.c.track_id == track_id)
     for fp_score, fp_length in conn.execute(query):
         if fp_score < const.TRACK_GROUP_MERGE_THRESHOLD:
             return False

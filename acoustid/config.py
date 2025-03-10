@@ -155,18 +155,18 @@ class DatabaseConfig(BaseConfig):
             and self.pool_timeout == other.pool_timeout
         )
 
-    def create_url(self):
-        # type: () -> URL
-        kwargs = {}  # type: Dict[str, Any]
-        kwargs["username"] = self.user
-        kwargs["database"] = self.name
+    def create_url(self) -> URL:
+        kwargs: Dict[str, Any] = {
+            "username": self.user,
+            "database": self.name,
+        }
         if self.host is not None:
             kwargs["host"] = self.host
         if self.port is not None:
             kwargs["port"] = self.port
         if self.password is not None:
             kwargs["password"] = self.password
-        return URL("postgresql", **kwargs)
+        return URL.create("postgresql", **kwargs)
 
     def create_engine(self, **kwargs):
         # type: (**Any) -> Engine
