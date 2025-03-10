@@ -156,7 +156,7 @@ class DatabaseConfig(BaseConfig):
         )
 
     def create_url(self) -> URL:
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "username": self.user,
             "database": self.name,
         }
