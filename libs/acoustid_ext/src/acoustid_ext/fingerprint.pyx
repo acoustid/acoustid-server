@@ -146,6 +146,6 @@ def encode_fingerprint(object hashes, int version, bint signed = 0):
 
 def decode_fingerprint(bytes inp, bint signed = 0):
     if signed:
-        return decode_fingerprint_impl(inp, <true_type>0)
+        return decode_fingerprint_impl(inp, <true_type>1)
     else:
         return decode_fingerprint_impl(inp, <false_type>0)
