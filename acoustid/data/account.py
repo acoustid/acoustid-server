@@ -89,7 +89,7 @@ def insert_account(conn: AppDB, data: dict[str, Any]) -> tuple[int, str]:
         )
         conn.execute(insert_openid_stmt)
     logger.debug("Inserted account %r with data %r", row.id, data)
-    return row.id, row.api_key
+    return row.id, row.apikey
 
 
 def reset_account_apikey(conn: AppDB, id: int) -> None:
