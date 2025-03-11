@@ -42,9 +42,6 @@ COPY --from=builder /opt/acoustid/server/.venv /opt/acoustid/server/.venv
 
 COPY . /opt/acoustid/server
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen
-
 USER acoustid
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
