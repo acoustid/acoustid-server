@@ -98,6 +98,6 @@ class FpstoreClient:
         try:
             response = self.session.send(prepared_request, timeout=(timeout + 0.5))
             return self._parse_search_response(response)
-        except requests.exceptions.ReadTimeout:
+        except requests.exceptions.ReadTimeout as err:
             logger.warning("HTTP timeout while waiting for fingerprint store response")
-            raise TimeoutError()
+            raise TimeoutError from err
