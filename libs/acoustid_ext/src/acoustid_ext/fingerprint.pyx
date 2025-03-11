@@ -1,9 +1,8 @@
-from libc.stdint cimport uint8_t, uint32_t
-from cpython.bytes cimport PyBytes_FromStringAndSize, PyBytes_AsString
 from cpython cimport array
+from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
+from libc.stdint cimport uint8_t, uint32_t
+
 import array
-
-
 
 # Binary fingerprint format v1:
 #
