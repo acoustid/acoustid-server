@@ -7,6 +7,8 @@ import gzip
 import os
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional, Tuple
 
+import sentry_sdk
+from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 from six import BytesIO
 from werkzeug.exceptions import BadRequest, ClientDisconnected, HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -20,10 +22,6 @@ import acoustid.api.v2.internal
 import acoustid.api.v2.misc
 from acoustid._release import GIT_RELEASE
 from acoustid.script import Script
-
-import sentry_sdk
-from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
-
 
 if TYPE_CHECKING:
     from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
@@ -141,7 +139,7 @@ class Server(Script):
     def setup_sentry(self):
         config = self.config
         sentry_sdk.init(
-            dsn=config.sentry.dsn,
+            dsn=config.sentry.api_dsn,
             release=GIT_RELEASE,
             send_default_pii=True,
         )

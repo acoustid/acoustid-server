@@ -27,7 +27,7 @@ def make_application(config_filename=None, tests=False):
     config = script.config
 
     sentry_sdk.init(
-        dsn=config.sentry.dsn,
+        dsn=config.sentry.web_dsn,
         release=GIT_RELEASE,
         send_default_pii=True,
     )
