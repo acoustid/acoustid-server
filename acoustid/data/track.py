@@ -5,7 +5,7 @@ import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-from sqlalchemy import Row, sql
+from sqlalchemy import Column, Row, Table, sql
 
 from acoustid import const
 from acoustid import tables as schema

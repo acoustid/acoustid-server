@@ -12,7 +12,7 @@ from acoustid.db import AppDB
 logger = logging.getLogger(__name__)
 
 
-def get_source(conn: AppDB, id: int) -> RowMapping | None:
+def get_source(conn: AppDB, id: int) -> dict[str, Any] | None:
     query = sql.select(
         schema.source.c.account_id,
         schema.source.c.application_id,
@@ -21,8 +21,7 @@ def get_source(conn: AppDB, id: int) -> RowMapping | None:
     source = conn.execute(query).first()
     if source is None:
         return None
-    # TODO return Row
-    return source._mapping
+    return dict(source)
 
 
 def find_or_insert_source(

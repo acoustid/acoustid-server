@@ -3,7 +3,8 @@
 
 import datetime
 import logging
-from typing import Any, Dict, Iterable, List
+from collections.abc import Iterable
+from typing import Any
 
 from sqlalchemy import sql
 
@@ -14,13 +15,17 @@ logger = logging.getLogger(__name__)
 
 
 def get_last_replication_date(conn: MusicBrainzDB) -> datetime.datetime:
-    return conn.execute(
-        sql.select([schema.mb_replication_control.c.last_replication_date])
+    last_replication_date = conn.execute(
+        sql.select(schema.mb_replication_control.c.last_replication_date)
     ).scalar()
+    if last_replication_date is None:
+        raise Exception("Failed to get last replication date")
+    return last_replication_date
 
 
-def _load_artists(conn, artist_credit_ids):
-    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, List[Dict[str, Any]]]
+def _load_artists(
+    conn: MusicBrainzDB, artist_credit_ids: Iterable[int]
+) -> dict[int, list[dict[str, Any]]]:
     if not artist_credit_ids:
         return {}
     src = schema.mb_artist_credit_name
@@ -32,24 +37,30 @@ def _load_artists(conn, artist_credit_ids):
         schema.mb_artist_credit_name.c.join_phrase,
         schema.mb_artist.c.gid,
     ]
-    query = sql.select(columns, condition, from_obj=src).order_by(
-        schema.mb_artist_credit_name.c.artist_credit,
-        schema.mb_artist_credit_name.c.position,
+    query = (
+        sql.select(*columns)
+        .where(condition)
+        .select_from(src)
+        .order_by(
+            schema.mb_artist_credit_name.c.artist_credit,
+            schema.mb_artist_credit_name.c.position,
+        )
     )
-    result = {}  # type: Dict[int, List[Dict[str, Any]]]
+    result: dict[int, list[dict[str, Any]]] = {}
     for row in conn.execute(query):
         ac_data = {
-            "id": row["gid"],
-            "name": row["name"],
+            "id": row.gid,
+            "name": row.name,
         }
-        if row["join_phrase"]:
-            ac_data["joinphrase"] = row["join_phrase"]
-        result.setdefault(row["artist_credit"], []).append(ac_data)
+        if row.join_phrase:
+            ac_data["joinphrase"] = row.join_phrase
+        result.setdefault(row.artist_credit, []).append(ac_data)
     return result
 
 
-def _load_release_meta(conn, release_ids):
-    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, Dict[str, Any]]
+def _load_release_meta(
+    conn: MusicBrainzDB, release_ids: Iterable[int]
+) -> dict[int, dict[str, Any]]:
     if not release_ids:
         return {}
     src = schema.mb_medium
@@ -59,20 +70,24 @@ def _load_release_meta(conn, release_ids):
         sql.func.count(schema.mb_medium.c.id).label("release_medium_count"),
         sql.func.sum(schema.mb_medium.c.track_count).label("release_track_count"),
     ]
-    query = sql.select(
-        columns, condition, from_obj=src, group_by=schema.mb_medium.c.release
+    query = (
+        sql.select(*columns)
+        .where(condition)
+        .select_from(src)
+        .group_by(schema.mb_medium.c.release)
     )
-    result = {}  # type: Dict[int, Dict[str, Any]]
+    result = {}
     for row in conn.execute(query):
-        result[row["release"]] = {
-            "release_medium_count": row["release_medium_count"],
-            "release_track_count": row["release_track_count"],
+        result[row.release] = {
+            "release_medium_count": row.release_medium_count,
+            "release_track_count": row.release_track_count,
         }
     return result
 
 
-def _load_release_events(conn, release_ids):
-    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, List[Dict[str, Any]]]
+def _load_release_events(
+    conn: MusicBrainzDB, release_ids: Iterable[int]
+) -> dict[int, list[dict[str, Any]]]:
     if not release_ids:
         return {}
     src1 = schema.mb_release_country
@@ -88,22 +103,23 @@ def _load_release_events(conn, release_ids):
         schema.mb_release_country.c.date_month.label("release_date_month"),
         schema.mb_release_country.c.date_day.label("release_date_day"),
     ]
-    query = sql.select(columns, condition, from_obj=src)
-    result = {}  # type: Dict[int, List[Dict[str, Any]]]
+    query = sql.select(*columns).where(condition).select_from(src)
+    result: dict[int, list[dict[str, Any]]] = {}
     for row in conn.execute(query):
-        result.setdefault(row["release"], []).append(
+        result.setdefault(row.release, []).append(
             {
-                "release_country": row["release_country"],
-                "release_date_year": row["release_date_year"],
-                "release_date_month": row["release_date_month"],
-                "release_date_day": row["release_date_day"],
+                "release_country": row.release_country,
+                "release_date_year": row.release_date_year,
+                "release_date_month": row.release_date_month,
+                "release_date_day": row.release_date_day,
             }
         )
     return result
 
 
-def _load_release_group_secondary_types(conn, release_group_ids):
-    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, List[str]]
+def _load_release_group_secondary_types(
+    conn: MusicBrainzDB, release_group_ids: Iterable[int]
+) -> dict[int, list[str]]:
     if not release_group_ids:
         return {}
     src = schema.mb_release_group_secondary_type_join
@@ -123,17 +139,18 @@ def _load_release_group_secondary_types(conn, release_group_ids):
             "release_group_secondary_type"
         ),
     ]
-    query = sql.select(columns, condition, from_obj=src)
-    result = {}  # type: Dict[int, List[str]]
+    query = sql.select(*columns).where(condition).select_from(src)
+    result: dict[int, list[str]] = {}
     for row in conn.execute(query):
-        result.setdefault(row["release_group_rid"], []).append(
-            row["release_group_secondary_type"]
+        result.setdefault(row.release_group_rid, []).append(
+            row.release_group_secondary_type
         )
     return result
 
 
-def _load_release_groups(conn, release_group_ids):
-    # type: (MusicBrainzDB, Iterable[int]) -> Dict[int, Dict[str, Any]]
+def _load_release_groups(
+    conn: MusicBrainzDB, release_group_ids: Iterable[int]
+) -> dict[int, dict[str, Any]]:
     if not release_group_ids:
         return {}
     src = schema.mb_release_group
@@ -149,18 +166,16 @@ def _load_release_groups(conn, release_group_ids):
         schema.mb_release_group.c.artist_credit.label("release_group_artist_credit"),
         schema.mb_release_group_primary_type.c.name.label("release_group_primary_type"),
     ]
-    query = sql.select(columns, condition, from_obj=src)
+    query = sql.select(*columns).where(condition).select_from(src)
     secondary_types = _load_release_group_secondary_types(conn, release_group_ids)
-    result = {}  # type: Dict[int, Dict[str, Any]]
+    result: dict[int, dict[str, Any]] = {}
     for row in conn.execute(query):
-        result[row["release_group_rid"]] = {
-            "release_group_id": row["release_group_id"],
-            "release_group_title": row["release_group_title"],
-            "release_group_artist_credit": row["release_group_artist_credit"],
-            "release_group_primary_type": row["release_group_primary_type"],
-            "release_group_secondary_types": secondary_types.get(
-                row["release_group_rid"]
-            ),
+        result[row.release_group_rid] = {
+            "release_group_id": row.release_group_id,
+            "release_group_title": row.release_group_title,
+            "release_group_artist_credit": row.release_group_artist_credit,
+            "release_group_primary_type": row.release_group_primary_type,
+            "release_group_secondary_types": secondary_types.get(row.release_group_rid),
         }
     return result
 
@@ -171,7 +186,7 @@ def lookup_metadata(
     load_releases: bool = False,
     load_release_groups: bool = False,
     load_artists: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if not recording_ids:
         return []
     src = schema.mb_recording
@@ -214,78 +229,78 @@ def lookup_metadata(
             ]
         )
     condition = schema.mb_recording.c.gid.in_(recording_ids)
-    query = sql.select(columns, condition, from_obj=src)
-    results = []
+    query = sql.select(*columns).where(condition).select_from(src)
+    results: list[dict[str, Any]] = []
     artist_credit_ids = set()
     release_ids = set()
     release_group_ids = set()
     for row in conn.execute(query):
         results.append(dict(row))
-        artist_credit_ids.add(row["recording_artist_credit"])
+        artist_credit_ids.add(row.recording_artist_credit)
         if load_releases:
-            release_ids.add(row["release_rid"])
-            artist_credit_ids.add(row["release_artist_credit"])
-            artist_credit_ids.add(row["track_artist_credit"])
+            release_ids.add(row.release_rid)
+            artist_credit_ids.add(row.release_artist_credit)
+            artist_credit_ids.add(row.track_artist_credit)
             if load_release_groups:
-                release_group_ids.add(row["release_group_rid"])
+                release_group_ids.add(row.release_group_rid)
 
     if load_releases:
         releases = _load_release_meta(conn, release_ids)
         release_events = _load_release_events(conn, release_ids)
-        for row in results:
-            r_id = row.pop("release_rid")
-            row.update(releases[r_id])
-            row["release_events"] = release_events.get(r_id, {})
+        for row2 in results:
+            r_id = row2.pop("release_rid")
+            row2.update(releases[r_id])
+            row2["release_events"] = release_events.get(r_id, {})
 
         if load_release_groups:
             release_groups = _load_release_groups(conn, release_group_ids)
-            for row in results:
-                rg_id = row.pop("release_group_rid")
-                row.update(release_groups[rg_id])
-                artist_credit_ids.add(row["release_group_artist_credit"])
+            for row2 in results:
+                rg_id = row2.pop("release_group_rid")
+                row2.update(release_groups[rg_id])
+                artist_credit_ids.add(row2["release_group_artist_credit"])
 
     artists = _load_artists(conn, artist_credit_ids)
-    for row in results:
-        row["recording_artists"] = artists[row.pop("recording_artist_credit")]
+    for row2 in results:
+        row2["recording_artists"] = artists[row2.pop("recording_artist_credit")]
         if load_releases:
-            row["release_artists"] = artists[row.pop("release_artist_credit")]
-            row["track_artists"] = artists[row.pop("track_artist_credit")]
+            row2["release_artists"] = artists[row2.pop("release_artist_credit")]
+            row2["track_artists"] = artists[row2.pop("track_artist_credit")]
             if load_release_groups:
-                row["release_group_artists"] = artists[
-                    row.pop("release_group_artist_credit")
+                row2["release_group_artists"] = artists[
+                    row2.pop("release_group_artist_credit")
                 ]
     return results
 
 
-def lookup_recording_metadata(conn, mbids):
-    # type: (MusicBrainzDB, Iterable[str]) -> Dict[str, Dict[str, Any]]
+def lookup_recording_metadata(
+    conn: MusicBrainzDB, mbids: Iterable[str]
+) -> dict[str, dict[str, Any]]:
     """
     Lookup MusicBrainz metadata for the specified MBIDs.
     """
     if not mbids:
         return {}
     src = schema.mb_recording.join(schema.mb_artist_credit)
-    query = sql.select(
-        [
+    query = (
+        sql.select(
             schema.mb_recording.c.gid,
             schema.mb_recording.c.name,
             schema.mb_recording.c.length,
             schema.mb_recording.c.comment,
             schema.mb_artist_credit.c.name.label("artist_name"),
-        ],
-        schema.mb_recording.c.gid.in_(mbids),
-        from_obj=src,
+        )
+        .where(schema.mb_recording.c.gid.in_(mbids))
+        .select_from(src)
     )
     results = {}
     for row in conn.execute(query):
         result = dict(row)
         result["length"] = (result["length"] or 0) / 1000
-        results[row["gid"]] = result
+        results[row.gid] = result
     return results
 
 
-def resolve_mbid_redirect(conn, mbid):
-    # type: (MusicBrainzDB, str) -> str
+def resolve_mbid_redirect(conn: MusicBrainzDB, mbid: str) -> str:
     src = schema.mb_recording
     src = src.join(
         schema.mb_recording_gid_redirect,
@@ -293,6 +308,6 @@ def resolve_mbid_redirect(conn, mbid):
     )
     condition = schema.mb_recording_gid_redirect.c.gid == mbid
     columns = [schema.mb_recording.c.gid]
-    query = sql.select(columns, condition, from_obj=src)
+    query = sql.select(*columns).where(condition).select_from(src)
     new_mbid = conn.execute(query).scalar()
     return new_mbid or mbid

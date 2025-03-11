@@ -43,7 +43,7 @@ def get_account_details(conn: AppDB, id: int) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
-def get_account_details_by_mbuser(conn: AppDB, mbuser: str) -> dict[dict, Any] | None:
+def get_account_details_by_mbuser(conn: AppDB, mbuser: str) -> dict[str, Any] | None:
     query = sql.select(schema.account).where(
         sql.func.lower(schema.account.c.mbuser) == sql.func.lower(mbuser)
     )
