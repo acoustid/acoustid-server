@@ -560,10 +560,8 @@ class SentryConfig(BaseConfig):
         self.web_dsn: str | None = None
 
     def read_section(self, parser: RawConfigParser, section: str) -> None:
-        if parser.has_option(section, "api_dsn"):
-            self.api_dsn = parser.get(section, "api_dsn")
-        if parser.has_option(section, "web_dsn"):
-            self.web_dsn = parser.get(section, "web_dsn")
+        read_config_secret_str_option(parser, section, self, "api_dsn", "api_dsn")
+        read_config_secret_str_option(parser, section, self, "web_dsn", "web_dsn")
 
     def read_env(self, prefix: str) -> None:
         read_env_item(self, "api_dsn", prefix + "SENTRY_API_DSN")
