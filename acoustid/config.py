@@ -560,8 +560,8 @@ class SentryConfig(BaseConfig):
         self.web_dsn: str | None = None
 
     def read_section(self, parser: RawConfigParser, section: str) -> None:
-        if parser.has_option(section, "app_dsn"):
-            self.app_dsn = parser.get(section, "app_dsn")
+        if parser.has_option(section, "api_dsn"):
+            self.api_dsn = parser.get(section, "api_dsn")
         if parser.has_option(section, "web_dsn"):
             self.web_dsn = parser.get(section, "web_dsn")
 
