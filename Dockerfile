@@ -26,6 +26,14 @@ RUN apt-get update && \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-install-package acoustid-ext
+
+COPY libs /opt/acoustid/server/libs
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    CFLAGS="-O3 -march=cannonlake -ffast-math" \
     uv sync --frozen --no-install-project
 
 FROM base
