@@ -144,6 +144,7 @@ class Server(Script):
             send_default_pii=True,
         )
 
+
 class GzipRequestMiddleware(object):
     """WSGI middleware to handle GZip-compressed HTTP requests bodies
 
