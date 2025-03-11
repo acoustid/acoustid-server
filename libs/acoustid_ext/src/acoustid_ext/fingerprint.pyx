@@ -1,3 +1,4 @@
+import cython
 from cpython cimport array
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
 from libc.stdint cimport uint8_t, uint32_t
@@ -62,38 +63,39 @@ cdef encode_fingerprint_impl(array_type hashes, int version, signed_type signed_
     out = PyBytes_FromStringAndSize(NULL, 4 + num_hashes * 4)
     cdef uint8_t* buf = <uint8_t *>PyBytes_AsString(out)
 
-    buf[0] = MAGIC_B0
-    buf[1] = MAGIC_B1
-    buf[2] = FORMAT_VERSION
-    buf[3] = version
+    with cython.nogil(array_type is not list):
+        buf[0] = MAGIC_B0
+        buf[1] = MAGIC_B1
+        buf[2] = FORMAT_VERSION
+        buf[3] = version
 
-    last_hash = 0
-    i = 0
-    while i < num_hashes:
-        if array_type is list:
-            if signed_type is true_type:
-                hash = <uint32_t>(<int>hashes[i])
+        last_hash = 0
+        i = 0
+        while i < num_hashes:
+            if array_type is list:
+                if signed_type is true_type:
+                    hash = <uint32_t>(<int>hashes[i])
+                else:
+                    hash = hashes[i]
             else:
-                hash = hashes[i]
-        else:
-            if signed_type is true_type:
-                hash = <uint32_t>(<int>hashes.data.as_ints[i])
-            else:
-                hash = hashes.data.as_uints[i]
-        diff = hash ^ last_hash
-        last_hash = hash
-        buf[4 + i * 4 + 0] = diff & 0xFF
-        buf[4 + i * 4 + 1] = (diff >> 8) & 0xFF
-        buf[4 + i * 4 + 2] = (diff >> 16) & 0xFF
-        buf[4 + i * 4 + 3] = (diff >> 24) & 0xFF
-        i += 1
+                if signed_type is true_type:
+                    hash = <uint32_t>(<int>hashes.data.as_ints[i])
+                else:
+                    hash = hashes.data.as_uints[i]
+            diff = hash ^ last_hash
+            last_hash = hash
+            buf[4 + i * 4 + 0] = diff & 0xFF
+            buf[4 + i * 4 + 1] = (diff >> 8) & 0xFF
+            buf[4 + i * 4 + 2] = (diff >> 16) & 0xFF
+            buf[4 + i * 4 + 3] = (diff >> 24) & 0xFF
+            i += 1
 
     return out
 
 
 cdef decode_fingerprint_impl(bytes inp, signed_type signed_flag):
     cdef uint32_t hash, last_hash, diff
-    cdef int num_hashes
+    cdef int i, num_hashes
     cdef int version
     cdef array.array hashes
 
@@ -120,18 +122,19 @@ cdef decode_fingerprint_impl(bytes inp, signed_type signed_flag):
     if hashes.itemsize != 4:
         raise TypeError("Invalid hashes array, need 32-bit items")
 
-    last_hash = 0
-    for i in range(num_hashes):
-        diff = (buf[4 + 4 * i + 0] |
-                (buf[4 + 4 * i + 1] << 8) |
-                (buf[4 + 4 * i + 2] << 16) |
-                (buf[4 + 4 * i + 3] << 24))
-        hash = last_hash ^ diff
-        if signed_type is true_type:
-            hashes.data.as_ints[i] = hash
-        else:
-            hashes.data.as_uints[i] = hash
-        last_hash = hash
+    with cython.nogil:
+        last_hash = 0
+        for i in range(num_hashes):
+            diff = (buf[4 + 4 * i + 0] |
+                    (buf[4 + 4 * i + 1] << 8) |
+                    (buf[4 + 4 * i + 2] << 16) |
+                    (buf[4 + 4 * i + 3] << 24))
+            hash = last_hash ^ diff
+            if signed_type is true_type:
+                hashes.data.as_ints[i] = hash
+            else:
+                hashes.data.as_uints[i] = hash
+            last_hash = hash
 
     return Fingerprint(hashes, version)
 
