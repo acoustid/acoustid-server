@@ -2,10 +2,8 @@ from cpython cimport array
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
 from libc.stdint cimport uint8_t, uint32_t
 
-from typing import NamedTuple
-
 import array
-
+from typing import NamedTuple
 
 
 class Fingerprint(NamedTuple):
