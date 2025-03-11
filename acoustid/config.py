@@ -555,17 +555,17 @@ class RateLimiterConfig(BaseConfig):
 
 
 class SentryConfig(BaseConfig):
-    def __init__(self):
+    def __init__(self) -> None:
         self.api_dsn = None
         self.web_dsn = None
 
-    def read_section(self, parser, section):
+    def read_section(self, parser: RawConfigParser, section: str) -> None:
         if parser.has_option(section, "app_dsn"):
             self.app_dsn = parser.get(section, "app_dsn")
         if parser.has_option(section, "web_dsn"):
             self.web_dsn = parser.get(section, "web_dsn")
 
-    def read_env(self, prefix):
+    def read_env(self, prefix: str) -> None:
         read_env_item(self, "api_dsn", prefix + "SENTRY_API_DSN")
         read_env_item(self, "web_dsn", prefix + "SENTRY_WEB_DSN")
 
