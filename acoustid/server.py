@@ -136,14 +136,13 @@ class Server(Script):
             return e(environ, start_response)
         return response(environ, start_response)
 
-    def setup_sentry(self):
+    def setup_sentry(self) -> None:
         config = self.config
         sentry_sdk.init(
             dsn=config.sentry.api_dsn,
             release=GIT_RELEASE,
             send_default_pii=True,
         )
-
 
 class GzipRequestMiddleware(object):
     """WSGI middleware to handle GZip-compressed HTTP requests bodies
