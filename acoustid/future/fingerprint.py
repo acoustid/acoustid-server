@@ -1,25 +1,6 @@
-import struct
-
 import zstd
 
-MAGIC = ord("F") << 0 | ord("p") << 8
-FORMAT = 1  # version of the binary encoding format
-
-
-# Binary fingerprint format v1:
-#
-# +--------+--------+--------+--------+
-# | magic  | format | ver    | diffs  |
-# +--------+--------+--------+--------+
-# | 2B     | 1B     | 1B     | 4B[]   |
-# +--------+--------+--------+--------+
-#
-# magic: 2-byte magic number ("Fp")
-# format: 1-byte format version number
-# ver: 1-byte fingerprint algorithm version
-# diffs: array of 4-byte XOR differences between consecutive hash values (little-endian)
-#
-# After encoding to the binary format, the data is compressed using zstd.
+from acoustid_ext.fingerprint import decode_fingerprint, encode_fingerprint
 
 
 def to_unsigned(hashes: list[int]) -> list[int]:
@@ -101,10 +82,7 @@ def compress_fingerprint(
     The function computes XOR differences between consecutive hashes to improve
     compression, packs them into bytes and applies zstd compression.
     """
-    if signed:
-        hashes = to_unsigned(hashes)
-    diffs = [hashes[i] ^ (hashes[i - 1] if i > 0 else 0) for i in range(len(hashes))]
-    data = struct.pack(f"<HBB{len(diffs)}I", MAGIC, FORMAT, version, *diffs)
+    data = encode_fingerprint(hashes, version, signed)
     return zstd.compress(data, 0)
 
 
@@ -129,19 +107,5 @@ def decompress_fingerprint(
     except zstd.Error as e:
         raise ValueError(f"Failed to decompress fingerprint: {e}") from e
 
-    magic, fmt, version, *diffs = struct.unpack(f"<HBB{len(data) // 4 - 1}I", data)
-    if magic != MAGIC:
-        raise ValueError(f"Invalid fingerprint magic: {magic:#x}, expected: {MAGIC:#x}")
-    if fmt != FORMAT:
-        raise ValueError(f"Invalid format version: {fmt}, expected: {FORMAT}")
-
-    hashes: list[int] = [0] * len(diffs)
-    last_hash = 0
-    for i, h in enumerate(diffs):
-        last_hash = h ^ last_hash
-        hashes[i] = last_hash
-
-    if signed:
-        hashes = to_signed(hashes)
-
-    return hashes, version
+    hashes, version = decode_fingerprint(data, signed)
+    return list(hashes), version
