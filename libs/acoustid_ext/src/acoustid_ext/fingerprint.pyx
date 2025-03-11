@@ -2,7 +2,16 @@ from cpython cimport array
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
 from libc.stdint cimport uint8_t, uint32_t
 
+from typing import NamedTuple
+
 import array
+
+
+
+class Fingerprint(NamedTuple):
+    hashes: array.array
+    version: int
+
 
 # Binary fingerprint format v1:
 #
@@ -126,7 +135,7 @@ cdef decode_fingerprint_impl(bytes inp, signed_type signed_flag):
             hashes.data.as_uints[i] = hash
         last_hash = hash
 
-    return hashes, version
+    return Fingerprint(hashes, version)
 
 
 def encode_fingerprint(object hashes, int version, bint signed = 0):

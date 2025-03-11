@@ -47,3 +47,10 @@ def test_decode_fingerprint() -> None:
     hashes, version = decode_fingerprint(data)
     assert hashes == array.array("L", [1, 2, 3])
     assert version == 99
+
+
+def test_decode_fingerprint_namedtuple() -> None:
+    data = encode_fingerprint([1, 2, 3], 99)
+    fp = decode_fingerprint(data)
+    assert fp.hashes == array.array("L", [1, 2, 3])
+    assert fp.version == 99
