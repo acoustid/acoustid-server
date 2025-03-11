@@ -21,6 +21,10 @@ import acoustid.api.v2.misc
 from acoustid._release import GIT_RELEASE
 from acoustid.script import Script
 
+import sentry_sdk
+from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
+
+
 if TYPE_CHECKING:
     from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
 
@@ -134,6 +138,14 @@ class Server(Script):
             return e(environ, start_response)
         return response(environ, start_response)
 
+    def setup_sentry(self):
+        config = self.config
+        sentry_sdk.init(
+            dsn=config.sentry.dsn,
+            release=GIT_RELEASE,
+            send_default_pii=True,
+        )
+
 
 class GzipRequestMiddleware(object):
     """WSGI middleware to handle GZip-compressed HTTP requests bodies
@@ -205,6 +217,7 @@ def make_application(config_path=None):
         config_path = os.environ.get("ACOUSTID_CONFIG", "")
     assert config_path is not None
     server = Server(config_path)
+    server.wsgi_app = SentryWsgiMiddleware(server.wsgi_app)  # type: ignore
     server.wsgi_app = GzipRequestMiddleware(server.wsgi_app)  # type: ignore
     server.wsgi_app = replace_double_slashes(server.wsgi_app)  # type: ignore
     server.wsgi_app = add_cors_headers(server.wsgi_app)  # type: ignore

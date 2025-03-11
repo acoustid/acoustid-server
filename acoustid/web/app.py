@@ -1,6 +1,7 @@
 import os
 import pickle
 
+import sentry_sdk
 from flask import Flask, request, session
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -24,6 +25,12 @@ def make_application(config_filename=None, tests=False):
     script.setup_logging()
 
     config = script.config
+
+    sentry_sdk.init(
+        dsn=config.sentry.dsn,
+        release=GIT_RELEASE,
+        send_default_pii=True,
+    )
 
     app = Flask("acoustid.web")
     app.config.update(

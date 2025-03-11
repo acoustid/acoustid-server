@@ -554,6 +554,18 @@ class RateLimiterConfig(BaseConfig):
         pass  # XXX
 
 
+class SentryConfig(BaseConfig):
+    def __init__(self):
+        self.dsn = None
+
+    def read_section(self, parser, section):
+        if parser.has_option(section, "dsn"):
+            self.dsn = parser.get(section, "dsn")
+
+    def read_env(self, prefix):
+        read_env_item(self, "dsn", prefix + "SENTRY_DSN")
+
+
 class Config(object):
     def __init__(self) -> None:
         self.databases = DatabasesConfig()
@@ -567,6 +579,7 @@ class Config(object):
         self.rate_limiter = RateLimiterConfig()
         self.gunicorn = GunicornConfig()
         self.statsd = StatsdConfig()
+        self.sentry = SentryConfig()
 
     def read(self, path: str) -> None:
         logger.info("Loading configuration file %s", path)
@@ -583,6 +596,7 @@ class Config(object):
         self.rate_limiter.read(parser, "rate_limiter")
         self.gunicorn.read(parser, "gunicorn")
         self.statsd.read(parser, "statsd")
+        self.sentry.read(parser, "sentry")
 
     def read_env(self, tests: bool = False) -> None:
         if tests:
@@ -600,3 +614,4 @@ class Config(object):
         self.rate_limiter.read_env(prefix)
         self.gunicorn.read_env(prefix)
         self.statsd.read_env(prefix)
+        self.sentry.read_env(prefix)
