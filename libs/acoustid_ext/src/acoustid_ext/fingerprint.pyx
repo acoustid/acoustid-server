@@ -57,6 +57,8 @@ cdef encode_fingerprint_impl(array_type hashes, int version, signed_type signed_
     if array_type is array.array:
         if hashes.ob_descr.itemsize != 4:
             raise TypeError('hashes array must have 32bit items')
+        if hashes.ob_descr.typecode not in ('i', 'I'):
+           raise TypeError("hashes array must have typecode 'i' or 'I'")
 
     cdef uint32_t hash, last_hash, diff
     cdef int i, num_hashes = len(hashes)
