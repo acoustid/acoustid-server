@@ -214,6 +214,7 @@ def make_application(config_path=None):
         config_path = os.environ.get("ACOUSTID_CONFIG", "")
     assert config_path is not None
     server = Server(config_path)
+    server.setup_sentry()
     server.wsgi_app = SentryWsgiMiddleware(server.wsgi_app)  # type: ignore
     server.wsgi_app = GzipRequestMiddleware(server.wsgi_app)  # type: ignore
     server.wsgi_app = replace_double_slashes(server.wsgi_app)  # type: ignore
