@@ -4,7 +4,7 @@
 import logging
 from typing import Any
 
-from sqlalchemy import sql
+from sqlalchemy import RowMapping, sql
 
 from acoustid import tables as schema
 from acoustid.db import AppDB
@@ -12,7 +12,7 @@ from acoustid.db import AppDB
 logger = logging.getLogger(__name__)
 
 
-def get_source(conn: AppDB, id: int) -> dict[str, Any] | None:
+def get_source(conn: AppDB, id: int) -> RowMapping | None:
     query = sql.select(
         schema.source.c.account_id,
         schema.source.c.application_id,
@@ -22,7 +22,7 @@ def get_source(conn: AppDB, id: int) -> dict[str, Any] | None:
     if source is None:
         return None
     # TODO return Row
-    return dict(source._mapping)
+    return source._mapping
 
 
 def find_or_insert_source(
