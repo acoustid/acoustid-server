@@ -4,7 +4,8 @@
 import datetime
 import logging
 import urllib.parse
-from typing import Any, Iterable, Optional, Tuple, Union
+from collections.abc import Iterable
+from typing import Any, Union
 
 from sqlalchemy import sql
 from sqlalchemy.dialects.postgresql import insert
@@ -26,7 +27,7 @@ def find_current_stats(conn: AppDB) -> dict[str, int]:
     return stats
 
 
-def find_daily_stats(conn: AppDB, names: list[str]) -> list[dict[str, Any]]:
+def find_daily_stats(conn: AppDB, names: Iterable[str]) -> list[dict[str, Any]]:
     query = (
         sql.select(
             schema.stats.c.date,
@@ -91,7 +92,7 @@ def pack_lookup_stats_key(application_id: int, type: str) -> str:
     return ":".join(parts)
 
 
-def unpack_lookup_stats_key(key: Union[str, bytes]) -> Tuple[str, str, int, str]:
+def unpack_lookup_stats_key(key: Union[str, bytes]) -> tuple[str, str, int, str]:
     if isinstance(key, bytes):
         key = key.decode("utf8")
     parts = key.split(":")
@@ -124,7 +125,7 @@ def pack_user_agent_stats_key(application_id: int, user_agent: str, ip: str) -> 
     return ":".join(parts)
 
 
-def unpack_user_agent_stats_key(key: Union[str, bytes]) -> Tuple[str, int, str, str]:
+def unpack_user_agent_stats_key(key: Union[str, bytes]) -> tuple[str, int, str, str]:
     if isinstance(key, bytes):
         key = key.decode("utf8")
     parts = key.split(":")
@@ -216,8 +217,8 @@ def update_user_agent_stats(
 def find_application_lookup_stats_multi(
     conn: AppDB,
     application_ids: Iterable[int],
-    from_date: Optional[datetime.date] = None,
-    to_date: Optional[datetime.date] = None,
+    from_date: datetime.date | None = None,
+    to_date: datetime.date | None = None,
     days: int = 30,
 ) -> list[dict[str, Any]]:
     query = sql.select(
