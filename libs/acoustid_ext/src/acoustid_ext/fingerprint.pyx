@@ -1,7 +1,7 @@
 import cython
 from cpython cimport array
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
-from libc.stdint cimport uint8_t, uint32_t
+from libc.stdint cimport uint8_t, uint32_t, int32_t
 
 import array
 from typing import NamedTuple
@@ -35,8 +35,8 @@ cdef uint8_t MAGIC_B1 = ord('p')
 cdef uint8_t FORMAT_VERSION = 1
 
 
-ctypedef int true_type
-ctypedef float false_type
+ctypedef int32_t true_type
+ctypedef uint32_t false_type
 
 
 ctypedef fused array_type:
@@ -51,7 +51,7 @@ ctypedef fused signed_type:
 
 cdef encode_fingerprint_impl(array_type hashes, int version, signed_type signed_flag):
     if hashes is None:
-        raise TypeError('hashes cant be None')
+        raise TypeError('hashes cannot be None')
 
     if array_type is array.array:
         if hashes.ob_descr.itemsize != 4:
