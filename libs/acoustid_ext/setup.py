@@ -5,7 +5,6 @@ extensions = [
     Extension(
         "acoustid_ext.fingerprint",
         sources=["src/acoustid_ext/fingerprint.pyx"],
-        extra_compile_args=["-O3"]
     )
 ]
 
