@@ -1,6 +1,7 @@
-import pytest
 import array
-from acoustid_ext.fingerprint import encode_fingerprint, decode_fingerprint
+
+import pytest
+from acoustid_ext.fingerprint import decode_fingerprint, encode_fingerprint
 
 
 def test_encode_fingerprint_list() -> None:

@@ -1,5 +1,4 @@
 import zstd
-
 from acoustid_ext.fingerprint import decode_fingerprint, encode_fingerprint
 
 
