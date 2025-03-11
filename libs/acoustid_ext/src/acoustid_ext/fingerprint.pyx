@@ -27,10 +27,30 @@ cdef uint8_t MAGIC_B1 = ord('p')
 cdef uint8_t FORMAT_VERSION = 1
 
 
-cdef encode_fingerprint_list(list hashes, int version, bint signed):
+ctypedef int true_type
+ctypedef float false_type
+
+
+ctypedef fused array_type:
+    array.array
+    list
+
+
+ctypedef fused signed_type:
+    true_type
+    false_type
+
+
+cdef encode_fingerprint_impl(array_type hashes, int version, signed_type signed_flag):
+    if hashes is None:
+        raise TypeError('hashes cant be None')
+
+    if array_type is array.array:
+        if hashes.ob_descr.itemsize != 4:
+            raise TypeError('hashes array must have 32bit items')
+
     cdef uint32_t hash, last_hash, diff
     cdef int i, num_hashes = len(hashes)
-    cdef bint from_signed = signed
 
     out = PyBytes_FromStringAndSize(NULL, 4 + num_hashes * 4)
     cdef uint8_t* buf = <uint8_t *>PyBytes_AsString(out)
@@ -40,91 +60,35 @@ cdef encode_fingerprint_list(list hashes, int version, bint signed):
     buf[2] = FORMAT_VERSION
     buf[3] = version
 
-    if from_signed:
-        last_hash = 0
-        i = 0
-        while i < num_hashes:
-            hash = <uint32_t>(<int>hashes[i])
-            diff = hash ^ last_hash
-            last_hash = hash
-            buf[4 + i * 4 + 0] = diff & 0xFF
-            buf[4 + i * 4 + 1] = (diff >> 8) & 0xFF
-            buf[4 + i * 4 + 2] = (diff >> 16) & 0xFF
-            buf[4 + i * 4 + 3] = (diff >> 24) & 0xFF
-            i += 1
-    else:
-        last_hash = 0
-        i = 0
-        while i < num_hashes:
-            hash = hashes[i]
-            diff = hash ^ last_hash
-            last_hash = hash
-            buf[4 + i * 4 + 0] = diff & 0xFF
-            buf[4 + i * 4 + 1] = (diff >> 8) & 0xFF
-            buf[4 + i * 4 + 2] = (diff >> 16) & 0xFF
-            buf[4 + i * 4 + 3] = (diff >> 24) & 0xFF
-            i += 1
+    last_hash = 0
+    i = 0
+    while i < num_hashes:
+        if array_type is list:
+            if signed_type is true_type:
+                hash = <uint32_t>(<int>hashes[i])
+            else:
+                hash = hashes[i]
+        else:
+            if signed_type is true_type:
+                hash = <uint32_t>(<int>hashes.data.as_ints[i])
+            else:
+                hash = hashes.data.as_uints[i]
+        diff = hash ^ last_hash
+        last_hash = hash
+        buf[4 + i * 4 + 0] = diff & 0xFF
+        buf[4 + i * 4 + 1] = (diff >> 8) & 0xFF
+        buf[4 + i * 4 + 2] = (diff >> 16) & 0xFF
+        buf[4 + i * 4 + 3] = (diff >> 24) & 0xFF
+        i += 1
 
     return out
 
 
-cdef encode_fingerprint_array(array.array hashes, int version, bint signed):
-    cdef uint32_t hash, last_hash, diff
-    cdef int i, num_hashes = len(hashes)
-    cdef bint from_signed = signed
-
-    if hashes.itemsize != 4:
-        raise TypeError("Invalid hashes array, need 32-bit items")
-
-    out = PyBytes_FromStringAndSize(NULL, 4 + num_hashes * 4)
-    cdef uint8_t* buf = <uint8_t *>PyBytes_AsString(out)
-
-    buf[0] = MAGIC_B0
-    buf[1] = MAGIC_B1
-    buf[2] = FORMAT_VERSION
-    buf[3] = version
-
-    if from_signed:
-        last_hash = 0
-        i = 0
-        while i < num_hashes:
-            hash = hashes.data.as_ints[i]
-            diff = hash ^ last_hash
-            last_hash = hash
-            buf[4 + i * 4 + 0] = diff & 0xFF
-            buf[4 + i * 4 + 1] = (diff >> 8) & 0xFF
-            buf[4 + i * 4 + 2] = (diff >> 16) & 0xFF
-            buf[4 + i * 4 + 3] = (diff >> 24) & 0xFF
-            i += 1
-    else:
-        last_hash = 0
-        i = 0
-        while i < num_hashes:
-            hash = hashes.data.as_uints[i]
-            diff = hash ^ last_hash
-            last_hash = hash
-            buf[4 + i * 4 + 0] = diff & 0xFF
-            buf[4 + i * 4 + 1] = (diff >> 8) & 0xFF
-            buf[4 + i * 4 + 2] = (diff >> 16) & 0xFF
-            buf[4 + i * 4 + 3] = (diff >> 24) & 0xFF
-            i += 1
-
-    return out
-
-
-def encode_fingerprint(hashes, int version, bint signed = 0):
-    if isinstance(hashes, list):
-        return encode_fingerprint_list(hashes, version, signed)
-    else:
-        return encode_fingerprint_array(hashes, version, signed)
-
-
-def decode_fingerprint(bytes inp, bint signed = 0):
+cdef decode_fingerprint_impl(bytes inp, signed_type signed_flag):
     cdef uint32_t hash, last_hash, diff
     cdef int num_hashes
     cdef int version
     cdef array.array hashes
-    cdef bint to_signed = signed
 
     num_hashes = (len(inp) - 4) // 4
     if num_hashes < 0:
@@ -140,7 +104,7 @@ def decode_fingerprint(bytes inp, bint signed = 0):
 
     version = buf[3]
 
-    if to_signed:
+    if signed_type is true_type:
         hashes = array.array('i', [])
     else:
         hashes = array.array('I', [])
@@ -149,25 +113,39 @@ def decode_fingerprint(bytes inp, bint signed = 0):
     if hashes.itemsize != 4:
         raise TypeError("Invalid hashes array, need 32-bit items")
 
-    if to_signed:
-        last_hash = 0
-        for i in range(num_hashes):
-            diff = (buf[4 + 4 * i + 0] |
-                    (buf[4 + 4 * i + 1] << 8) |
-                    (buf[4 + 4 * i + 2] << 16) |
-                    (buf[4 + 4 * i + 3] << 24))
-            hash = last_hash ^ diff
+    last_hash = 0
+    for i in range(num_hashes):
+        diff = (buf[4 + 4 * i + 0] |
+                (buf[4 + 4 * i + 1] << 8) |
+                (buf[4 + 4 * i + 2] << 16) |
+                (buf[4 + 4 * i + 3] << 24))
+        hash = last_hash ^ diff
+        if signed_type is true_type:
             hashes.data.as_ints[i] = hash
-            last_hash = hash
-    else:
-        last_hash = 0
-        for i in range(num_hashes):
-            diff = (buf[4 + 4 * i + 0] |
-                    (buf[4 + 4 * i + 1] << 8) |
-                    (buf[4 + 4 * i + 2] << 16) |
-                    (buf[4 + 4 * i + 3] << 24))
-            hash = last_hash ^ diff
+        else:
             hashes.data.as_uints[i] = hash
-            last_hash = hash
+        last_hash = hash
 
     return hashes, version
+
+
+def encode_fingerprint(object hashes, int version, bint signed = 0):
+    if isinstance(hashes, list):
+        if signed:
+            return encode_fingerprint_impl(<list>hashes, version, <true_type>1)
+        else:
+            return encode_fingerprint_impl(<list>hashes, version, <false_type>0)
+    elif isinstance(hashes, array.array):
+        if signed:
+            return encode_fingerprint_impl(<array.array>hashes, version, <true_type>1)
+        else:
+            return encode_fingerprint_impl(<array.array>hashes, version, <false_type>0)
+    else:
+        raise TypeError("Invalid hashes array")
+
+
+def decode_fingerprint(bytes inp, bint signed = 0):
+    if signed:
+        return decode_fingerprint_impl(inp, <true_type>0)
+    else:
+        return decode_fingerprint_impl(inp, <false_type>0)
