@@ -1,7 +1,8 @@
 import cython
+
 from cpython cimport array
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
-from libc.stdint cimport uint8_t, uint32_t, int32_t
+from libc.stdint cimport int32_t, uint8_t, uint32_t
 
 import array
 from typing import NamedTuple
