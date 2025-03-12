@@ -2,6 +2,8 @@
 /.mypy_cache
 /e
 /venv*
+/.venv
+/.idea
 /build
 /acoustid.conf
 /acoustid-test.conf
