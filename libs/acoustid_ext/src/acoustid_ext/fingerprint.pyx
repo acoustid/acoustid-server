@@ -52,12 +52,6 @@ cdef extern from "chromaprint.h":
     void chromaprint_dealloc(void* ptr)
 
 
-cdef uint8_t MAGIC_B0 = ord('F')
-cdef uint8_t MAGIC_B1 = ord('p')
-
-cdef uint8_t FORMAT_VERSION = 1
-
-
 ctypedef int32_t true_type
 ctypedef uint32_t false_type
 
@@ -81,8 +75,18 @@ cdef extern from *:
     #else
     #define IS_LITTLE_ENDIAN 0
     #endif
+
+    #define MAGIC_B0 'F'
+    #define MAGIC_B1 'p'
+    #define FORMAT_VERSION 1
+
     """
+
     int IS_LITTLE_ENDIAN
+
+    int MAGIC_B0
+    int MAGIC_B1
+    int FORMAT_VERSION
 
 
 cdef inline uint32_t byteswap_uint32(uint32_t value) noexcept nogil:
