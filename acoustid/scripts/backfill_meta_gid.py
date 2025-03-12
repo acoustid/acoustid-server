@@ -5,7 +5,7 @@
 
 import logging
 
-from sqlalchemy import sql
+from sqlalchemy import select, sql
 from sqlalchemy.dialects import postgresql as pg
 
 from acoustid import tables
@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 
 def get_last_meta_id(fingerprint_db):
     # type: (FingerprintDB) -> int
-    query = sql.select([tables.meta_gid_backfill_status.c.last_meta_id])
-    return fingerprint_db.execute(query).scalar() or 0
+    query = select(tables.meta_gid_backfill_status.c.last_meta_id)
+    result = fingerprint_db.execute(query)
+    return result.scalar() or 0
 
 
 def update_last_meta_id(fingerprint_db, last_meta_id):
@@ -37,20 +38,26 @@ def update_last_meta_id(fingerprint_db, last_meta_id):
 def backfill_meta_gid(fingerprint_db, ingest_db, last_meta_id, limit):
     # type: (FingerprintDB, IngestDB, int, int) -> int
     query = (
-        sql.select([tables.meta])
+        select(tables.meta)
         .where(tables.meta.c.id >= last_meta_id)
         .order_by(tables.meta.c.id)
         .limit(limit)
     )
-    for meta in fingerprint_db.execute(query).fetchall():
-        meta_id = meta["id"]  # type: int
+
+    for meta in fingerprint_db.execute(query).all():
+        meta_id = meta.id  # type: int
         if meta_id > last_meta_id:
             last_meta_id = meta_id
-        if meta["gid"]:
+        if meta.gid:
             continue
-        meta_gid = generate_meta_gid(dict(meta))
-        query = sql.select([tables.meta.c.id], tables.meta.c.gid == meta_gid)
-        new_meta_id = fingerprint_db.execute(query).scalar()
+
+        meta_dict = {col: getattr(meta, col) for col in meta._mapping.keys()}
+        meta_gid = generate_meta_gid(meta_dict)
+
+        query = select(tables.meta.c.id).where(tables.meta.c.gid == meta_gid)
+        result = fingerprint_db.execute(query)
+        new_meta_id = result.scalar_one_or_none()
+
         if new_meta_id:
             update_stmt = (
                 tables.submission_result.update()
@@ -60,21 +67,26 @@ def backfill_meta_gid(fingerprint_db, ingest_db, last_meta_id, limit):
             ingest_db.execute(update_stmt)
 
             query = (
-                sql.select([tables.track_meta.c.track_id])
+                select(tables.track_meta.c.track_id)
                 .where(tables.track_meta.c.meta_id.in_([meta_id, new_meta_id]))
                 .group_by(tables.track_meta.c.track_id)
                 .having(sql.func.count(tables.track_meta.c.track_id) > 1)
             )
+
             track_ids_with_duplicates = [
-                i[0] for i in fingerprint_db.execute(query).fetchall()
+                row[0] for row in fingerprint_db.execute(query).all()
             ]
+
             for track_id in track_ids_with_duplicates:
                 query = (
-                    tables.track_meta.select()
+                    select(tables.track_meta)
                     .where(tables.track_meta.c.track_id == track_id)
                     .where(tables.track_meta.c.meta_id == meta_id)
                 )
-                track_meta = fingerprint_db.execute(query).fetchone()
+                track_meta = fingerprint_db.execute(query).one_or_none()
+                if track_meta is None:
+                    continue
+
                 update_stmt = (
                     tables.track_meta.update()
                     .where(tables.track_meta.c.track_id == track_id)
@@ -82,32 +94,38 @@ def backfill_meta_gid(fingerprint_db, ingest_db, last_meta_id, limit):
                     .values(
                         {
                             "submission_count": tables.track_meta.c.submission_count
-                            + track_meta["submission_count"],
+                            + track_meta.submission_count,
                             "updated": sql.func.now(),
                         }
                     )
                     .returning(tables.track_meta.c.id)
                 )
-                new_track_meta_id = fingerprint_db.execute(update_stmt).scalar()
+
+                result = fingerprint_db.execute(update_stmt)
+                new_track_meta_id = result.scalar_one()
+
                 logger.debug(
-                    "Merged track_meta %s into %s", track_meta["id"], new_track_meta_id
+                    "Merged track_meta %s into %s", track_meta.id, new_track_meta_id
                 )
+
                 update_stmt = (
                     tables.track_meta_source.update()
-                    .where(tables.track_meta_source.c.track_meta_id == track_meta["id"])
+                    .where(tables.track_meta_source.c.track_meta_id == track_meta.id)
                     .values({"track_meta_id": new_track_meta_id})
                 )
                 ingest_db.execute(update_stmt)
+
                 logger.debug(
                     "Merged track_meta_source %s into %s",
-                    track_meta["id"],
+                    track_meta.id,
                     new_track_meta_id,
                 )
+
                 delete_stmt = tables.track_meta.delete().where(
-                    tables.track_meta.c.id == track_meta["id"]
+                    tables.track_meta.c.id == track_meta.id
                 )
                 fingerprint_db.execute(delete_stmt)
-                logger.debug("Deleted track_meta %s", track_meta["id"])
+                logger.debug("Deleted track_meta %s", track_meta.id)
 
             update_stmt = (
                 tables.track_meta.update()
