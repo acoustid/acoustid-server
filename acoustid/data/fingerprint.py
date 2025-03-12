@@ -4,10 +4,11 @@
 import logging
 from typing import Any, Dict, List, NamedTuple, Optional
 
+from acoustid_ext.fingerprint import FingerprintError, decode_legacy_fingerprint
 from sqlalchemy import sql
 from sqlalchemy.exc import OperationalError
 
-from acoustid import chromaprint, const
+from acoustid import const
 from acoustid import tables as schema
 from acoustid.db import FingerprintDB, IngestDB
 from acoustid.fpstore import FpstoreClient
@@ -29,16 +30,20 @@ SELECT f.id, f.track_id, t.gid AS track_gid, score FROM (
 """
 
 
-def decode_fingerprint(fingerprint_string):
-    # type: (str) -> Optional[List[int]]
+def decode_fingerprint(fingerprint_string: str | bytes) -> list[int] | None:
     """Decode a compressed and base64-encoded fingerprint"""
     try:
-        fingerprint, version = chromaprint.decode_fingerprint(fingerprint_string)
-    except chromaprint.FingerprintError:
+        data = (
+            fingerprint_string.encode("ascii")
+            if isinstance(fingerprint_string, str)
+            else fingerprint_string
+        )
+        fingerprint, version = decode_legacy_fingerprint(data, base64=True, signed=True)
+    except FingerprintError:
         return None
     if version != FINGERPRINT_VERSION:
         return None
-    return fingerprint
+    return list(fingerprint)
 
 
 FingerprintMatch = NamedTuple(
