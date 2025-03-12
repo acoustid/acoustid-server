@@ -3,6 +3,8 @@
 
 import uuid
 
+from sqlalchemy import select, text
+
 from acoustid import const, tables
 from acoustid.data.submission import (
     import_queued_submissions,
@@ -44,11 +46,13 @@ def test_insert_submission(ctx):
     )
     assert 1 == id
     rows = ingest_db.execute(
-        """
+        text(
+            """
         SELECT fingerprint, length, bitrate, format_id
-        FROM submission WHERE id=%s
-    """,
-        (id,),
+        FROM submission WHERE id=:id
+    """
+        ),
+        {"id": id},
     ).fetchall()
     expected_rows = [
         ([1, 2, 3, 4, 5, 6], 123, 192, 1),
@@ -73,25 +77,25 @@ def test_import_submission_with_meta(ctx):
             "meta": {"track": "Foo"},
         },
     )
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()
 
     fingerprint = import_submission(
-        ingest_db, app_db, fingerprint_db, ctx.index, submission
+        ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
     )
 
     assert fingerprint is not None
 
-    query = tables.track_meta.select(
+    query = select(tables.track_meta).where(
         tables.track_meta.c.track_id == fingerprint["track_id"]
     )
-    track_meta = fingerprint_db.execute(query).fetchone()
-    assert 1 == track_meta["submission_count"]
+    track_meta = fingerprint_db.execute(query).one()
+    assert 1 == track_meta.submission_count
 
-    query = tables.meta.select(tables.meta.c.id == track_meta["meta_id"])
-    meta = fingerprint_db.execute(query).fetchone()
-    assert "Foo" == meta["track"]
-    assert uuid.UUID("da570fc1-ecfd-5fcd-86d7-009daa0f79e5") == meta["gid"]
+    query = select(tables.meta).where(tables.meta.c.id == track_meta.meta_id)
+    meta = fingerprint_db.execute(query).one()
+    assert "Foo" == meta.track
+    assert uuid.UUID("da570fc1-ecfd-5fcd-86d7-009daa0f79e5") == meta.gid
 
 
 @with_script_context
@@ -121,20 +125,20 @@ def test_import_submission_with_foreignid(ctx):
             "meta": {"track": "foo"},
         },
     )
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
 
     fingerprint = import_submission(
-        ingest_db, app_db, fingerprint_db, ctx.index, submission
+        ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
     )
 
     assert fingerprint is not None
 
-    query = tables.track_foreignid.select(
+    query = select(tables.track_foreignid).where(
         tables.track_foreignid.c.track_id == fingerprint["track_id"]
     )
-    track_foreignid = fingerprint_db.execute(query).fetchone()
-    assert 1 == track_foreignid["submission_count"]
+    track_foreignid = fingerprint_db.execute(query).one()
+    assert 1 == track_foreignid.submission_count
 
     submission_id = insert_submission(
         ingest_db,
@@ -148,8 +152,8 @@ def test_import_submission_with_foreignid(ctx):
             "meta": {"track": "foo"},
         },
     )
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
 
     fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
@@ -157,11 +161,11 @@ def test_import_submission_with_foreignid(ctx):
 
     assert fingerprint is not None
 
-    query = tables.track_foreignid.select(
+    query = select(tables.track_foreignid).where(
         tables.track_foreignid.c.track_id == fingerprint["track_id"]
     )
-    track_foreignid = fingerprint_db.execute(query).fetchone()
-    assert 2 == track_foreignid["submission_count"]
+    track_foreignid = fingerprint_db.execute(query).one()
+    assert 2 == track_foreignid.submission_count
 
 
 @with_script_context
@@ -186,8 +190,8 @@ def test_import_submission(ctx):
         },
     )
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     fingerprint = import_submission(
@@ -198,27 +202,29 @@ def test_import_submission(ctx):
     assert 1 == fingerprint["id"]
     assert 5 == fingerprint["track_id"]
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is True
 
-    query = tables.track_mbid.select(
+    query = select(tables.track_mbid).where(
         tables.track_mbid.c.track_id == fingerprint["track_id"]
     )
-    track_mbid = fingerprint_db.execute(query).fetchone()
+    track_mbid = fingerprint_db.execute(query).one()._mapping
     assert 1 == track_mbid["submission_count"]
 
-    query = tables.track_puid.select(
+    query = select(tables.track_puid).where(
         tables.track_puid.c.track_id == fingerprint["track_id"]
     )
-    track_puid = fingerprint_db.execute(query).fetchone()
+    track_puid = fingerprint_db.execute(query).one()._mapping
     assert 1 == track_puid["submission_count"]
 
-    query = tables.fingerprint.select(tables.fingerprint.c.id == fingerprint["id"])
-    fingerprint = fingerprint_db.execute(query).fetchone()
-    assert fingerprint is not None
-    assert 1 == fingerprint["submission_count"]
-    assert 1 == fingerprint["format_id"]
+    query = select(tables.fingerprint).where(
+        tables.fingerprint.c.id == fingerprint["id"]
+    )
+    fingerprint2 = fingerprint_db.execute(query).one()._mapping
+    assert fingerprint2 is not None
+    assert 1 == fingerprint2["submission_count"]
+    assert 1 == fingerprint2["format_id"]
 
     # second submission
     submission_id = insert_submission(
@@ -232,8 +238,8 @@ def test_import_submission(ctx):
             "meta": {"track": "foo"},
         },
     )
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     fingerprint = import_submission(
@@ -243,8 +249,8 @@ def test_import_submission(ctx):
     assert 2 == fingerprint["id"]
     assert 6 == fingerprint["track_id"]
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is True
 
     # third submission (same as the first one)
@@ -261,8 +267,8 @@ def test_import_submission(ctx):
         },
     )
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     fingerprint = import_submission(
@@ -272,26 +278,28 @@ def test_import_submission(ctx):
     assert 1 == fingerprint["id"]
     assert 5 == fingerprint["track_id"]
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is True
 
-    query = tables.track_mbid.select(
+    query = select(tables.track_mbid).where(
         tables.track_mbid.c.track_id == fingerprint["track_id"]
     )
-    track_mbid = fingerprint_db.execute(query).fetchone()
+    track_mbid = fingerprint_db.execute(query).one()._mapping
     assert 2 == track_mbid["submission_count"]
 
-    query = tables.track_puid.select(
+    query = select(tables.track_puid).where(
         tables.track_puid.c.track_id == fingerprint["track_id"]
     )
-    track_puid = fingerprint_db.execute(query).fetchone()
+    track_puid = fingerprint_db.execute(query).one()._mapping
     assert 2 == track_puid["submission_count"]
 
-    query = tables.fingerprint.select(tables.fingerprint.c.id == fingerprint["id"])
-    fingerprint = fingerprint_db.execute(query).fetchone()
-    assert fingerprint is not None
-    assert 2 == fingerprint["submission_count"]
+    query = select(tables.fingerprint).where(
+        tables.fingerprint.c.id == fingerprint["id"]
+    )
+    fingerprint2 = fingerprint_db.execute(query).one()._mapping
+    assert fingerprint2 is not None
+    assert 2 == fingerprint2["submission_count"]
 
 
 @with_script_context
@@ -321,8 +329,8 @@ def test_import_submission_reuse_fingerprint_97(ctx):
         },
     )
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     fingerprint = import_submission(
@@ -360,8 +368,8 @@ def test_import_submission_reuse_fingerprint_100(ctx):
         },
     )
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     fingerprint = import_submission(
@@ -399,8 +407,8 @@ def test_import_submission_reuse_track_93(ctx):
         },
     )
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     try:
@@ -443,8 +451,8 @@ def test_import_submission_new_track(ctx):
         },
     )
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     try:
@@ -487,8 +495,8 @@ def test_import_submission_new_track_different(ctx):
         },
     )
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     fingerprint = import_submission(
@@ -531,8 +539,8 @@ def test_import_submission_merge_existing_tracks(ctx):
         },
     )
 
-    query = tables.submission.select(tables.submission.c.id == submission_id)
-    submission = ingest_db.execute(query).fetchone()
+    query = select(tables.submission).where(tables.submission.c.id == submission_id)
+    submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
     try:
@@ -548,18 +556,18 @@ def test_import_submission_merge_existing_tracks(ctx):
     assert 1 == fingerprint["id"]
     assert 1 == fingerprint["track_id"]
 
-    query = tables.fingerprint.select(tables.fingerprint.c.id == 1)
-    fingerprint = fingerprint_db.execute(query).fetchone()
+    query = select(tables.fingerprint).where(tables.fingerprint.c.id == 1)
+    fingerprint = dict(fingerprint_db.execute(query).one())
     assert fingerprint is not None
     assert 1 == fingerprint["track_id"]
 
-    query = tables.track.select(tables.track.c.id == 1)
-    track = fingerprint_db.execute(query).fetchone()
+    query = select(tables.track).where(tables.track.c.id == 1)
+    track = fingerprint_db.execute(query).one()._mapping
     assert track is not None
     assert track["new_id"] is None
 
-    query = tables.track.select(tables.track.c.id == 2)
-    track = fingerprint_db.execute(query).fetchone()
+    query = select(tables.track).where(tables.track.c.id == 2)
+    track = fingerprint_db.execute(query).one()._mapping
     assert track is not None
     assert 1 == track["new_id"]
 
@@ -608,10 +616,11 @@ def test_import_queued_submissions(ctx):
     import_queued_submissions(ingest_db, app_db, fingerprint_db, ctx.index)
 
     count = fingerprint_db.execute(
-        "SELECT count(*) FROM fingerprint WHERE id IN (1,2,3)"
+        text("SELECT count(*) FROM fingerprint WHERE id IN (1,2,3)")
     ).scalar()
     assert 2 == count
+
     count = fingerprint_db.execute(
-        "SELECT count(*) FROM track WHERE id IN (5,6,7)"
+        text("SELECT count(*) FROM track WHERE id IN (5,6,7)")
     ).scalar()
     assert 2 == count
