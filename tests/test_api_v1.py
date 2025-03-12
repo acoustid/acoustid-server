@@ -254,3 +254,33 @@ def test_submit_handler_params(ctx):
     assert ["66c0f5cc-67b6-4f51-80cd-ab26b5aaa6ea"] == params.submissions[1]["mbids"]
     assert "57b202a3-242b-4896-a79c-cac34bbca0b6" == params.submissions[1]["puid"]
     assert TEST_2_LENGTH == params.submissions[1]["duration"]
+    assert TEST_2_FP_RAW == params.submissions[1]["fingerprint"]
+    assert 500 == params.submissions[1]["bitrate"]
+    assert "FLAC" == params.submissions[1]["format"]
+
+
+@with_script_context
+def test_submit_handler(ctx: ScriptContext) -> None:
+    values = {
+        "client": "app1key",
+        "user": "user1key",
+        "length": str(TEST_1_LENGTH),
+        "fingerprint": TEST_1_FP,
+        "bitrate": 192,
+        "mbid": "b9c05616-1874-4d5d-b30e-6b959c922d28",
+        "format": "FLAC",
+    }
+    builder = EnvironBuilder(method="POST", data=values)
+    handler = SubmitHandler(ctx)
+    resp = handler.handle(Request(builder.get_environ()))
+    assert "text/xml; charset=UTF-8" == resp.content_type
+    expected = b"<?xml version='1.0' encoding='UTF-8'?>\n<response><status>ok</status><submissions><submission><id>1</id><status>pending</status></submission></submissions></response>"
+    assert expected == resp.data
+    assert "200 OK" == resp.status
+    query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
+    submission = ctx.db.get_ingest_db().execute(query).one()
+    assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission.mbid
+    assert "FLAC" == submission.format
+    assert 192 == submission.bitrate
+    assert TEST_1_FP_RAW == submission.fingerprint
+    assert TEST_1_LENGTH == submission.length
