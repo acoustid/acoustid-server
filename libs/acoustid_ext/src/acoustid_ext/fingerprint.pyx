@@ -198,9 +198,14 @@ cdef decode_legacy_fingerprint_impl(bytes data, bint base64, signed_type signed_
     cdef int result_size = -1
     cdef int version = -1
     cdef array.array hashes
+    cdef int res
 
     try:
-        cdef int res = chromaprint_decode_fingerprint(
+        res = chromaprint_decode_fingerprint(
+            data, len(data),
+            &result_ptr, &result_size,
+            &version, 1 if base64 else 0
+        )
             data, len(data),
             &result_ptr, &result_size,
             &version, 1 if base64 else 0
