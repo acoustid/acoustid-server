@@ -256,7 +256,7 @@ class FingerprintSearcher(object):
         if self.timeout:
             timeout_ms = int(self.timeout * 1000)
             self.db.execute(
-                text("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+                text(f"SET LOCAL statement_timeout TO {timeout_ms}")
             )
         try:
             results = self.db.execute(query)
