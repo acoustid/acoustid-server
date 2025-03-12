@@ -4,6 +4,7 @@
 import json
 import unittest
 from typing import Any, Dict
+from uuid import UUID
 
 from werkzeug.datastructures import MultiDict
 from werkzeug.test import EnvironBuilder
@@ -612,7 +613,7 @@ def test_submit_handler(ctx):
     assert "200 OK" == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
     submission = ctx.db.get_ingest_db().execute(query).one()._mapping
-    assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission["mbid"]
+    assert UUID("b9c05616-1874-4d5d-b30e-6b959c922d28") == submission["mbid"]
     assert "FLAC" == submission["format"]
     assert 192 == submission["bitrate"]
     assert TEST_1_FP_RAW == submission["fingerprint"]
@@ -648,7 +649,7 @@ def test_submit_handler_with_meta(ctx):
     assert "200 OK" == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
     submission = ctx.db.get_ingest_db().execute(query).one()._mapping
-    assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission["mbid"]
+    assert UUID("b9c05616-1874-4d5d-b30e-6b959c922d28") == submission["mbid"]
     assert submission["meta_id"] is None
     assert submission["meta_gid"] is None
     expected_meta = {
@@ -686,7 +687,7 @@ def test_submit_handler_puid(ctx):
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
     submission = ctx.db.get_ingest_db().execute(query).one()._mapping
     assert submission["mbid"] is None
-    assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission["puid"]
+    assert UUID("b9c05616-1874-4d5d-b30e-6b959c922d28") == submission["puid"]
     assert "FLAC" == submission["format"]
     assert 192 == submission["bitrate"]
     assert TEST_1_FP_RAW == submission["fingerprint"]

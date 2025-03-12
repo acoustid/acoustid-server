@@ -40,7 +40,7 @@ def lookup_account_id_by_openid(conn: AppDB, openid: str) -> int | None:
 def get_account_details(conn: AppDB, id: int) -> dict[str, Any] | None:
     query = sql.select(schema.account).where(schema.account.c.id == id)
     row = conn.execute(query).fetchone()
-    return dict(row) if row else None
+    return dict(row._mapping) if row else None
 
 
 def get_account_details_by_mbuser(conn: AppDB, mbuser: str) -> dict[str, Any] | None:
@@ -48,7 +48,7 @@ def get_account_details_by_mbuser(conn: AppDB, mbuser: str) -> dict[str, Any] | 
         sql.func.lower(schema.account.c.mbuser) == sql.func.lower(mbuser)
     )
     row = conn.execute(query).fetchone()
-    return dict(row) if row else None
+    return dict(row._mapping) if row else None
 
 
 def update_account_lastlogin(conn: AppDB, id: int) -> None:

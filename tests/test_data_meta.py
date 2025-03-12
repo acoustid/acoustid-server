@@ -46,6 +46,7 @@ def test_insert_meta(ctx: ScriptContext) -> None:
         ctx.db.get_fingerprint_db()
         .execute(sql.text("SELECT * FROM meta WHERE id=:id"), {"id": meta_id})
         .one()
+        ._mapping
     )
     expected = {
         "id": meta_id,

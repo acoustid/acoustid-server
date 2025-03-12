@@ -1,6 +1,8 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+from uuid import UUID
+
 from werkzeug.datastructures import MultiDict
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
@@ -279,7 +281,7 @@ def test_submit_handler(ctx: ScriptContext) -> None:
     assert "200 OK" == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
     submission = ctx.db.get_ingest_db().execute(query).one()
-    assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission.mbid
+    assert UUID("b9c05616-1874-4d5d-b30e-6b959c922d28") == submission.mbid
     assert "FLAC" == submission.format
     assert 192 == submission.bitrate
     assert TEST_1_FP_RAW == submission.fingerprint

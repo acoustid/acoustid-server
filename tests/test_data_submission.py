@@ -129,7 +129,7 @@ def test_import_submission_with_foreignid(ctx):
     submission = ingest_db.execute(query).one()._mapping
 
     fingerprint = import_submission(
-        ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
+        ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
 
     assert fingerprint is not None
@@ -313,7 +313,7 @@ def test_import_submission_reuse_fingerprint_97(ctx):
         fingerprint_db,
         """
     INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+        VALUES (:fp, :len, 1, 1);
     """,
         dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH),
     )
@@ -352,7 +352,7 @@ def test_import_submission_reuse_fingerprint_100(ctx):
         fingerprint_db,
         """
     INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+        VALUES (:fp, :len, 1, 1);
     """,
         dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH),
     )
@@ -391,7 +391,7 @@ def test_import_submission_reuse_track_93(ctx):
         fingerprint_db,
         """
     INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+        VALUES (:fp, :len, 1, 1);
     """,
         dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH),
     )
@@ -435,7 +435,7 @@ def test_import_submission_new_track(ctx):
         fingerprint_db,
         """
     INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+        VALUES (:fp, :len, 1, 1);
     """,
         dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH),
     )
@@ -479,7 +479,7 @@ def test_import_submission_new_track_different(ctx):
         fingerprint_db,
         """
     INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-        VALUES (%(fp)s, %(len)s, 1, 1);
+        VALUES (:fp, :len, 1, 1);
     """,
         dict(fp=TEST_1A_FP_RAW, len=TEST_1A_LENGTH),
     )
@@ -518,7 +518,7 @@ def test_import_submission_merge_existing_tracks(ctx):
         fingerprint_db,
         """
     INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-        VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1);
+        VALUES (:fp1, :len1, 1, 1), (:fp2, :len2, 2, 1);
     """,
         dict(
             fp1=TEST_1A_FP_RAW,
@@ -557,7 +557,7 @@ def test_import_submission_merge_existing_tracks(ctx):
     assert 1 == fingerprint["track_id"]
 
     query = select(tables.fingerprint).where(tables.fingerprint.c.id == 1)
-    fingerprint = dict(fingerprint_db.execute(query).one())
+    fingerprint = dict(fingerprint_db.execute(query).one()._mapping)
     assert fingerprint is not None
     assert 1 == fingerprint["track_id"]
 

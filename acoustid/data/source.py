@@ -19,9 +19,7 @@ def get_source(conn: AppDB, id: int) -> dict[str, Any] | None:
         schema.source.c.version,
     ).where(schema.source.c.id == id)
     source = conn.execute(query).first()
-    if source is None:
-        return None
-    return dict(source)
+    return dict(source._mapping) if source is not None else None
 
 
 def find_or_insert_source(

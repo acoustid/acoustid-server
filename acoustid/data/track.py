@@ -282,34 +282,34 @@ def _merge_tracks_gids(fingerprint_db, ingest_db, name_with_id, target_id, sourc
     to_delete = set()
     to_update = []
     for row in rows:
-        old_ids = set(row["all_ids"])
-        old_ids.remove(row["id"])
+        old_ids = set(row.all_ids)
+        old_ids.remove(row.id)
         to_delete.update(old_ids)
         to_update.append((old_ids, row))
         if old_ids:
             update_stmt = tab_src.update().where(col_src.in_(old_ids))
-            ingest_db.execute(update_stmt.values({col_src: row["id"]}))
+            ingest_db.execute(update_stmt.values({col_src: row.id}))
             if name == "mbid":
                 update_stmt = tab_chg.update().where(col_chg.in_(old_ids))
-                ingest_db.execute(update_stmt.values({col_chg: row["id"]}))
+                ingest_db.execute(update_stmt.values({col_chg: row.id}))
     if to_delete:
         delete_stmt = tab.delete().where(tab.c.id.in_(to_delete))
         fingerprint_db.execute(delete_stmt)
     for old_ids, row in to_update:
-        update_stmt = tab.update().where(tab.c.id == row["id"])
+        update_stmt = tab.update().where(tab.c.id == row.id)
         if name == "mbid":
             fingerprint_db.execute(
                 update_stmt.values(
-                    submission_count=row["count"],
+                    submission_count=row.count,
                     track_id=target_id,
-                    disabled=row["all_disabled"],
+                    disabled=row.all_disabled,
                     updated=sql.func.current_timestamp(),
                 )
             )
         else:
             fingerprint_db.execute(
                 update_stmt.values(
-                    submission_count=row["count"],
+                    submission_count=row.count,
                     track_id=target_id,
                     updated=sql.func.current_timestamp(),
                 )
