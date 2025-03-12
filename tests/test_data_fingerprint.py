@@ -1,6 +1,8 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+from sqlalchemy import sql
+
 from acoustid.data.fingerprint import insert_fingerprint
 from acoustid.script import ScriptContext
 from tests import with_script_context
@@ -24,13 +26,16 @@ def test_insert_fingerprint(ctx):
         },
     )
     assert 1 == fingerprint_id
-    rows = fingerprint_db.execute(
-        """
+    result = fingerprint_db.execute(
+        sql.text(
+            """
         SELECT fingerprint, length, bitrate, format_id, track_id
-        FROM fingerprint WHERE id=%s
-    """,
-        (fingerprint_id,),
-    ).fetchall()
+        FROM fingerprint WHERE id=:id
+        """
+        ),
+        {"id": fingerprint_id},
+    )
+    rows = result.fetchall()
     expected_rows = [
         ([1, 2, 3, 4, 5, 6], 123, 192, 1, 2),
     ]

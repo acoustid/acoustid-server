@@ -3,6 +3,8 @@
 
 import uuid
 
+from sqlalchemy import sql
+
 from acoustid.data.meta import generate_meta_gid, insert_meta
 from acoustid.script import ScriptContext
 from tests import with_script_context
@@ -42,8 +44,8 @@ def test_insert_meta(ctx: ScriptContext) -> None:
     assert uuid.UUID("398d828b-b601-5c58-a135-d5c81116da7c") == meta_gid
     row = dict(
         ctx.db.get_fingerprint_db()
-        .execute("SELECT * FROM meta WHERE id=%s", meta_id)
-        .fetchone()
+        .execute(sql.text("SELECT * FROM meta WHERE id=:id"), {"id": meta_id})
+        .one()
     )
     expected = {
         "id": meta_id,
