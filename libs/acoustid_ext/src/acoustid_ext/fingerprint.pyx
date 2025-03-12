@@ -197,39 +197,39 @@ cdef decode_legacy_fingerprint_impl(bytes data, bint base64, signed_type signed_
     cdef int32_t *result_ptr = NULL
     cdef int result_size = -1
     cdef int version = -1
-    
     cdef array.array hashes
-    
-    cdef int res = chromaprint_decode_fingerprint(
-        data, len(data),
-        &result_ptr, &result_size,
-        &version, 1 if base64 else 0
-    )
-    if res != 1:
-        raise FingerprintError("Decoding failed")
-    if version == -1:
-        raise FingerprintError("Algorithm not detected")
-    if result_size == -1:
-        raise FingerprintError("Invalid fingerprint")
-    
-    # Create array.array directly with the correct size and type
-    if signed_type is true_type:
-        hashes = array.array('i', [])
-    else:
-        hashes = array.array('I', [])
-    array.resize(hashes, result_size)
-    
-    # Copy data directly from C array to array.array
-    with cython.nogil:
-        for i in range(result_size):
-            if signed_type is true_type:
-                hashes.data.as_ints[i] = result_ptr[i]
-            else:
-                hashes.data.as_uints[i] = result_ptr[i]
-    
-    chromaprint_dealloc(result_ptr)
-    return Fingerprint(hashes, version)
 
+    try:
+        cdef int res = chromaprint_decode_fingerprint(
+            data, len(data),
+            &result_ptr, &result_size,
+            &version, 1 if base64 else 0
+        )
+        if res != 1:
+            raise FingerprintError("Decoding failed")
+        if version == -1:
+            raise FingerprintError("Algorithm not detected")
+        if result_size == -1:
+            raise FingerprintError("Invalid fingerprint")
+        
+        # Create array.array directly with the correct size and type
+        if signed_type is true_type:
+            hashes = array.array('i', [])
+        else:
+            hashes = array.array('I', [])
+        array.resize(hashes, result_size)
+        
+        # Copy data directly from C array to array.array
+        with cython.nogil:
+            for i in range(result_size):
+                if signed_type is true_type:
+                    hashes.data.as_ints[i] = result_ptr[i]
+                else:
+                    hashes.data.as_uints[i] = result_ptr[i]
+        return Fingerprint(hashes, version)
+    finally:
+        if result_ptr != NULL:
+            chromaprint_dealloc(result_ptr)
 
 def decode_legacy_fingerprint(bytes data, bint base64=True, bint signed=False):
     """Decode a chromaprint fingerprint from a byte string.
