@@ -298,7 +298,7 @@ def test_merge_tracks(ctx):
         """
 TRUNCATE track_mbid CASCADE;
 INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1);
+    VALUES (:fp1, :len1, 1, 1), (:fp2, :len2, 2, 1);
 INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '97edb73c-4dac-11e0-9096-0025225356f3', 10);
 INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, 'd575d506-4da4-11e0-b951-0025225356f3', 15);
 INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (3, 2, 'd575d506-4da4-11e0-b951-0025225356f3', 50);
@@ -471,8 +471,8 @@ def test_can_merge_tracks(ctx):
         ctx.db.get_fingerprint_db(),
         """
 INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1),
-           (%(fp3)s, %(len3)s, 3, 1);
+    VALUES (:fp1, :len1, 1, 1), (:fp2, :len2, 2, 1),
+           (:fp3, :len3, 3, 1);
     """,
         dict(
             fp1=TEST_1A_FP_RAW,
@@ -494,7 +494,7 @@ def test_can_add_fp_to_track(ctx):
         ctx.db.get_fingerprint_db(),
         """
 INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-    VALUES (%(fp1)s, %(len1)s, 1, 1);
+    VALUES (:fp1, :len1, 1, 1);
     """,
         dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH),
     )

@@ -148,7 +148,7 @@ def merge_mbids(
     )
     track_mbids_by_track_id: dict[int, dict[str, Row]] = {}
     for row in fingerprint_db.execute(affected_track_mbids_query):
-        track_mbids_by_track_id.setdefault(row.track_id, {})[row.mbid] = row
+        track_mbids_by_track_id.setdefault(row.track_id, {})[str(row.mbid)] = row
 
     for track_id, track_mbids in track_mbids_by_track_id.items():
         source = track_mbids.get(source_mbid)
