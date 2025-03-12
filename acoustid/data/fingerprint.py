@@ -4,8 +4,8 @@
 import logging
 from typing import Any, Dict, List, NamedTuple, Optional, cast
 
-from sqlalchemy import func, literal_column, select, sql, text
 from acoustid_ext.fingerprint import FingerprintError, decode_legacy_fingerprint
+from sqlalchemy import func, literal_column, select, sql, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.elements import BooleanClauseList, ColumnElement
 
@@ -193,9 +193,7 @@ class FingerprintSearcher(object):
         )
         if self.timeout:
             timeout_ms = int(self.timeout * 1000)
-            self.db.execute(
-                text(f"SET LOCAL statement_timeout TO {timeout_ms}")
-            )
+            self.db.execute(text(f"SET LOCAL statement_timeout TO {timeout_ms}"))
         try:
             results = self.db.execute(query)
         except OperationalError as ex:
@@ -260,9 +258,7 @@ class FingerprintSearcher(object):
         )
         if self.timeout:
             timeout_ms = int(self.timeout * 1000)
-            self.db.execute(
-                text(f"SET LOCAL statement_timeout TO {timeout_ms}")
-            )
+            self.db.execute(text(f"SET LOCAL statement_timeout TO {timeout_ms}"))
         try:
             results = self.db.execute(query)
         except OperationalError as ex:

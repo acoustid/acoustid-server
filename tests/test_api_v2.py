@@ -611,7 +611,7 @@ def test_submit_handler(ctx):
     assert_json_equals(expected, resp.data)
     assert "200 OK" == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = ctx.db.get_ingest_db().execute(query).fetchone()
+    submission = ctx.db.get_ingest_db().execute(query).one()._mapping
     assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission["mbid"]
     assert "FLAC" == submission["format"]
     assert 192 == submission["bitrate"]
@@ -647,7 +647,7 @@ def test_submit_handler_with_meta(ctx):
     assert_json_equals(expected, resp.data)
     assert "200 OK" == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = ctx.db.get_ingest_db().execute(query).fetchone()
+    submission = ctx.db.get_ingest_db().execute(query).one()._mapping
     assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission["mbid"]
     assert submission["meta_id"] is None
     assert submission["meta_gid"] is None
@@ -684,7 +684,7 @@ def test_submit_handler_puid(ctx):
     assert_json_equals(expected, resp.data)
     assert "200 OK" == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = ctx.db.get_ingest_db().execute(query).fetchone()
+    submission = ctx.db.get_ingest_db().execute(query).one()._mapping
     assert submission["mbid"] is None
     assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission["puid"]
     assert "FLAC" == submission["format"]
@@ -715,7 +715,7 @@ def test_submit_handler_foreignid(ctx):
     assert_json_equals(expected, resp.data)
     assert "200 OK" == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = ctx.db.get_ingest_db().execute(query).fetchone()
+    submission = ctx.db.get_ingest_db().execute(query).one()._mapping
     assert submission["mbid"] is None
     assert submission["puid"] is None
     assert "foo:123" == submission["foreignid"]
@@ -739,7 +739,7 @@ def test_user_create_anonumous_handler(ctx):
     query = tables.account.select().where(
         tables.account.c.apikey == data["user"]["apikey"]
     )
-    user = ctx.db.get_app_db().execute(query).fetchone()
+    user = ctx.db.get_app_db().execute(query).one()._mapping
     assert user
 
 
