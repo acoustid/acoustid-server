@@ -8,6 +8,8 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
+from sqlalchemy import text
+
 from acoustid.data.submission import import_queued_submissions
 from acoustid.script import Script
 
@@ -26,11 +28,15 @@ def do_import(script: Script, limit: int = 100) -> int:
             fingerprint_db = ctx.db.get_fingerprint_db()
 
             timeout_ms = 20 * 1000
-            ingest_db.execute("SET LOCAL enable_seqscan TO off")
-            ingest_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
-            app_db.execute("SET LOCAL statement_timeout TO {}".format(timeout_ms))
+            ingest_db.execute(text("SET LOCAL enable_seqscan TO off"))
+            ingest_db.execute(
+                text("SET LOCAL statement_timeout TO :timeout"), {"timeout": timeout_ms}
+            )
+            app_db.execute(
+                text("SET LOCAL statement_timeout TO :timeout"), {"timeout": timeout_ms}
+            )
             fingerprint_db.execute(
-                "SET LOCAL statement_timeout TO {}".format(timeout_ms)
+                text("SET LOCAL statement_timeout TO :timeout"), {"timeout": timeout_ms}
             )
 
             count = import_queued_submissions(

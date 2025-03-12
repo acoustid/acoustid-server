@@ -9,7 +9,7 @@ import pprint
 from typing import Any
 
 import pytest
-from sqlalchemy import Table
+from sqlalchemy import Table, sql
 
 from acoustid import tables
 from acoustid.db import DatabaseContext
@@ -1938,7 +1938,7 @@ def reset_sequences(db):
         table = metadata.tables[table_name]  # type: Table
         assert table.info is not None
         conn = db.connection(table.info["bind_key"])
-        conn.execute(query)
+        conn.execute(sql.text(query))
 
 
 def create_tables(db):
@@ -1966,23 +1966,23 @@ def prepare_databases(db):
     reset_sequences(db)
 
 
-def load_app_db(db, sql, params=None):
+def load_app_db(db, query, params=None):
     # type: (DatabaseContext, str, Any) -> None
-    db.get_app_db().execute(sql, params)
+    db.get_app_db().execute(sql.text(query), params)
 
 
-def load_fingerprint_db(db, sql, params=None):
+def load_fingerprint_db(db, query, params=None):
     # type: (DatabaseContext, str, Any) -> None
-    db.get_fingerprint_db().execute(sql, params)
+    db.get_fingerprint_db().execute(sql.text(query), params)
 
 
-def load_ingest_db(db, sql, params=None):
+def load_ingest_db(db, query, params=None):
     # type: (DatabaseContext, str, Any) -> None
-    db.get_ingest_db().execute(sql, params)
+    db.get_ingest_db().execute(sql.text(query), params)
 
 
-def prepare_database(conn, sql, params=None):
-    conn.execute(sql, params)
+def prepare_database(db, query: str, params=None):
+    db.execute(sql.text(query), params)
 
 
 def setup(config_file: str) -> None:

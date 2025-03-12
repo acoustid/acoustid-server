@@ -1433,8 +1433,8 @@ def test_bad_match_not_unique_enough(ctx):
         155332930,
         222430034,
     ]
-    query = sql.select([sql.func.acoustid_compare2(fp1, fp2, 80)])
-    score = ctx.db.get_fingerprint_db().execute(query).scalar()
+    query = sql.select(sql.func.acoustid_compare2(fp1, fp2, 80))
+    score = ctx.db.get_fingerprint_db().execute(query).scalar_one()
     assert score < const.TRACK_MERGE_THRESHOLD
 
 
@@ -2391,38 +2391,38 @@ def test_self_match_too_few_unique(ctx):
         91710807,
         91714887,
     ]
-    query = sql.select([sql.func.acoustid_compare2(fp, fp, 80)])
-    score = ctx.db.get_fingerprint_db().execute(query).scalar()
+    query = sql.select(sql.func.acoustid_compare2(fp, fp, 80))
+    score = ctx.db.get_fingerprint_db().execute(query).scalar_one()
     assert score >= 1.0
 
 
 @with_script_context
 def test_match_similar_1(ctx):
     # type: (ScriptContext) -> None
-    query = sql.select([sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_1B_FP_RAW, 80)])
-    score = ctx.db.get_fingerprint_db().execute(query).scalar()
+    query = sql.select(sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_1B_FP_RAW, 80))
+    score = ctx.db.get_fingerprint_db().execute(query).scalar_one()
     assert score >= const.FINGERPRINT_MERGE_THRESHOLD
 
 
 @with_script_context
 def test_match_similar_2(ctx):
     # type: (ScriptContext) -> None
-    query = sql.select([sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_1C_FP_RAW, 80)])
-    score = ctx.db.get_fingerprint_db().execute(query).scalar()
+    query = sql.select(sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_1C_FP_RAW, 80))
+    score = ctx.db.get_fingerprint_db().execute(query).scalar_one()
     assert score >= const.TRACK_MERGE_THRESHOLD
 
 
 @with_script_context
 def test_match_similar_3(ctx):
     # type: (ScriptContext) -> None
-    query = sql.select([sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_1D_FP_RAW, 80)])
-    score = ctx.db.get_fingerprint_db().execute(query).scalar()
+    query = sql.select(sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_1D_FP_RAW, 80))
+    score = ctx.db.get_fingerprint_db().execute(query).scalar_one()
     assert score < const.TRACK_MERGE_THRESHOLD
 
 
 @with_script_context
 def test_match_different(ctx):
     # type: (ScriptContext) -> None
-    query = sql.select([sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_2_FP_RAW, 80)])
-    score = ctx.db.get_fingerprint_db().execute(query).scalar()
+    query = sql.select(sql.func.acoustid_compare2(TEST_1A_FP_RAW, TEST_2_FP_RAW, 80))
+    score = ctx.db.get_fingerprint_db().execute(query).scalar_one()
     assert score < const.TRACK_MERGE_THRESHOLD

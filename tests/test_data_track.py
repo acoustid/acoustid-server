@@ -295,8 +295,7 @@ def test_merge_tracks(ctx):
     # type: (ScriptContext) -> None
     prepare_database(
         ctx.db.get_fingerprint_db(),
-        text(
-            """
+        """
 TRUNCATE track_mbid CASCADE;
 INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
     VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1);
@@ -314,8 +313,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
 INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (3, 1, true);
 INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (4, 1, true);
 INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1, true);
-    """
-        ),
+    """,
         dict(
             fp1=TEST_1A_FP_RAW,
             len1=TEST_1A_LENGTH,
