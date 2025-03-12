@@ -5,6 +5,7 @@ extensions = [
     Extension(
         "acoustid_ext.fingerprint",
         sources=["src/acoustid_ext/fingerprint.pyx"],
+        libraries=["chromaprint"],  # Link against libchromaprint
     )
 ]
 

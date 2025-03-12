@@ -68,7 +68,7 @@ jobs:
       - name: Install additional requirements
         run: |
           sudo apt-get update
-          sudo apt-get install libchromaprint1 libpq-dev
+          sudo apt-get install libchromaprint-dev libpq-dev
 
       - name: Lint on the source code
         run: ./check.sh --lint --ci
