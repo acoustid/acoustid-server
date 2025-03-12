@@ -7,12 +7,14 @@ import datetime
 import logging
 import zlib
 from contextlib import ExitStack
+from typing import cast
 
 import sqlalchemy as sa
 
 from acoustid.data.account import lookup_account_id_by_name
 from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import disable_mbid, merge_missing_mbid
+from acoustid.db import AppDB, FingerprintDB, IngestDB, MusicBrainzDB
 from acoustid.script import Script
 
 logger = logging.getLogger(__name__)
@@ -21,10 +23,11 @@ logger = logging.getLogger(__name__)
 def try_lock(db: sa.engine.Connection, name: str, params: str) -> bool:
     lock_id1 = zlib.crc32(name.encode()) & 0x7FFFFFFF
     lock_id2 = zlib.crc32(params.encode()) & 0x7FFFFFFF
-    return db.execute(
+    result = db.execute(
         sa.text("SELECT pg_try_advisory_xact_lock(:lock_id1, :lock_id2)"),
         {"lock_id1": lock_id1, "lock_id2": lock_id2},
     ).scalar()
+    return bool(result)
 
 
 def run_merge_missing_mbid(script: Script, mbid: str) -> None:
@@ -34,16 +37,25 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
 
     with ExitStack() as stack:
         redis = script.get_redis()
-        cache_key = "unknown_mbid:{}".format(mbid)
+        cache_key = f"unknown_mbid:{mbid}"
 
-        fingerprint_db = stack.enter_context(script.db_engines["fingerprint"].connect())
+        fingerprint_db_conn = stack.enter_context(
+            script.db_engines["fingerprint"].connect()
+        )
+        fingerprint_db = cast(FingerprintDB, fingerprint_db_conn)
         fingerprint_db_txn = stack.enter_context(fingerprint_db.begin_twophase())
 
-        ingest_db = stack.enter_context(script.db_engines["ingest"].connect())
+        ingest_db_conn = stack.enter_context(script.db_engines["ingest"].connect())
+        ingest_db = cast(IngestDB, ingest_db_conn)
         ingest_db_txn = stack.enter_context(ingest_db.begin_twophase())
 
-        musicbrainz_db = stack.enter_context(script.db_engines["musicbrainz"].connect())
-        app_db = stack.enter_context(script.db_engines["app"].connect())
+        musicbrainz_db_conn = stack.enter_context(
+            script.db_engines["musicbrainz"].connect()
+        )
+        musicbrainz_db = cast(MusicBrainzDB, musicbrainz_db_conn)
+
+        app_db_conn = stack.enter_context(script.db_engines["app"].connect())
+        app_db = cast(AppDB, app_db_conn)
 
         if not try_lock(fingerprint_db, "merge_missing_mbid", mbid):
             logger.info("MBID %s is already being merged", mbid)
@@ -70,20 +82,23 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
                     unknown_since_str.decode()
                 )
             except Exception:
-                pass
+                logger.warning("Failed to parse unknown_since date for MBID %s", mbid)
 
         now = get_last_replication_date(musicbrainz_db)
         if unknown_since is None:
             unknown_since = now
             redis.set(cache_key, now.isoformat())
+            return
 
         if now - unknown_since < datetime.timedelta(days=7):
-            fingerprint_db_txn.rollback()
-            ingest_db_txn.rollback()
             return
 
         logger.info("MBID %s has been unknown for too long, disabling", mbid)
         acoustid_bot_id = lookup_account_id_by_name(app_db, "acoustid_bot")
+        if acoustid_bot_id is None:
+            logger.error("acoustid_bot account not found")
+            return
+
         disable_mbid(
             fingerprint_db=fingerprint_db,
             ingest_db=ingest_db,
