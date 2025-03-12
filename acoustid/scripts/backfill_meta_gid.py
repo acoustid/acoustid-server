@@ -51,7 +51,7 @@ def backfill_meta_gid(fingerprint_db, ingest_db, last_meta_id, limit):
         if meta.gid:
             continue
 
-        meta_dict = {col: getattr(meta, col) for col in meta._mapping.keys()}
+        meta_dict = {col: getattr(meta, col) for col in meta._mapping}
         meta_gid = generate_meta_gid(meta_dict)
 
         query = select(tables.meta.c.id).where(tables.meta.c.gid == meta_gid)
