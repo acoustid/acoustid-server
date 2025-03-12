@@ -206,10 +206,6 @@ cdef decode_legacy_fingerprint_impl(bytes data, bint base64, signed_type signed_
             &result_ptr, &result_size,
             &version, 1 if base64 else 0
         )
-            data, len(data),
-            &result_ptr, &result_size,
-            &version, 1 if base64 else 0
-        )
         if res != 1:
             raise FingerprintError("Decoding failed")
         if version == -1:
