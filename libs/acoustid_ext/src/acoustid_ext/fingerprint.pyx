@@ -72,6 +72,28 @@ ctypedef fused signed_type:
     false_type
 
 
+cdef extern from *:
+    """
+    #include <endian.h>
+
+    #if __BYTE_ORDER == __LITTLE_ENDIAN
+    #define IS_LITTLE_ENDIAN 1
+    #else
+    #define IS_LITTLE_ENDIAN 0
+    #endif
+    """
+    int IS_LITTLE_ENDIAN
+
+
+cdef inline uint32_t byteswap_uint32(uint32_t value) noexcept nogil:
+    cdef uint32_t b0 = (value & 0xFFu) << 24
+    cdef uint32_t b1 = (value & 0xFF00u) << 8
+    cdef uint32_t b2 = (value & 0xFF0000u) >> 8
+    cdef uint32_t b3 = (value & 0xFF000000u) >> 24
+    return b0 | b1 | b2 | b3
+
+
+@cython.boundscheck(False)
 cdef encode_fingerprint_impl(array_type hashes, int version, signed_type signed_flag):
     if hashes is None:
         raise TypeError('hashes cannot be None')
@@ -80,19 +102,21 @@ cdef encode_fingerprint_impl(array_type hashes, int version, signed_type signed_
         if hashes.ob_descr.itemsize != 4:
             raise TypeError('hashes array must have 32bit items')
         if hashes.ob_descr.typecode not in (b'i', b'I'):
-           raise TypeError("hashes array must have typecode 'i' or 'I'")
+            raise TypeError("hashes array must have typecode 'i' or 'I'")
 
     cdef uint32_t hash, last_hash, diff
     cdef int i, num_hashes = len(hashes)
 
     out = PyBytes_FromStringAndSize(NULL, 4 + num_hashes * 4)
-    cdef uint8_t* buf = <uint8_t *>PyBytes_AsString(out)
+    cdef uint8_t* buf_byte = <uint8_t*>PyBytes_AsString(out)
+    cdef uint32_t* buf_word = <uint32_t*>(buf_byte + 4)  # uint32_t pointer to diff array portion
 
     with cython.nogil(array_type is not list):
-        buf[0] = MAGIC_B0
-        buf[1] = MAGIC_B1
-        buf[2] = FORMAT_VERSION
-        buf[3] = version
+        # Write header bytes
+        buf_byte[0] = MAGIC_B0
+        buf_byte[1] = MAGIC_B1
+        buf_byte[2] = FORMAT_VERSION
+        buf_byte[3] = version
 
         last_hash = 0
         i = 0
@@ -103,40 +127,47 @@ cdef encode_fingerprint_impl(array_type hashes, int version, signed_type signed_
                 else:
                     hash = hashes[i]
             else:
-                if signed_type is true_type:
-                    hash = <uint32_t>(<int>hashes.data.as_ints[i])
-                else:
-                    hash = hashes.data.as_uints[i]
+                hash = hashes.data.as_uints[i]
+
             diff = hash ^ last_hash
             last_hash = hash
-            buf[4 + i * 4 + 0] = diff & 0xFF
-            buf[4 + i * 4 + 1] = (diff >> 8) & 0xFF
-            buf[4 + i * 4 + 2] = (diff >> 16) & 0xFF
-            buf[4 + i * 4 + 3] = (diff >> 24) & 0xFF
+
+            if IS_LITTLE_ENDIAN:
+                # Direct write on little-endian platforms
+                buf_word[i] = diff
+            else:
+                # Byte swap on big-endian platforms
+                buf_word[i] = byteswap_uint32(diff)
+
             i += 1
 
     return out
 
 
+@cython.boundscheck(False)
 cdef decode_fingerprint_impl(bytes inp, signed_type signed_flag):
     cdef uint32_t hash, last_hash, diff
     cdef int i, num_hashes
     cdef int version
     cdef array.array hashes
 
+    if inp is None:
+        raise TypeError('inp cannot be None')
+
     num_hashes = (len(inp) - 4) // 4
     if num_hashes < 0:
         raise ValueError("Invalid fingerprint")
 
-    cdef uint8_t* buf = <uint8_t *>PyBytes_AsString(inp)
+    cdef uint8_t* buf_byte = <uint8_t*>PyBytes_AsString(inp)
+    cdef uint32_t* buf_word = <uint32_t*>(buf_byte + 4)  # uint32_t pointer to diff array portion
 
-    if buf[0] != MAGIC_B0 or buf[1] != MAGIC_B1:
+    if buf_byte[0] != MAGIC_B0 or buf_byte[1] != MAGIC_B1:
         raise ValueError("Invalid fingerprint magic")
 
-    if buf[2] != FORMAT_VERSION:
+    if buf_byte[2] != FORMAT_VERSION:
         raise ValueError("Invalid format version")
 
-    version = buf[3]
+    version = buf_byte[3]
 
     if signed_type is true_type:
         hashes = array.array('i', [])
@@ -150,20 +181,21 @@ cdef decode_fingerprint_impl(bytes inp, signed_type signed_flag):
     with cython.nogil:
         last_hash = 0
         for i in range(num_hashes):
-            diff = (buf[4 + 4 * i + 0] |
-                    (buf[4 + 4 * i + 1] << 8) |
-                    (buf[4 + 4 * i + 2] << 16) |
-                    (buf[4 + 4 * i + 3] << 24))
-            hash = last_hash ^ diff
-            if signed_type is true_type:
-                hashes.data.as_ints[i] = hash
+            if IS_LITTLE_ENDIAN:
+                # Direct read on little-endian platforms
+                diff = buf_word[i]
             else:
-                hashes.data.as_uints[i] = hash
+                # Byte swap on big-endian platforms
+                diff = byteswap_uint32(buf_word[i])
+
+            hash = last_hash ^ diff
+            hashes.data.as_uints[i] = hash
             last_hash = hash
 
     return Fingerprint(hashes, version)
 
 
+@cython.boundscheck(False)
 def encode_fingerprint(object hashes, int version, bint signed = 0):
     if isinstance(hashes, list):
         if signed:
@@ -179,6 +211,7 @@ def encode_fingerprint(object hashes, int version, bint signed = 0):
         raise TypeError("Invalid hashes array")
 
 
+@cython.boundscheck(False)
 def decode_fingerprint(bytes inp, bint signed = 0):
     if signed:
         return decode_fingerprint_impl(inp, <true_type>1)
@@ -223,14 +256,12 @@ cdef decode_legacy_fingerprint_impl(bytes data, bint base64, signed_type signed_
         # Copy data directly from C array to array.array
         with cython.nogil:
             for i in range(result_size):
-                if signed_type is true_type:
-                    hashes.data.as_ints[i] = result_ptr[i]
-                else:
-                    hashes.data.as_uints[i] = result_ptr[i]
+                hashes.data.as_ints[i] = result_ptr[i]
         return Fingerprint(hashes, version)
     finally:
         if result_ptr != NULL:
             chromaprint_dealloc(result_ptr)
+
 
 def decode_legacy_fingerprint(bytes data, bint base64=True, bint signed=False):
     """Decode a chromaprint fingerprint from a byte string.
