@@ -3,14 +3,18 @@ import struct
 
 import pytest
 import zstd
+from acoustid_ext.fingerprint import (
+    decode_legacy_fingerprint,
+    encode_legacy_fingerprint,
+)
 
-from acoustid.future.fingerprint import (
+from acoustid.fingerprint import (
     compress_fingerprint,
     decompress_fingerprint,
     to_signed,
     to_unsigned,
 )
-from tests import TEST_2_FP_RAW
+from tests import TEST_2_FP, TEST_2_FP_RAW
 
 
 def test_compress_decompress_signed() -> None:
@@ -45,3 +49,14 @@ def test_decompress_invalid_data() -> None:
 
     with pytest.raises(ValueError, match="Invalid format version"):
         decompress_fingerprint(zstd.compress(struct.pack("<ccBB", b"F", b"p", 0, 1)))
+
+
+def test_decode_legacy_fingerprint() -> None:
+    fp = decode_legacy_fingerprint(TEST_2_FP.encode("ascii"), base64=True, signed=True)
+    assert list(fp.hashes) == TEST_2_FP_RAW
+    assert fp.version == 1
+
+
+def test_encode_legacy_fingerprint() -> None:
+    data = encode_legacy_fingerprint(TEST_2_FP_RAW, 1, base64=True, signed=True)
+    assert data == TEST_2_FP.encode("ascii")

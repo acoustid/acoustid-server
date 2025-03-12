@@ -5,14 +5,14 @@ set -eux
 run_lint() {
     local check_mode=$1
     if [ "$check_mode" = "true" ]; then
-        uv run isort --check acoustid/ tests/
-        uv run black --check acoustid/ tests/
+        uv run isort --check acoustid/ libs/acoustid_ext/src/acoustid_ext/ tests/
+        uv run black --check acoustid/ libs/acoustid_ext/src/acoustid_ext/ tests/
     else
-        uv run isort acoustid/ tests/
-        uv run black acoustid/ tests/
+        uv run isort acoustid/ libs/acoustid_ext/src/acoustid_ext/ tests/
+        uv run black acoustid/ libs/acoustid_ext/src/acoustid_ext/ tests/
     fi
-    uv run flake8 acoustid/ tests/
-    uv run mypy acoustid/ tests/
+    uv run flake8 acoustid/ libs/acoustid_ext/src/acoustid_ext/ tests/
+    uv run mypy acoustid/ libs/acoustid_ext/src/acoustid_ext/ tests/
 }
 
 run_test() {

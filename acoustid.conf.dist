@@ -53,6 +53,10 @@ secret=XXX
 mb_oauth_client_id=XXX
 mb_oauth_client_secret=XXX
 
+[sentry]
+api_dsn=
+web_dsn=
+
 [gunicorn]
 timeout=60
 workers=1

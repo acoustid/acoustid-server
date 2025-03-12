@@ -2,6 +2,8 @@
 /.mypy_cache
 /e
 /venv*
+/.venv
+/.idea
 /build
 /acoustid.conf
 /acoustid-test.conf
@@ -15,3 +17,5 @@
 /requirements_dev_py2.in
 /requirements_dev_py3.in
 *.egg-info
+/libs/acoustid_ext/build/
+/libs/acoustid_ext/src/acoustid_ext/fingerprint.c

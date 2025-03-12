@@ -5,6 +5,7 @@ description = "AcoustID server"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "acoustid-ext",
     "aiohttp>=3.11.13",
     "alembic",
     "attrs",
@@ -26,6 +27,7 @@ dependencies = [
     "redis",
     "requests",
     "schedule==0.6.0",
+    "sentry-sdk[flask]>=2.22.0",
     "six",
     "sqlalchemy>=2,<3",
     "statsd",
@@ -51,3 +53,6 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["acoustid*"]
 namespaces = false
+
+[tool.uv.sources]
+acoustid-ext = { path = "libs/acoustid_ext" }
