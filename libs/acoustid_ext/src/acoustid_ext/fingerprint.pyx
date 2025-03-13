@@ -319,7 +319,7 @@ def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint
     elif isinstance(hashes, array.array):
         if hashes.ob_descr.itemsize != 4:
             raise TypeError('hashes array must have 32bit items')
-        if hashes.ob_descr.typecode != 'i' if signed else 'I':
+        if hashes.ob_descr.typecode != ('i' if signed else 'I'):
             raise TypeError("hashes array must have typecode 'i' or 'I'")          
         hashes_as_array = hashes
     else:
