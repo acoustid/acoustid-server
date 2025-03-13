@@ -230,10 +230,6 @@ class FingerprintError(Exception):
     pass
 
 
-cdef decode_legacy_fingerprint_impl(bytes data, bint base64, signed_type signed_flag):
-    """Implementation of decode_legacy_fingerprint for different signedness."""
-
-
 def decode_legacy_fingerprint(object data, bint base64=True, bint signed=False):
     """Decode a chromaprint fingerprint from a byte string.
     
