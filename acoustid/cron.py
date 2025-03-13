@@ -1,11 +1,10 @@
 # Copyright (C) 2019 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-import functools
 import logging
 import time
-from typing import Dict, Union
 
+import sentry_sdk
 from schedule import Scheduler
 
 from acoustid.script import Script
@@ -15,9 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 def create_schedule(script: Script) -> Scheduler:
-    def run_task(name: str, **kwargs: Union[str, int, float]):
+    def run_task(name: str, **kwargs: str | int | float):
         def wrapper() -> None:
-            enqueue_task(script.context(), name, kwargs)
+            try:
+                with script.context() as ctx:
+                    enqueue_task(ctx, name, kwargs)
+            except Exception:
+                logger.exception("Error scheduling task: %s", name)
+                sentry_sdk.capture_exception()
 
         wrapper.__name__ = name
         return wrapper
@@ -30,6 +34,7 @@ def create_schedule(script: Script) -> Scheduler:
 
 
 def run_cron(script: Script) -> None:
+    script.setup_sentry(component="cron")
     schedule = create_schedule(script)
     logging.info("Cron job schedule:")
     for job in schedule.jobs:

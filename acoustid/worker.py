@@ -6,6 +6,8 @@ import logging
 import time
 from typing import Callable, Dict
 
+import sentry_sdk
+
 from acoustid.script import Script
 from acoustid.scripts.merge_missing_mbids import run_merge_missing_mbid
 from acoustid.scripts.update_lookup_stats import (
@@ -53,6 +55,7 @@ def handle_task(script: Script, name: str, kwargs: dict) -> None:
         func(script, **kwargs)
     except Exception:
         logger.exception("Error running task: %s", name)
+        sentry_sdk.capture_exception()
         return
 
     with script.context() as ctx:
@@ -63,6 +66,7 @@ def handle_task(script: Script, name: str, kwargs: dict) -> None:
 
 
 def run_worker(script: Script) -> None:
+    script.setup_sentry(component="worker")
     logger.info("Starting worker")
     while True:
         with script.context() as ctx:
