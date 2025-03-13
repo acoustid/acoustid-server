@@ -115,6 +115,12 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Update GIT_RELEASE in _release.py
+        run: |
+          GIT_VERSION=$(git describe --tags --always)
+          echo "Setting GIT_RELEASE to $GIT_VERSION"
+          echo "GIT_RELEASE = \"$GIT_VERSION\"" > acoustid/_release.py
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
