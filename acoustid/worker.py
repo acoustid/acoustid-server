@@ -3,6 +3,7 @@
 
 import contextvars
 import logging
+import random
 import time
 from typing import Callable, Dict
 
@@ -52,6 +53,8 @@ def handle_task(script: Script, name: str, kwargs: dict) -> None:
     logger.info("Running task %s(%s)", name, kwargs)
 
     try:
+        if random.randint(0, 100) == 0:
+            raise Exception("sentry test")
         func(script, **kwargs)
     except Exception:
         logger.exception("Error running task: %s", name)
