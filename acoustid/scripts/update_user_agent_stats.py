@@ -24,7 +24,7 @@ def run_update_all_user_agent_stats(script: Script) -> None:
             time.sleep(delay)
 
 
-def run_update_user_agent_stats(script: Script, partition: int):
+def run_update_user_agent_stats(script: Script, partition: int) -> None:
     if partition == -1:
         root_key = "ua"
     else:
@@ -56,3 +56,4 @@ def run_update_user_agent_stats(script: Script, partition: int):
                         count=count,
                     )
                 redis.hincrby(root_key, key, -count)
+            ctx.db.session.commit()
