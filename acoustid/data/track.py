@@ -130,23 +130,27 @@ def merge_mbids(
 ) -> None:
     logger.info("Merging MBID %r into %r", source_mbid, target_mbid)
 
-    affected_track_mbids_query = (
-        sql.select(
-            [
-                schema.track_mbid.c.id,
-                schema.track_mbid.c.track_id,
-                schema.track_mbid.c.mbid,
-                schema.track_mbid.c.submission_count,
-                schema.track_mbid.c.disabled,
-                schema.track_mbid.c.merged_into,
-            ]
+    affected_track_mbids_queries = []
+    for mbid in [target_mbid, source_mbid]:
+        affected_track_mbids_queries.append(
+            sql.select(
+                [
+                    schema.track_mbid.c.id,
+                    schema.track_mbid.c.track_id,
+                    schema.track_mbid.c.mbid,
+                    schema.track_mbid.c.submission_count,
+                    schema.track_mbid.c.disabled,
+                    schema.track_mbid.c.merged_into,
+                ]
+            )
+            .where(schema.track_mbid.c.mbid == mbid)
+            .with_for_update()
         )
-        .where(schema.track_mbid.c.mbid.in_([source_mbid, target_mbid]))
-        .with_for_update()
-    )
+
     track_mbids_by_track_id: Dict[int, Dict[str, Any]] = {}
-    for row in fingerprint_db.execute(affected_track_mbids_query):
-        track_mbids_by_track_id.setdefault(row["track_id"], {})[row["mbid"]] = row
+    for query in affected_track_mbids_queries:
+        for row in fingerprint_db.execute(query):
+            track_mbids_by_track_id.setdefault(row["track_id"], {})[row["mbid"]] = row
 
     for track_id, track_mbids in track_mbids_by_track_id.items():
         source = track_mbids.get(source_mbid)
