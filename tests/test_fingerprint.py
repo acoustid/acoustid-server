@@ -52,11 +52,11 @@ def test_decompress_invalid_data() -> None:
 
 
 def test_decode_legacy_fingerprint() -> None:
-    fp = decode_legacy_fingerprint(TEST_2_FP.encode("ascii"), base64=True, signed=True)
+    fp = decode_legacy_fingerprint(TEST_2_FP, base64=True, signed=True)
     assert list(fp.hashes) == TEST_2_FP_RAW
     assert fp.version == 1
 
 
 def test_encode_legacy_fingerprint() -> None:
     data = encode_legacy_fingerprint(TEST_2_FP_RAW, 1, base64=True, signed=True)
-    assert data == TEST_2_FP.encode("ascii")
+    assert data == TEST_2_FP

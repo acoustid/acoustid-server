@@ -2,6 +2,7 @@ import cython
 
 from cpython cimport array
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
+from cpython.unicode cimport PyUnicode_AsUTF8String, PyUnicode_FromStringAndSize
 from libc.stdint cimport int32_t, uint8_t, uint32_t
 
 import array
@@ -267,21 +268,34 @@ cdef decode_legacy_fingerprint_impl(bytes data, bint base64, signed_type signed_
             chromaprint_dealloc(result_ptr)
 
 
-def decode_legacy_fingerprint(bytes data, bint base64=True, bint signed=False):
+def decode_legacy_fingerprint(object data, bint base64=True, bint signed=False):
     """Decode a chromaprint fingerprint from a byte string.
     
     Args:
-        data: The encoded fingerprint as bytes
+        data: The encoded fingerprint as bytes | str (depending on base64)
         base64: Whether the fingerprint is base64 encoded
         signed: Whether to interpret the hash values as signed integers
         
     Returns:
         Fingerprint object containing the hash values and algorithm version
     """
-    if signed:
-        return decode_legacy_fingerprint_impl(data, base64, <true_type>1)
+
+    cdef bytes data_as_bytes
+
+    if isinstance(data, str) and base64:
+        data_as_bytes = PyUnicode_AsUTF8String(data)
+    elif isinstance(data, bytes):
+        data_as_bytes = data
     else:
-        return decode_legacy_fingerprint_impl(data, base64, <false_type>0)
+        if base64:
+            raise TypeError("Invalid data, must be str or bytes")
+        else:
+            raise TypeError("Invalid data, must be bytes")
+
+    if signed:
+        return decode_legacy_fingerprint_impl(data_as_bytes, base64, <true_type>1)
+    else:
+        return decode_legacy_fingerprint_impl(data_as_bytes, base64, <false_type>0)
 
 
 cdef encode_legacy_fingerprint_array_impl(array.array fingerprint, int version, bint base64, signed_type signed_flag):
@@ -292,22 +306,27 @@ cdef encode_legacy_fingerprint_array_impl(array.array fingerprint, int version, 
         raise TypeError("fingerprint array must have typecode 'i' or 'I'")
 
     cdef int32_t *fp_ptr = <int32_t*>fingerprint.data.as_ints
-    cdef int size = len(fingerprint)
+    cdef int res, size = len(fingerprint)
     cdef char *result_ptr = NULL
     cdef int result_size = 0
     
-    cdef int res = chromaprint_encode_fingerprint(
-        fp_ptr, size, version,
-        &result_ptr, &result_size,
-        1 if base64 else 0
-    )
-    if res != 1:
-        raise FingerprintError("Encoding failed")
+    try:
+        res = chromaprint_encode_fingerprint(
+            fp_ptr, size, version,
+            &result_ptr, &result_size,
+            1 if base64 else 0
+        )
+        if res != 1:
+            raise FingerprintError("Encoding failed")
 
-    # Convert C string to Python bytes
-    result = result_ptr[:result_size]
-    chromaprint_dealloc(result_ptr)
-    return result
+        if base64:
+            return PyUnicode_FromStringAndSize(result_ptr, result_size)
+        else:
+            return PyBytes_FromStringAndSize(result_ptr, result_size)
+
+    finally:
+        if result_ptr != NULL:
+            chromaprint_dealloc(result_ptr)
 
 
 cdef encode_legacy_fingerprint_list_impl(list fingerprint, int version, bint base64, signed_type signed_flag):
@@ -334,7 +353,7 @@ def encode_legacy_fingerprint(object fingerprint, int version, bint base64=True,
         signed: Whether the hash values are signed integers
         
     Returns:
-        Encoded fingerprint as bytes
+        Encoded fingerprint as bytes or str, depending on base64
     """
     if isinstance(fingerprint, list):
         if signed:

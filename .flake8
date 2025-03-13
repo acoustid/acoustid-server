@@ -5,3 +5,4 @@ per-file-ignores =
     tests/__init__.py:E501
     tests/test_api_v1.py:E501
     tests/test_pg.py:E231,E501
+    libs/acoustid_ext/src/acoustid_ext/*.pyi:E704,E302

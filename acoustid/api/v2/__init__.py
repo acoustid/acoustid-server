@@ -291,9 +291,7 @@ class LookupHandlerParams(APIHandlerParams):
             fingerprint_string = values.get("fingerprint" + suffix)
             if not fingerprint_string:
                 raise errors.MissingParameterError("fingerprint" + suffix)
-            fingerprint = decode_fingerprint(
-                fingerprint_string.encode("ascii", "ignore")
-            )
+            fingerprint = decode_fingerprint(fingerprint_string)
             if not fingerprint:
                 logger.info("Got invalid fingerprint %r", fingerprint_string)
                 raise errors.InvalidFingerprintError()
@@ -928,9 +926,7 @@ class SubmitHandlerParams(APIHandlerParams):
         fingerprint_string = values.get("fingerprint" + suffix)
         if not fingerprint_string:
             raise errors.MissingParameterError("fingerprint" + suffix)
-        p["fingerprint"] = decode_fingerprint(
-            fingerprint_string.encode("ascii", "ignore")
-        )
+        p["fingerprint"] = decode_fingerprint(fingerprint_string)
         if not p["fingerprint"]:
             logger.info("Got invalid fingerprint %r", fingerprint_string)
             raise errors.InvalidFingerprintError()
