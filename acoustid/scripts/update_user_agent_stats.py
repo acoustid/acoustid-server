@@ -31,9 +31,9 @@ def run_update_user_agent_stats(script: Script, partition: int) -> None:
         root_key = f"ua:{partition:02x}"
     logger.info("Updating user agent stats (key %s)", root_key)
     with script.context() as ctx:
-        db = ctx.db.get_app_db()
         redis = ctx.redis
         for key, count in redis.hgetall(root_key).items():
+            db = ctx.db.get_app_db()
             count = int(count)
             date, application_id, user_agent, ip = unpack_user_agent_stats_key(key)
             if not count:
