@@ -1,5 +1,7 @@
+import zlib
 from typing import TYPE_CHECKING, Any, Dict, NewType, Optional
 
+from sqlalchemy import sql
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session
 
@@ -12,6 +14,15 @@ AppDB = NewType("AppDB", Connection)
 FingerprintDB = NewType("FingerprintDB", Connection)
 IngestDB = NewType("IngestDB", Connection)
 MusicBrainzDB = NewType("MusicBrainzDB", Connection)
+
+
+def try_lock(db: Connection, name: str, params: str) -> bool:
+    lock_id1 = zlib.crc32(name.encode()) & 0x7FFFFFFF
+    lock_id2 = zlib.crc32(params.encode()) & 0x7FFFFFFF
+    return db.execute(
+        sql.text("SELECT pg_try_advisory_xact_lock(:lock_id1, :lock_id2)"),
+        {"lock_id1": lock_id1, "lock_id2": lock_id2},
+    ).scalar()
 
 
 def get_bind_args(engines):
