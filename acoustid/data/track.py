@@ -4,6 +4,7 @@
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from uuid import UUID
 
 from sqlalchemy import Column, Row, Table, sql
 
@@ -129,8 +130,8 @@ def disable_mbid(
 def merge_mbids(
     fingerprint_db: FingerprintDB,
     ingest_db: IngestDB,
-    source_mbid: str,
-    target_mbid: str,
+    source_mbid: UUID,
+    target_mbid: UUID,
 ) -> None:
     pg_advisory_xact_lock(fingerprint_db, "merge_mbids:target", str(target_mbid))
 
@@ -150,10 +151,10 @@ def merge_mbids(
             .with_for_update()
         )
 
-    track_mbids_by_track_id: Dict[int, Dict[str, Any]] = {}
+    track_mbids_by_track_id: dict[int, dict[UUID, Any]] = {}
     for query in affected_track_mbids_queries:
         for row in fingerprint_db.execute(query):
-            track_mbids_by_track_id.setdefault(row["track_id"], {})[row["mbid"]] = row
+            track_mbids_by_track_id.setdefault(row.track_id, {})[row.mbid] = row
 
     for track_id, track_mbids in track_mbids_by_track_id.items():
         source = track_mbids.get(source_mbid)
@@ -232,7 +233,7 @@ def merge_missing_mbid(
     fingerprint_db: FingerprintDB,
     ingest_db: IngestDB,
     musicbrainz_db: MusicBrainzDB,
-    old_mbid: str,
+    old_mbid: UUID,
 ) -> bool:
     """
     Lookup which MBIDs has been merged in MusicBrainz and merge then
@@ -243,8 +244,8 @@ def merge_missing_mbid(
         sql.select(schema.mb_recording.c.gid)
         .where(schema.mb_recording.c.id == schema.mb_recording_gid_redirect.c.new_id)
         .where(schema.mb_recording_gid_redirect.c.gid == old_mbid)
-    ).scalar()
-    if new_mbid:
+    ).scalar_one_or_none()
+    if new_mbid is not None:
         merge_mbids(fingerprint_db, ingest_db, old_mbid, new_mbid)
         return True
 

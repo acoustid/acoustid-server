@@ -7,11 +7,18 @@ import datetime
 import logging
 from contextlib import ExitStack
 from typing import cast
+from uuid import UUID
 
 from acoustid.data.account import lookup_account_id_by_name
 from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import disable_mbid, merge_missing_mbid
-from acoustid.db import AppDB, FingerprintDB, IngestDB, MusicBrainzDB, pg_try_advisory_xact_lock
+from acoustid.db import (
+    AppDB,
+    FingerprintDB,
+    IngestDB,
+    MusicBrainzDB,
+    pg_try_advisory_xact_lock,
+)
 from acoustid.script import Script
 
 logger = logging.getLogger(__name__)
@@ -52,7 +59,7 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
             fingerprint_db=fingerprint_db,
             ingest_db=ingest_db,
             musicbrainz_db=musicbrainz_db,
-            old_mbid=mbid,
+            old_mbid=UUID(mbid),
         )
         if handled:
             fingerprint_db_txn.prepare()

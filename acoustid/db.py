@@ -22,7 +22,7 @@ def pg_try_advisory_xact_lock(db: Connection, name: str, params: str) -> bool:
     return db.execute(
         sql.text("SELECT pg_try_advisory_xact_lock(:lock_id1, :lock_id2)"),
         {"lock_id1": lock_id1, "lock_id2": lock_id2},
-    ).scalar()
+    ).scalar_one()
 
 
 def pg_advisory_xact_lock(db: Connection, name: str, params: str) -> None:
