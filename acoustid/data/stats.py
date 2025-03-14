@@ -79,7 +79,7 @@ def find_lookup_stats(conn: AppDB) -> list[dict[str, Any]]:
     )
     stats = []
     for row in conn.execute(query):
-        stats.append(dict(row))
+        stats.append(dict(row._mapping))
     return stats
 
 
@@ -246,7 +246,7 @@ def find_application_lookup_stats_multi(
     if application_ids:
         query = query.where(schema.stats_lookups.c.application_id.in_(application_ids))
 
-    return [dict(row) for row in conn.execute(query)]
+    return [dict(row._mapping) for row in conn.execute(query)]
 
 
 def find_application_lookup_stats(

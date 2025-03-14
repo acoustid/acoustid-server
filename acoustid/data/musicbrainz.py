@@ -235,7 +235,7 @@ def lookup_metadata(
     release_ids = set()
     release_group_ids = set()
     for row in conn.execute(query):
-        results.append(dict(row))
+        results.append(dict(row._mapping))
         artist_credit_ids.add(row.recording_artist_credit)
         if load_releases:
             release_ids.add(row.release_rid)
@@ -294,7 +294,7 @@ def lookup_recording_metadata(
     )
     results = {}
     for row in conn.execute(query):
-        result = dict(row)
+        result = dict(row._mapping)
         result["length"] = (result["length"] or 0) / 1000
         results[row.gid] = result
     return results
