@@ -10,7 +10,7 @@ from contextlib import ExitStack
 from acoustid.data.account import lookup_account_id_by_name
 from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import disable_mbid, merge_missing_mbid
-from acoustid.db import try_lock
+from acoustid.db import pg_try_advisory_xact_lock
 from acoustid.script import Script
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
         musicbrainz_db = stack.enter_context(script.db_engines["musicbrainz"].connect())
         app_db = stack.enter_context(script.db_engines["app"].connect())
 
-        if not try_lock(fingerprint_db, "merge_missing_mbid", mbid):
+        if not pg_try_advisory_xact_lock(fingerprint_db, "merge_missing_mbid", mbid):
             logger.info("MBID %s is already being merged", mbid)
             return
 

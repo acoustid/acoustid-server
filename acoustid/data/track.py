@@ -9,7 +9,7 @@ from sqlalchemy import Column, Table, sql
 
 from acoustid import const
 from acoustid import tables as schema
-from acoustid.db import FingerprintDB, IngestDB, MusicBrainzDB, try_lock
+from acoustid.db import FingerprintDB, IngestDB, MusicBrainzDB, pg_advisory_xact_lock
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +128,7 @@ def merge_mbids(
     source_mbid: str,
     target_mbid: str,
 ) -> None:
-    if not try_lock(fingerprint_db, "merge_mbids:target", str(target_mbid)):
-        logger.info("MBID %s is already being merged into", target_mbid)
-        return
+    pg_advisory_xact_lock(fingerprint_db, "merge_mbids:target", str(target_mbid))
 
     logger.info("Merging MBID %r into %r", source_mbid, target_mbid)
     affected_track_mbids_queries = []
