@@ -4,6 +4,7 @@ from typing import Any
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 from sqlalchemy import sql
 from sqlalchemy.orm import load_only
+from werkzeug.wrappers.response import Response
 
 from acoustid import tables as schema
 from acoustid.data.account import is_moderator
@@ -20,11 +21,14 @@ metadata_page = Blueprint("metadata", __name__)
 
 
 @metadata_page.route("/track/<track_id_or_gid>")
-def track(track_id_or_gid):
+def track(track_id_or_gid: str) -> str:
     fingerprint_db = db.get_fingerprint_db()
     musicbrainz_db = db.get_musicbrainz_db()
 
     show_disabled = request.args.get("disabled") == "1"
+
+    track_gid: str | None = None
+    track_id: int | None = None
 
     if is_uuid(track_id_or_gid):
         track_gid = track_id_or_gid
@@ -34,8 +38,9 @@ def track(track_id_or_gid):
             track_id = int(track_id_or_gid)
         except ValueError:
             track_id = None
-        query = sql.select(schema.track.c.gid).where(schema.track.c.id == track_id)
-        track_gid = fingerprint_db.execute(query).scalar()
+        else:
+            query = sql.select(schema.track.c.gid).where(schema.track.c.id == track_id)
+            track_gid = fingerprint_db.execute(query).scalar_one_or_none()
 
     if track_id is None or track_gid is None:
         abort(404)
@@ -134,7 +139,11 @@ def track(track_id_or_gid):
         if track_mbid is not None:
             edit.track_mbid = track_mbid
 
-    moderator = is_moderator(db.get_app_db(), session.get("id"))
+    current_account_id = session.get("id")
+    if current_account_id is None:
+        moderator = False
+    else:
+        moderator = is_moderator(db.get_app_db(), current_account_id)
 
     return render_template(
         "track.html",
@@ -152,24 +161,31 @@ def track(track_id_or_gid):
 
 
 @metadata_page.route("/fingerprint/<int:fingerprint_id>")
-def fingerprint(fingerprint_id):
-    finerprint_db = db.get_fingerprint_db()
+def fingerprint(fingerprint_id: int) -> str:
+    fingerprint_db = db.get_fingerprint_db()
     title = "Fingerprint #%s" % (fingerprint_id,)
+
     query = sql.select(
-        [
-            schema.fingerprint.c.id,
-            schema.fingerprint.c.length,
-            schema.fingerprint.c.fingerprint,
-            schema.fingerprint.c.track_id,
-            schema.fingerprint.c.submission_count,
-        ],
+        schema.fingerprint.c.id,
+        schema.fingerprint.c.length,
+        schema.fingerprint.c.fingerprint,
+        schema.fingerprint.c.track_id,
+        schema.fingerprint.c.submission_count,
+    ).where(
         schema.fingerprint.c.id == fingerprint_id,
     )
-    fingerprint = finerprint_db.execute(query).first()
-    query = sql.select(
-        [schema.track.c.gid], schema.track.c.id == fingerprint["track_id"]
+    fingerprint_row = fingerprint_db.execute(query).one_or_none()
+    if fingerprint_row is None:
+        abort(404)
+    fingerprint = dict(fingerprint_row._mapping)
+
+    query = sql.select(schema.track.c.gid).where(
+        schema.track.c.id == fingerprint["track_id"]
     )
-    track_gid = finerprint_db.execute(query).scalar()
+    track_gid = fingerprint_db.execute(query).scalar_one_or_none()
+    if track_gid is None:
+        abort(404)
+
     return render_template(
         "fingerprint.html", title=title, fingerprint=fingerprint, track_gid=track_gid
     )
@@ -178,26 +194,25 @@ def fingerprint(fingerprint_id):
 @metadata_page.route(
     "/fingerprint/<int:fingerprint_id_1>/compare/<int:fingerprint_id_2>"
 )
-def compare_fingerprints(fingerprint_id_1, fingerprint_id_2):
+def compare_fingerprints(fingerprint_id_1: int, fingerprint_id_2: int) -> str:
     finerprint_db = db.get_fingerprint_db()
     title = "Compare fingerprints #%s and #%s" % (fingerprint_id_1, fingerprint_id_2)
     query = sql.select(
-        [
-            schema.fingerprint.c.id,
-            schema.fingerprint.c.length,
-            schema.fingerprint.c.fingerprint,
-            schema.fingerprint.c.track_id,
-            schema.fingerprint.c.submission_count,
-        ],
+        schema.fingerprint.c.id,
+        schema.fingerprint.c.length,
+        schema.fingerprint.c.fingerprint,
+        schema.fingerprint.c.track_id,
+        schema.fingerprint.c.submission_count,
+    ).where(
         schema.fingerprint.c.id.in_((fingerprint_id_1, fingerprint_id_2)),
     )
-    fingerprint_1 = None
-    fingerprint_2 = None
+    fingerprint_1: dict[str, Any] | None = None
+    fingerprint_2: dict[str, Any] | None = None
     for fingerprint in finerprint_db.execute(query):
-        if fingerprint["id"] == fingerprint_id_1:
-            fingerprint_1 = fingerprint
-        elif fingerprint["id"] == fingerprint_id_2:
-            fingerprint_2 = fingerprint
+        if fingerprint.id == fingerprint_id_1:
+            fingerprint_1 = dict(fingerprint._mapping)
+        elif fingerprint.id == fingerprint_id_2:
+            fingerprint_2 = dict(fingerprint._mapping)
     if not fingerprint_1 or not fingerprint_2:
         abort(404)
     return render_template(
@@ -209,7 +224,7 @@ def compare_fingerprints(fingerprint_id_1, fingerprint_id_2):
 
 
 @metadata_page.route("/mbid/<mbid>")
-def mbid(mbid):
+def mbid(mbid: str) -> str:
     from acoustid.data.musicbrainz import lookup_recording_metadata
     from acoustid.data.track import lookup_tracks
 
@@ -224,17 +239,19 @@ def mbid(mbid):
 
 
 @metadata_page.route("/edit/toggle-track-mbid", methods=["GET", "POST"])
-def toggle_track_mbid():
+def toggle_track_mbid() -> str | Response:
     fingerprint_db = db.get_fingerprint_db()
     ingest_db = db.get_ingest_db()
     app_db = db.get_app_db()
     user = require_user()
     track_id = request.values.get("track_id", type=int)
     if track_id:
-        query = sql.select([schema.track.c.gid], schema.track.c.id == track_id)
-        track_gid = fingerprint_db.execute(query).scalar()
+        query = sql.select(schema.track.c.gid).where(schema.track.c.id == track_id)
+        track_gid = fingerprint_db.execute(query).scalar_one()
     else:
         track_gid = request.values.get("track_gid")
+        if not track_gid:
+            abort(404)
         track_id = resolve_track_gid(fingerprint_db, track_gid)
     state = bool(request.values.get("state", type=int))
     mbid = request.values.get("mbid")
@@ -243,8 +260,7 @@ def toggle_track_mbid():
     if not is_moderator(app_db, user.id):
         title = "MusicBrainz account required"
         return render_template("toggle_track_mbid_login.html", title=title)
-    query = sql.select(
-        [schema.track_mbid.c.id, schema.track_mbid.c.disabled],
+    query = sql.select(schema.track_mbid.c.id, schema.track_mbid.c.disabled).where(
         sql.and_(
             schema.track_mbid.c.track_id == track_id, schema.track_mbid.c.mbid == mbid
         ),

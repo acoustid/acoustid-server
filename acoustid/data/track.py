@@ -77,7 +77,7 @@ def lookup_meta_ids(conn, track_ids, max_ids_per_track=None):
 
 
 def lookup_tracks(conn, mbids):
-    # type: (FingerprintDB, Iterable[int]) -> Dict[str, List[Dict[str, Any]]]
+    # type: (FingerprintDB, Iterable[str]) -> Dict[str, List[Dict[str, Any]]]
     if not mbids:
         return {}
     query = (
