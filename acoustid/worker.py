@@ -7,6 +7,7 @@ import time
 from typing import Callable, Dict
 
 import sentry_sdk
+import sentry_sdk.consts
 
 from acoustid.script import Script
 from acoustid.scripts.merge_missing_mbids import run_merge_missing_mbid
@@ -38,35 +39,40 @@ TASKS: Dict[str, TaskFunc] = {
 
 
 def handle_task(script: Script, name: str, kwargs: dict) -> None:
-    initialize_trace_id()
+    trace_id = initialize_trace_id()
+    trace_name = f"acoustid.worker.handle_task:{name}"
+    with sentry_sdk.start_transaction(
+        op=sentry_sdk.consts.OP.QUEUE_PROCESS,
+        name=trace_name,
+        trace_id=trace_id,
+    ):
 
-    func = TASKS.get(name)
-    if func is None:
-        logger.error("Unknown task: %s", name)
-        return
+        func = TASKS.get(name)
+        if func is None:
+            logger.error("Unknown task: %s", name)
+            return
 
-    with script.context() as ctx:
-        if ctx.statsd is not None:
-            ctx.statsd.incr(f"tasks_started_total,task={name}")
+        with script.context() as ctx:
+            if ctx.statsd is not None:
+                ctx.statsd.incr(f"tasks_started_total,task={name}")
 
-    logger.info(
-        "Running task %s(%s)",
-        name,
-        ", ".join(f"{k}={repr(v)}" for k, v in kwargs.items()),
-    )
+        logger.info(
+            "Running task %s(%s)",
+            name,
+            ", ".join(f"{k}={repr(v)}" for k, v in kwargs.items()),
+        )
 
-    try:
-        func(script, **kwargs)
-    except Exception:
-        logger.exception("Error running task: %s", name)
-        sentry_sdk.capture_exception()
-        return
+        try:
+            func(script, **kwargs)
+        except Exception:
+            logger.exception("Error running task: %s", name)
+            return
 
-    with script.context() as ctx:
-        if ctx.statsd is not None:
-            ctx.statsd.incr(f"tasks_finished_total,task={name}")
+        with script.context() as ctx:
+            if ctx.statsd is not None:
+                ctx.statsd.incr(f"tasks_finished_total,task={name}")
 
-    logger.debug("Finished task %s(%s)", name, kwargs)
+        logger.debug("Finished task %s(%s)", name, kwargs)
 
 
 def run_worker(script: Script) -> None:
