@@ -9,7 +9,7 @@ from sqlalchemy import Column, Row, Table, sql
 
 from acoustid import const
 from acoustid import tables as schema
-from acoustid.db import FingerprintDB, IngestDB, MusicBrainzDB
+from acoustid.db import FingerprintDB, IngestDB, MusicBrainzDB, pg_advisory_xact_lock
 
 logger = logging.getLogger(__name__)
 
@@ -132,23 +132,28 @@ def merge_mbids(
     source_mbid: str,
     target_mbid: str,
 ) -> None:
-    logger.info("Merging MBID %r into %r", source_mbid, target_mbid)
+    pg_advisory_xact_lock(fingerprint_db, "merge_mbids:target", str(target_mbid))
 
-    affected_track_mbids_query = (
-        sql.select(
-            schema.track_mbid.c.id,
-            schema.track_mbid.c.track_id,
-            schema.track_mbid.c.mbid,
-            schema.track_mbid.c.submission_count,
-            schema.track_mbid.c.disabled,
-            schema.track_mbid.c.merged_into,
+    logger.info("Merging MBID %r into %r", source_mbid, target_mbid)
+    affected_track_mbids_queries = []
+    for mbid in [target_mbid, source_mbid]:
+        affected_track_mbids_queries.append(
+            sql.select(
+                schema.track_mbid.c.id,
+                schema.track_mbid.c.track_id,
+                schema.track_mbid.c.mbid,
+                schema.track_mbid.c.submission_count,
+                schema.track_mbid.c.disabled,
+                schema.track_mbid.c.merged_into,
+            )
+            .where(schema.track_mbid.c.mbid == mbid)
+            .with_for_update()
         )
-        .where(schema.track_mbid.c.mbid.in_([source_mbid, target_mbid]))
-        .with_for_update()
-    )
-    track_mbids_by_track_id: dict[int, dict[str, Row]] = {}
-    for row in fingerprint_db.execute(affected_track_mbids_query):
-        track_mbids_by_track_id.setdefault(row.track_id, {})[str(row.mbid)] = row
+
+    track_mbids_by_track_id: Dict[int, Dict[str, Any]] = {}
+    for query in affected_track_mbids_queries:
+        for row in fingerprint_db.execute(query):
+            track_mbids_by_track_id.setdefault(row["track_id"], {})[row["mbid"]] = row
 
     for track_id, track_mbids in track_mbids_by_track_id.items():
         source = track_mbids.get(source_mbid)

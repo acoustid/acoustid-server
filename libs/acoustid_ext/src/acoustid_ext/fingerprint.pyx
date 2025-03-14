@@ -2,6 +2,7 @@ import cython
 
 from cpython cimport array
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
+from cpython.unicode cimport PyUnicode_AsUTF8String, PyUnicode_FromStringAndSize
 from libc.stdint cimport int32_t, uint8_t, uint32_t
 
 import array
@@ -38,7 +39,7 @@ cdef extern from "chromaprint.h":
         int* length, 
         int* algorithm, 
         int base64
-    )
+    ) nogil noexcept
     
     int chromaprint_encode_fingerprint(
         const int32_t* fp, 
@@ -47,7 +48,7 @@ cdef extern from "chromaprint.h":
         char** encoded_fp, 
         int* encoded_size, 
         int base64
-    )
+    ) nogil noexcept
     
     void chromaprint_dealloc(void* ptr)
 
@@ -229,20 +230,46 @@ class FingerprintError(Exception):
     pass
 
 
-cdef decode_legacy_fingerprint_impl(bytes data, bint base64, signed_type signed_flag):
-    """Implementation of decode_legacy_fingerprint for different signedness."""
+def decode_legacy_fingerprint(object data, bint base64=True, bint signed=False):
+    """Decode a chromaprint fingerprint from a byte string.
+    
+    Args:
+        data: The encoded fingerprint as bytes | str (depending on base64)
+        base64: Whether the fingerprint is base64 encoded
+        signed: Whether to interpret the hash values as signed integers
+        
+    Returns:
+        Fingerprint object containing the hash values and algorithm version
+    """
+
+    cdef bytes data_as_bytes
+
+    if isinstance(data, str) and base64:
+        data_as_bytes = PyUnicode_AsUTF8String(data)
+    elif isinstance(data, bytes):
+        data_as_bytes = data
+    else:
+        if base64:
+            raise TypeError("Invalid data, must be str or bytes")
+        else:
+            raise TypeError("Invalid data, must be bytes")
+
     cdef int32_t *result_ptr = NULL
     cdef int result_size = -1
     cdef int version = -1
     cdef array.array hashes
     cdef int res
 
+    cdef char *data_ptr = <char*>PyBytes_AsString(data_as_bytes)
+    cdef int data_size = len(data_as_bytes)
+
     try:
-        res = chromaprint_decode_fingerprint(
-            data, len(data),
-            &result_ptr, &result_size,
-            &version, 1 if base64 else 0
-        )
+        with cython.nogil:
+            res = chromaprint_decode_fingerprint(
+                data_ptr, data_size,
+                &result_ptr, &result_size,
+                &version, 1 if base64 else 0
+            )
         if res != 1:
             raise FingerprintError("Decoding failed")
         if version == -1:
@@ -251,100 +278,70 @@ cdef decode_legacy_fingerprint_impl(bytes data, bint base64, signed_type signed_
             raise FingerprintError("Invalid fingerprint")
         
         # Create array.array directly with the correct size and type
-        if signed_type is true_type:
-            hashes = array.array('i', [])
-        else:
-            hashes = array.array('I', [])
+        hashes = array.array('i' if signed else 'I', [])
         array.resize(hashes, result_size)
         
         # Copy data directly from C array to array.array
         with cython.nogil:
             for i in range(result_size):
                 hashes.data.as_ints[i] = result_ptr[i]
+
         return Fingerprint(hashes, version)
     finally:
         if result_ptr != NULL:
             chromaprint_dealloc(result_ptr)
 
 
-def decode_legacy_fingerprint(bytes data, bint base64=True, bint signed=False):
-    """Decode a chromaprint fingerprint from a byte string.
-    
-    Args:
-        data: The encoded fingerprint as bytes
-        base64: Whether the fingerprint is base64 encoded
-        signed: Whether to interpret the hash values as signed integers
-        
-    Returns:
-        Fingerprint object containing the hash values and algorithm version
-    """
-    if signed:
-        return decode_legacy_fingerprint_impl(data, base64, <true_type>1)
-    else:
-        return decode_legacy_fingerprint_impl(data, base64, <false_type>0)
-
-
-cdef encode_legacy_fingerprint_array_impl(array.array fingerprint, int version, bint base64, signed_type signed_flag):
-    """Optimized implementation for array.array inputs that avoids extra allocation."""
-    if fingerprint.ob_descr.itemsize != 4:
-        raise TypeError('fingerprint array must have 32bit items')
-    if fingerprint.ob_descr.typecode not in (b'i', b'I'):
-        raise TypeError("fingerprint array must have typecode 'i' or 'I'")
-
-    cdef int32_t *fp_ptr = <int32_t*>fingerprint.data.as_ints
-    cdef int size = len(fingerprint)
-    cdef char *result_ptr = NULL
-    cdef int result_size = 0
-    
-    cdef int res = chromaprint_encode_fingerprint(
-        fp_ptr, size, version,
-        &result_ptr, &result_size,
-        1 if base64 else 0
-    )
-    if res != 1:
-        raise FingerprintError("Encoding failed")
-
-    # Convert C string to Python bytes
-    result = result_ptr[:result_size]
-    chromaprint_dealloc(result_ptr)
-    return result
-
-
-cdef encode_legacy_fingerprint_list_impl(list fingerprint, int version, bint base64, signed_type signed_flag):
-    """Implementation for list inputs that converts to array.array and reuses array implementation."""
-    cdef array.array temp_array
-    
-    # Create array.array with proper type based on signed flag
-    if signed_type is true_type:
-        temp_array = array.array('i', fingerprint)
-    else:
-        temp_array = array.array('I', fingerprint)
-    
-    # Reuse the array implementation
-    return encode_legacy_fingerprint_array_impl(temp_array, version, base64, signed_flag)
-
-
-def encode_legacy_fingerprint(object fingerprint, int version, bint base64=True, bint signed=False):
+def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint signed=False):
     """Encode a chromaprint fingerprint to a byte string.
     
     Args:
-        fingerprint: List or array.array of integer hash values
+        hashes: List or array.array of integer hash values
         version: The algorithm version
         base64: Whether to base64 encode the output
         signed: Whether the hash values are signed integers
         
     Returns:
-        Encoded fingerprint as bytes
+        Encoded fingerprint as bytes or str, depending on base64
     """
-    if isinstance(fingerprint, list):
+
+    cdef array.array hashes_as_array
+
+    if isinstance(hashes, list):
         if signed:
-            return encode_legacy_fingerprint_list_impl(<list>fingerprint, version, base64, <true_type>1)
+            hashes_as_array = array.array('i', hashes)
         else:
-            return encode_legacy_fingerprint_list_impl(<list>fingerprint, version, base64, <false_type>0)
-    elif isinstance(fingerprint, array.array):
-        if signed:
-            return encode_legacy_fingerprint_array_impl(<array.array>fingerprint, version, base64, <true_type>1)
-        else:
-            return encode_legacy_fingerprint_array_impl(<array.array>fingerprint, version, base64, <false_type>0)
+            hashes_as_array = array.array('I', hashes)
+    elif isinstance(hashes, array.array):
+        if hashes.ob_descr.itemsize != 4:
+            raise TypeError('hashes array must have 32bit items')
+        if hashes.ob_descr.typecode != ('i' if signed else 'I'):
+            raise TypeError("hashes array must have typecode 'i' or 'I'")          
+        hashes_as_array = hashes
     else:
-        raise TypeError("Invalid fingerprint, must be list or array.array")
+        raise TypeError("Invalid hashes, must be list or array.array")
+
+    cdef int32_t *hashes_ptr = <int32_t*>hashes_as_array.data.as_ints
+    cdef int hashes_size = len(hashes_as_array)
+    cdef char *result_ptr = NULL
+    cdef int result_size = 0
+    cdef int res
+
+    try:
+        with cython.nogil:
+            res = chromaprint_encode_fingerprint(
+                hashes_ptr, hashes_size, version,
+                &result_ptr, &result_size,
+                1 if base64 else 0
+            )
+        if res != 1:
+            raise FingerprintError("Encoding failed")
+
+        if base64:
+            return PyUnicode_FromStringAndSize(result_ptr, result_size)
+        else:
+            return PyBytes_FromStringAndSize(result_ptr, result_size)
+
+    finally:
+        if result_ptr != NULL:
+            chromaprint_dealloc(result_ptr)

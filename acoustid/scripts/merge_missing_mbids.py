@@ -5,29 +5,16 @@
 
 import datetime
 import logging
-import zlib
 from contextlib import ExitStack
 from typing import cast
-
-import sqlalchemy as sa
 
 from acoustid.data.account import lookup_account_id_by_name
 from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import disable_mbid, merge_missing_mbid
-from acoustid.db import AppDB, FingerprintDB, IngestDB, MusicBrainzDB
+from acoustid.db import AppDB, FingerprintDB, IngestDB, MusicBrainzDB, pg_try_advisory_xact_lock
 from acoustid.script import Script
 
 logger = logging.getLogger(__name__)
-
-
-def try_lock(db: sa.engine.Connection, name: str, params: str) -> bool:
-    lock_id1 = zlib.crc32(name.encode()) & 0x7FFFFFFF
-    lock_id2 = zlib.crc32(params.encode()) & 0x7FFFFFFF
-    result = db.execute(
-        sa.text("SELECT pg_try_advisory_xact_lock(:lock_id1, :lock_id2)"),
-        {"lock_id1": lock_id1, "lock_id2": lock_id2},
-    ).scalar()
-    return bool(result)
 
 
 def run_merge_missing_mbid(script: Script, mbid: str) -> None:
@@ -57,7 +44,7 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
         app_db_conn = stack.enter_context(script.db_engines["app"].connect())
         app_db = cast(AppDB, app_db_conn)
 
-        if not try_lock(fingerprint_db, "merge_missing_mbid", mbid):
+        if not pg_try_advisory_xact_lock(fingerprint_db, "merge_missing_mbid", mbid):
             logger.info("MBID %s is already being merged", mbid)
             return
 

@@ -91,6 +91,7 @@ def run_import_on_slave(script):
 
 def run_import(script):
     # type: (Script) -> None
+    script.setup_sentry(component="import")
     if script.config.cluster.role == "master":
         run_import_on_master(script)
     else:

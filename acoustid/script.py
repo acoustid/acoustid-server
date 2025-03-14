@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 import redis.backoff
 import redis.retry
+import sentry_sdk
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
 from statsd import StatsClient
@@ -124,6 +125,14 @@ class Script(object):
             handler.setLevel(logging.ERROR)
         logging.getLogger().addHandler(handler)
         self._console_logging_configured = True
+
+    def setup_sentry(self, *, component: str) -> None:
+        sentry_sdk.init(
+            dsn=self.config.sentry.dsn,
+            release=GIT_RELEASE,
+            send_default_pii=True,
+        )
+        sentry_sdk.set_tag("component", component)
 
     def context(self, use_two_phase_commit=None):
         # type: (Optional[bool]) -> ScriptContext

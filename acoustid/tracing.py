@@ -15,7 +15,8 @@ def get_trace_id() -> Optional[str]:
     return trace_id.get()
 
 
-def initialize_trace_id(value: Optional[str] = None):
+def initialize_trace_id(value: Optional[str] = None) -> str:
     if value is None:
         value = generate_trace_id()
     trace_id.set(value)
+    return value

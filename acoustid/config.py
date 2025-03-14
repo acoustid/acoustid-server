@@ -556,16 +556,22 @@ class RateLimiterConfig(BaseConfig):
 
 class SentryConfig(BaseConfig):
     def __init__(self) -> None:
-        self.api_dsn: str | None = None
-        self.web_dsn: str | None = None
+        self.dsn: str | None = None
+        self.traces_sample_rate: float = 0.0
 
     def read_section(self, parser: RawConfigParser, section: str) -> None:
-        read_config_secret_str_option(parser, section, self, "api_dsn", "api_dsn")
-        read_config_secret_str_option(parser, section, self, "web_dsn", "web_dsn")
+        read_config_secret_str_option(parser, section, self, "dsn", "dsn")
+        if parser.has_option(section, "traces_sample_rate"):
+            self.traces_sample_rate = parser.getfloat(section, "traces_sample_rate")
 
     def read_env(self, prefix: str) -> None:
-        read_env_item(self, "api_dsn", prefix + "SENTRY_API_DSN")
-        read_env_item(self, "web_dsn", prefix + "SENTRY_WEB_DSN")
+        read_env_item(self, "dsn", prefix + "SENTRY_DSN")
+        read_env_item(
+            self,
+            "traces_sample_rate",
+            prefix + "SENTRY_TRACES_SAMPLE_RATE",
+            convert=float,
+        )
 
 
 class Config(object):

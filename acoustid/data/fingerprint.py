@@ -31,14 +31,9 @@ SELECT f.id, f.track_id, t.gid AS track_gid, score FROM (
 """
 
 
-def decode_fingerprint(fingerprint_string: str | bytes) -> list[int] | None:
+def decode_fingerprint(data: str) -> list[int] | None:
     """Decode a compressed and base64-encoded fingerprint"""
     try:
-        data = (
-            fingerprint_string.encode("ascii")
-            if isinstance(fingerprint_string, str)
-            else fingerprint_string
-        )
         fingerprint, version = decode_legacy_fingerprint(data, base64=True, signed=True)
     except FingerprintError:
         return None
