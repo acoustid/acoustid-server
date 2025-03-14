@@ -5,26 +5,15 @@
 
 import datetime
 import logging
-import zlib
 from contextlib import ExitStack
-
-import sqlalchemy as sa
 
 from acoustid.data.account import lookup_account_id_by_name
 from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import disable_mbid, merge_missing_mbid
+from acoustid.db import try_lock
 from acoustid.script import Script
 
 logger = logging.getLogger(__name__)
-
-
-def try_lock(db: sa.engine.Connection, name: str, params: str) -> bool:
-    lock_id1 = zlib.crc32(name.encode()) & 0x7FFFFFFF
-    lock_id2 = zlib.crc32(params.encode()) & 0x7FFFFFFF
-    return db.execute(
-        sa.text("SELECT pg_try_advisory_xact_lock(:lock_id1, :lock_id2)"),
-        {"lock_id1": lock_id1, "lock_id2": lock_id2},
-    ).scalar()
 
 
 def run_merge_missing_mbid(script: Script, mbid: str) -> None:
