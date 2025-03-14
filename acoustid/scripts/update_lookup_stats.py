@@ -31,9 +31,9 @@ def run_update_lookup_stats(script: Script, partition: int):
         root_key = f"lookups:{partition:02x}"
     logger.info("Updating lookup stats (key %s)", root_key)
     with script.context() as ctx:
-        db = ctx.db.get_app_db()
         redis = ctx.redis
         for key, count in redis.hgetall(root_key).items():
+            db = ctx.db.get_app_db()
             count = int(count)
             date, hour, application_id, type = unpack_lookup_stats_key(key)
             if not count:
@@ -54,4 +54,4 @@ def run_update_lookup_stats(script: Script, partition: int):
                         count=count,
                     )
                 redis.hincrby(root_key, key, -count)
-        ctx.db.session.commit()
+            ctx.db.session.commit()
