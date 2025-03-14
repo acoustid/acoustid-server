@@ -34,7 +34,7 @@ def track(track_id_or_gid):
             track_id = int(track_id_or_gid)
         except ValueError:
             track_id = None
-        query = sql.select([schema.track.c.gid], schema.track.c.id == track_id)
+        query = sql.select(schema.track.c.gid).where(schema.track.c.id == track_id)
         track_gid = fingerprint_db.execute(query).scalar()
 
     if track_id is None or track_gid is None:
@@ -43,39 +43,41 @@ def track(track_id_or_gid):
     title = 'Track "%s"' % (track_gid,)
     track = {"id": track_id, "gid": track_gid}
 
-    query = sql.select(
-        [
+    query = (
+        sql.select(
             schema.fingerprint.c.id,
             schema.fingerprint.c.length,
             schema.fingerprint.c.submission_count,
-        ],
-        schema.fingerprint.c.track_id == track_id,
-    ).order_by(schema.fingerprint.c.length)
+        )
+        .where(
+            schema.fingerprint.c.track_id == track_id,
+        )
+        .order_by(schema.fingerprint.c.length)
+    )
     fingerprints = fingerprint_db.execute(query).fetchall()
 
     query = sql.select(
-        [
-            schema.track_mbid.c.id,
-            schema.track_mbid.c.mbid,
-            schema.track_mbid.c.submission_count,
-            schema.track_mbid.c.disabled,
-        ],
+        schema.track_mbid.c.id,
+        schema.track_mbid.c.mbid,
+        schema.track_mbid.c.submission_count,
+        schema.track_mbid.c.disabled,
+    ).where(
         schema.track_mbid.c.track_id == track_id,
     )
     mbids = fingerprint_db.execute(query).fetchall()
 
-    metadata = lookup_recording_metadata(musicbrainz_db, [r["mbid"] for r in mbids])
+    metadata = lookup_recording_metadata(musicbrainz_db, [r.mbid for r in mbids])
 
     num_disabled = 0
     num_enabled = 0
 
     recordings = []
     for mbid in mbids:
-        recording = metadata.get(mbid["mbid"], {})
-        recording["mbid"] = mbid["mbid"]
-        recording["submission_count"] = mbid["submission_count"]
-        recording["disabled"] = mbid["disabled"]
-        if recording["disabled"]:
+        recording = metadata.get(mbid.mbid, {})
+        recording["mbid"] = mbid.mbid
+        recording["submission_count"] = mbid.submission_count
+        recording["disabled"] = mbid.disabled
+        if mbid.disabled:
             num_disabled += 1
         else:
             num_enabled += 1
@@ -106,7 +108,7 @@ def track(track_id_or_gid):
 
     edits_accounts = (
         db.session.query(Account)
-        .options(load_only("mbuser", "name"))
+        .options(load_only(Account.mbuser, Account.name))
         .filter(Account.id.in_(e.account_id for e in edits))
         .all()
     )
@@ -116,7 +118,7 @@ def track(track_id_or_gid):
 
     edits_track_mbids = (
         db.session.query(TrackMBID)
-        .options(load_only("mbid"))
+        .options(load_only(TrackMBID.mbid))
         .filter(TrackMBID.id.in_(e.track_mbid_id for e in edits))
         .all()
     )

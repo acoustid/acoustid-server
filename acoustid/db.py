@@ -22,7 +22,7 @@ def pg_try_advisory_xact_lock(db: Connection, name: str, params: str) -> bool:
     return db.execute(
         sql.text("SELECT pg_try_advisory_xact_lock(:lock_id1, :lock_id2)"),
         {"lock_id1": lock_id1, "lock_id2": lock_id2},
-    ).scalar()
+    ).scalar_one()
 
 
 def pg_advisory_xact_lock(db: Connection, name: str, params: str) -> None:
@@ -79,7 +79,7 @@ class DatabaseContext(object):
             read_only_bind_key = bind_key + ":ro"
             if read_only_bind_key in self.engines:
                 bind_key = read_only_bind_key
-        return self.session.connection(bind=self.engines[bind_key])
+        return self.session.connection(bind_arguments={"bind": self.engines[bind_key]})
 
     def get_app_db(self, read_only=False):
         # type: (bool) -> AppDB

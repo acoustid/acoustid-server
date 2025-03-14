@@ -1,6 +1,8 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+from uuid import UUID
+
 from werkzeug.datastructures import MultiDict
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
@@ -260,8 +262,7 @@ def test_submit_handler_params(ctx):
 
 
 @with_script_context
-def test_submit_handler(ctx):
-    # type: (ScriptContext) -> None
+def test_submit_handler(ctx: ScriptContext) -> None:
     values = {
         "client": "app1key",
         "user": "user1key",
@@ -279,9 +280,9 @@ def test_submit_handler(ctx):
     assert expected == resp.data
     assert "200 OK" == resp.status
     query = tables.submission.select().order_by(tables.submission.c.id.desc()).limit(1)
-    submission = ctx.db.get_ingest_db().execute(query).fetchone()
-    assert "b9c05616-1874-4d5d-b30e-6b959c922d28" == submission["mbid"]
-    assert "FLAC" == submission["format"]
-    assert 192 == submission["bitrate"]
-    assert TEST_1_FP_RAW == submission["fingerprint"]
-    assert TEST_1_LENGTH == submission["length"]
+    submission = ctx.db.get_ingest_db().execute(query).one()
+    assert UUID("b9c05616-1874-4d5d-b30e-6b959c922d28") == submission.mbid
+    assert "FLAC" == submission.format
+    assert 192 == submission.bitrate
+    assert TEST_1_FP_RAW == submission.fingerprint
+    assert TEST_1_LENGTH == submission.length

@@ -5,7 +5,8 @@ import json
 import logging
 import uuid
 from collections import OrderedDict
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from collections.abc import Iterable
+from typing import Any
 
 import six
 from sqlalchemy import sql
@@ -28,7 +29,7 @@ meta_fields = (
 meta_gid_ns = uuid.UUID("3b3bd228-5d2c-11ea-b498-60f67731bf41")
 
 
-def fix_meta(values):
+def fix_meta(values: dict[str, Any]) -> dict[str, Any]:
     track_no = values.get("track_no", None)
     if track_no:
         if track_no > 10000:
@@ -42,8 +43,7 @@ def fix_meta(values):
     return values
 
 
-def generate_meta_gid(values):
-    # type: (Dict[str, Any]) -> uuid.UUID
+def generate_meta_gid(values: dict[str, Any]) -> uuid.UUID:
     content_hash_items = OrderedDict()
     for name in meta_fields:
         value = values.get(name)
@@ -58,10 +58,11 @@ def generate_meta_gid(values):
         return uuid.uuid5(meta_gid_ns, content_hash_source)
 
 
-def find_or_insert_meta(conn, values):
-    # type: (FingerprintDB, Dict[str, Any]) -> Tuple[int, uuid.UUID]
+def find_or_insert_meta(
+    conn: FingerprintDB, values: dict[str, Any]
+) -> tuple[int, uuid.UUID]:
     gid = generate_meta_gid(values)
-    query = sql.select([schema.meta.c.id], schema.meta.c.gid == gid)
+    query = sql.select(schema.meta.c.id).where(schema.meta.c.gid == gid)
     row = conn.execute(query).first()
     if row is None:
         values["gid"] = gid
@@ -69,8 +70,7 @@ def find_or_insert_meta(conn, values):
     return row[0], gid
 
 
-def insert_meta(conn, values):
-    # type: (FingerprintDB, Dict[str, Any]) -> Tuple[int, uuid.UUID]
+def insert_meta(conn: FingerprintDB, values: dict[str, Any]) -> tuple[int, uuid.UUID]:
     gid = generate_meta_gid(values)
     if "gid" not in values:
         values["gid"] = gid
@@ -82,64 +82,64 @@ def insert_meta(conn, values):
     return id, gid
 
 
-def check_meta_id(fingerprint_db, meta_id):
-    # type: (FingerprintDB, int) -> Tuple[bool, Optional[uuid.UUID]]
-    query = sql.select([schema.meta.c.id, schema.meta.c.gid]).where(
+def check_meta_id(
+    fingerprint_db: FingerprintDB, meta_id: int
+) -> tuple[bool, uuid.UUID | None]:
+    query = sql.select(schema.meta.c.id, schema.meta.c.gid).where(
         schema.meta.c.id == meta_id
     )
     row = fingerprint_db.execute(query).first()
     if row is None:
         return False, None
-    return True, row[1]
+    return True, row.gid
 
 
-def lookup_meta(conn, meta_ids):
-    # type: (FingerprintDB, Iterable[int]) -> List[Dict[str, Any]]
+def lookup_meta(conn: FingerprintDB, meta_ids: Iterable[int]) -> list[dict[str, Any]]:
     if not meta_ids:
         return []
-    query = schema.meta.select(schema.meta.c.id.in_(meta_ids))
+    query = sql.select(schema.meta).where(schema.meta.c.id.in_(meta_ids))
     results = []
     for row in conn.execute(query):
         result = {
             "_no_ids": True,
-            "recording_id": row["id"],
-            "recording_title": row["track"],
+            "recording_id": row.id,
+            "recording_title": row.track,
             "recording_artists": [],
             "recording_duration": None,
-            "track_id": row["id"],
-            "track_position": row["track_no"],
-            "track_title": row["track"],
+            "track_id": row.id,
+            "track_position": row.track_no,
+            "track_title": row.track,
             "track_artists": [],
             "track_duration": None,
-            "medium_position": row["disc_no"],
+            "medium_position": row.disc_no,
             "medium_format": None,
             "medium_title": None,
             "medium_track_count": None,
-            "release_rid": row["id"],
-            "release_id": row["id"],
-            "release_title": row["album"],
+            "release_rid": row.id,
+            "release_id": row.id,
+            "release_title": row.album,
             "release_artists": [],
             "release_medium_count": None,
             "release_track_count": None,
             "release_events": [
                 {
-                    "release_date_year": row["year"],
+                    "release_date_year": row.year,
                     "release_date_month": None,
                     "release_date_day": None,
                     "release_country": "",
                 }
             ],
-            "release_group_id": row["id"],
-            "release_group_title": row["album"],
+            "release_group_id": row.id,
+            "release_group_title": row.album,
             "release_group_artists": [],
             "release_group_primary_type": None,
             "release_group_secondary_types": [],
         }
-        if row["artist"]:
-            result["recording_artists"].append(row["artist"])
-            result["track_artists"].append(row["artist"])
-        if row["album_artist"]:
-            result["release_artists"].append(row["album_artist"])
-            result["release_group_artists"].append(row["album_artist"])
+        if row.artist:
+            result["recording_artists"].append(row.artist)
+            result["track_artists"].append(row.artist)
+        if row.album_artist:
+            result["release_artists"].append(row.album_artist)
+            result["release_group_artists"].append(row.album_artist)
         results.append(result)
     return results

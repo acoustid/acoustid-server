@@ -3,6 +3,8 @@
 
 from uuid import UUID
 
+from sqlalchemy import text
+
 from acoustid.data.submission import insert_submission
 from acoustid.data.track import (
     can_add_fp_to_track,
@@ -56,14 +58,16 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
-        "d575d506-4da4-11e0-b951-0025225356f3",
-        "97edb73c-4dac-11e0-9096-0025225356f3",
+        UUID("d575d506-4da4-11e0-b951-0025225356f3"),
+        UUID("97edb73c-4dac-11e0-9096-0025225356f3"),
     )
 
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -73,7 +77,9 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     ]
     assert expected_rows == rows
 
-    query = "SELECT track_mbid_id, submission_id, source_id FROM track_mbid_source ORDER BY track_mbid_id, submission_id, source_id"
+    query = text(
+        "SELECT track_mbid_id, submission_id, source_id FROM track_mbid_source ORDER BY track_mbid_id, submission_id, source_id"
+    )
     rows = ctx.db.get_fingerprint_db().execute(query).fetchall()
     expected_rows2 = [
         (1, 1, 1),
@@ -84,7 +90,9 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (2, 1
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id"
+            text(
+                "SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id"
+            )
         )
         .fetchall()
     )
@@ -110,14 +118,16 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
-        "d575d506-4da4-11e0-b951-0025225356f3",
-        "97edb73c-4dac-11e0-9096-0025225356f3",
+        UUID("d575d506-4da4-11e0-b951-0025225356f3"),
+        UUID("97edb73c-4dac-11e0-9096-0025225356f3"),
     )
 
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -142,13 +152,15 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
-        "d575d506-4da4-11e0-b951-0025225356f3",
-        "97edb73c-4dac-11e0-9096-0025225356f3",
+        UUID("d575d506-4da4-11e0-b951-0025225356f3"),
+        UUID("97edb73c-4dac-11e0-9096-0025225356f3"),
     )
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -173,13 +185,15 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '
     merge_mbids(
         ctx.db.get_fingerprint_db(),
         ctx.db.get_ingest_db(),
-        "d575d506-4da4-11e0-b951-0025225356f3",
-        "97edb73c-4dac-11e0-9096-0025225356f3",
+        UUID("d575d506-4da4-11e0-b951-0025225356f3"),
+        UUID("97edb73c-4dac-11e0-9096-0025225356f3"),
     )
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -212,12 +226,14 @@ INSERT INTO musicbrainz.recording_gid_redirect (new_id, gid) VALUES
         fingerprint_db=ctx.db.get_fingerprint_db(),
         ingest_db=ctx.db.get_ingest_db(),
         musicbrainz_db=ctx.db.get_musicbrainz_db(),
-        old_mbid="d575d506-4da4-11e0-b951-0025225356f3",
+        old_mbid=UUID("d575d506-4da4-11e0-b951-0025225356f3"),
     )
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -253,7 +269,9 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, 'd575d506-4
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -280,7 +298,7 @@ def test_merge_tracks(ctx):
         """
 TRUNCATE track_mbid CASCADE;
 INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1);
+    VALUES (:fp1, :len1, 1, 1), (:fp2, :len2, 2, 1);
 INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '97edb73c-4dac-11e0-9096-0025225356f3', 10);
 INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, 'd575d506-4da4-11e0-b951-0025225356f3', 15);
 INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (3, 2, 'd575d506-4da4-11e0-b951-0025225356f3', 50);
@@ -308,7 +326,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
 
     rows = (
         ctx.db.get_fingerprint_db()
-        .execute("SELECT id, track_id FROM fingerprint ORDER BY id")
+        .execute(text("SELECT id, track_id FROM fingerprint ORDER BY id"))
         .fetchall()
     )
     assert [(1, 3), (2, 3)] == rows
@@ -316,7 +334,9 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT id, track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT id, track_id, mbid, submission_count FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -330,7 +350,9 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, puid, submission_count FROM track_puid ORDER BY track_id, puid"
+            text(
+                "SELECT track_id, puid, submission_count FROM track_puid ORDER BY track_id, puid"
+            )
         )
         .fetchall()
     )
@@ -344,7 +366,9 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id"
+            text(
+                "SELECT track_mbid_id, account_id FROM track_mbid_change ORDER BY track_mbid_id, account_id"
+            )
         )
         .fetchall()
     )
@@ -353,7 +377,7 @@ INSERT INTO track_mbid_change (track_mbid_id, account_id, disabled) VALUES (5, 1
 
     rows = (
         ctx.db.get_fingerprint_db()
-        .execute("SELECT id, new_id FROM track ORDER BY id, new_id")
+        .execute(text("SELECT id, new_id FROM track ORDER BY id, new_id"))
         .fetchall()
     )
     assert [(1, 3), (2, 3), (3, None), (4, 3)] == rows
@@ -374,7 +398,9 @@ INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (2, '97edb73c-4
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -399,7 +425,9 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -424,7 +452,9 @@ INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (2, '
     rows = (
         ctx.db.get_fingerprint_db()
         .execute(
-            "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            text(
+                "SELECT track_id, mbid, submission_count, disabled FROM track_mbid ORDER BY track_id, mbid"
+            )
         )
         .fetchall()
     )
@@ -441,8 +471,8 @@ def test_can_merge_tracks(ctx):
         ctx.db.get_fingerprint_db(),
         """
 INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-    VALUES (%(fp1)s, %(len1)s, 1, 1), (%(fp2)s, %(len2)s, 2, 1),
-           (%(fp3)s, %(len3)s, 3, 1);
+    VALUES (:fp1, :len1, 1, 1), (:fp2, :len2, 2, 1),
+           (:fp3, :len3, 3, 1);
     """,
         dict(
             fp1=TEST_1A_FP_RAW,
@@ -464,7 +494,7 @@ def test_can_add_fp_to_track(ctx):
         ctx.db.get_fingerprint_db(),
         """
 INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
-    VALUES (%(fp1)s, %(len1)s, 1, 1);
+    VALUES (:fp1, :len1, 1, 1);
     """,
         dict(fp1=TEST_1A_FP_RAW, len1=TEST_1A_LENGTH),
     )
