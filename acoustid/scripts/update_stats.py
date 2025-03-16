@@ -4,6 +4,7 @@
 import logging
 
 from acoustid import tables
+from sqlalchemy import sql
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ def run_update_stats(script):
         insert = tables.stats.insert()
         for bind_key, name, query in QUERIES:
             logger.info("Updating stats %s", name)
-            value = ctx.db.connection(bind_key).execute(query).scalar()
+            value = ctx.db.connection(bind_key).execute(sql.text(query)).scalar()
             ctx.db.get_app_db().execute(insert.values({"name": name, "value": value}))
             ctx.statsd.gauge(name.replace(".", "_"), value)
 
