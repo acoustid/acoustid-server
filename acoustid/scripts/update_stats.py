@@ -3,8 +3,9 @@
 
 import logging
 
-from acoustid import tables
 from sqlalchemy import sql
+
+from acoustid import tables
 
 logger = logging.getLogger(__name__)
 
