@@ -100,7 +100,7 @@ class IndexClient(Index):
         logger.debug("Sending request %r", request)
         self.sock.sendall(request)
 
-    def _getline(self, timeout=None):
+    def _getline(self, timeout: float | None = None) -> str:
         assert self.sock is not None
         pos = self._buffer.find(CRLF)
         if timeout is None:

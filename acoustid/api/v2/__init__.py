@@ -69,7 +69,7 @@ MAX_RESULTS_PER_FINGERPRINT_QUERY = 10
 
 def iter_args_suffixes(args, *prefixes) -> Iterable[str]:
     results: set[int] = set()
-    for name in args.keys():
+    for name in args:
         for prefix in prefixes:
             if name == prefix:
                 results.add(-1)
@@ -77,7 +77,7 @@ def iter_args_suffixes(args, *prefixes) -> Iterable[str]:
                 prefix, suffix = name.split(".", 1)
                 if suffix.isdigit():
                     results.add(int(suffix))
-    return [".%d" % i if i != -1 else "" for i in sorted(results)]
+    return [f".{i}" if i != -1 else "" for i in sorted(results)]
 
 
 api_key_cache = cachetools.TTLCache(maxsize=1000, ttl=60.0)  # type: cachetools.Cache
