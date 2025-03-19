@@ -242,7 +242,9 @@ class IndexClientWrapper(Index):
 
 
 class IndexClientPool(object):
-    def __init__(self, max_idle_clients: int = 5, recycle: int = -1, **kwargs: Any) -> None:
+    def __init__(
+        self, max_idle_clients: int = 5, recycle: int = -1, **kwargs: Any
+    ) -> None:
         self.max_idle_clients = max_idle_clients
         self.recycle = recycle
         self.clients: deque[IndexClient] = deque()
