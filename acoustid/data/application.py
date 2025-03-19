@@ -40,7 +40,7 @@ def find_applications_by_account(conn: AppDB, account_id: int) -> list[dict[str,
         schema.application.c.account_id == account_id
     )
     query = query.order_by(schema.application.c.name)
-    return [dict(i) for i in conn.execute(query).fetchall()]
+    return [dict(i._mapping) for i in conn.execute(query).fetchall()]
 
 
 def find_applications_by_apikeys(
@@ -49,7 +49,7 @@ def find_applications_by_apikeys(
     query = sql.select(schema.application).where(
         schema.application.c.apikey.in_(apikeys)
     )
-    return [dict(i) for i in conn.execute(query).fetchall()]
+    return [dict(i._mapping) for i in conn.execute(query).fetchall()]
 
 
 def insert_application(conn: AppDB, data: dict[str, Any]) -> tuple[int, str]:
