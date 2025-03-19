@@ -1,8 +1,16 @@
 import json
 import logging
 
-from flask import Blueprint, abort, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    abort,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from sqlalchemy import sql
+from werkzeug.wrappers import Response
 
 from acoustid.data.application import (
     find_applications_by_account,
@@ -21,15 +29,15 @@ apps_page = Blueprint("apps", __name__)
 
 
 @apps_page.route("/my-applications")
-def applications():
+def applications() -> str:
     user = require_user()
     title = "Your Applications"
     applications = find_applications_by_account(db.get_app_db(), user.id)
     return render_template("applications.html", title=title, applications=applications)
 
 
-@apps_page.route("/application/<application_id>")
-def application(application_id):
+@apps_page.route("/application/<int:application_id>")
+def application(application_id: int) -> str:
     user = require_user()
     title = "Your Application"
     conn = db.get_app_db()
@@ -37,10 +45,10 @@ def application(application_id):
         sql.text(
             """
         SELECT * FROM application
-        WHERE id = %s
+        WHERE id = :application_id
     """
         ),
-        (application_id,),
+        {"application_id": application_id},
     ).fetchone()
     if application is None:
         abort(404)
@@ -53,12 +61,12 @@ def application(application_id):
             date_trunc('month', date) AS month,
             sum(count_hits) + sum(count_nohits) AS lookups
         FROM stats_lookups
-        WHERE application_id = %s
+        WHERE application_id = :application_id
         GROUP BY date_trunc('month', date)
         ORDER BY date_trunc('month', date) DESC
     """
         ),
-        (application_id,),
+        {"application_id": application_id},
     ).fetchall()
     lookups = find_application_lookup_stats(conn, application_id)
     return render_template(
@@ -72,7 +80,7 @@ def application(application_id):
 
 
 @apps_page.route("/new-application", methods=["GET", "POST"])
-def new_application():
+def new_application() -> str | Response:
     user = require_user()
     errors = []
     title = "New Application"
@@ -110,7 +118,7 @@ def new_application():
 
 
 @apps_page.route("/application/<application_id>/edit", methods=["GET", "POST"])
-def edit_application(application_id):
+def edit_application(application_id) -> str | Response:
     user = require_user()
     conn = db.get_app_db()
     application = conn.execute(
