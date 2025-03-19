@@ -69,7 +69,7 @@ MAX_RESULTS_PER_FINGERPRINT_QUERY = 10
 
 def iter_args_suffixes(args, *prefixes) -> Iterable[str]:
     results: set[int] = set()
-    for name in args.keys():
+    for name in args:
         for prefix in prefixes:
             if name == prefix:
                 results.add(-1)
