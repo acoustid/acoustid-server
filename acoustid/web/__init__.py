@@ -20,8 +20,8 @@ from acoustid.script import Script
 class Database(object):
     def __init__(self):
         self.engines = {}  # type: Dict[str, Engine]
-        self.session_factory = sessionmaker()
-        self.session = scoped_session(Session)
+        self.session_factory = sessionmaker(class_=Session)
+        self.session = scoped_session(self.session_factory)
 
     def configure(self, script, scopefunc):
         # type: (Script, Callable[[], Any]) -> None

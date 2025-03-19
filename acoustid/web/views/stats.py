@@ -52,7 +52,8 @@ def prepare_chart_data(stats):
 @stats_page.route("/stats")
 def stats():
     title = "Statistics"
-    stats = find_current_stats(db.session.connection())
+    app_db = db.get_app_db()
+    stats = find_current_stats(app_db)
     basic = {
         "submissions": stats.get("submission.all", 0),
         "fingerprints": stats.get("fingerprint.all", 0),
@@ -66,8 +67,8 @@ def stats():
     basic["tracks_with_mbid_percent"] = percent(
         basic["tracks_with_mbid"], basic["tracks"]
     )
-    additions = find_daily_stats(db.session.connection(), ["track.all", "mbid.all"])
-    lookups = find_lookup_stats(db.session.connection())
+    additions = find_daily_stats(app_db, ["track.all", "mbid.all"])
+    lookups = find_lookup_stats(app_db)
     return render_template(
         "stats.html",
         title=title,

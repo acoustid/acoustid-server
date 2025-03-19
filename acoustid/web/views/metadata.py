@@ -132,12 +132,12 @@ def track(track_id_or_gid: str) -> str:
         edits_track_mbids_by_id[track_mbid.id] = track_mbid
 
     for edit in edits:
-        account = edits_accounts_by_id.get(edit.account_id)
-        if account is not None:
+        account_or_none = edits_accounts_by_id.get(edit.account_id)
+        if account_or_none is not None:
             edit.account = account
-        track_mbid = edits_track_mbids_by_id.get(edit.track_mbid_id)
-        if track_mbid is not None:
-            edit.track_mbid = track_mbid
+        track_mbid_or_none = edits_track_mbids_by_id.get(edit.track_mbid_id)
+        if track_mbid_or_none is not None:
+            edit.track_mbid = track_mbid_or_none
 
     current_account_id = session.get("id")
     if current_account_id is None:

@@ -127,7 +127,7 @@ def handle_musicbrainz_oauth2_login():
     else:
         state = {}
 
-    token = session.get("mb_login_token")
+    token = session.get("mb_login_token") or ""
     if not token:
         raise Exception("token not found in session")
 
@@ -196,7 +196,7 @@ def handle_openid_login_request():
 
 
 def handle_openid_login_response():
-    conn = db.session.connection()
+    conn = db.get_app_db()
     consumer = openid.Consumer(session, None)
     info = consumer.complete(request.args, request.url)
     if info.status == openid.SUCCESS:

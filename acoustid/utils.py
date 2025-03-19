@@ -80,4 +80,4 @@ def call_internal_api(config, func, **kwargs):
     url = config.cluster.base_master_url.rstrip("/") + "/v2/internal/" + func
     data = dict(kwargs)
     data["secret"] = config.cluster.secret
-    urlopen(url, urlencode(data))
+    urlopen(url, urlencode(data).encode("ascii"))
