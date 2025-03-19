@@ -4,7 +4,7 @@
 import logging
 
 import requests
-from sqlalchemy import BinaryExpression, sql
+from sqlalchemy import sql
 
 from acoustid import tables as schema
 from acoustid.api import errors
