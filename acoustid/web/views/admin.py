@@ -38,7 +38,7 @@ def stats_apps():
     else:
         month = last_months[0]
 
-    counts = Bundle(
+    counts: Bundle[int] = Bundle(
         "counts",
         sql.func.sum(StatsLookups.count_hits).label("hits"),
         sql.func.sum(StatsLookups.count_nohits).label("misses"),

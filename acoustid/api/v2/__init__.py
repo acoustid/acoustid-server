@@ -67,17 +67,17 @@ MAX_TRACK_QUERIES_PER_REQUEST = 100
 MAX_RESULTS_PER_FINGERPRINT_QUERY = 10
 
 
-def iter_args_suffixes(args, *prefixes):
-    results = set()
+def iter_args_suffixes(args, *prefixes) -> Iterable[str]:
+    results: set[int] = set()
     for name in args.keys():
         for prefix in prefixes:
             if name == prefix:
-                results.add(None)
+                results.add(-1)
             elif name.startswith(prefix + "."):
                 prefix, suffix = name.split(".", 1)
                 if suffix.isdigit():
                     results.add(int(suffix))
-    return [".%d" % i if i is not None else "" for i in sorted(results)]
+    return [".%d" % i if i != -1 else "" for i in sorted(results)]
 
 
 api_key_cache = cachetools.TTLCache(maxsize=1000, ttl=60.0)  # type: cachetools.Cache
@@ -634,7 +634,7 @@ class LookupHandler(APIHandler):
         return results.items()
 
     def _group_release_groups(self, metadata, only_ids=False):
-        results = {}
+        results: dict[int, tuple[dict[str, Any], list[dict[str, Any]]]] = {}
         for item in metadata:
             id = item["release_group_id"]
             if id not in results:
@@ -643,7 +643,7 @@ class LookupHandler(APIHandler):
         return results.values()
 
     def _group_recordings(self, metadata, only_ids=False):
-        results = {}
+        results: dict[int, tuple[dict[str, Any], list[dict[str, Any]]]] = {}
         for item in metadata:
             id = item["recording_id"]
             if id not in results:
@@ -652,7 +652,7 @@ class LookupHandler(APIHandler):
         return results.values()
 
     def _group_releases(self, metadata, only_ids=False):
-        results = {}
+        results: dict[int, tuple[dict[str, Any], list[dict[str, Any]]]] = {}
         for item in metadata:
             id = item["release_id"]
             if id not in results:
@@ -661,7 +661,7 @@ class LookupHandler(APIHandler):
         return results.values()
 
     def _group_tracks(self, metadata):
-        results = {}
+        results: dict[int, dict[str, Any]] = {}
         for item in metadata:
             medium_pos = item["medium_position"]
             medium = results.get(medium_pos)

@@ -1885,6 +1885,7 @@ def make_decorator(func):
 
 def with_database(func):
     def wrapper(*args, **kwargs):
+        assert script is not None
         with script.context() as ctx:
             prepare_databases(ctx.db)
             ctx.db.session.commit()
@@ -1900,6 +1901,7 @@ def with_database(func):
 
 def with_script(func):
     def wrapper(*args, **kwargs):
+        assert script is not None
         with script.context() as ctx:
             prepare_databases(ctx.db)
             ctx.db.session.commit()
@@ -1912,6 +1914,7 @@ def with_script(func):
 
 def with_script_context(func):
     def wrapper(*args, **kwargs):
+        assert script is not None
         with script.context() as ctx:
             prepare_databases(ctx.db)
             ctx.db.session.commit()

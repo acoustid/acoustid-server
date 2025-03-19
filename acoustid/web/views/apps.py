@@ -2,6 +2,7 @@ import json
 import logging
 
 from flask import Blueprint, abort, redirect, render_template, request, url_for
+from sqlalchemy import sql
 
 from acoustid.data.application import (
     find_applications_by_account,
@@ -23,7 +24,7 @@ apps_page = Blueprint("apps", __name__)
 def applications():
     user = require_user()
     title = "Your Applications"
-    applications = find_applications_by_account(db.session.connection(), user.id)
+    applications = find_applications_by_account(db.get_app_db(), user.id)
     return render_template("applications.html", title=title, applications=applications)
 
 
@@ -31,20 +32,23 @@ def applications():
 def application(application_id):
     user = require_user()
     title = "Your Application"
-    conn = db.session.connection()
+    conn = db.get_app_db()
     application = conn.execute(
-        """
+        sql.text(
+            """
         SELECT * FROM application
         WHERE id = %s
-    """,
+    """
+        ),
         (application_id,),
     ).fetchone()
     if application is None:
         abort(404)
-    if user.id != application["account_id"] and not user.is_admin:
+    if user.id != application.account_id and not user.is_admin:
         abort(404)
     monthly_stats = conn.execute(
-        """
+        sql.text(
+            """
         SELECT
             date_trunc('month', date) AS month,
             sum(count_hits) + sum(count_nohits) AS lookups
@@ -52,7 +56,8 @@ def application(application_id):
         WHERE application_id = %s
         GROUP BY date_trunc('month', date)
         ORDER BY date_trunc('month', date) DESC
-    """,
+    """
+        ),
         (application_id,),
     ).fetchall()
     lookups = find_application_lookup_stats(conn, application_id)
@@ -88,7 +93,7 @@ def new_application():
             errors.append("Invalid website URL")
         if not errors:
             insert_application(
-                db.session.connection(),
+                db.get_app_db(),
                 {
                     "name": name,
                     "version": version,
@@ -107,22 +112,23 @@ def new_application():
 @apps_page.route("/application/<application_id>/edit", methods=["GET", "POST"])
 def edit_application(application_id):
     user = require_user()
-    conn = db.session.connection()
+    conn = db.get_app_db()
     application = conn.execute(
-        """
+        sql.text(
+            """
         SELECT * FROM application
         WHERE id = %s
-    """,
+    """
+        ),
         (application_id,),
     ).fetchone()
     if application is None:
         abort(404)
-    if user.id != application["account_id"]:
+    if user.id != application.account_id:
         abort(404)
     errors = []
     title = "Edit Application"
     if request.form.get("submit"):
-        form = request.form
         name = request.form.get("name")
         if not name:
             errors.append("Missing application name")
@@ -150,11 +156,11 @@ def edit_application(application_id):
             db.session.commit()
             return redirect(url_for(".application", application_id=application.id))
     else:
-        form = {}
-        form["name"] = application["name"]
-        form["version"] = application["version"] or ""
-        form["email"] = application["email"] or ""
-        form["website"] = application["website"] or ""
+        form: dict[str, str] = {}
+        form["name"] = application.name
+        form["version"] = application.version or ""
+        form["email"] = application.email or ""
+        form["website"] = application.website or ""
     return render_template(
         "edit-application.html", title=title, form=form, errors=errors, app=application
     )
