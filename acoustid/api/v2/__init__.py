@@ -67,7 +67,7 @@ MAX_TRACK_QUERIES_PER_REQUEST = 100
 MAX_RESULTS_PER_FINGERPRINT_QUERY = 10
 
 
-def iter_args_suffixes(args, *prefixes) -> Iterable[str]:
+def iter_args_suffixes(args: dict, *prefixes: str) -> Iterable[str]:
     results: set[int] = set()
     for name in args:
         for prefix in prefixes:
