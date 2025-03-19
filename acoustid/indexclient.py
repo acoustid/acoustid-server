@@ -87,20 +87,21 @@ class IndexClient(Index):
             self.sock = socket.create_connection(
                 (self.host, self.port), self.connect_timeout
             )
-            self.sock.setblocking(0)
+            self.sock.setblocking(False)
         except socket.error as e:
             raise IndexClientError(
                 "unable to connect to the index server at %s:%s (%s)"
                 % (self.host, self.port, e)
             )
 
-    def _putline(self, line):
-        # type: (str) -> None
+    def _putline(self, line: str) -> None:
+        assert self.sock is not None
         request = b"%s%s" % (line.encode("utf8"), CRLF)
         logger.debug("Sending request %r", request)
         self.sock.sendall(request)
 
-    def _getline(self, timeout=None):
+    def _getline(self, timeout: float | None = None) -> str:
+        assert self.sock is not None
         pos = self._buffer.find(CRLF)
         if timeout is None:
             timeout = self.timeout
@@ -214,14 +215,14 @@ class IndexClientWrapper(Index):
     def __init__(self, pool=None, client=None):
         self._pool = pool
         self._client = client
-        self.ping = self._client.ping
-        self.search = self._client.search
-        self.begin = self._client.begin
-        self.commit = self._client.commit
-        self.rollback = self._client.rollback
-        self.insert = self._client.insert
-        self.get_attribute = self._client.get_attribute
-        self.set_attribute = self._client.set_attribute
+        self.ping = self._client.ping  # type: ignore
+        self.search = self._client.search  # type: ignore
+        self.begin = self._client.begin  # type: ignore
+        self.commit = self._client.commit  # type: ignore
+        self.rollback = self._client.rollback  # type: ignore
+        self.insert = self._client.insert  # type: ignore
+        self.get_attribute = self._client.get_attribute  # type: ignore
+        self.set_attribute = self._client.set_attribute  # type: ignore
 
     def __enter__(self):
         # type: () -> IndexClientWrapper
@@ -241,20 +242,22 @@ class IndexClientWrapper(Index):
 
 
 class IndexClientPool(object):
-    def __init__(self, max_idle_clients=5, recycle=-1, **kwargs):
+    def __init__(
+        self, max_idle_clients: int = 5, recycle: int = -1, **kwargs: Any
+    ) -> None:
         self.max_idle_clients = max_idle_clients
         self.recycle = recycle
-        self.clients = deque()
+        self.clients: deque[IndexClient] = deque()
         self.args = kwargs
 
-    def dispose(self):
+    def dispose(self) -> None:
         logger.debug("Closing all connections")
         while self.clients:
             client = self.clients.popleft()
             logger.debug("Closing connection %s", client)
             client.close()
 
-    def _release(self, client):
+    def _release(self, client: IndexClient) -> None:
         if client.sock is None:
             logger.debug("Discarding closed connection %s", client)
         else:
@@ -265,11 +268,11 @@ class IndexClientPool(object):
                 logger.debug("Checking in connection %s", client)
                 self.clients.append(client)
 
-    def connect(self):
-        # type: () -> IndexClientWrapper
-        client = None
+    def connect(self) -> IndexClientWrapper:
+        client: IndexClient | None = None
         if self.clients:
             client = self.clients.popleft()
+            assert client is not None
             try:
                 if self.recycle > 0 and client.created + self.recycle < time.time():
                     logger.debug(

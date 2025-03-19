@@ -293,13 +293,10 @@ class RedisConfig(BaseConfig):
 
 
 def get_logging_level_names():
-    try:
-        return logging._levelNames
-    except AttributeError:
-        level_names = {}
-        for value, name in logging._levelToName.items():
-            level_names[name] = value
-        return level_names
+    level_names = {}
+    for value, name in logging._levelToName.items():
+        level_names[name] = value
+    return level_names
 
 
 class LoggingConfig(BaseConfig):
@@ -374,7 +371,7 @@ class WebSiteConfig(BaseConfig):
         if parser.has_option(section, "shutdown_delay"):
             self.shutdown_delay = parser.getint(section, "shutdown_delay")
         if parser.has_option(section, "shutdown_file"):
-            self.shutdown_file_path = parser.getint(section, "shutdown_file")
+            self.shutdown_file_path = parser.get(section, "shutdown_file")
         if parser.has_option(section, "search_timeout"):
             self.search_timeout = parser.getfloat(section, "search_timeout")
         if parser.has_option(section, "search_return_metadata"):
@@ -534,7 +531,7 @@ class ClusterConfig(BaseConfig):
 
 class RateLimiterConfig(BaseConfig):
     def __init__(self):
-        self.global_rate_limit = DEFAULT_GLOBAL_RATE_LIMIT
+        self.global_rate_limit: float = DEFAULT_GLOBAL_RATE_LIMIT
         self.ips = {}
         self.applications = {}
 

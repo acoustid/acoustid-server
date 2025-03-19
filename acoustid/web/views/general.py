@@ -37,8 +37,8 @@ class MarkdownFlaskUrlProcessor(markdown.util.Processor):
 
 def render_page(name, **context):
     path = os.path.join("pages", name)
-    with current_app.open_resource(path) as file:
-        text = file.read().decode("utf8")
+    with current_app.open_resource(path, mode="rt") as file:
+        text = file.read()
         text = render_template_string(text, **context)
         md = Markdown(extensions=["meta"])
         md.treeprocessors.register(MarkdownFlaskUrlProcessor(md), "flask_links", 50)

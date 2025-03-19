@@ -35,15 +35,15 @@ def make_application(config_filename=None, tests=False):
         GOOGLE_OAUTH_CLIENT_SECRET=config.website.google_oauth_client_secret,
     )
 
-    app.acoustid_script = script
-    app.acoustid_config = config
-    app.acoustid_config_filename = config_filename
+    app.acoustid_script = script  # type: ignore
+    app.acoustid_config = config  # type: ignore
+    app.acoustid_config_filename = config_filename  # type: ignore
 
-    app.wsgi_app = ProxyFix(app.wsgi_app)
+    app.wsgi_app = ProxyFix(app.wsgi_app)  # type: ignore
 
     # can't use json because of python-openid
     app.session_interface = SecureCookieSessionInterface()
-    app.session_interface.serializer = pickle
+    app.session_interface.serializer = pickle  # type: ignore
 
     @app.context_processor
     def inject_common_values():
@@ -58,7 +58,8 @@ def make_application(config_filename=None, tests=False):
 
     def get_flask_request_scope():
         try:
-            return id(request._get_current_object())
+            req = request._get_current_object()  # type: ignore
+            return id(req)
         except RuntimeError:
             return 0
 
@@ -70,13 +71,15 @@ def make_application(config_filename=None, tests=False):
     def health():
         from acoustid.api import get_health_response
 
-        return get_health_response(script, request, require_master=True)
+        with script.context() as ctx:
+            return get_health_response(ctx, request, require_master=True)
 
     @app.route("/_health_docker")
     def health_docker():
         from acoustid.api import get_health_response
 
-        return get_health_response(script, request)
+        with script.context() as ctx:
+            return get_health_response(ctx, request)
 
     db.configure(script, get_flask_request_scope)
 

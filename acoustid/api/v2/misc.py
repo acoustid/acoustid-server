@@ -36,19 +36,19 @@ class TrackListByMBIDHandler(APIHandler):
 
     def _handle_internal(self, params):
         response = {}
-        condition = schema.track_mbid.c.mbid.in_(params.mbids)
-        if not params.disabled:
-            condition = sql.and_(condition, schema.track_mbid.c.disabled.is_(False))
-        query = sql.select(
-            [
+        query = (
+            sql.select(
                 schema.track_mbid.c.mbid,
                 schema.track_mbid.c.disabled,
                 schema.track.c.gid,
-            ],
-            condition,
-            schema.track_mbid.join(schema.track),
+            )
+            .where(schema.track_mbid.c.mbid.in_(params.mbids))
+            .select_from(schema.track_mbid.join(schema.track))
         )
-        tracks_map = {}
+        if not params.disabled:
+            query = query.where(schema.track_mbid.c.disabled.is_(False))
+
+        tracks_map: dict[str, list[dict[str, int | bool]]] = {}
         fingerprint_db = self.ctx.db.get_fingerprint_db(read_only=True)
         for mbid, disabled, track_gid in fingerprint_db.execute(query):
             track = {"id": track_gid}
@@ -83,7 +83,7 @@ class TrackListByPUIDHandler(APIHandler):
     params_class = TrackListByPUIDHandlerParams
 
     def _handle_internal(self, params):
-        response = {}
+        response: dict[str, list] = {}
         response["tracks"] = []
         return response
 

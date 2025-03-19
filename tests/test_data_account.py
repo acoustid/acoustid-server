@@ -21,15 +21,19 @@ def test_lookup_account_id_by_apikey(conn):
 @with_database
 def test_reset_account_apikey(conn):
     info = get_account_details(conn, 1)
+    assert info is not None
     assert info["apikey"] == "user1key"
     reset_account_apikey(conn, 1)
     info = get_account_details(conn, 1)
+    assert info is not None
     assert info["apikey"] != "user1key"
 
 
 @with_database
 def test_update_account_lastlogin(conn):
     info1 = get_account_details(conn, 1)
+    assert info1 is not None
     update_account_lastlogin(conn, 1)
     info2 = get_account_details(conn, 1)
+    assert info2 is not None
     assert info1["lastlogin"] < info2["lastlogin"]

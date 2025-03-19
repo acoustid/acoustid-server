@@ -27,7 +27,7 @@ class ProcessWrapper(object):
         # type: (List[six.text_type], Callable[[], None] | None, float) -> None
         self.name = args[0]
         self.shutdown = False
-        self.shutdown_requested_at = None
+        self.shutdown_requested_at: datetime.datetime | None = None
         self.shutdown_handler = shutdown_handler
         self.shutdown_handler_called = False
         self.shutdown_delay = datetime.timedelta(seconds=shutdown_delay)

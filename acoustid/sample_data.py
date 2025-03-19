@@ -5,7 +5,7 @@ from .models import Account, Application, StatsLookups
 
 
 def create_sample_data(session):
-    rnd = random.WichmannHill(1)
+    rnd = random.Random(1)
 
     account_1234 = Account(id=1234, name="user1234", apikey="26ec5efff4a6")
     session.add(account_1234)

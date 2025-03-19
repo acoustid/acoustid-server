@@ -168,7 +168,7 @@ class CreateAccountHandler(APIHandler):
 
 class CheckApplicationHandlerParams(APIHandlerParams):
     def parse(self, values, db):
-        super(CreateApplicationHandlerParams, self).parse(values, db)
+        super().parse(values, db)
         self.secret = values.get("secret")
         self.api_key = values.get("api_key")
 
