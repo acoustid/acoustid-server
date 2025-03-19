@@ -79,7 +79,7 @@ def track(track_id_or_gid: str) -> str:
     recordings = []
     for mbid in mbids:
         recording = metadata.get(mbid.mbid, {})
-        recording["mbid"] = mbid.mbid
+        recording["mbid"] = str(mbid.mbid)
         recording["submission_count"] = mbid.submission_count
         recording["disabled"] = mbid.disabled
         if mbid.disabled:
@@ -87,7 +87,7 @@ def track(track_id_or_gid: str) -> str:
         else:
             num_enabled += 1
         recordings.append(recording)
-    recordings.sort(key=lambda r: (r.get("name"), r.get("mbid")))
+    recordings.sort(key=lambda r: r.get("name", r.get("mbid", "")))
 
     user_metadata = (
         db.session.query(
