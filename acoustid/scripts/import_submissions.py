@@ -30,13 +30,16 @@ def do_import(script: Script, limit: int = 100) -> int:
             timeout_ms = 20 * 1000
             ingest_db.execute(text("SET LOCAL enable_seqscan TO off"))
             ingest_db.execute(
-                text("SET LOCAL statement_timeout TO :timeout"), {"timeout": timeout_ms}
+                text("SET LOCAL statement_timeout TO :timeout"),
+                {"timeout": timeout_ms},
             )
             app_db.execute(
-                text("SET LOCAL statement_timeout TO :timeout"), {"timeout": timeout_ms}
+                text("SET LOCAL statement_timeout TO :timeout"),
+                {"timeout": timeout_ms},
             )
             fingerprint_db.execute(
-                text("SET LOCAL statement_timeout TO :timeout"), {"timeout": timeout_ms}
+                text("SET LOCAL statement_timeout TO :timeout"),
+                {"timeout": timeout_ms},
             )
 
             count = import_queued_submissions(

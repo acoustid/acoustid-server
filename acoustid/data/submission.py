@@ -30,7 +30,7 @@ from acoustid.data.track import (
     insert_track_meta,
     merge_tracks,
 )
-from acoustid.db import AppDB, FingerprintDB, IngestDB
+from acoustid.db import AppDB, FingerprintDB, IngestDB, pg_try_advisory_xact_lock
 from acoustid.indexclient import IndexClientPool
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,22 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     """
     Import the given submission into the main fingerprint database
     """
+
+    if not pg_try_advisory_xact_lock(
+        ingest_db, "import.fp", str(submission["fingerprint"])
+    ):
+        logger.info(
+            "Skipping import of submission %d because a related submission is being imported (will be retried)",
+            submission["id"],
+        )
+        return None
+
+    if not pg_try_advisory_xact_lock(ingest_db, "import.mbid", str(submission["mbid"])):
+        logger.info(
+            "Skipping import of submission %d because a related submission is being imported (will be retried)",
+            submission["id"],
+        )
+        return None
 
     handled_at = datetime.datetime.now(pytz.utc)
 
@@ -285,8 +301,11 @@ def import_queued_submissions(
         query = query.limit(limit)
     count = 0
     for submission in ingest_db.execute(query):
-        import_submission(ingest_db, app_db, fingerprint_db, index, submission._mapping)
-        count += 1
+        result = import_submission(
+            ingest_db, app_db, fingerprint_db, index, submission._mapping
+        )
+        if result is not None:
+            count += 1
     return count
 
 
