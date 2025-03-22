@@ -67,18 +67,14 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     Import the given submission into the main fingerprint database
     """
 
-    if not pg_try_advisory_xact_lock(
-        ingest_db, "import.fp", str(submission["fingerprint"])
-    ):
+    if not pg_try_advisory_xact_lock(ingest_db, "import.fp", str(submission["fingerprint"])):
         logger.info(
             "Skipping import of submission %d because a related submission is being imported (will be retried)",
             submission["id"],
         )
         return None
 
-    if not pg_try_advisory_xact_lock(
-        ingest_db, "import.mbid", submission["mbid"] or ""
-    ):
+    if not pg_try_advisory_xact_lock(ingest_db, "import.mbid", str(submission["mbid"])):
         logger.info(
             "Skipping import of submission %d because a related submission is being imported (will be retried)",
             submission["id"],
