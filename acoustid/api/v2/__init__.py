@@ -905,7 +905,7 @@ class SubmitHandlerParams(APIHandlerParams):
         p["duration"] = values.get("duration" + suffix, type=int)
         if p["duration"] is None:
             raise errors.MissingParameterError("duration" + suffix)
-        if p["duration"] <= 0 or p["duration"] > 0x7FFF:
+        if p["duration"] <= 0 or p["duration"] > 0x7FFFFFFF:
             raise errors.InvalidDurationError("duration" + suffix)
         p["format"] = values.get("fileformat" + suffix)
 
