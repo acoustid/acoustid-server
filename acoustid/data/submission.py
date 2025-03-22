@@ -76,12 +76,15 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         )
         return None
 
-    if not pg_try_advisory_xact_lock(ingest_db, "import.mbid", str(submission["mbid"])):
-        logger.info(
-            "Skipping import of submission %d because a related submission is being imported (will be retried)",
-            submission["id"],
-        )
-        return None
+    if submission["mbid"]:
+        if not pg_try_advisory_xact_lock(
+            ingest_db, "import.mbid", str(submission["mbid"])
+        ):
+            logger.info(
+                "Skipping import of submission %d because a related submission is being imported (will be retried)",
+                submission["id"],
+            )
+            return None
 
     handled_at = datetime.datetime.now(pytz.utc)
 
@@ -301,11 +304,8 @@ def import_queued_submissions(
         query = query.limit(limit)
     count = 0
     for submission in ingest_db.execute(query):
-        result = import_submission(
-            ingest_db, app_db, fingerprint_db, index, submission._mapping
-        )
-        if result is not None:
-            count += 1
+        import_submission(ingest_db, app_db, fingerprint_db, index, submission._mapping)
+        count += 1
     return count
 
 
