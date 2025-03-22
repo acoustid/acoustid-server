@@ -19,7 +19,7 @@ logger = logging.getLogger(__file__)
 def do_import(script: Script, limit: int = 100) -> int:
     total_count = 0
     count = 1
-    while count > 0 and count < limit:
+    while count > 0 and total_count < limit:
         with script.context() as ctx:
             if ctx.statsd is not None:
                 ctx.statsd.incr("importer_running", 1)
