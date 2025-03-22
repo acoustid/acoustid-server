@@ -171,7 +171,8 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
                     fingerprint["track_id"] = m.track_id
                     if m.score > const.FINGERPRINT_MERGE_THRESHOLD:
                         fingerprint["id"] = m.fingerprint_id
-        if len(possible_track_ids) > 1:
+        # TODO fix merge_tracks to not delete track_mbid rows and then enable it
+        if len(possible_track_ids) > 1 and False:
             for group in can_merge_tracks(fingerprint_db, possible_track_ids):
                 if fingerprint["track_id"] in group and len(group) > 1:
                     fingerprint["track_id"] = min(group)
