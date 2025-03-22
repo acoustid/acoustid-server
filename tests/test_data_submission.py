@@ -3,6 +3,7 @@
 
 import uuid
 
+import pytest
 from sqlalchemy import select, text
 
 from acoustid import const, tables
@@ -507,6 +508,7 @@ def test_import_submission_new_track_different(ctx):
     assert 5 == fingerprint["track_id"]
 
 
+@pytest.mark.skip(reason="Temporarily disabled track merges")
 @with_script_context
 def test_import_submission_merge_existing_tracks(ctx):
     # type: (ScriptContext) -> None
