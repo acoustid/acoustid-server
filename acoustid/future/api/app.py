@@ -2,13 +2,12 @@ import asyncio
 import uuid
 
 import msgspec
+from acoustid_ext.fingerprint import decode_legacy_fingerprint, simhash
 from msgspec import ValidationError
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
-
-from acoustid_ext.fingerprint import decode_legacy_fingerprint, simhash
 
 
 class MsgspecResponse(Response):
@@ -56,9 +55,12 @@ async def handle_submission(request: Request) -> MsgspecResponse:
 
     for submission in req.submissions:
         try:
-            fp = await asyncio.to_thread(decode_legacy_fingerprint, submission.fingerprint)
-        except Exception:
-            raise ValidationError("Invalid fingerprint")
+            fp = await asyncio.to_thread(
+                decode_legacy_fingerprint,
+                submission.fingerprint,
+            )
+        except Exception as e:
+            raise ValidationError("Invalid fingerprint") from e
 
         if fp.version not in ALLOWED_FINGERPRINT_VERSIONS:
             raise ValidationError("Unsupported fingerprint version")
@@ -67,7 +69,6 @@ async def handle_submission(request: Request) -> MsgspecResponse:
             raise ValidationError("Fingerprint too short")
 
         print(simhash(fp.hashes))
-
         print(fp)
 
     return MsgspecResponse(content=SubmissionResponse(submission_id=1))
