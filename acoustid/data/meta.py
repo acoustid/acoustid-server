@@ -4,6 +4,7 @@
 import json
 import logging
 import re
+import time
 import uuid
 from collections import OrderedDict
 from collections.abc import Iterable
@@ -73,7 +74,8 @@ def find_or_insert_meta(
 ) -> tuple[int, uuid.UUID]:
     meta_gid = generate_meta_gid(values)
 
-    retries = 3
+    max_retries = 3
+    retry = 0
     while True:
         meta_id = find_meta_id(conn, meta_gid)
         if meta_id is not None:
@@ -94,12 +96,17 @@ def find_or_insert_meta(
         meta_id = conn.execute(insert_stmt).scalar()
         if meta_id is not None:
             logger.debug(
-                "Inserted meta %d with gid %s and values %r", meta_id, meta_gid, values
+                "Inserted meta %d with gid %s and values %r",
+                meta_id,
+                meta_gid,
+                values,
             )
             return meta_id, meta_gid
 
-        retries -= 1
-        if retries == 0:
+        time.sleep(0.05 * retry)
+
+        retry += 1
+        if retry == max_retries:
             raise RuntimeError("Failed to insert meta")
 
 
