@@ -39,7 +39,10 @@ def find_source_id(
 
 
 def find_or_insert_source(
-    conn: AppDB, application_id: int, account_id: int, version: str | None = None
+    conn: AppDB,
+    application_id: int,
+    account_id: int,
+    version: str | None = None,
 ) -> int:
     """
     Find a source in the database, create it if it doesn't exist yet.
