@@ -35,7 +35,7 @@ def fix_meta(values: dict[str, Any]) -> dict[str, Any]:
 
     for key, value in values.items():
         if isinstance(value, str):
-            values[key] = re.sub(r"(\s+|\x00)", " ", value)
+            values[key] = re.sub(r"(\s|\x00)+", " ", value)
 
     track_no = values.get("track_no", None)
     if track_no:

@@ -13,7 +13,7 @@ from tests import with_script_context
 def test_fix_meta() -> None:
     m = fix_meta({"track": "foo\u0000bar"})
     assert m == {"track": "foo bar"}
-    m = fix_meta({"track": "foo\tbar\nbaz"})
+    m = fix_meta({"track": "foo\tbar\n\r\x00baz"})
     assert m == {"track": "foo bar baz"}
 
 
