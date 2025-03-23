@@ -52,3 +52,9 @@ def decode_legacy_fingerprint(
     base64: Literal[False],
     signed: bool = False,
 ) -> Fingerprint: ...
+
+
+def simhash(
+    hashes: array.array[int],
+    signed: bool = False,
+) -> int: ...

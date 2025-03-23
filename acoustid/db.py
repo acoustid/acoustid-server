@@ -16,9 +16,12 @@ IngestDB = NewType("IngestDB", Connection)
 MusicBrainzDB = NewType("MusicBrainzDB", Connection)
 
 
-def pg_try_advisory_xact_lock(db: Connection, name: str, params: str) -> bool:
+def pg_try_advisory_xact_lock(db: Connection, name: str, params: str | int) -> bool:
     lock_id1 = zlib.crc32(name.encode()) & 0x7FFFFFFF
-    lock_id2 = zlib.crc32(params.encode()) & 0x7FFFFFFF
+    if isinstance(params, int):
+        lock_id2 = params
+    else:
+        lock_id2 = zlib.crc32(params.encode()) & 0x7FFFFFFF
     return db.execute(
         sql.text("SELECT pg_try_advisory_xact_lock(:lock_id1, :lock_id2)"),
         {"lock_id1": lock_id1, "lock_id2": lock_id2},
