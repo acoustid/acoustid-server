@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - prod
     tags:
       - v*
   pull_request:
