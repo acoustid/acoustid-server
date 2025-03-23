@@ -3,7 +3,8 @@ import cython
 from cpython cimport array
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
 from cpython.unicode cimport PyUnicode_AsUTF8String, PyUnicode_FromStringAndSize
-from libc.stdint cimport int32_t, uint8_t, uint32_t
+from libc.math cimport abs
+from libc.stdint cimport int32_t, uint8_t, uint32_t, uint64_t
 
 import array
 from typing import NamedTuple
@@ -345,3 +346,50 @@ def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint
     finally:
         if result_ptr != NULL:
             chromaprint_dealloc(result_ptr)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def simhash(array.array hashes, bint signed = False):
+    """
+    Compute SimHash of a set of fingerprint hashes.
+
+    Args:
+        hashes: An array.array of 32-bit unsigned integers representing fingerprint hashes
+        signed: Whether the result should be signed or unsigned
+        
+    Returns:
+        A 32-bit signed or unsigned integer SimHash value
+    """
+    if hashes.typecode not in ('I', 'i'):
+        raise TypeError("features must be an array of integers")
+        
+    cdef int i, j, n
+    cdef uint32_t h
+    cdef uint32_t[32] v
+    cdef uint32_t result = 0
+    cdef uint32_t threshold
+    
+    n = len(hashes)
+    threshold = n // 2
+
+    with nogil:
+        # Initialize vector
+        for i in range(32):
+            v[i] = 0
+
+        # Compute aggregated bit counts for each bit position
+        for i in range(n):
+            h = hashes.data.as_uints[i]
+            for j in range(32):
+                v[j] += (h >> j) & 1
+
+        # Compute final SimHash value
+        for i in range(32):
+            if v[i] > threshold:
+                result |= (1 << i)
+
+    if signed:
+        return <int32_t>result
+    else:
+        return result

@@ -1,12 +1,14 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import array
 import datetime
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 import pytz
+from acoustid_ext.fingerprint import simhash
 from sqlalchemy import RowMapping, sql
 
 from acoustid import const
@@ -67,9 +69,8 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     Import the given submission into the main fingerprint database
     """
 
-    if not pg_try_advisory_xact_lock(
-        ingest_db, "import.fp", str(submission["fingerprint"])
-    ):
+    fingerprint_hash = simhash(array.array("i", submission["fingerprint"]), signed=True)
+    if not pg_try_advisory_xact_lock(ingest_db, "import.fp", fingerprint_hash):
         logger.info(
             "Skipping import of submission %d because a related submission is being imported (will be retried)",
             submission["id"],
