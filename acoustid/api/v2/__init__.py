@@ -36,7 +36,7 @@ from acoustid.data.fingerprint import (
     FingerprintSearcher,
     decode_fingerprint,
 )
-from acoustid.data.meta import lookup_meta
+from acoustid.data.meta import fix_meta, lookup_meta
 from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.stats import update_lookup_counter, update_user_agent_counter
 from acoustid.data.submission import insert_submission, lookup_submission_status
@@ -997,7 +997,7 @@ class SubmitHandler(APIHandler):
                 }
                 meta_values = dict((n, p[n]) for n in self.meta_fields if p[n])
                 if any(meta_values.values()):
-                    values["meta"] = meta_values
+                    values["meta"] = fix_meta(meta_values)
                 if p["foreignid"]:
                     values["foreignid"] = p["foreignid"]
                 if (
