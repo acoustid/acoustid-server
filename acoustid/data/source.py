@@ -72,7 +72,7 @@ def find_or_insert_source(
         if source_id is not None:
             logger.info(
                 "Inserted source %d with account %d and application %d (%s)",
-                id,
+                source_id,
                 account_id,
                 application_id,
                 version,
