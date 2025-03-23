@@ -368,8 +368,10 @@ def simhash(array.array hashes, bint signed = False):
     cdef uint32_t h
     cdef uint32_t[32] v
     cdef uint32_t result = 0
+    cdef uint32_t threshold
     
     n = len(hashes)
+    threshold = n // 2
 
     with nogil:
         # Initialize vector
@@ -384,7 +386,7 @@ def simhash(array.array hashes, bint signed = False):
 
         # Compute final SimHash value
         for i in range(32):
-            if v[i] > n / 2:
+            if v[i] > threshold:
                 result |= (1 << i)
 
     if signed:
