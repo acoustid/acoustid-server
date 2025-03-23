@@ -3,9 +3,16 @@
 
 import uuid
 
-from acoustid.data.meta import generate_meta_gid, insert_meta
+from acoustid.data.meta import fix_meta, generate_meta_gid, insert_meta
 from acoustid.script import ScriptContext
 from tests import with_script_context
+
+
+def test_fix_meta() -> None:
+    m = fix_meta({"track": "foo\u0000bar"})
+    assert m == {"track": "foo bar"}
+    m = fix_meta({"track": "foo\tbar\n\r\x00baz"})
+    assert m == {"track": "foo bar baz"}
 
 
 def test_generate_meta_gid() -> None:

@@ -3,6 +3,7 @@
 
 import json
 import logging
+import re
 import uuid
 from collections import OrderedDict
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -29,16 +30,22 @@ meta_gid_ns = uuid.UUID("3b3bd228-5d2c-11ea-b498-60f67731bf41")
 
 
 def fix_meta(values):
+    values = dict(values)
+
+    for key, value in values.items():
+        if isinstance(value, str):
+            values[key] = re.sub(r"(\s|\x00)+", " ", value)
+
     track_no = values.get("track_no", None)
     if track_no:
         if track_no > 10000:
-            values = dict(values)
             del values["track_no"]
+
     disc_no = values.get("disc_no", None)
     if disc_no:
         if disc_no > 10000:
-            values = dict(values)
             del values["disc_no"]
+
     return values
 
 
@@ -52,10 +59,7 @@ def generate_meta_gid(values):
     content_hash_source = json.dumps(
         content_hash_items, ensure_ascii=False, separators=(",", ":")
     )
-    if six.PY2:
-        return uuid.uuid5(meta_gid_ns, content_hash_source.encode("utf8"))
-    else:
-        return uuid.uuid5(meta_gid_ns, content_hash_source)
+    return uuid.uuid5(meta_gid_ns, content_hash_source)
 
 
 def find_or_insert_meta(conn, values):
