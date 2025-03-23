@@ -11,6 +11,7 @@ from typing import Any
 
 import six
 from sqlalchemy import sql
+from sqlalchemy.dialects.postgresql import insert
 
 from acoustid import tables as schema
 from acoustid.db import FingerprintDB
@@ -62,16 +63,44 @@ def generate_meta_gid(values: dict[str, Any]) -> uuid.UUID:
     return uuid.uuid5(meta_gid_ns, content_hash_source)
 
 
+def find_meta_id(conn: FingerprintDB, gid: uuid.UUID) -> int | None:
+    query = sql.select(schema.meta.c.id).where(schema.meta.c.gid == gid)
+    return conn.execute(query).scalar()
+
+
 def find_or_insert_meta(
     conn: FingerprintDB, values: dict[str, Any]
 ) -> tuple[int, uuid.UUID]:
-    gid = generate_meta_gid(values)
-    query = sql.select(schema.meta.c.id).where(schema.meta.c.gid == gid)
-    row = conn.execute(query).first()
-    if row is None:
-        values["gid"] = gid
-        return insert_meta(conn, values)
-    return row[0], gid
+    meta_gid = generate_meta_gid(values)
+
+    retries = 3
+    while True:
+        meta_id = find_meta_id(conn, meta_gid)
+        if meta_id is not None:
+            return meta_id, meta_gid
+
+        insert_stmt = (
+            insert(schema.meta)
+            .values(
+                gid=meta_gid,
+                created=sql.func.current_timestamp(),
+                **values,
+            )
+            .on_conflict_do_nothing(
+                index_elements=[schema.meta.c.gid],
+            )
+            .returning(schema.meta.c.id)
+        )
+        meta_id = conn.execute(insert_stmt).scalar()
+        if meta_id is not None:
+            logger.debug(
+                "Inserted meta %d with gid %s and values %r", meta_id, meta_gid, values
+            )
+            return meta_id, meta_gid
+
+        retries -= 1
+        if retries == 0:
+            raise RuntimeError("Failed to insert meta")
 
 
 def insert_meta(conn: FingerprintDB, values: dict[str, Any]) -> tuple[int, uuid.UUID]:
