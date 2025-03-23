@@ -24,7 +24,10 @@ def get_source(conn: AppDB, id: int) -> dict[str, Any] | None:
 
 
 def find_source_id(
-    conn: AppDB, application_id: int, account_id: int, version: str | None = None
+    conn: AppDB,
+    application_id: int,
+    account_id: int,
+    version: str | None = None,
 ) -> int | None:
     query = sql.select(
         schema.source.c.id,
