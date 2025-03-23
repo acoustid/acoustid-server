@@ -30,7 +30,9 @@ dependencies = [
     "sentry-sdk[flask]>=2.22.0",
     "six",
     "sqlalchemy>=2,<3",
+    "starlette>=0.46.1",
     "statsd",
+    "uvicorn[standard]>=0.34.0",
     "zstd>=1.5.6.6",
 ]
 
