@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 
 import pytest
 
@@ -14,6 +15,7 @@ def config_file() -> str:
 
 @pytest.fixture(scope="session", autouse=True)
 def setup(config_file: str):
-    tests.setup(config_file)
-    yield
-    tests.teardown()
+    with mock.patch("acoustid.data.fingerprint.SEARCH_ONLY_IN_DATABASE", True):
+        tests.setup(config_file)
+        yield
+        tests.teardown()
