@@ -1,7 +1,12 @@
 import array
 
 import pytest
-from acoustid_ext.fingerprint import decode_fingerprint, encode_fingerprint, simhash
+from acoustid_ext.fingerprint import (
+    compute_shingled_simhashes,
+    compute_simhash,
+    decode_fingerprint,
+    encode_fingerprint,
+)
 
 from tests import (
     TEST_1A_FP_RAW,
@@ -64,7 +69,7 @@ def test_decode_fingerprint_namedtuple() -> None:
     assert fp.version == 99
 
 
-def test_simhash() -> None:
+def test_compute_simhash() -> None:
     fp_1a = array.array("i", TEST_1A_FP_RAW)
     fp_1b = array.array("i", TEST_1B_FP_RAW)
     fp_1c = array.array("i", TEST_1C_FP_RAW)
@@ -72,14 +77,44 @@ def test_simhash() -> None:
     fp_2 = array.array("i", TEST_2_FP_RAW)
 
     sh_1 = [
-        simhash(fp_1a),
-        simhash(fp_1b),
-        simhash(fp_1c),
-        simhash(fp_1d),
+        compute_simhash(fp_1a),
+        compute_simhash(fp_1b),
+        compute_simhash(fp_1c),
+        compute_simhash(fp_1d),
     ]
-    sh_2 = simhash(fp_2)
+    sh_2 = compute_simhash(fp_2)
 
     for i in range(len(sh_1)):
         for j in range(i + 1, len(sh_1)):
             assert sh_1[i] == sh_1[j], f"{i} vs {j}"
         assert sh_1[i] != sh_2, f"{i} vs different song"
+
+
+def test_compute_shingled_simhashes() -> None:
+    fp_1a = array.array("i", TEST_1A_FP_RAW)
+    fp_1b = array.array("i", TEST_1B_FP_RAW)
+    fp_1c = array.array("i", TEST_1C_FP_RAW)
+    fp_1d = array.array("i", TEST_1D_FP_RAW)
+    fp_2 = array.array("i", TEST_2_FP_RAW)
+
+    shingle_size = 120
+    step = 90
+
+    sh_1 = [
+        compute_shingled_simhashes(fp_1a, shingle_size=shingle_size, step=step),
+        compute_shingled_simhashes(fp_1b, shingle_size=shingle_size, step=step),
+        compute_shingled_simhashes(fp_1c, shingle_size=shingle_size, step=step),
+        compute_shingled_simhashes(fp_1d, shingle_size=shingle_size, step=step),
+    ]
+    sh_2 = compute_shingled_simhashes(fp_2, shingle_size=shingle_size, step=step)
+
+    for i in range(len(sh_1)):
+        for j in range(i + 1, len(sh_1)):
+            print(f"{i} vs {j}")
+            print(sh_1[i])
+            print(sh_1[j])
+            matches = set(sh_1[i]) & set(sh_1[j])
+            assert matches, f"{i} vs {j}"
+
+        matches = set(sh_1[i]) & set(sh_2)
+        assert len(matches) == 0, f"{i} vs different song"
