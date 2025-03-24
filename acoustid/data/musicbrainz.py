@@ -6,7 +6,7 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
-from sqlalchemy import sql
+from sqlalchemy import String, sql
 
 from acoustid import tables as schema
 from acoustid.db import MusicBrainzDB
@@ -35,7 +35,7 @@ def _load_artists(
         schema.mb_artist_credit_name.c.name,
         schema.mb_artist_credit_name.c.artist_credit,
         schema.mb_artist_credit_name.c.join_phrase,
-        schema.mb_artist.c.gid,
+        sql.cast(schema.mb_artist.c.gid, String).label("artist_id"),
     ]
     query = (
         sql.select(*columns)
@@ -49,7 +49,7 @@ def _load_artists(
     result: dict[int, list[dict[str, Any]]] = {}
     for row in conn.execute(query):
         ac_data = {
-            "id": str(row.gid),
+            "id": row.artist_id,
             "name": row.name,
         }
         if row.join_phrase:
@@ -161,7 +161,7 @@ def _load_release_groups(
     condition = schema.mb_release_group.c.id.in_(release_group_ids)
     columns = [
         schema.mb_release_group.c.id.label("release_group_rid"),
-        schema.mb_release_group.c.gid.label("release_group_id"),
+        sql.cast(schema.mb_release_group.c.gid, String).label("release_group_id"),
         schema.mb_release_group.c.name.label("release_group_title"),
         schema.mb_release_group.c.artist_credit.label("release_group_artist_credit"),
         schema.mb_release_group_primary_type.c.name.label("release_group_primary_type"),
@@ -171,7 +171,7 @@ def _load_release_groups(
     result: dict[int, dict[str, Any]] = {}
     for row in conn.execute(query):
         result[row.release_group_rid] = {
-            "release_group_id": str(row.release_group_id),
+            "release_group_id": row.release_group_id,
             "release_group_title": row.release_group_title,
             "release_group_artist_credit": row.release_group_artist_credit,
             "release_group_primary_type": row.release_group_primary_type,
@@ -191,7 +191,7 @@ def lookup_metadata(
         return []
     src = schema.mb_recording
     columns = [
-        schema.mb_recording.c.gid.label("recording_id"),
+        sql.cast(schema.mb_recording.c.gid, String).label("recording_id"),
         schema.mb_recording.c.artist_credit.label("recording_artist_credit"),
         schema.mb_recording.c.name.label("recording_title"),
         (schema.mb_recording.c.length / 1000).label("recording_duration"),
@@ -212,7 +212,7 @@ def lookup_metadata(
         )
         columns.extend(
             [
-                schema.mb_track.c.gid.label("track_id"),
+                sql.cast(schema.mb_track.c.gid, String).label("track_id"),
                 schema.mb_track.c.position.label("track_position"),
                 schema.mb_track.c.name.label("track_title"),
                 schema.mb_track.c.artist_credit.label("track_artist_credit"),
@@ -222,7 +222,7 @@ def lookup_metadata(
                 schema.mb_medium.c.name.label("medium_title"),
                 schema.mb_medium_format.c.name.label("medium_format"),
                 schema.mb_release.c.id.label("release_rid"),
-                schema.mb_release.c.gid.label("release_id"),
+                sql.cast(schema.mb_release.c.gid, String).label("release_id"),
                 schema.mb_release.c.name.label("release_title"),
                 schema.mb_release.c.artist_credit.label("release_artist_credit"),
                 schema.mb_release.c.release_group.label("release_group_rid"),
@@ -236,8 +236,6 @@ def lookup_metadata(
     release_group_ids = set()
     for row in conn.execute(query):
         r = dict(row._mapping)
-        r["release_id"] = str(r["release_id"])
-        r["recording_id"] = str(r["recording_id"])
         results.append(r)
         artist_credit_ids.add(row.recording_artist_credit)
         if load_releases:
