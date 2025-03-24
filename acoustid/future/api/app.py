@@ -9,6 +9,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
 
+from .handlers.monitoring import handle_health
+
 
 class MsgspecResponse(Response):
     media_type = "application/json"
@@ -82,6 +84,7 @@ def create_app() -> Starlette:
     app = Starlette(
         routes=[
             Route("/v3/submission", handle_submission, methods=["POST"]),
+            Route("/health", handle_health, methods=["GET"]),
         ],
         exception_handlers={
             ValidationError: handle_validation_error,
