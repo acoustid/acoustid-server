@@ -2,7 +2,7 @@ import asyncio
 import uuid
 
 import msgspec
-from acoustid_ext.fingerprint import decode_legacy_fingerprint, simhash
+from acoustid_ext.fingerprint import compute_simhash, decode_legacy_fingerprint
 from msgspec import ValidationError
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -70,7 +70,7 @@ async def handle_submission(request: Request) -> MsgspecResponse:
         if len(fp.hashes) < 10:
             raise ValidationError("Fingerprint too short")
 
-        print(simhash(fp.hashes))
+        print(compute_simhash(fp.hashes))
         print(fp)
 
     return MsgspecResponse(content=SubmissionResponse(submission_id=1))
