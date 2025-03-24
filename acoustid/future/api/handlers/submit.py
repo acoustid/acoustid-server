@@ -2,14 +2,11 @@ import asyncio
 import uuid
 
 import msgspec
-from acoustid_ext.fingerprint import (
-    FingerprintError,
-    compute_simhash,
-    decode_legacy_fingerprint,
-)
 from msgspec import ValidationError
 from starlette.requests import Request
 from starlette.responses import Response
+
+from acoustid.fingerprint import FingerprintError, FingerprintInfo, process_fingerprint
 
 from ..utils import MsgspecResponse
 
@@ -53,10 +50,12 @@ async def handle_submit(request: Request) -> Response:
 
     response = SubmissionResponse()
 
+    fingerprints: list[FingerprintInfo] = []
+
     for submission in req.submissions:
         try:
             fp = await asyncio.to_thread(
-                decode_legacy_fingerprint,
+                process_fingerprint,
                 submission.fingerprint,
             )
         except FingerprintError as e:
@@ -68,8 +67,10 @@ async def handle_submit(request: Request) -> Response:
         if len(fp.hashes) < 10:
             raise ValidationError("Fingerprint too short")
 
-        print(compute_simhash(fp.hashes))
-        print(fp)
+        fingerprints.append(fp)
+
+    for submission, fp in zip(req.submissions, fingerprints):
+        _ = fp
         response.submissions.append(SubmissionStatus(submission_id=1, status="pending"))
 
     return MsgspecResponse(response)

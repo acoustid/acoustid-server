@@ -1,5 +1,16 @@
+import array
+import struct
+import uuid
+from dataclasses import dataclass
+
 import zstd
-from acoustid_ext.fingerprint import decode_fingerprint, encode_fingerprint
+from acoustid_ext.fingerprint import (
+    FingerprintError,
+    compute_simhash,
+    decode_fingerprint,
+    decode_legacy_fingerprint,
+    encode_fingerprint,
+)
 
 
 def to_unsigned(hashes: list[int]) -> list[int]:
@@ -108,3 +119,29 @@ def decompress_fingerprint(
 
     hashes, version = decode_fingerprint(data, signed)
     return list(hashes), version
+
+
+@dataclass
+class FingerprintInfo:
+    version: int
+    hashes: array.array[int]
+    gid: uuid.UUID
+    simhash: int
+
+
+FINGERPRINT_GID_NS = uuid.UUID("df7bef46-416e-4c57-a877-39b54325ef03")
+
+
+def compute_fingerprint_gid(version: int, hashes: array.array[int]) -> uuid.UUID:
+    data = struct.pack("<I", version) + hashes.tobytes()
+    return uuid.uuid5(FINGERPRINT_GID_NS, data)
+
+
+def process_fingerprint(fp_str: str) -> FingerprintInfo:
+    fp = decode_legacy_fingerprint(fp_str, signed=True)
+    return FingerprintInfo(
+        version=fp.version,
+        hashes=fp.hashes,
+        gid=compute_fingerprint_gid(fp.version, fp.hashes),
+        simhash=compute_simhash(fp.hashes),
+    )
