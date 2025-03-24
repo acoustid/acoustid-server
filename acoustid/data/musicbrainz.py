@@ -49,7 +49,7 @@ def _load_artists(
     result: dict[int, list[dict[str, Any]]] = {}
     for row in conn.execute(query):
         ac_data = {
-            "id": row.gid,
+            "id": str(row.gid),
             "name": row.name,
         }
         if row.join_phrase:
@@ -171,7 +171,7 @@ def _load_release_groups(
     result: dict[int, dict[str, Any]] = {}
     for row in conn.execute(query):
         result[row.release_group_rid] = {
-            "release_group_id": row.release_group_id,
+            "release_group_id": str(row.release_group_id),
             "release_group_title": row.release_group_title,
             "release_group_artist_credit": row.release_group_artist_credit,
             "release_group_primary_type": row.release_group_primary_type,
@@ -235,7 +235,10 @@ def lookup_metadata(
     release_ids = set()
     release_group_ids = set()
     for row in conn.execute(query):
-        results.append(dict(row._mapping))
+        r = dict(row._mapping)
+        r["release_id"] = str(r["release_id"])
+        r["recording_id"] = str(r["recording_id"])
+        results.append(r)
         artist_credit_ids.add(row.recording_artist_credit)
         if load_releases:
             release_ids.add(row.release_rid)
