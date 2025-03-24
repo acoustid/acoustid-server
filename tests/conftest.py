@@ -15,7 +15,7 @@ def config_file() -> str:
 
 @pytest.fixture(scope="session", autouse=True)
 def setup(config_file: str):
-    with mock.patch("acoustid.data.fingerprint.SEARCH_ONLY_IN_DATABASE", True):
+    with mock.patch("acoustid.data.fingerprint.SEARCH_ONLY_IN_DATABASE", value=True):
         tests.setup(config_file)
         yield
         tests.teardown()

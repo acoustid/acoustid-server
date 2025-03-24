@@ -851,8 +851,6 @@ class LookupHandler(APIHandler):
             if params.meta and result_map:
                 self.inject_metadata(params.meta, result_map)
 
-        print(response)
-
         if statsd is not None:
             statsd.send()
 

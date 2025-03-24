@@ -271,7 +271,6 @@ class FingerprintSearcher(object):
             raise
 
         matches = [FingerprintMatch(*result) for result in results]
-        print(query, matches)
         return matches
 
     def search(
