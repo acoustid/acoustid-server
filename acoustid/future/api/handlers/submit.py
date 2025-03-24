@@ -3,6 +3,7 @@ import uuid
 
 import msgspec
 from msgspec import ValidationError
+from starlette.authentication import requires
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -44,6 +45,7 @@ class SubmissionResponse(msgspec.Struct):
 ALLOWED_FINGERPRINT_VERSIONS = frozenset({1})
 
 
+@requires(["app", "user"])
 async def handle_submit(request: Request) -> Response:
     body = await request.body()
     req = msgspec.json.decode(body, type=SubmissionRequest)
