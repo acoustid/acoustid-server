@@ -348,9 +348,44 @@ def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint
             chromaprint_dealloc(result_ptr)
 
 
+cdef uint32_t _compute_simhash_nogil(uint32_t* hashes, int n) nogil noexcept:
+    """
+    Compute SimHash of a set of fingerprint hashes.
+    
+    Args:
+        hashes: Pointer to an array of 32-bit unsigned integers
+        n: Number of hashes in the array
+        
+    Returns:
+        A 32-bit unsigned integer SimHash value
+    """
+    cdef int i, j
+    cdef uint32_t h
+    cdef uint32_t[32] v
+    cdef uint32_t result = 0
+    cdef uint32_t threshold = n // 2
+
+    # Initialize vector
+    for i in range(32):
+        v[i] = 0
+
+    # Compute aggregated bit counts for each bit position
+    for i in range(n):
+        h = hashes[i]
+        for j in range(32):
+            v[j] += (h >> j) & 1
+
+    # Compute final SimHash value
+    for i in range(32):
+        if v[i] > threshold:
+            result |= (1 << i)
+
+    return result
+
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def simhash(array.array hashes, bint signed = False):
+def compute_simhash(array.array hashes, bint signed = False):
     """
     Compute SimHash of a set of fingerprint hashes.
 
@@ -363,33 +398,73 @@ def simhash(array.array hashes, bint signed = False):
     """
     if hashes.typecode not in ('I', 'i'):
         raise TypeError("features must be an array of integers")
-        
-    cdef int i, j, n
-    cdef uint32_t h
-    cdef uint32_t[32] v
-    cdef uint32_t result = 0
-    cdef uint32_t threshold
-    
-    n = len(hashes)
-    threshold = n // 2
+
+    cdef int n = len(hashes)
+    cdef uint32_t result
 
     with nogil:
-        # Initialize vector
-        for i in range(32):
-            v[i] = 0
-
-        # Compute aggregated bit counts for each bit position
-        for i in range(n):
-            h = hashes.data.as_uints[i]
-            for j in range(32):
-                v[j] += (h >> j) & 1
-
-        # Compute final SimHash value
-        for i in range(32):
-            if v[i] > threshold:
-                result |= (1 << i)
+        result = _compute_simhash_nogil(hashes.data.as_uints, n)
 
     if signed:
         return <int32_t>result
     else:
         return result
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def compute_shingled_simhashes(array.array hashes, int shingle_size, int step, bint signed=False):
+    """
+    Compute SimHashes for overlapping shingles of fingerprint hashes.
+    
+    Args:
+        hashes: An array.array of 32-bit unsigned integers representing fingerprint hashes
+        shingle_size: Size of each shingle (window)
+        step: Step size between consecutive shingles
+        signed: Whether the result should be signed or unsigned
+        
+    Returns:
+        An array.array of 32-bit SimHash values
+    """
+    if hashes.typecode not in ('I', 'i'):
+        raise TypeError("hashes must be an array of integers")
+
+    if shingle_size <= 0:
+        raise ValueError("shingle_size must be positive")
+    
+    if step <= 0:
+        raise ValueError("step must be positive")
+    
+    cdef int n = len(hashes)
+    cdef int num_shingles
+    
+    if n == 0:
+        num_shingles = 0
+    else:
+        num_shingles = (n + step - 1) // step
+    
+    # Create result array with appropriate type
+    cdef array.array result
+    if signed:
+        result = array.array('i', [0] * num_shingles)
+    else:
+        result = array.array('I', [0] * num_shingles)
+    
+    cdef int i, start_idx, remaining_size
+    cdef uint32_t simhash_value
+    
+    with nogil:
+        for i in range(num_shingles):
+            start_idx = i * step
+            remaining_size = n - start_idx
+            if remaining_size > shingle_size:
+                remaining_size = shingle_size
+                
+            simhash_value = _compute_simhash_nogil(
+                &hashes.data.as_uints[start_idx],
+                remaining_size
+            )
+            
+            result.data.as_uints[i] = simhash_value
+    
+    return result

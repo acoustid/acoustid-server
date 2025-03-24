@@ -50,7 +50,7 @@ def lookup_mbids(conn, track_ids):
     query = query.order_by(schema.track_mbid.c.mbid)
     results = {}  # type: Dict[int, List[Tuple[str, int]]]
     for track_id, mbid, sources in conn.execute(query):
-        results.setdefault(track_id, []).append((mbid, sources))
+        results.setdefault(track_id, []).append((str(mbid), sources))
     return results
 
 

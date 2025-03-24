@@ -191,10 +191,14 @@ def test_apihandler_ws_error_500(ctx):
     assert "500 INTERNAL SERVER ERROR" == resp.status
 
 
-@unittest.skip("disabled")
 @with_script_context
-def test_lookup_handler(ctx):
-    # type: (ScriptContext) -> None
+def test_lookup_handler(ctx: ScriptContext) -> None:
+    from mbdata.sample_data import create_sample_data
+    from sqlalchemy.orm import Session
+
+    create_sample_data(Session(ctx.db.get_fingerprint_db()))
+    ctx.db.session.commit()
+
     values = {
         "format": "json",
         "client": "app1key",
@@ -202,7 +206,7 @@ def test_lookup_handler(ctx):
         "fingerprint": TEST_1_FP,
     }
     builder = EnvironBuilder(method="POST", data=values)
-    handler = LookupHandler(ctx)
+
     # no matches
     handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
@@ -210,15 +214,18 @@ def test_lookup_handler(ctx):
     expected = {"status": "ok", "results": []}  # type: Dict[str, Any]
     assert_json_equals(expected, resp.data)
     assert "200 OK" == resp.status
+
     # one exact match
     prepare_database(
-        ctx,
+        ctx.db.get_fingerprint_db(),
         """
 INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
-    VALUES (%s, %s, 1, 1);
+    VALUES (:length, :fp, 1, 1);
 """,
-        (TEST_1_LENGTH, TEST_1_FP_RAW),
+        {"length": TEST_1_LENGTH, "fp": TEST_1_FP_RAW},
     )
+    ctx.db.session.commit()
+
     handler = LookupHandler(ctx)
     resp = handler.handle(Request(builder.get_environ()))
     assert "application/json; charset=UTF-8" == resp.content_type
@@ -233,6 +240,7 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     }
     assert_json_equals(expected, resp.data)
     assert "200 OK" == resp.status
+
     # one exact match with MBIDs
     values = {
         "format": "json",
@@ -257,11 +265,13 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
     }
     assert_json_equals(expected, resp.data)
     assert "200 OK" == resp.status
+
     # one exact match with MBIDs and metadata
     prepare_database(
-        ctx,
-        "INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '373e6728-35e3-4633-aab1-bf7092ec43d8', 1)",
+        ctx.db.get_fingerprint_db(),
+        "INSERT INTO track_mbid (track_id, mbid, submission_count) VALUES (1, '7853bd8c-2141-4b4d-9f62-578bab214ab9', 1)",
     )
+    ctx.db.session.commit()
     values = {
         "format": "json",
         "client": "app1key",
@@ -281,69 +291,50 @@ INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
                 "score": 1.0,
                 "recordings": [
                     {
-                        "id": "373e6728-35e3-4633-aab1-bf7092ec43d8",
-                    },
-                    {
-                        "id": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
-                        "duration": 123,
+                        "id": "7853bd8c-2141-4b4d-9f62-578bab214ab9",
+                        "duration": 367.0,
                         "tracks": [
                             {
-                                "title": "Track A",
-                                "duration": 123,
-                                "position": 1,
-                                "medium": {
-                                    "track_count": 2,
-                                    "position": 1,
-                                    "format": "DVD",
-                                    "release": {
-                                        "id": "1d4d546f-e2ec-4553-8df7-9004298924d5",
-                                        "title": "Album A",
-                                    },
-                                },
+                                "title": "Moon",
+                                "duration": 367.0,
                                 "artists": [
                                     {
-                                        "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
-                                        "name": "Artist A",
+                                        "id": "6edc70bb-c340-4ae6-bdd4-d5fb0c7411de",
+                                        "name": "Alva Noto & Ryuichi Sakamoto",
                                     }
                                 ],
-                            },
-                            {
-                                "title": "Track A",
-                                "duration": 123,
-                                "position": 1,
+                                "position": 5,
                                 "medium": {
-                                    "track_count": 2,
+                                    "track_count": 16,
                                     "position": 1,
+                                    "release": {
+                                        "id": "7643ee96-fe19-4b76-aa9a-e8af7d0e9d73",
+                                        "title": "XVI Reflections on Classical Music",
+                                    },
                                     "format": "CD",
-                                    "release": {
-                                        "id": "dd6c2cca-a0e9-4cc4-9a5f-7170bd098e23",
-                                        "title": "Album A",
-                                    },
                                 },
-                                "artists": [
-                                    {
-                                        "id": "a64796c0-4da4-11e0-bf81-0025225356f3",
-                                        "name": "Artist A",
-                                    }
-                                ],
-                            },
+                            }
                         ],
                     },
+                    {"id": "b81f83ee-4da4-11e0-9ed8-0025225356f3"},
                 ],
             }
         ],
     }
     assert_json_equals(expected, resp.data)
     assert "200 OK" == resp.status
+
     # duplicate fingerprint
     prepare_database(
-        ctx,
+        ctx.db.get_fingerprint_db(),
         """
 INSERT INTO fingerprint (length, fingerprint, track_id, submission_count)
-    VALUES (%s, %s, 1, 1);
+    VALUES (:length, :fingerprint, 1, 1);
 """,
-        (TEST_1_LENGTH, TEST_1_FP_RAW),
+        {"length": TEST_1_LENGTH, "fingerprint": TEST_1_FP_RAW},
     )
+    ctx.db.session.commit()
+
     values = {
         "format": "json",
         "client": "app1key",

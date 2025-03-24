@@ -30,6 +30,8 @@ SELECT f.id, f.track_id, t.gid AS track_gid, score FROM (
 ) f JOIN track t ON f.track_id=t.id WHERE f.score > %(min_score)s ORDER BY f.score DESC, f.id
 """
 
+SEARCH_ONLY_IN_DATABASE = False
+
 
 def decode_fingerprint(data: str) -> list[int] | None:
     """Decode a compressed and base64-encoded fingerprint"""
@@ -218,26 +220,31 @@ class FingerprintSearcher(object):
             max_candidates = 20
             min_score_pct = 10
 
-        with self.index_pool.connect() as index:
-            if not self.fast:
-                max_indexed_fingerprint_id = self._get_max_indexed_fingerprint_id(index)
-
-            try:
-                condition = self._search_index(
-                    fp,
-                    length,
-                    index,
-                    max_candidates=max_candidates,
-                    min_score_pct=min_score_pct,
-                )
-                if condition is not None:
-                    conditions.append(condition)
-            except IndexClientError:
+        if not SEARCH_ONLY_IN_DATABASE:
+            with self.index_pool.connect() as index:
                 if not self.fast:
-                    raise
-                logger.exception("Index search error")
+                    max_indexed_fingerprint_id = self._get_max_indexed_fingerprint_id(
+                        index
+                    )
 
-        if not self.fast:
+                    try:
+                        condition = self._search_index(
+                            fp,
+                            length,
+                            index,
+                            max_candidates=max_candidates,
+                            min_score_pct=min_score_pct,
+                        )
+                        if condition is not None:
+                            conditions.append(condition)
+                    except IndexClientError:
+                        if not self.fast:
+                            raise
+                        logger.exception("Index search error")
+        else:
+            max_indexed_fingerprint_id = 0
+
+        if not self.fast or SEARCH_ONLY_IN_DATABASE:
             condition = self._search_database(fp, length, max_indexed_fingerprint_id)
             if condition is not None:
                 conditions.append(condition)
@@ -251,22 +258,25 @@ class FingerprintSearcher(object):
         query = self._create_search_query(
             length, combined_condition, max_results=max_results, compare_to=fp
         )
+
         if self.timeout:
             timeout_ms = int(self.timeout * 1000)
             self.db.execute(text(f"SET LOCAL statement_timeout TO {timeout_ms}"))
+
         try:
             results = self.db.execute(query)
         except OperationalError as ex:
             if "canceling statement due to statement timeout" in str(ex):
                 return []
             raise
+
         matches = [FingerprintMatch(*result) for result in results]
         return matches
 
     def search(
         self, fp: List[int], length: int, max_results: Optional[int] = None
     ) -> List[FingerprintMatch]:
-        if self.fpstore is not None:
+        if self.fpstore is not None and not SEARCH_ONLY_IN_DATABASE:
             return self._search_via_fpstore(fp, length, max_results)
         else:
             return self._search_directly(fp, length, max_results)

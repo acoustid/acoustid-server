@@ -45,6 +45,7 @@ dev = [
     "mypy",
     "pyflakes",
     "pytest",
+    "pytest-asyncio>=0.25.3",
     "types-pytz>=2025.1.0.20250204",
     "types-redis>=4.6.0.20241004",
     "types-requests>=2.32.0.20250306",
@@ -58,3 +59,6 @@ namespaces = false
 
 [tool.uv.sources]
 acoustid-ext = { path = "libs/acoustid_ext" }
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"

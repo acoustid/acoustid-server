@@ -16,7 +16,7 @@ run_lint() {
 }
 
 run_test() {
-    uv run pytest -vv tests/
+    uv run pytest -vv tests/ acoustid/future/tests/
 }
 
 # Default values

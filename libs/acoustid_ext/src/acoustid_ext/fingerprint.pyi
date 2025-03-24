@@ -54,7 +54,15 @@ def decode_legacy_fingerprint(
 ) -> Fingerprint: ...
 
 
-def simhash(
+def compute_simhash(
     hashes: array.array[int],
     signed: bool = False,
 ) -> int: ...
+
+
+def compute_shingled_simhashes(
+    hashes: array.array[int],
+    shingle_size: int,
+    step: int,
+    signed: bool = False,
+) -> array.array[int]: ...

@@ -346,7 +346,7 @@ class LookupHandler(APIHandler):
         if missing_mbids:
             for mbid in missing_mbids:
                 logger.warning("Missing metadata for MBID %s", mbid)
-                enqueue_task(self.ctx, "merge_missing_mbid", {"mbid": mbid})
+                enqueue_task(self.ctx, "merge_missing_mbid", {"mbid": str(mbid)})
 
     def _inject_recording_ids_internal(self, add=True, add_sources=False):
         # type: (bool, bool) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[int, List[str]]]
@@ -361,7 +361,7 @@ class LookupHandler(APIHandler):
                 res_map[track_id].append(mbid)
                 if add:
                     for result_el in self.el_result[track_id]:
-                        recording = {"id": mbid}  # type: Dict[str, Any]
+                        recording = {"id": str(mbid)}  # type: Dict[str, Any]
                         if add_sources:
                             recording["sources"] = sources
                         result_el.setdefault(self.recordings_name, []).append(recording)
@@ -393,19 +393,20 @@ class LookupHandler(APIHandler):
 
     def extract_recording(self, m, only_id=False):
         # type: (Dict[str, Any], bool) -> Dict[str, Any]
-        recording = {"id": m["recording_id"]}
+        recording: dict[str, Any] = {"id": str(m["recording_id"])}
         if only_id:
             return recording
         recording["title"] = m["recording_title"] or ""
         if m["recording_duration"]:
-            recording["duration"] = m["recording_duration"]
+            recording["duration"] = float(m["recording_duration"])
         if m["recording_artists"]:
             recording["artists"] = m["recording_artists"]
+
         return recording
 
     def extract_release(self, m, only_id=False):
         # type: (Dict[str, Any], bool) -> Dict[str, Any]
-        release = {"id": m["release_id"]}
+        release: dict[str, Any] = {"id": str(m["release_id"])}
         if only_id:
             return release
         release["title"] = m["release_title"] or ""
@@ -436,7 +437,7 @@ class LookupHandler(APIHandler):
 
     def extract_release_group(self, m, only_id=False):
         # type: (Dict[str, Any], bool) -> Dict[str, Any]
-        release_group = {"id": m["release_group_id"]}
+        release_group: dict[str, Any] = {"id": str(m["release_group_id"])}
         if only_id:
             return release_group
         release_group["title"] = m["release_group_title"] or ""
@@ -694,10 +695,10 @@ class LookupHandler(APIHandler):
         for item in metadata:
             if last_recording_id != item["recording_id"]:
                 recording = self.extract_recording(item, True)
-                last_recording_id = recording["id"]
-                for el in el_recording[recording["id"]]:
+                last_recording_id = item["recording_id"]
+                for el in el_recording[last_recording_id]:
                     if item["recording_duration"]:
-                        recording["duration"] = item["recording_duration"]
+                        recording["duration"] = float(item["recording_duration"])
                     recording["tracks"] = []
                     el.update(recording)
         metadata = sorted(
@@ -721,7 +722,7 @@ class LookupHandler(APIHandler):
                 el["tracks"].append(
                     {
                         "title": item["track_title"],
-                        "duration": item["track_duration"],
+                        "duration": float(item["track_duration"]),
                         "artists": item["track_artists"],
                         "position": item["track_position"],
                         "medium": medium,
@@ -745,7 +746,7 @@ class LookupHandler(APIHandler):
             if track_id in seen:
                 continue
             seen.add(track_id)
-            result = {"id": track_gid, "score": score}
+            result = {"id": str(track_gid), "score": score}
             result_map.setdefault(track_id, []).append(result)
             results.append(result)
         return seen
