@@ -79,6 +79,7 @@ async def handle_submission(request: Request) -> MsgspecResponse:
 async def handle_validation_error(request: Request, exc: Exception) -> MsgspecResponse:
     return MsgspecResponse(status_code=400, content=ErrorResponse(error=str(exc)))
 
+
 def create_app() -> Starlette:
     return Starlette(
         routes=[
