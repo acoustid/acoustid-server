@@ -2,7 +2,11 @@ import asyncio
 import uuid
 
 import msgspec
-from acoustid_ext.fingerprint import compute_simhash, decode_legacy_fingerprint
+from acoustid_ext.fingerprint import (
+    FingerprintError,
+    compute_simhash,
+    decode_legacy_fingerprint,
+)
 from msgspec import ValidationError
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -61,7 +65,7 @@ async def handle_submission(request: Request) -> MsgspecResponse:
                 decode_legacy_fingerprint,
                 submission.fingerprint,
             )
-        except Exception as e:
+        except FingerprintError as e:
             raise ValidationError("Invalid fingerprint") from e
 
         if fp.version not in ALLOWED_FINGERPRINT_VERSIONS:
