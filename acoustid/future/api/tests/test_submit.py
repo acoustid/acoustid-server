@@ -31,4 +31,4 @@ def test_submit(client: TestClient) -> None:
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"submission_id": 1}
+    assert response.json() == {"submissions": [{"id": 1, "status": "pending"}]}

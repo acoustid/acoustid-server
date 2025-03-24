@@ -31,12 +31,17 @@ class Submission(msgspec.Struct):
     metadata: Metadata | None = None
 
 
+class SubmissionStatus(msgspec.Struct):
+    submission_id: int = msgspec.field(name="id")
+    status: str
+
+
 class SubmissionRequest(msgspec.Struct):
     submissions: list[Submission]
 
 
 class SubmissionResponse(msgspec.Struct):
-    submission_id: int
+    submissions: list[SubmissionStatus] = msgspec.field(default_factory=list)
 
 
 ALLOWED_FINGERPRINT_VERSIONS = frozenset({1})
@@ -45,6 +50,8 @@ ALLOWED_FINGERPRINT_VERSIONS = frozenset({1})
 async def handle_submit(request: Request) -> Response:
     body = await request.body()
     req = msgspec.json.decode(body, type=SubmissionRequest)
+
+    response = SubmissionResponse()
 
     for submission in req.submissions:
         try:
@@ -63,5 +70,6 @@ async def handle_submit(request: Request) -> Response:
 
         print(compute_simhash(fp.hashes))
         print(fp)
+        response.submissions.append(SubmissionStatus(submission_id=1, status="pending"))
 
-    return MsgspecResponse(content=SubmissionResponse(submission_id=1))
+    return MsgspecResponse(response)
