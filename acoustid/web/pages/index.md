@@ -4,10 +4,10 @@ AcoustID is a project providing complete audio identification
 service, based entirely on open source software.
 
 It consists of a [client library](/chromaprint) for generating
-compact fingerprints from audio files, a large crowd-sourced
+compact fingerprints from audio files, a large crowdsourced
 [database of audio fingerprints](/database), many of which are linked
 to the [MusicBrainz](https://musicbrainz.org) metadata
-database using their [unique identifiers](https://musicbrainz.org/doc/MusicBrainz_Identifier), and an [web service](/webservice)
+database using their [unique identifiers](https://musicbrainz.org/doc/MusicBrainz_Identifier), and a [web service](/webservice)
 that enables applications to quickly search in the fingerprint database.
 
 <div class="row">
