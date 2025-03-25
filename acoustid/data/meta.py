@@ -88,9 +88,7 @@ def find_or_insert_meta(
                 created=sql.func.current_timestamp(),
                 **values,
             )
-            .on_conflict_do_nothing(
-                index_elements=[schema.meta.c.gid],
-            )
+            .on_conflict_do_nothing()  # index_elements=[schema.meta.c.gid],
             .returning(schema.meta.c.id)
         )
         meta_id = conn.execute(insert_stmt).scalar()
