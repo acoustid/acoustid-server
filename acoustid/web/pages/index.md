@@ -3,11 +3,11 @@ Title: Welcome to AcoustID!
 AcoustID is a project providing complete audio identification
 service, based entirely on open source software.
 
-It consists of a [client library][chromaprint] for generating
+It consists of a [client library](/chromaprint) for generating
 compact fingerprints from audio files, a large crowd-sourced
-[database of audio fingerprints][db], many of which are linked
-to the [MusicBrainz][mb] metadata
-database using their [unique identifiers][mbid], and an [web service][webservice]
+[database of audio fingerprints](/database), many of which are linked
+to the [MusicBrainz](https://musicbrainz.org) metadata
+database using their [unique identifiers](https://musicbrainz.org/doc/MusicBrainz_Identifier), and an [web service](/webservice)
 that enables applications to quickly search in the fingerprint database.
 
 <div class="row">
@@ -52,9 +52,3 @@ that enables applications to quickly search in the fingerprint database.
 </div>
 
 </div>
-
-[db]: flask:general.database
-[chromaprint]: flask:general.chromaprint
-[webservice]: flask:general.webservice
-[mb]: //musicbrainz.org/
-[mbid]: //musicbrainz.org/doc/MusicBrainz_Identifier
