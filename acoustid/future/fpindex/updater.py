@@ -102,7 +102,10 @@ async def load_initial_data(conn: asyncpg.Connection) -> None:
             loaded_count += 1
             if loaded_count % 10 == 0:
                 logger.info(
-                    f"Processed {loaded_count}/{total_count} fingerprints ({loaded_count / total_count * 100:.2f}%)"
+                    "Processed %d/%d fingerprints (%.2f%%)",
+                    loaded_count,
+                    total_count,
+                    (loaded_count / total_count * 100),
                 )
 
     logger.info(f"Initial data load complete. Processed {loaded_count} fingerprints.")
