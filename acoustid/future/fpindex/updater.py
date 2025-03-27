@@ -95,12 +95,9 @@ async def load_initial_data(
             """
         )
         loaded_count = 0
-        async for row in cursor:
-            logger.info(
-                "Processing fingerprint %d - %s",
-                row["id"],
-                decode_postgres_array(row["fingerprint"]),
-            )
+        async for fp_id, fp_hashes_str in cursor:
+            fp_hashes = decode_postgres_array(fp_hashes_str)
+            logger.info("UPSERT %s: %s", fp_id, fp_hashes)
             loaded_count += 1
             if loaded_count % 1000 == 0:
                 logger.info(
@@ -162,13 +159,58 @@ async def replicate_from_pg() -> None:
             logger.info("Got %d changes", len(changes))
 
             last_processed_lsn: str | None = None
-            for lsn, xid, data in changes:
-                logger.info(
-                    "LSN: %s, XID: %s, data: %s",
-                    lsn,
-                    xid,
-                    json.dumps(json.loads(data), indent=2),
-                )
+            for lsn, xid, data_json in changes:
+                data = json.loads(data_json)
+                logger.info("LSN: %s, XID: %s, data: %s", lsn, xid, data)
+
+                if data["action"] not in {"I", "U", "D"}:
+                    last_processed_lsn = lsn
+                    continue
+
+                if data["schema"] == "public" and data["table"] == "fingerprint":
+
+                    if data["action"] == "I":
+                        for col in data["columns"]:
+                            if col["name"] == "id":
+                                fp_id = col["value"]
+                                break
+                        else:
+                            raise ValueError("No fingerprint id found")
+
+                        for col in data["columns"]:
+                            if col["name"] == "fingerprint":
+                                fp_hashes = decode_postgres_array(col["value"])
+                                break
+                        else:
+                            raise ValueError("No fingerprint data found")
+
+                        logger.info("UPSERT %s: %s", fp_id, fp_hashes)
+
+                    elif data["action"] == "U":
+                        for col in data["identity"]:
+                            if col["name"] == "id":
+                                fp_id = col["value"]
+                                break
+                        else:
+                            raise ValueError("No fingerprint id found")
+
+                        for col in data["columns"]:
+                            if col["name"] == "fingerprint":
+                                fp_hashes = decode_postgres_array(col["value"])
+                                break
+                        else:
+                            raise ValueError("No fingerprint data found")
+                        logger.info("UPSERT %s: %s", fp_id, fp_hashes)
+
+                    elif data["action"] == "D":
+                        for col in data["identity"]:
+                            if col["name"] == "id":
+                                fp_id = col["value"]
+                                break
+                        else:
+                            raise ValueError("No fingerprint id found")
+                        logger.info("DELETE %s", fp_id)
+
                 last_processed_lsn = lsn
 
             if last_processed_lsn is not None:
