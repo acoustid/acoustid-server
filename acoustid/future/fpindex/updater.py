@@ -7,6 +7,7 @@ from contextlib import AsyncExitStack
 
 import asyncpg
 import click
+from acoustid_ext.fingerprint import decode_postgres_array
 
 logger = logging.getLogger(__name__)
 
@@ -86,14 +87,18 @@ async def load_initial_data(conn: asyncpg.Connection) -> None:
 
         cursor = conn.cursor(
             """
-            SELECT id, fingerprint
+            SELECT id, fingerprint::text
             FROM fingerprint
             """
         )
         loaded_count = 0
-        async for fp in cursor:
+        async for row in cursor:
             await asyncio.sleep(0.1)
-            logger.info("Processing fingerprint %d", fp["id"])
+            logger.info(
+                "Processing fingerprint %d - %s",
+                row["id"],
+                decode_postgres_array(row["fingerprint"]),
+            )
             loaded_count += 1
             if loaded_count % 10 == 0:
                 logger.info(
