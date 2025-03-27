@@ -4,13 +4,12 @@ import json
 import logging
 import signal
 from contextlib import AsyncExitStack
-from typing import Literal
 
 import asyncpg
 import click
 import msgspec
 import nats
-from acoustid_ext.fingerprint import decode_postgres_array, encode_fingerprint
+from acoustid_ext.fingerprint import decode_postgres_array, encode_legacy_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +100,10 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
         logger.info("Stream info: %r", stream_info)
 
     async def insert(self, fp_id: int, fp_hashes: array.array[int]) -> None:
-        payload = FingerprintInsert(id=fp_id, hashes=encode_fingerprint(fp_hashes, 0))
+        payload = FingerprintInsert(
+            id=fp_id,
+            hashes=encode_legacy_fingerprint(fp_hashes, algorithm=0, base64=False),
+        )
         await self.js.publish(
             stream=self.stream_name,
             subject=f"fingerprints.{fp_id}",
@@ -109,7 +111,10 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
         )
 
     async def update(self, fp_id: int, fp_hashes: array.array[int]) -> None:
-        payload = FingerprintUpdate(id=fp_id, hashes=encode_fingerprint(fp_hashes, 0))
+        payload = FingerprintUpdate(
+            id=fp_id,
+            hashes=encode_legacy_fingerprint(fp_hashes, algorithm=0, base64=False),
+        )
         await self.js.publish(
             stream=self.stream_name,
             subject=f"fingerprints.{fp_id}",
