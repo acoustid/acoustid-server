@@ -8,6 +8,7 @@ dependencies = [
     "acoustid-ext",
     "aiohttp>=3.11.13",
     "alembic",
+    "asyncpg>=0.30.0",
     "attrs",
     "blinker",
     "cachetools",
@@ -38,6 +39,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "asyncpg-stubs>=0.30.1",
     "black",
     "flake8",
     "httpx>=0.28.1",

@@ -8,7 +8,10 @@ services:
     image: redis
 
   postgres:
-    image: quay.io/acoustid/postgresql:master
+    image: ghcr.io/acoustid/postgres:pg17.4-main-00c3a23
+    command:
+      - "-c"
+      - "wal_level=logical"
     volumes:
       - ./admin/ci/create_db.sql:/docker-entrypoint-initdb.d/10_create_db.sql
     environment:
