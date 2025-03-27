@@ -5,6 +5,7 @@ from acoustid_ext.fingerprint import (
     compute_shingled_simhashes,
     compute_simhash,
     decode_fingerprint,
+    decode_postgres_array,
     encode_fingerprint,
 )
 
@@ -118,3 +119,15 @@ def test_compute_shingled_simhashes() -> None:
 
         matches = set(sh_1[i]) & set(sh_2)
         assert len(matches) == 0, f"{i} vs different song"
+
+
+def test_decode_postgres_array() -> None:
+    fp_str = "{" + ",".join(map(str, TEST_1A_FP_RAW)) + "}"
+    fp_array = decode_postgres_array(fp_str)
+    assert fp_array == array.array("i", TEST_1A_FP_RAW)
+
+    assert decode_postgres_array("{}") == array.array("i")
+    assert decode_postgres_array("{1}") == array.array("i", [1])
+
+    with pytest.raises(ValueError):
+        decode_postgres_array("")

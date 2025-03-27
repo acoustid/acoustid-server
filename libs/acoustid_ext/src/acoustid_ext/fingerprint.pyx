@@ -34,23 +34,23 @@ class Fingerprint(NamedTuple):
 # Chromaprint integration
 cdef extern from "chromaprint.h":
     int chromaprint_decode_fingerprint(
-        const char* fingerprint, 
-        int size, 
-        int32_t** fp, 
-        int* length, 
-        int* algorithm, 
+        const char* fingerprint,
+        int size,
+        int32_t** fp,
+        int* length,
+        int* algorithm,
         int base64
     ) nogil noexcept
-    
+
     int chromaprint_encode_fingerprint(
-        const int32_t* fp, 
-        int size, 
-        int algorithm, 
-        char** encoded_fp, 
-        int* encoded_size, 
+        const int32_t* fp,
+        int size,
+        int algorithm,
+        char** encoded_fp,
+        int* encoded_size,
         int base64
     ) nogil noexcept
-    
+
     void chromaprint_dealloc(void* ptr)
 
 
@@ -233,12 +233,12 @@ class FingerprintError(Exception):
 
 def decode_legacy_fingerprint(object data, bint base64=True, bint signed=False):
     """Decode a chromaprint fingerprint from a byte string.
-    
+
     Args:
         data: The encoded fingerprint as bytes | str (depending on base64)
         base64: Whether the fingerprint is base64 encoded
         signed: Whether to interpret the hash values as signed integers
-        
+
     Returns:
         Fingerprint object containing the hash values and algorithm version
     """
@@ -277,11 +277,11 @@ def decode_legacy_fingerprint(object data, bint base64=True, bint signed=False):
             raise FingerprintError("Algorithm not detected")
         if result_size == -1:
             raise FingerprintError("Invalid fingerprint")
-        
+
         # Create array.array directly with the correct size and type
         hashes = array.array('i' if signed else 'I', [])
         array.resize(hashes, result_size)
-        
+
         # Copy data directly from C array to array.array
         with cython.nogil:
             for i in range(result_size):
@@ -295,13 +295,13 @@ def decode_legacy_fingerprint(object data, bint base64=True, bint signed=False):
 
 def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint signed=False):
     """Encode a chromaprint fingerprint to a byte string.
-    
+
     Args:
         hashes: List or array.array of integer hash values
         version: The algorithm version
         base64: Whether to base64 encode the output
         signed: Whether the hash values are signed integers
-        
+
     Returns:
         Encoded fingerprint as bytes or str, depending on base64
     """
@@ -317,7 +317,7 @@ def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint
         if hashes.ob_descr.itemsize != 4:
             raise TypeError('hashes array must have 32bit items')
         if hashes.ob_descr.typecode != ('i' if signed else 'I'):
-            raise TypeError("hashes array must have typecode 'i' or 'I'")          
+            raise TypeError("hashes array must have typecode 'i' or 'I'")
         hashes_as_array = hashes
     else:
         raise TypeError("Invalid hashes, must be list or array.array")
@@ -351,11 +351,11 @@ def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint
 cdef uint32_t _compute_simhash_nogil(uint32_t* hashes, int n) nogil noexcept:
     """
     Compute SimHash of a set of fingerprint hashes.
-    
+
     Args:
         hashes: Pointer to an array of 32-bit unsigned integers
         n: Number of hashes in the array
-        
+
     Returns:
         A 32-bit unsigned integer SimHash value
     """
@@ -392,7 +392,7 @@ def compute_simhash(array.array hashes, bint signed = False):
     Args:
         hashes: An array.array of 32-bit unsigned integers representing fingerprint hashes
         signed: Whether the result should be signed or unsigned
-        
+
     Returns:
         A 32-bit signed or unsigned integer SimHash value
     """
@@ -416,13 +416,13 @@ def compute_simhash(array.array hashes, bint signed = False):
 def compute_shingled_simhashes(array.array hashes, int shingle_size, int step, bint signed=False):
     """
     Compute SimHashes for overlapping shingles of fingerprint hashes.
-    
+
     Args:
         hashes: An array.array of 32-bit unsigned integers representing fingerprint hashes
         shingle_size: Size of each shingle (window)
         step: Step size between consecutive shingles
         signed: Whether the result should be signed or unsigned
-        
+
     Returns:
         An array.array of 32-bit SimHash values
     """
@@ -431,40 +431,152 @@ def compute_shingled_simhashes(array.array hashes, int shingle_size, int step, b
 
     if shingle_size <= 0:
         raise ValueError("shingle_size must be positive")
-    
+
     if step <= 0:
         raise ValueError("step must be positive")
-    
+
     cdef int n = len(hashes)
     cdef int num_shingles
-    
+
     if n == 0:
         num_shingles = 0
     else:
         num_shingles = (n + step - 1) // step
-    
+
     # Create result array with appropriate type
     cdef array.array result
     if signed:
         result = array.array('i', [0] * num_shingles)
     else:
         result = array.array('I', [0] * num_shingles)
-    
+
     cdef int i, start_idx, remaining_size
     cdef uint32_t simhash_value
-    
+
     with nogil:
         for i in range(num_shingles):
             start_idx = i * step
             remaining_size = n - start_idx
             if remaining_size > shingle_size:
                 remaining_size = shingle_size
-                
+
             simhash_value = _compute_simhash_nogil(
                 &hashes.data.as_uints[start_idx],
                 remaining_size
             )
-            
+
             result.data.as_uints[i] = simhash_value
-    
+
+    return result
+
+
+cdef extern from *:
+    """
+    enum {
+        PG_OPEN_BRACE = '{',
+        PG_CLOSE_BRACE = '}',
+        PG_COMMA = ',',
+        PG_SPACE = ' ',
+        PG_MINUS = '-',
+        PG_DIGIT_0 = '0',
+        PG_DIGIT_9 = '9'
+    };
+    """
+    int PG_OPEN_BRACE
+    int PG_CLOSE_BRACE
+    int PG_COMMA
+    int PG_SPACE
+    int PG_MINUS
+    int PG_DIGIT_0
+    int PG_DIGIT_9
+
+
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def decode_postgres_array(object pg_array, bint signed=True):
+    """Decode a PostgreSQL array string into an array.array.
+
+    Args:
+        pg_array: PostgreSQL array string/bytes in format '{1,2,3}'
+        signed: Whether to use signed integers (typecode 'i') or unsigned (typecode 'I')
+
+    Returns:
+        array.array with the decoded values
+    """
+    if pg_array is None:
+        raise TypeError('pg_array cannot be None')
+
+    # Convert Python string to C string
+    cdef bytes pg_array_bytes = PyUnicode_AsUTF8String(pg_array) if isinstance(pg_array, str) else pg_array
+    cdef char* c_str = PyBytes_AsString(pg_array_bytes)
+    cdef int str_len = len(pg_array_bytes)
+
+    # Check for valid format
+    if str_len < 2 or c_str[0] != PG_OPEN_BRACE or c_str[str_len-1] != PG_CLOSE_BRACE:
+        raise ValueError("Invalid PostgreSQL array format, must start with '{' and end with '}'")
+
+    # First pass: count the number of elements
+    cdef int i = 1  # Skip opening brace
+    cdef int count = 0
+    cdef char prev_char = PG_OPEN_BRACE
+
+    with nogil:
+        while i < str_len - 1:  # Skip closing brace
+            if c_str[i] == PG_COMMA and prev_char != PG_COMMA and prev_char != PG_OPEN_BRACE:
+                count += 1
+            prev_char = c_str[i]
+            i += 1
+
+        # Count the last element if array isn't empty and doesn't end with a comma
+        if prev_char != PG_COMMA and prev_char != PG_OPEN_BRACE:
+            count += 1
+
+    # Create array with appropriate typecode
+    cdef array.array result = array.array('i' if signed else 'I')
+
+    # Handle empty array
+    if count == 0:
+        return result
+
+    # Pre-allocate the array
+    array.resize(result, count)
+
+    # Second pass: parse the numbers
+    cdef int idx = 0
+    cdef int value = 0
+    cdef bint negative = False
+    cdef int digit
+
+    i = 1  # Skip opening brace
+
+    with nogil:
+        while i < str_len - 1 and idx < count:
+            # Handle sign
+            if c_str[i] == PG_MINUS:
+                negative = True
+                i += 1
+                continue
+
+            # Parse digits
+            if c_str[i] >= PG_DIGIT_0 and c_str[i] <= PG_DIGIT_9:
+                value = 0
+
+                # Fast path for parsing digits
+                while i < str_len - 1 and c_str[i] >= PG_DIGIT_0 and c_str[i] <= PG_DIGIT_9:
+                    digit = c_str[i] - PG_DIGIT_0
+                    value = value * 10 + digit
+                    i += 1
+
+                # Apply sign and store value
+                if negative:
+                    value = -value
+                result.data.as_ints[idx] = value
+                idx += 1
+                negative = False
+                continue
+
+            # Skip separators
+            i += 1
+
     return result

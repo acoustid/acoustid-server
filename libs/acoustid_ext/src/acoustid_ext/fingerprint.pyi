@@ -66,3 +66,6 @@ def compute_shingled_simhashes(
     step: int,
     signed: bool = False,
 ) -> array.array[int]: ...
+
+
+def decode_postgres_array(data: str | bytes, *, signed: bool = True) -> array.array[int]: ...
