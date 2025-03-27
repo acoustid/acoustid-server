@@ -1,13 +1,31 @@
+FROM ubuntu:24.04 AS chromaprint-build
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends cmake make gcc g++ curl ca-certificates unzip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/chromaprint
+
+RUN curl -L https://github.com/acoustid/chromaprint/archive/41a3e8fb3eb907d7a0338ada291982672a2226df.zip -o 41a3e8fb3eb907d7a0338ada291982672a2226df.zip && \
+    unzip 41a3e8fb3eb907d7a0338ada291982672a2226df.zip && \
+    cd chromaprint-41a3e8fb3eb907d7a0338ada291982672a2226df && \
+    mkdir build && cd build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS="-O3 -march=haswell -ffast-math" -DCMAKE_CXX_FLAGS="-O3 -march=haswell -ffast-math" -DCMAKE_BUILD_TYPE=Release && \
+    make -j$(nproc) && \
+    make install DESTDIR=/opt/chromaprint/install
 
 FROM ubuntu:24.04 AS base
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         python3 python3-venv \
-        libchromaprint1 libchromaprint-tools libpq5 libffi8 libssl3 libpcre3 \
+        libpq5 libffi8 libssl3 libpcre3 \
         curl nginx dumb-init && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+COPY --from=chromaprint-build /opt/chromaprint/install/usr/ /usr/
 
 COPY --from=ghcr.io/astral-sh/uv:0.6 /uv /uvx /bin/
 
@@ -19,7 +37,7 @@ FROM base AS builder
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         python3 python3-dev python3-venv gcc \
-        libchromaprint-dev libchromaprint-tools libpq-dev libffi-dev libssl-dev libpcre3-dev && \
+        libpq-dev libffi-dev libssl-dev libpcre3-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
