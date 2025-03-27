@@ -491,7 +491,9 @@ cdef extern from *:
     int PG_DIGIT_9
 
 
+@cython.cdivision(True)
 @cython.boundscheck(False)
+@cython.wraparound(False)
 def decode_postgres_array(object pg_array, bint signed=True):
     """Decode a PostgreSQL array string into an array.array.
 
@@ -517,20 +519,18 @@ def decode_postgres_array(object pg_array, bint signed=True):
     # First pass: count the number of elements
     cdef int i = 1  # Skip opening brace
     cdef int count = 0
-    cdef bint in_number = False
+    cdef char prev_char = PG_OPEN_BRACE
 
     with nogil:
         while i < str_len - 1:  # Skip closing brace
-            if c_str[i] == PG_COMMA and in_number:
+            if c_str[i] == PG_COMMA and prev_char != PG_COMMA and prev_char != PG_OPEN_BRACE:
                 count += 1
-                in_number = False
-            elif c_str[i] != PG_COMMA and c_str[i] != PG_SPACE and not in_number:
-                in_number = True
+            prev_char = c_str[i]
             i += 1
 
-    # Count the last number if there was one
-    if in_number:
-        count += 1
+        # Count the last element if array isn't empty and doesn't end with a comma
+        if prev_char != PG_COMMA and prev_char != PG_OPEN_BRACE:
+            count += 1
 
     # Create array with appropriate typecode
     cdef array.array result = array.array('i' if signed else 'I')
@@ -549,34 +549,34 @@ def decode_postgres_array(object pg_array, bint signed=True):
     cdef int digit
 
     i = 1  # Skip opening brace
-    in_number = False
 
     with nogil:
-        while i < str_len - 1 and idx < count:  # Skip closing brace
-            if c_str[i] == PG_MINUS and not in_number:
+        while i < str_len - 1 and idx < count:
+            # Handle sign
+            if c_str[i] == PG_MINUS:
                 negative = True
-                in_number = True
-            elif c_str[i] >= PG_DIGIT_0 and c_str[i] <= PG_DIGIT_9:
-                if not in_number:
-                    value = 0
-                    negative = False
-                    in_number = True
+                i += 1
+                continue
 
-                digit = c_str[i] - PG_DIGIT_0
-                value = value * 10 + digit
-            elif c_str[i] == PG_COMMA or c_str[i] == PG_SPACE:
-                if in_number:
-                    if negative:
-                        value = -value
-                    result.data.as_ints[idx] = value
-                    idx += 1
-                    in_number = False
+            # Parse digits
+            if c_str[i] >= PG_DIGIT_0 and c_str[i] <= PG_DIGIT_9:
+                value = 0
+
+                # Fast path for parsing digits
+                while i < str_len - 1 and c_str[i] >= PG_DIGIT_0 and c_str[i] <= PG_DIGIT_9:
+                    digit = c_str[i] - PG_DIGIT_0
+                    value = value * 10 + digit
+                    i += 1
+
+                # Apply sign and store value
+                if negative:
+                    value = -value
+                result.data.as_ints[idx] = value
+                idx += 1
+                negative = False
+                continue
+
+            # Skip separators
             i += 1
-
-        # Handle the last number if there was one
-        if in_number and idx < count:
-            if negative:
-                value = -value
-            result.data.as_ints[idx] = value
 
     return result
