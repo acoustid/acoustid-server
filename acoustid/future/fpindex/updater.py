@@ -165,7 +165,6 @@ async def replicate_from_pg() -> None:
 @click.group()
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    pass
 
 
 @main.command("replicate-from-pg")
