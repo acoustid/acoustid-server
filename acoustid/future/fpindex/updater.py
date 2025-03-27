@@ -183,7 +183,7 @@ async def load_initial_data(
                     logger.info("Interrupting initial data load due to shutdown event")
                     raise ShutdownError
 
-    logger.info(f"Initial data load complete. Processed {loaded_count} fingerprints.")
+    logger.info("Initial data load complete. Processed %d fingerprints.", loaded_count)
 
 
 async def replicate_data(
