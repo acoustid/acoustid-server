@@ -1,15 +1,16 @@
 import array
 import asyncio
 import json
-
-# import nats
 import logging
 import signal
 from contextlib import AsyncExitStack
+from typing import Literal
 
 import asyncpg
 import click
-from acoustid_ext.fingerprint import decode_postgres_array
+import msgspec
+import nats
+from acoustid_ext.fingerprint import decode_postgres_array, encode_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,6 @@ STREAM_NAME = "fpindex"
 REPL_BATCH_SIZE = 1000
 REPL_MIN_DELAY = 0.05
 REPL_MAX_DELAY = 1.0
-
-
-def parse_pgarray(value: str) -> list[str]:
-    return [x.strip() for x in value.strip("{}").split(",")]
 
 
 async def create_replication_slot(conn: asyncpg.Connection) -> tuple[bool, str | None]:
@@ -62,14 +59,70 @@ async def drop_replication_slot(conn: asyncpg.Connection) -> None:
 
 class FingerprintUpdateReceiver:
 
-    def insert(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+    async def insert(self, fp_id: int, fp_hashes: array.array[int]) -> None:
         logger.info("INSERT %s: %s", fp_id, fp_hashes)
 
-    def update(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+    async def update(self, fp_id: int, fp_hashes: array.array[int]) -> None:
         logger.info("UPDATE %s: %s", fp_id, fp_hashes)
 
-    def delete(self, fp_id: int) -> None:
+    async def delete(self, fp_id: int) -> None:
         logger.info("DELETE %s", fp_id)
+
+
+class FingerprintChange(msgspec.Struct, tag_field="op"):
+    id: int
+
+
+class FingerprintInsert(FingerprintChange, tag="I"):
+    hashes: bytes
+
+
+class FingerprintUpdate(FingerprintChange, tag="U"):
+    hashes: bytes
+
+
+class FingerprintDelete(FingerprintChange, tag="D"):
+    pass
+
+
+class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
+
+    def __init__(self, nc: nats.NATS, stream_name: str):
+        super().__init__()
+        self.nc = nc
+        self.stream_name = stream_name
+        self.js = nc.jetstream()
+
+    async def prepare(self) -> None:
+        stream_info = await self.js.add_stream(
+            name=self.stream_name,
+            subjects=["fingerprints.*"],
+        )
+        logger.info("Stream info: %r", stream_info)
+
+    async def insert(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+        payload = FingerprintInsert(id=fp_id, hashes=encode_fingerprint(fp_hashes, 0))
+        await self.js.publish(
+            stream=self.stream_name,
+            subject=f"fingerprints.{fp_id}",
+            payload=msgspec.msgpack.encode(payload),
+        )
+
+    async def update(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+        payload = FingerprintUpdate(id=fp_id, hashes=encode_fingerprint(fp_hashes, 0))
+        await self.js.publish(
+            stream=self.stream_name,
+            subject=f"fingerprints.{fp_id}",
+            payload=msgspec.msgpack.encode(payload),
+        )
+
+    async def delete(self, fp_id: int) -> None:
+        payload = FingerprintDelete(id=fp_id)
+        await self.js.publish(
+            stream=self.stream_name,
+            subject=f"fingerprints.{fp_id}",
+            payload=msgspec.msgpack.encode(payload),
+        )
 
 
 async def load_initial_data(
@@ -112,7 +165,7 @@ async def load_initial_data(
         loaded_count = 0
         async for fp_id, fp_hashes_str in cursor:
             fp_hashes = decode_postgres_array(fp_hashes_str)
-            receiver.insert(fp_id, fp_hashes)
+            await receiver.insert(fp_id, fp_hashes)
             loaded_count += 1
             if loaded_count % 1000 == 0:
                 logger.info(
@@ -173,7 +226,7 @@ async def replicate_data(
                     else:
                         raise ValueError("No fingerprint data found")
 
-                    receiver.insert(fp_id, fp_hashes)
+                    await receiver.insert(fp_id, fp_hashes)
 
                 elif data["action"] == "U":
                     for col in data["identity"]:
@@ -190,7 +243,7 @@ async def replicate_data(
                     else:
                         raise ValueError("No fingerprint data found")
 
-                    receiver.update(fp_id, fp_hashes)
+                    await receiver.update(fp_id, fp_hashes)
 
                 elif data["action"] == "D":
                     for col in data["identity"]:
@@ -200,7 +253,7 @@ async def replicate_data(
                     else:
                         raise ValueError("No fingerprint id found")
 
-                    receiver.delete(fp_id)
+                    await receiver.delete(fp_id)
 
             last_processed_lsn = lsn
 
@@ -244,15 +297,11 @@ async def replicate_from_pg() -> None:
         )
         exit_stack.push_async_callback(pgc.close)
 
-        # nc = await nats.connect("nats://localhost:4222")
-        # exit_stack.push_async_callback(nc.close)
+        nc = await nats.connect("nats://localhost:4222")
+        exit_stack.push_async_callback(nc.close)
 
-        # js = nc.jetstream()
-
-        # stream_info = await js.add_stream(name=STREAM_NAME, subjects=["fingerprints.*"])
-        # logger.info("Stream info: %r", stream_info)
-
-        receiver = FingerprintUpdateReceiver()
+        receiver = NatsFingerprintUpdateReceiver(nc, STREAM_NAME)
+        await receiver.prepare()
 
         try:
             await load_initial_data(pgc, receiver, shutdown_event)

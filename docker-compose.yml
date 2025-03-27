@@ -4,6 +4,11 @@ services:
     command:
       - "-js"
 
+  nats-box:
+    image: natsio/nats-box:0.17.0
+    depends_on:
+      - nats
+
   redis:
     image: redis
 
