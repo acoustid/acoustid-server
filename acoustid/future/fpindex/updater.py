@@ -3,6 +3,7 @@ import json
 
 # import nats
 import logging
+import signal
 from contextlib import AsyncExitStack
 
 import asyncpg
@@ -58,7 +59,9 @@ async def drop_replication_slot(conn: asyncpg.Connection) -> None:
     )
 
 
-async def load_initial_data(conn: asyncpg.Connection) -> None:
+async def load_initial_data(
+    conn: asyncpg.Connection, shutdown_event: asyncio.Event
+) -> None:
     """Load initial fingerprint data using a consistent snapshot"""
 
     async with AsyncExitStack() as exit_stack:
@@ -93,26 +96,42 @@ async def load_initial_data(conn: asyncpg.Connection) -> None:
         )
         loaded_count = 0
         async for row in cursor:
-            await asyncio.sleep(0.1)
             logger.info(
                 "Processing fingerprint %d - %s",
                 row["id"],
                 decode_postgres_array(row["fingerprint"]),
             )
             loaded_count += 1
-            if loaded_count % 10 == 0:
+            if loaded_count % 1000 == 0:
                 logger.info(
                     "Processed %d/%d fingerprints (%.2f%%)",
                     loaded_count,
                     total_count,
                     (loaded_count / total_count * 100),
                 )
+                if shutdown_event.is_set():
+                    logger.info("Interrupting initial data load due to shutdown event")
+                    raise ShutdownError
 
     logger.info(f"Initial data load complete. Processed {loaded_count} fingerprints.")
 
 
+class ShutdownError(Exception):
+    pass
+
+
+def shutdown(event: asyncio.Event) -> None:
+    logger.info("Shutting down...")
+    event.set()
+
+
 async def replicate_from_pg() -> None:
     async with AsyncExitStack() as exit_stack:
+        shutdown_event = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, shutdown, shutdown_event)
+
         pgc = await asyncpg.connect(
             "postgresql://acoustid:acoustid@localhost:5432/acoustid_fingerprint"
         )
@@ -126,11 +145,14 @@ async def replicate_from_pg() -> None:
         # stream_info = await js.add_stream(name=STREAM_NAME, subjects=["fingerprints.*"])
         # logger.info("Stream info: %r", stream_info)
 
-        await load_initial_data(pgc)
+        try:
+            await load_initial_data(pgc, shutdown_event)
+        except ShutdownError:
+            return
 
         delay = REPL_MIN_DELAY
 
-        while True:
+        while not shutdown_event.is_set():
             changes = await pgc.fetch(
                 "SELECT lsn, xid, data FROM pg_logical_slot_peek_changes($1, NULL, $2, 'add-tables', 'public.fingerprint', 'format-version', '2')",
                 SLOT_NAME,
@@ -162,7 +184,10 @@ async def replicate_from_pg() -> None:
             # if we processed less than the full batch size, wait a bit
             if len(changes) < REPL_BATCH_SIZE:
                 logger.info("Waiting %s seconds", delay)
-                await asyncio.sleep(delay)
+                try:
+                    await asyncio.wait_for(shutdown_event.wait(), delay)
+                except asyncio.TimeoutError:
+                    pass
 
 
 @click.group()
