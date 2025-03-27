@@ -1,3 +1,4 @@
+import array
 import asyncio
 import json
 
@@ -59,8 +60,22 @@ async def drop_replication_slot(conn: asyncpg.Connection) -> None:
     )
 
 
+class FingerprintUpdateReceiver:
+
+    def insert(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+        logger.info("INSERT %s: %s", fp_id, fp_hashes)
+
+    def update(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+        logger.info("UPDATE %s: %s", fp_id, fp_hashes)
+
+    def delete(self, fp_id: int) -> None:
+        logger.info("DELETE %s", fp_id)
+
+
 async def load_initial_data(
-    conn: asyncpg.Connection, shutdown_event: asyncio.Event
+    conn: asyncpg.Connection,
+    receiver: FingerprintUpdateReceiver,
+    shutdown_event: asyncio.Event,
 ) -> None:
     """Load initial fingerprint data using a consistent snapshot"""
 
@@ -97,7 +112,7 @@ async def load_initial_data(
         loaded_count = 0
         async for fp_id, fp_hashes_str in cursor:
             fp_hashes = decode_postgres_array(fp_hashes_str)
-            logger.info("UPSERT %s: %s", fp_id, fp_hashes)
+            receiver.insert(fp_id, fp_hashes)
             loaded_count += 1
             if loaded_count % 1000 == 0:
                 logger.info(
@@ -111,6 +126,101 @@ async def load_initial_data(
                     raise ShutdownError
 
     logger.info(f"Initial data load complete. Processed {loaded_count} fingerprints.")
+
+
+async def replicate_data(
+    conn: asyncpg.Connection,
+    receiver: FingerprintUpdateReceiver,
+    shutdown_event: asyncio.Event,
+) -> None:
+    delay = REPL_MIN_DELAY
+
+    while True:
+        if shutdown_event.is_set():
+            raise ShutdownError
+
+        changes = await conn.fetch(
+            "SELECT lsn, xid, data FROM pg_logical_slot_peek_changes($1, NULL, $2, 'add-tables', 'public.fingerprint', 'format-version', '2')",
+            SLOT_NAME,
+            REPL_BATCH_SIZE,
+        )
+
+        logger.info("Got %d changes", len(changes))
+
+        last_processed_lsn: str | None = None
+        for lsn, xid, data_json in changes:
+            data = json.loads(data_json)
+            logger.info("LSN: %s, XID: %s, data: %s", lsn, xid, data)
+
+            if data["action"] not in {"I", "U", "D"}:
+                last_processed_lsn = lsn
+                continue
+
+            if data["schema"] == "public" and data["table"] == "fingerprint":
+
+                if data["action"] == "I":
+                    for col in data["columns"]:
+                        if col["name"] == "id":
+                            fp_id = col["value"]
+                            break
+                    else:
+                        raise ValueError("No fingerprint id found")
+
+                    for col in data["columns"]:
+                        if col["name"] == "fingerprint":
+                            fp_hashes = decode_postgres_array(col["value"])
+                            break
+                    else:
+                        raise ValueError("No fingerprint data found")
+
+                    receiver.insert(fp_id, fp_hashes)
+
+                elif data["action"] == "U":
+                    for col in data["identity"]:
+                        if col["name"] == "id":
+                            fp_id = col["value"]
+                            break
+                    else:
+                        raise ValueError("No fingerprint id found")
+
+                    for col in data["columns"]:
+                        if col["name"] == "fingerprint":
+                            fp_hashes = decode_postgres_array(col["value"])
+                            break
+                    else:
+                        raise ValueError("No fingerprint data found")
+
+                    receiver.update(fp_id, fp_hashes)
+
+                elif data["action"] == "D":
+                    for col in data["identity"]:
+                        if col["name"] == "id":
+                            fp_id = col["value"]
+                            break
+                    else:
+                        raise ValueError("No fingerprint id found")
+
+                    receiver.delete(fp_id)
+
+            last_processed_lsn = lsn
+
+        if last_processed_lsn is not None:
+            await conn.execute(
+                "SELECT pg_replication_slot_advance($1, $2)",
+                SLOT_NAME,
+                last_processed_lsn,
+            )
+            delay = REPL_MIN_DELAY
+        else:
+            delay = min(delay * 2, REPL_MAX_DELAY)
+
+        # if we processed less than the full batch size, wait a bit
+        if len(changes) < REPL_BATCH_SIZE:
+            logger.info("Waiting %s seconds", delay)
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), delay)
+            except asyncio.TimeoutError:
+                pass
 
 
 class ShutdownError(Exception):
@@ -142,94 +252,13 @@ async def replicate_from_pg() -> None:
         # stream_info = await js.add_stream(name=STREAM_NAME, subjects=["fingerprints.*"])
         # logger.info("Stream info: %r", stream_info)
 
+        receiver = FingerprintUpdateReceiver()
+
         try:
-            await load_initial_data(pgc, shutdown_event)
+            await load_initial_data(pgc, receiver, shutdown_event)
+            await replicate_data(pgc, receiver, shutdown_event)
         except ShutdownError:
-            return
-
-        delay = REPL_MIN_DELAY
-
-        while not shutdown_event.is_set():
-            changes = await pgc.fetch(
-                "SELECT lsn, xid, data FROM pg_logical_slot_peek_changes($1, NULL, $2, 'add-tables', 'public.fingerprint', 'format-version', '2')",
-                SLOT_NAME,
-                REPL_BATCH_SIZE,
-            )
-
-            logger.info("Got %d changes", len(changes))
-
-            last_processed_lsn: str | None = None
-            for lsn, xid, data_json in changes:
-                data = json.loads(data_json)
-                logger.info("LSN: %s, XID: %s, data: %s", lsn, xid, data)
-
-                if data["action"] not in {"I", "U", "D"}:
-                    last_processed_lsn = lsn
-                    continue
-
-                if data["schema"] == "public" and data["table"] == "fingerprint":
-
-                    if data["action"] == "I":
-                        for col in data["columns"]:
-                            if col["name"] == "id":
-                                fp_id = col["value"]
-                                break
-                        else:
-                            raise ValueError("No fingerprint id found")
-
-                        for col in data["columns"]:
-                            if col["name"] == "fingerprint":
-                                fp_hashes = decode_postgres_array(col["value"])
-                                break
-                        else:
-                            raise ValueError("No fingerprint data found")
-
-                        logger.info("UPSERT %s: %s", fp_id, fp_hashes)
-
-                    elif data["action"] == "U":
-                        for col in data["identity"]:
-                            if col["name"] == "id":
-                                fp_id = col["value"]
-                                break
-                        else:
-                            raise ValueError("No fingerprint id found")
-
-                        for col in data["columns"]:
-                            if col["name"] == "fingerprint":
-                                fp_hashes = decode_postgres_array(col["value"])
-                                break
-                        else:
-                            raise ValueError("No fingerprint data found")
-                        logger.info("UPSERT %s: %s", fp_id, fp_hashes)
-
-                    elif data["action"] == "D":
-                        for col in data["identity"]:
-                            if col["name"] == "id":
-                                fp_id = col["value"]
-                                break
-                        else:
-                            raise ValueError("No fingerprint id found")
-                        logger.info("DELETE %s", fp_id)
-
-                last_processed_lsn = lsn
-
-            if last_processed_lsn is not None:
-                await pgc.execute(
-                    "SELECT pg_replication_slot_advance($1, $2)",
-                    SLOT_NAME,
-                    last_processed_lsn,
-                )
-                delay = REPL_MIN_DELAY
-            else:
-                delay = min(delay * 2, REPL_MAX_DELAY)
-
-            # if we processed less than the full batch size, wait a bit
-            if len(changes) < REPL_BATCH_SIZE:
-                logger.info("Waiting %s seconds", delay)
-                try:
-                    await asyncio.wait_for(shutdown_event.wait(), delay)
-                except asyncio.TimeoutError:
-                    pass
+            pass
 
 
 @click.group()
