@@ -70,8 +70,9 @@ async def update_index(
                 elif isinstance(data, FingerprintDelete):
                     batch1.delete(data.id)
                     batch2.delete(data.id)
-            batch1.set_attribute("lsn", data.lsn)
-            batch2.set_attribute("lsn", data.lsn)
+            if lsn > 0:
+                batch1.set_attribute("lsn", lsn)
+                batch2.set_attribute("lsn", lsn)
             await fpindex.update(index_name, batch1)
             await fpindex.update(index_name + ".sh", batch2)
             for msg in messages:
