@@ -12,6 +12,7 @@ from nats.js.api import ConsumerConfig
 from acoustid.future.fpindex.client import BatchUpdate, FingerprintIndexClient
 from acoustid.future.fpindex.updater.queue import (
     STREAM_NAME,
+    SUBJECT_NAME,
     FingerprintChange,
     FingerprintDelete,
     FingerprintInsert,
@@ -47,14 +48,15 @@ async def update_index(
 
         sub = await js.pull_subscribe(
             stream=stream_name,
-            subject="fingerprints.*",
+            subject=f"{SUBJECT_NAME}.*",
             durable=f"fpindex-updater.{instance}",
             config=ConsumerConfig(),
         )
 
         while not shutdown_event.is_set():
             lsn = 0
-            batch = BatchUpdate()
+            batch1 = BatchUpdate()
+            batch2 = BatchUpdate()
             messages = await sub.fetch(BATCH_SIZE, timeout=10.0, heartbeat=1.0)
             for msg in messages:
                 data = msgspec.msgpack.decode(msg.data, type=FingerprintChange)
@@ -63,11 +65,15 @@ async def update_index(
                     hashes = decode_legacy_fingerprint(
                         data.hashes, base64=False, signed=True
                     ).hashes
-                    batch.insert(data.id, list(hashes))
+                    batch1.insert(data.id, list(hashes))
+                    batch2.insert(data.id, [data.simhash])
                 elif isinstance(data, FingerprintDelete):
-                    batch.delete(data.id)
-            batch.set_attribute("lsn", data.lsn)
-            await fpindex.update(index_name, batch)
+                    batch1.delete(data.id)
+                    batch2.delete(data.id)
+            batch1.set_attribute("lsn", data.lsn)
+            batch2.set_attribute("lsn", data.lsn)
+            await fpindex.update(index_name, batch1)
+            await fpindex.update(index_name + ".sh", batch2)
             for msg in messages:
                 await msg.ack()
 

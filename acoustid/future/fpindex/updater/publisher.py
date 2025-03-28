@@ -9,10 +9,16 @@ import asyncpg
 import click
 import msgspec
 import nats
-from acoustid_ext.fingerprint import decode_postgres_array, encode_legacy_fingerprint
+from acoustid_ext.fingerprint import (
+    compute_simhash,
+    decode_postgres_array,
+    encode_legacy_fingerprint,
+)
+from nats.js.api import StreamConfig
 
 from acoustid.future.fpindex.updater.queue import (
     STREAM_NAME,
+    SUBJECT_NAME,
     FingerprintDelete,
     FingerprintInsert,
     FingerprintUpdate,
@@ -89,7 +95,10 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
     async def prepare(self) -> None:
         stream_info = await self.js.add_stream(
             name=self.stream_name,
-            subjects=["fingerprints.*"],
+            subjects=[f"{SUBJECT_NAME}.*"],
+            config=StreamConfig(
+                max_msgs_per_subject=1,
+            ),
         )
         logger.info("Stream info: %r", stream_info)
 
@@ -101,10 +110,11 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
             lsn=lsn,
             id=fp_id,
             hashes=encode_legacy_fingerprint(fp_hashes, algorithm=0, base64=False),
+            simhash=compute_simhash(fp_hashes),
         )
         await self.js.publish(
             stream=self.stream_name,
-            subject=f"fingerprints.{fp_id}",
+            subject=f"{SUBJECT_NAME}.{fp_id}",
             payload=msgspec.msgpack.encode(payload),
         )
 
@@ -116,10 +126,11 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
             lsn=lsn,
             id=fp_id,
             hashes=encode_legacy_fingerprint(fp_hashes, algorithm=0, base64=False),
+            simhash=compute_simhash(fp_hashes),
         )
         await self.js.publish(
             stream=self.stream_name,
-            subject=f"fingerprints.{fp_id}",
+            subject=f"{SUBJECT_NAME}.{fp_id}",
             payload=msgspec.msgpack.encode(payload),
         )
 
@@ -131,7 +142,7 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
         )
         await self.js.publish(
             stream=self.stream_name,
-            subject=f"fingerprints.{fp_id}",
+            subject=f"{SUBJECT_NAME}.{fp_id}",
             payload=msgspec.msgpack.encode(payload),
         )
 
