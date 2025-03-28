@@ -16,11 +16,10 @@ jobs:
     steps:
       - name: Cache Chromaprint
         id: cache-chromaprint
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/chromaprint-install
           key: chromaprint-41a3e8fb3eb907d7a0338ada291982672a2226df-ubuntu-24.04
-
       - name: Build Chromaprint
         if: steps.cache-chromaprint.outputs.cache-hit != 'true'
         run: |
