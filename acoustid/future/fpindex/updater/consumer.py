@@ -53,10 +53,12 @@ async def update_index(
         )
 
         while not shutdown_event.is_set():
+            lsn = 0
             batch = BatchUpdate()
             messages = await sub.fetch(BATCH_SIZE, timeout=10.0, heartbeat=1.0)
             for msg in messages:
                 data = msgspec.msgpack.decode(msg.data, type=FingerprintChange)
+                lsn = max(lsn, data.lsn)
                 if isinstance(data, (FingerprintInsert, FingerprintUpdate)):
                     hashes = decode_legacy_fingerprint(
                         data.hashes, base64=False, signed=True
@@ -64,7 +66,7 @@ async def update_index(
                     batch.insert(data.id, list(hashes))
                 elif isinstance(data, FingerprintDelete):
                     batch.delete(data.id)
-
+            batch.set_attribute("lsn", data.lsn)
             await fpindex.update(index_name, batch)
             for msg in messages:
                 await msg.ack()
