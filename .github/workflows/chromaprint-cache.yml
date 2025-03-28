@@ -1,0 +1,44 @@
+name: Build and Cache Chromaprint
+
+on:
+  workflow_call:
+    outputs:
+      chromaprint-path:
+        description: "Path to the installed Chromaprint"
+        value: ${{ jobs.build-chromaprint.outputs.chromaprint-path }}
+
+jobs:
+  build-chromaprint:
+    runs-on: ubuntu-24.04
+    outputs:
+      chromaprint-path: ${{ steps.chromaprint-info.outputs.path }}
+
+    steps:
+      - name: Cache Chromaprint
+        id: cache-chromaprint
+        uses: actions/cache@v3
+        with:
+          path: ~/chromaprint-install
+          key: chromaprint-41a3e8fb3eb907d7a0338ada291982672a2226df-ubuntu-24.04
+
+      - name: Build Chromaprint
+        if: steps.cache-chromaprint.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake make gcc g++ curl ca-certificates unzip
+
+          mkdir -p ~/chromaprint
+          cd ~/chromaprint
+
+          curl -L https://github.com/acoustid/chromaprint/archive/41a3e8fb3eb907d7a0338ada291982672a2226df.zip -o chromaprint.zip
+          unzip chromaprint.zip
+          cd chromaprint-41a3e8fb3eb907d7a0338ada291982672a2226df
+
+          mkdir build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS="-O3 -march=haswell -ffast-math" -DCMAKE_CXX_FLAGS="-O3 -march=haswell -ffast-math" -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          make install DESTDIR=~/chromaprint-install
+
+      - name: Chromaprint Info
+        id: chromaprint-info
+        run: echo "path=$HOME/chromaprint-install" >> $GITHUB_OUTPUT
