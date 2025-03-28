@@ -11,11 +11,15 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  CHROMAPRINT_VERSION: 41a3e8fb3eb907d7a0338ada291982672a2226df
 
 jobs:
+  chromaprint:
+    uses: ./.github/workflows/chromaprint-cache.yml
 
   test:
     runs-on: ubuntu-24.04
+    needs: [chromaprint]
 
     services:
 
@@ -50,7 +54,6 @@ jobs:
           - 6080/tcp
 
     steps:
-
       - name: Checkout source code
         uses: actions/checkout@v4
 
@@ -65,10 +68,20 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
+      - name: Get cached Chromaprint
+        uses: actions/cache@v4
+        with:
+          path: ~/chromaprint-install
+          key: chromaprint-${{ env.CHROMAPRINT_VERSION }}-ubuntu-24.04
+      - name: Install Chromaprint
+        run: |
+          sudo cp -r ~/chromaprint-install/usr/* /usr/
+          sudo ldconfig
+
       - name: Install additional requirements
         run: |
           sudo apt-get update
-          sudo apt-get install libchromaprint-dev libpq-dev
+          sudo apt-get install libpq-dev
 
       - name: Lint on the source code
         run: ./check.sh --lint --ci
@@ -111,7 +124,7 @@ jobs:
     needs: [ test ]
 
     steps:
-    
+
       - name: Check out code
         uses: actions/checkout@v4
 
