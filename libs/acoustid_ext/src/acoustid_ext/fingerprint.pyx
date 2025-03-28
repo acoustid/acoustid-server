@@ -51,6 +51,12 @@ cdef extern from "chromaprint.h":
         int base64
     ) nogil noexcept
 
+    int chromaprint_hash_fingerprint(
+        const uint32_t* fp,
+        int size,
+        uint32_t* hash
+    ) nogil noexcept
+
     void chromaprint_dealloc(void* ptr)
 
 
@@ -348,41 +354,6 @@ def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint
             chromaprint_dealloc(result_ptr)
 
 
-cdef uint32_t _compute_simhash_nogil(uint32_t* hashes, int n) nogil noexcept:
-    """
-    Compute SimHash of a set of fingerprint hashes.
-
-    Args:
-        hashes: Pointer to an array of 32-bit unsigned integers
-        n: Number of hashes in the array
-
-    Returns:
-        A 32-bit unsigned integer SimHash value
-    """
-    cdef int i, j
-    cdef uint32_t h
-    cdef uint32_t[32] v
-    cdef uint32_t result = 0
-    cdef uint32_t threshold = n // 2
-
-    # Initialize vector
-    for i in range(32):
-        v[i] = 0
-
-    # Compute aggregated bit counts for each bit position
-    for i in range(n):
-        h = hashes[i]
-        for j in range(32):
-            v[j] += (h >> j) & 1
-
-    # Compute final SimHash value
-    for i in range(32):
-        if v[i] > threshold:
-            result |= (1 << i)
-
-    return result
-
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def compute_simhash(array.array hashes, bint signed = False):
@@ -403,7 +374,7 @@ def compute_simhash(array.array hashes, bint signed = False):
     cdef uint32_t result
 
     with nogil:
-        result = _compute_simhash_nogil(hashes.data.as_uints, n)
+        chromaprint_hash_fingerprint(hashes.data.as_uints, n, &result)
 
     if signed:
         return <int32_t>result
@@ -460,9 +431,10 @@ def compute_shingled_simhashes(array.array hashes, int shingle_size, int step, b
             if remaining_size > shingle_size:
                 remaining_size = shingle_size
 
-            simhash_value = _compute_simhash_nogil(
+            chromaprint_hash_fingerprint(
                 &hashes.data.as_uints[start_idx],
-                remaining_size
+                remaining_size,
+                &simhash_value
             )
 
             result.data.as_uints[i] = simhash_value
