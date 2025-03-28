@@ -69,11 +69,10 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Get cached Chromaprint
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/chromaprint-install
           key: chromaprint-${{ env.CHROMAPRINT_VERSION }}-ubuntu-24.04
-
       - name: Install Chromaprint
         run: |
           sudo cp -r ~/chromaprint-install/usr/* /usr/
