@@ -3,7 +3,7 @@ language: "en-US"
 tone_instructions: "Talk like a pragmatic programmer, give information, give feedback, but no generic bullshit words, like 'streamlined' in every second sentence."
 early_access: true
 reviews:
-  profile: "assertive"
+  profile: "chill"
   request_changes_workflow: true
   high_level_summary: false
   poem: false
