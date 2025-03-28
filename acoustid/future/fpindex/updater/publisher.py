@@ -11,11 +11,17 @@ import msgspec
 import nats
 from acoustid_ext.fingerprint import decode_postgres_array, encode_legacy_fingerprint
 
+from acoustid.future.fpindex.updater.queue import (
+    STREAM_NAME,
+    FingerprintDelete,
+    FingerprintInsert,
+    FingerprintUpdate,
+)
+
 logger = logging.getLogger(__name__)
 
 
 SLOT_NAME = "fpindex"
-STREAM_NAME = "fpindex"
 REPL_BATCH_SIZE = 1000
 REPL_MIN_DELAY = 0.05
 REPL_MAX_DELAY = 1.0
@@ -58,30 +64,18 @@ async def drop_replication_slot(conn: asyncpg.Connection) -> None:
 
 class FingerprintUpdateReceiver:
 
-    async def insert(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+    async def insert(
+        self, xid: int, lsn: int, fp_id: int, fp_hashes: array.array[int]
+    ) -> None:
         logger.info("INSERT %s: %s", fp_id, fp_hashes)
 
-    async def update(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+    async def update(
+        self, xid: int, lsn: int, fp_id: int, fp_hashes: array.array[int]
+    ) -> None:
         logger.info("UPDATE %s: %s", fp_id, fp_hashes)
 
-    async def delete(self, fp_id: int) -> None:
+    async def delete(self, xid: int, lsn: int, fp_id: int) -> None:
         logger.info("DELETE %s", fp_id)
-
-
-class FingerprintChange(msgspec.Struct, tag_field="op"):
-    id: int
-
-
-class FingerprintInsert(FingerprintChange, tag="I"):
-    hashes: bytes
-
-
-class FingerprintUpdate(FingerprintChange, tag="U"):
-    hashes: bytes
-
-
-class FingerprintDelete(FingerprintChange, tag="D"):
-    pass
 
 
 class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
@@ -99,8 +93,12 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
         )
         logger.info("Stream info: %r", stream_info)
 
-    async def insert(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+    async def insert(
+        self, xid: int, lsn: int, fp_id: int, fp_hashes: array.array[int]
+    ) -> None:
         payload = FingerprintInsert(
+            xid=xid,
+            lsn=lsn,
             id=fp_id,
             hashes=encode_legacy_fingerprint(fp_hashes, algorithm=0, base64=False),
         )
@@ -110,8 +108,12 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
             payload=msgspec.msgpack.encode(payload),
         )
 
-    async def update(self, fp_id: int, fp_hashes: array.array[int]) -> None:
+    async def update(
+        self, xid: int, lsn: int, fp_id: int, fp_hashes: array.array[int]
+    ) -> None:
         payload = FingerprintUpdate(
+            xid=xid,
+            lsn=lsn,
             id=fp_id,
             hashes=encode_legacy_fingerprint(fp_hashes, algorithm=0, base64=False),
         )
@@ -121,8 +123,12 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
             payload=msgspec.msgpack.encode(payload),
         )
 
-    async def delete(self, fp_id: int) -> None:
-        payload = FingerprintDelete(id=fp_id)
+    async def delete(self, xid: int, lsn: int, fp_id: int) -> None:
+        payload = FingerprintDelete(
+            xid=xid,
+            lsn=lsn,
+            id=fp_id,
+        )
         await self.js.publish(
             stream=self.stream_name,
             subject=f"fingerprints.{fp_id}",
@@ -170,7 +176,7 @@ async def load_initial_data(
         loaded_count = 0
         async for fp_id, fp_hashes_str in cursor:
             fp_hashes = decode_postgres_array(fp_hashes_str)
-            await receiver.insert(fp_id, fp_hashes)
+            await receiver.insert(0, 0, fp_id, fp_hashes)
             loaded_count += 1
             if loaded_count % 1000 == 0:
                 logger.info(
@@ -231,7 +237,7 @@ async def replicate_data(
                     else:
                         raise ValueError("No fingerprint data found")
 
-                    await receiver.insert(fp_id, fp_hashes)
+                    await receiver.insert(xid, lsn, fp_id, fp_hashes)
 
                 elif data["action"] == "U":
                     for col in data["identity"]:
@@ -248,7 +254,7 @@ async def replicate_data(
                     else:
                         raise ValueError("No fingerprint data found")
 
-                    await receiver.update(fp_id, fp_hashes)
+                    await receiver.update(xid, lsn, fp_id, fp_hashes)
 
                 elif data["action"] == "D":
                     for col in data["identity"]:
@@ -258,7 +264,7 @@ async def replicate_data(
                     else:
                         raise ValueError("No fingerprint id found")
 
-                    await receiver.delete(fp_id)
+                    await receiver.delete(xid, lsn, fp_id)
 
             last_processed_lsn = lsn
 
@@ -290,22 +296,20 @@ def shutdown(event: asyncio.Event) -> None:
     event.set()
 
 
-async def replicate_from_pg() -> None:
+async def replicate_from_pg(postgres_url: str, nats_url: str, stream_name: str) -> None:
     async with AsyncExitStack() as exit_stack:
         shutdown_event = asyncio.Event()
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, shutdown, shutdown_event)
 
-        pgc = await asyncpg.connect(
-            "postgresql://acoustid:acoustid@localhost:5432/acoustid_fingerprint"
-        )
+        pgc = await asyncpg.connect(postgres_url)
         exit_stack.push_async_callback(pgc.close)
 
-        nc = await nats.connect("nats://localhost:4222")
+        nc = await nats.connect(nats_url)
         exit_stack.push_async_callback(nc.close)
 
-        receiver = NatsFingerprintUpdateReceiver(nc, STREAM_NAME)
+        receiver = NatsFingerprintUpdateReceiver(nc, stream_name)
         await receiver.prepare()
 
         try:
@@ -315,14 +319,16 @@ async def replicate_from_pg() -> None:
             pass
 
 
-@click.group()
-def main() -> None:
+@click.command()
+@click.option(
+    "--postgres-url",
+    default="postgresql://acoustid:acoustid@localhost:5432/acoustid_fingerprint",
+)
+@click.option("--nats-url", default="nats://localhost:4222")
+@click.option("--stream-name", default=STREAM_NAME)
+def main(postgres_url: str, nats_url: str, stream_name: str) -> None:
     logging.basicConfig(level=logging.INFO)
-
-
-@main.command("replicate-from-pg")
-def replicate_from_pg_cmd() -> None:
-    asyncio.run(replicate_from_pg())
+    asyncio.run(replicate_from_pg(postgres_url, nats_url, stream_name))
 
 
 if __name__ == "__main__":

@@ -79,6 +79,40 @@ class FingerprintIndexClientError(Exception):
     """Base exception for fingerprint index client errors"""
 
 
+class BatchUpdate:
+    def __init__(self):
+        self.changes: list[Change] = []
+
+    def insert(self, id: int, hashes: list[int]) -> None:
+        self.changes.append(
+            Change(
+                insert=Insert(
+                    id=id,
+                    hashes=hashes,
+                )
+            )
+        )
+
+    def delete(self, id: int) -> None:
+        self.changes.append(
+            Change(
+                delete=Delete(
+                    id=id,
+                )
+            )
+        )
+
+    def set_attribute(self, name: str, value: int) -> None:
+        self.changes.append(
+            Change(
+                set_attribute=SetAttribute(
+                    name=name,
+                    value=value,
+                )
+            )
+        )
+
+
 class FingerprintIndexClient:
     """Asyncio client for the acoustid-index HTTP API"""
 
@@ -264,7 +298,9 @@ class FingerprintIndexClient:
     # Fingerprint management methods
 
     async def update(
-        self, index_name: str, changes: list[Insert | Delete | SetAttribute]
+        self,
+        index_name: str,
+        changes: BatchUpdate | list[Insert | Delete | SetAttribute],
     ) -> None:
         """Perform multiple operations on an index
 
@@ -275,14 +311,17 @@ class FingerprintIndexClient:
         Returns:
             Response data
         """
-        wrapped_changes = []
-        for change in changes:
-            if isinstance(change, Insert):
-                wrapped_changes.append(Change(insert=change))
-            elif isinstance(change, Delete):
-                wrapped_changes.append(Change(delete=change))
-            elif isinstance(change, SetAttribute):
-                wrapped_changes.append(Change(set_attribute=change))
+        if isinstance(changes, BatchUpdate):
+            wrapped_changes = changes.changes
+        else:
+            wrapped_changes = []
+            for change in changes:
+                if isinstance(change, Insert):
+                    wrapped_changes.append(Change(insert=change))
+                elif isinstance(change, Delete):
+                    wrapped_changes.append(Change(delete=change))
+                elif isinstance(change, SetAttribute):
+                    wrapped_changes.append(Change(set_attribute=change))
 
         _, _ = await self._request(
             "POST",
