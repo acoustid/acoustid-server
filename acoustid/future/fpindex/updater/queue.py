@@ -1,29 +1,39 @@
 import msgspec
 
 STREAM_NAME = "fpindex"
+SUBJECT_NAME = "fpindex.changes"
 
 
-class BaseOp(msgspec.Struct, tag_field="op"):
-    xid: int
-    lsn: int
+# Field name mapping for compact messages:
+# Base:
+#   o = operation (I, U, D)
+#   x = transaction id (xid)
+#   l = log sequence number (lsn)
+# Operations:
+#   i = fingerprint id
+#   h = fingerprint hashes (using compression from chromaprint)
+#   s = simhash of fingerprint hashes
 
 
-class FingerprintInsert(BaseOp, tag="I"):
-    id: int
-    hashes: bytes
+class Base(msgspec.Struct, tag_field="o"):
+    xid: int = msgspec.field(name="x")
+    lsn: int = msgspec.field(name="l")
 
 
-class FingerprintUpdate(BaseOp, tag="U"):
-    id: int
-    hashes: bytes
+class FingerprintInsert(Base, tag="I"):
+    id: int = msgspec.field(name="i")
+    hashes: bytes = msgspec.field(name="h")
+    simhash: int = msgspec.field(name="s")
 
 
-class FingerprintDelete(BaseOp, tag="D"):
-    id: int
+class FingerprintUpdate(Base, tag="U"):
+    id: int = msgspec.field(name="i")
+    hashes: bytes = msgspec.field(name="h")
+    simhash: int = msgspec.field(name="s")
 
 
-class Commit(BaseOp, tag="C"):
-    pass
+class FingerprintDelete(Base, tag="D"):
+    id: int = msgspec.field(name="i")
 
 
 FingerprintChange = FingerprintInsert | FingerprintUpdate | FingerprintDelete
