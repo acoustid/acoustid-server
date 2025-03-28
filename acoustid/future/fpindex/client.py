@@ -82,6 +82,7 @@ class FingerprintIndexClientError(Exception):
 class BatchUpdate:
     def __init__(self) -> None:
         self.changes: list[Change] = []
+
     def insert(self, id: int, hashes: list[int]) -> None:
         self.changes.append(
             Change(
