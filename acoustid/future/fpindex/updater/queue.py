@@ -3,27 +3,23 @@ import msgspec
 STREAM_NAME = "fpindex"
 
 
-class BaseOp(msgspec.Struct, tag_field="op"):
-    xid: int
-    lsn: int
+class Base(msgspec.Struct, tag_field="o"):
+    xid: int = msgspec.field(name="x")
+    lsn: int = msgspec.field(name="l")
 
 
-class FingerprintInsert(BaseOp, tag="I"):
-    id: int
-    hashes: bytes
+class FingerprintInsert(Base, tag="I"):
+    id: int = msgspec.field(name="i")
+    hashes: bytes = msgspec.field(name="h")
 
 
-class FingerprintUpdate(BaseOp, tag="U"):
-    id: int
-    hashes: bytes
+class FingerprintUpdate(Base, tag="U"):
+    id: int = msgspec.field(name="i")
+    hashes: bytes = msgspec.field(name="h")
 
 
-class FingerprintDelete(BaseOp, tag="D"):
-    id: int
-
-
-class Commit(BaseOp, tag="C"):
-    pass
+class FingerprintDelete(Base, tag="D"):
+    id: int = msgspec.field(name="i")
 
 
 FingerprintChange = FingerprintInsert | FingerprintUpdate | FingerprintDelete
