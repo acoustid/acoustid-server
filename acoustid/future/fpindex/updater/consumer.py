@@ -63,7 +63,7 @@ async def update_index(
                 lsn = max(lsn, data.lsn)
                 if isinstance(data, (FingerprintInsert, FingerprintUpdate)):
                     hashes = decode_legacy_fingerprint(
-                        data.hashes, base64=False, signed=True
+                        data.query, base64=False, signed=True
                     ).hashes
                     batch1.insert(data.id, list(hashes))
                     batch2.insert(data.id, [data.simhash])

@@ -11,7 +11,7 @@ SUBJECT_NAME = "fpindex.changes"
 #   l = log sequence number (lsn)
 # Operations:
 #   i = fingerprint id
-#   h = fingerprint hashes (using compression from chromaprint)
+#   q = fingerprint hashes (using compression from chromaprint)
 #   s = simhash of fingerprint hashes
 
 
@@ -22,13 +22,13 @@ class Base(msgspec.Struct, tag_field="o"):
 
 class FingerprintInsert(Base, tag="I"):
     id: int = msgspec.field(name="i")
-    hashes: bytes = msgspec.field(name="h")
+    query: bytes = msgspec.field(name="q")
     simhash: int = msgspec.field(name="s")
 
 
 class FingerprintUpdate(Base, tag="U"):
     id: int = msgspec.field(name="i")
-    hashes: bytes = msgspec.field(name="h")
+    query: bytes = msgspec.field(name="q")
     simhash: int = msgspec.field(name="s")
 
 
