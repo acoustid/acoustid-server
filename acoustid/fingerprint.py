@@ -1,6 +1,7 @@
 import array
 import struct
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import zstd
@@ -26,7 +27,9 @@ QUERY_BIT_MASK = ((1 << NUM_QUERY_BITS) - 1) << (32 - NUM_QUERY_BITS)
 SILENCE_HASH = 627964279
 
 
-def extract_query(hashes: list[int], size: int = 120, start: int = 80) -> list[int]:
+def extract_query(
+    hashes: Sequence[int], size: int = 120, start: int = 80
+) -> array.array[int]:
     """Extracts a subset of fingerprint hashes for querying.
 
     Args:
@@ -41,16 +44,17 @@ def extract_query(hashes: list[int], size: int = 120, start: int = 80) -> list[i
     only the most significant bits, and ensures uniqueness in the result.
     """
 
+    query = array.array("i")
+
     if size <= 0:
-        return []
+        return query
 
     # Count non-silence hashes
     clean_size = sum(1 for hash in hashes if hash & 0xFFFFFFFF != SILENCE_HASH)
 
     if clean_size <= 0:
-        return []
+        return query
 
-    query = [0] * size
     query_hashes = set()
     query_size = 0
 
@@ -70,10 +74,13 @@ def extract_query(hashes: list[int], size: int = 120, start: int = 80) -> list[i
             continue
 
         query_hashes.add(hash_val)
-        query[query_size] = hash_val
+        query.append(hash_val)
         query_size += 1
 
-    return query[:query_size]
+    if query_size < size:
+        return query[:query_size]
+
+    return query
 
 
 def compress_fingerprint(
