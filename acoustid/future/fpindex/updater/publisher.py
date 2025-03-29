@@ -16,6 +16,7 @@ from acoustid_ext.fingerprint import (
 )
 from nats.js.api import StreamConfig
 
+from acoustid.fingerprint import extract_query
 from acoustid.future.fpindex.updater.queue import (
     STREAM_NAME,
     SUBJECT_NAME,
@@ -109,7 +110,9 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
             xid=xid,
             lsn=lsn,
             id=fp_id,
-            hashes=encode_legacy_fingerprint(fp_hashes, algorithm=0, base64=False),
+            query=encode_legacy_fingerprint(
+                extract_query(fp_hashes), algorithm=0, base64=False
+            ),
             simhash=compute_simhash(fp_hashes),
         )
         await self.js.publish(
@@ -125,7 +128,9 @@ class NatsFingerprintUpdateReceiver(FingerprintUpdateReceiver):
             xid=xid,
             lsn=lsn,
             id=fp_id,
-            hashes=encode_legacy_fingerprint(fp_hashes, algorithm=0, base64=False),
+            query=encode_legacy_fingerprint(
+                extract_query(fp_hashes), algorithm=0, base64=False
+            ),
             simhash=compute_simhash(fp_hashes),
         )
         await self.js.publish(

@@ -30,7 +30,12 @@ def shutdown(event: asyncio.Event) -> None:
 
 
 async def update_index(
-    instance: str, index_url: str, index_name: str, nats_url: str, stream_name: str
+    instance: str,
+    index_url: str,
+    index_name: str,
+    nats_url: str,
+    stream_name: str,
+    simhash: bool,
 ) -> None:
     async with AsyncExitStack() as exit_stack:
         shutdown_event = asyncio.Event()
@@ -46,35 +51,36 @@ async def update_index(
 
         js = nc.jetstream()
 
+        subscriber_name = f"fpindex-updater.{instance}"
+        if simhash:
+            subscriber_name += ".sh"
+
         sub = await js.pull_subscribe(
             stream=stream_name,
             subject=f"{SUBJECT_NAME}.*",
-            durable=f"fpindex-updater.{instance}",
+            durable=subscriber_name,
             config=ConsumerConfig(),
         )
 
         while not shutdown_event.is_set():
-            lsn = 0
-            batch1 = BatchUpdate()
-            batch2 = BatchUpdate()
+            last_steam_seq = 0
+            batch = BatchUpdate()
             messages = await sub.fetch(BATCH_SIZE, timeout=10.0, heartbeat=1.0)
             for msg in messages:
                 data = msgspec.msgpack.decode(msg.data, type=FingerprintChange)
-                lsn = max(lsn, data.lsn)
+                last_steam_seq = max(last_steam_seq, msg.metadata.sequence.stream)
                 if isinstance(data, (FingerprintInsert, FingerprintUpdate)):
-                    hashes = decode_legacy_fingerprint(
-                        data.hashes, base64=False, signed=True
-                    ).hashes
-                    batch1.insert(data.id, list(hashes))
-                    batch2.insert(data.id, [data.simhash])
+                    if simhash:
+                        batch.insert(data.id, [data.simhash])
+                    else:
+                        hashes = decode_legacy_fingerprint(
+                            data.query, base64=False, signed=True
+                        ).hashes
+                        batch.insert(data.id, list(hashes))
                 elif isinstance(data, FingerprintDelete):
-                    batch1.delete(data.id)
-                    batch2.delete(data.id)
-            if lsn > 0:
-                batch1.set_attribute("lsn", lsn)
-                batch2.set_attribute("lsn", lsn)
-            await fpindex.update(index_name, batch1)
-            await fpindex.update(index_name + ".sh", batch2)
+                    batch.delete(data.id)
+            batch.set_attribute("nats_stream_seq", last_steam_seq)
+            await fpindex.update(index_name, batch)
             for msg in messages:
                 await msg.ack()
 
@@ -85,11 +91,19 @@ async def update_index(
 @click.option("--index-name", default="acoustid")
 @click.option("--nats-url", default="nats://localhost:4222")
 @click.option("--stream-name", default=STREAM_NAME)
+@click.option("--simhash", is_flag=True, default=False)
 def main(
-    instance: str, index_url: str, index_name: str, nats_url: str, stream_name: str
+    instance: str,
+    index_url: str,
+    index_name: str,
+    nats_url: str,
+    stream_name: str,
+    simhash: bool,
 ) -> None:
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(update_index(instance, index_url, index_name, nats_url, stream_name))
+    asyncio.run(
+        update_index(instance, index_url, index_name, nats_url, stream_name, simhash)
+    )
 
 
 if __name__ == "__main__":
