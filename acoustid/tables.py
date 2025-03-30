@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     MetaData,
     SmallInteger,
     String,
@@ -324,6 +325,22 @@ fingerprint = Table(
     Column("submission_count", Integer, nullable=False),
     Index("fingerprint_idx_length", "length"),
     Index("fingerprint_idx_track_id", "track_id"),
+    info={"bind_key": "fingerprint"},
+)
+
+fingerprint_data = Table(
+    "fingerprint_data",
+    metadata,
+    Column("id", Integer, ForeignKey("fingerprint.id"), primary_key=True),
+    Column("gid", UUID(as_uuid=True), nullable=False, index=True, unique=True),
+    Column("fingerprint", LargeBinary, nullable=False),
+    Column("simhash", Integer, nullable=False, index=True),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.func.current_timestamp(),
+        nullable=False,
+    ),
     info={"bind_key": "fingerprint"},
 )
 
