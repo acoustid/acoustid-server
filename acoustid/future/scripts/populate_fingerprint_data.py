@@ -37,12 +37,12 @@ async def populate_fingerprint_data(
             batch = []
             for id, hashes_str in fingerprints:
                 hashes = decode_postgres_array(hashes_str)
-                encoded_hashes = encode_legacy_fingerprint(
+                encoded_fingerprint = encode_legacy_fingerprint(
                     hashes, 1, base64=False, signed=True
                 )
                 gid = compute_fingerprint_gid(1, hashes)
                 simhash = compute_simhash(hashes)
-                batch.append((id, gid, encoded_hashes, simhash))
+                batch.append((id, gid, encoded_fingerprint, simhash))
 
             if insert_task is not None:
                 await insert_task
@@ -50,7 +50,7 @@ async def populate_fingerprint_data(
 
             insert_task = asyncio.create_task(
                 conn.executemany(
-                    "INSERT INTO fingerprint_data (id, gid, hashes, simhash) VALUES ($1, $2, $3, $4)",
+                    "INSERT INTO fingerprint_data (id, gid, fingerprint, simhash) VALUES ($1, $2, $3, $4)",
                     batch,
                 )
             )
