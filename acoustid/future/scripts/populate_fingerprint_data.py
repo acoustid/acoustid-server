@@ -34,8 +34,8 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
         row = await conn.fetchrow(
             """
             SELECT
-                (SELECT MIN(id) FROM fingerprints) as min_fingerprint_id,
-                (SELECT MAX(id) FROM fingerprints) as max_fingerprint_id,
+                (SELECT MIN(id) FROM fingerprint) as min_fingerprint_id,
+                (SELECT MAX(id) FROM fingerprint) as max_fingerprint_id,
                 (SELECT MAX(id) FROM fingerprint_data) as max_fingerprint_data_id
         """
         )
@@ -67,7 +67,7 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
         batch_size = 10000
         for i in range(min_id, max_id, batch_size):
             fingerprints = await conn.fetch(
-                "SELECT id, fingerprint::text FROM fingerprints WHERE id >= $1 AND id < $2",
+                "SELECT id, fingerprint::text FROM fingerprint WHERE id >= $1 AND id < $2",
                 i,
                 min(i + batch_size, max_id),
             )
@@ -97,7 +97,7 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
 @click.command()
 @click.option(
     "--postgres-url",
-    default="postgresql://acoustid:acoustid@localhost:5432/acoustid_fingerprint",
+    required=True,
 )
 def main(postgres_url: str) -> None:
     logging.basicConfig(level=logging.INFO)
