@@ -12,13 +12,28 @@ from acoustid_ext.fingerprint import (
 
 from acoustid.fingerprint import compute_fingerprint_gid
 
+logger = logging.getLogger(__name__)
 
-async def populate_fingerprint_data(
-    postgres_url: str, min_id: int, max_id: int
-) -> None:
+
+async def populate_fingerprint_data(postgres_url: str) -> None:
     async with AsyncExitStack() as exit_stack:
         conn = await asyncpg.connect(postgres_url)
         exit_stack.push_async_callback(conn.close)
+
+        min_fingerprint_id = (
+            await conn.fetchval("SELECT MIN(id) FROM fingerprints") or 0
+        )
+        max_fingerprint_id = (
+            await conn.fetchval("SELECT MAX(id) FROM fingerprints") or 0
+        )
+
+        max_fingerprint_data_id = (
+            await conn.fetchval("SELECT MAX(id) FROM fingerprint_data") or 0
+        )
+
+        # Start from the last processed ID + 1
+        min_id = max(min_fingerprint_id, max_fingerprint_data_id + 1)
+        max_id = max_fingerprint_id - 1000
 
         async def wait_for_insert_task(task: asyncio.Task | None) -> None:
             if task is not None:
@@ -48,6 +63,12 @@ async def populate_fingerprint_data(
                 await insert_task
                 insert_task = None
 
+            logger.info(
+                "Processing batch %s to %s",
+                i,
+                min(i + batch_size, max_id),
+            )
+
             insert_task = asyncio.create_task(
                 conn.executemany(
                     "INSERT INTO fingerprint_data (id, gid, fingerprint, simhash) VALUES ($1, $2, $3, $4)",
@@ -61,11 +82,9 @@ async def populate_fingerprint_data(
     "--postgres-url",
     default="postgresql://acoustid:acoustid@localhost:5432/acoustid_fingerprint",
 )
-@click.option("--min-id", type=int, required=True)
-@click.option("--max-id", type=int, required=True)
-def main(postgres_url: str, min_id: int, max_id: int) -> None:
+def main(postgres_url: str) -> None:
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(populate_fingerprint_data(postgres_url, min_id, max_id))
+    asyncio.run(populate_fingerprint_data(postgres_url))
 
 
 if __name__ == "__main__":
