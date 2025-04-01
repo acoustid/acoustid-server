@@ -35,6 +35,11 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
         min_id = max(min_fingerprint_id, max_fingerprint_data_id + 1)
         max_id = max_fingerprint_id - 1000
 
+        # Early return if there's nothing to process
+        if min_id >= max_id:
+            logger.info("No new fingerprints to process")
+            return
+
         async def wait_for_insert_task(task: asyncio.Task | None) -> None:
             if task is not None:
                 await task
