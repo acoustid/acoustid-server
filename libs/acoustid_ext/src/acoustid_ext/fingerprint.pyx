@@ -111,9 +111,9 @@ cdef encode_fingerprint_impl(array_type hashes, int version, signed_type signed_
         raise TypeError('hashes cannot be None')
 
     if array_type is array.array:
-        if hashes.ob_descr.itemsize != 4:
+        if hashes.itemsize != 4:
             raise TypeError('hashes array must have 32bit items')
-        if hashes.ob_descr.typecode not in (b'i', b'I'):
+        if hashes.typecode not in ('i', 'I'):
             raise TypeError("hashes array must have typecode 'i' or 'I'")
 
     cdef uint32_t hash, last_hash, diff
@@ -320,9 +320,9 @@ def encode_legacy_fingerprint(object hashes, int version, bint base64=True, bint
         else:
             hashes_as_array = array.array('I', hashes)
     elif isinstance(hashes, array.array):
-        if hashes.ob_descr.itemsize != 4:
+        if hashes.itemsize != 4:
             raise TypeError('hashes array must have 32bit items')
-        if hashes.ob_descr.typecode != ('i' if signed else 'I'):
+        if hashes.typecode != ('i' if signed else 'I'):
             raise TypeError("hashes array must have typecode 'i' or 'I'")
         hashes_as_array = hashes
     else:

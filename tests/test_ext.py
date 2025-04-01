@@ -38,7 +38,7 @@ def test_encode_fingerprint_list_invalid_type() -> None:
 
 
 def test_encode_fingerprint_array() -> None:
-    data = encode_fingerprint(array.array("I", [1, 2, 3]), 99)
+    data = encode_fingerprint(array.array("I", [1, 2, 3]), 99, signed=False)
 
     assert data[0:2] == b"Fp"
     assert data[2] == 1

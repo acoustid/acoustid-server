@@ -73,7 +73,7 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
             )
             batch = []
             for id, hashes_str in fingerprints:
-                hashes = decode_postgres_array(hashes_str)
+                hashes = decode_postgres_array(hashes_str, signed=True)
                 encoded_fingerprint = encode_legacy_fingerprint(
                     hashes, 1, base64=False, signed=True
                 )
