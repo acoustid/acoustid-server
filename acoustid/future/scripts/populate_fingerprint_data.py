@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import AsyncExitStack
+from uuid import UUID
 
 import asyncpg
 import click
@@ -15,25 +16,41 @@ from acoustid.fingerprint import compute_fingerprint_gid
 logger = logging.getLogger(__name__)
 
 
+async def insert_data(
+    conn: asyncpg.Connection, batch: list[tuple[int, UUID, bytes, int]]
+) -> None:
+    async with conn.transaction():
+        await conn.executemany(
+            "INSERT INTO fingerprint_data (id, gid, fingerprint, simhash) VALUES ($1, $2, $3, $4)",
+            batch,
+        )
+
+
 async def populate_fingerprint_data(postgres_url: str) -> None:
     async with AsyncExitStack() as exit_stack:
         conn = await asyncpg.connect(postgres_url)
         exit_stack.push_async_callback(conn.close)
 
-        min_fingerprint_id = (
-            await conn.fetchval("SELECT MIN(id) FROM fingerprints") or 0
+        row = await conn.fetchrow(
+            """
+            SELECT
+                (SELECT MIN(id) FROM fingerprints) as min_fingerprint_id,
+                (SELECT MAX(id) FROM fingerprints) as max_fingerprint_id,
+                (SELECT MAX(id) FROM fingerprint_data) as max_fingerprint_data_id
+        """
         )
-        max_fingerprint_id = (
-            await conn.fetchval("SELECT MAX(id) FROM fingerprints") or 0
-        )
+        assert row is not None, "No rows returned"
 
-        max_fingerprint_data_id = (
-            await conn.fetchval("SELECT MAX(id) FROM fingerprint_data") or 0
-        )
+        min_fingerprint_id = row["min_fingerprint_id"] or 0
+        max_fingerprint_id = row["max_fingerprint_id"] or 0
+        max_fingerprint_data_id = row["max_fingerprint_data_id"] or 0
+
+        # Buffer size to avoid processing records that might still be changing
+        buffer_size = 1000
 
         # Start from the last processed ID + 1
         min_id = max(min_fingerprint_id, max_fingerprint_data_id + 1)
-        max_id = max_fingerprint_id - 1000
+        max_id = max_fingerprint_id - buffer_size
 
         # Early return if there's nothing to process
         if min_id >= max_id:
@@ -74,12 +91,7 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
                 min(i + batch_size, max_id),
             )
 
-            insert_task = asyncio.create_task(
-                conn.executemany(
-                    "INSERT INTO fingerprint_data (id, gid, fingerprint, simhash) VALUES ($1, $2, $3, $4)",
-                    batch,
-                )
-            )
+            insert_task = asyncio.create_task(insert_data(conn, batch))
 
 
 @click.command()
