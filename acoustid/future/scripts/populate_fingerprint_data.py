@@ -57,13 +57,6 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
             logger.info("No new fingerprints to process")
             return
 
-        async def wait_for_insert_task(task: asyncio.Task | None) -> None:
-            if task is not None:
-                await task
-
-        insert_task: asyncio.Task | None = None
-        exit_stack.push_async_callback(wait_for_insert_task, insert_task)
-
         batch_size = 10000
         for i in range(min_id, max_id, batch_size):
             fingerprints = await conn.fetch(
@@ -81,17 +74,13 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
                 simhash = compute_simhash(hashes)
                 batch.append((id, gid, encoded_fingerprint, simhash))
 
-            if insert_task is not None:
-                await insert_task
-                insert_task = None
-
             logger.info(
                 "Processing batch %s to %s",
                 i,
                 min(i + batch_size, max_id),
             )
 
-            insert_task = asyncio.create_task(insert_data(conn, batch))
+            await insert_data(conn, batch)
 
 
 @click.command()
