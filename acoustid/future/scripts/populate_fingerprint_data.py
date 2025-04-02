@@ -11,7 +11,7 @@ from acoustid_ext.fingerprint import (
     encode_legacy_fingerprint,
 )
 
-from acoustid.fingerprint import compute_fingerprint_gid
+from acoustid.fingerprint import compute_fingerprint_gid, to_signed
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
                     hashes, 1, base64=False, signed=True
                 )
                 gid = compute_fingerprint_gid(1, hashes)
-                simhash = compute_simhash(hashes)
+                simhash = compute_simhash(hashes, signed=True)
                 batch.append((id, gid, encoded_fingerprint, simhash))
 
             logger.info(
