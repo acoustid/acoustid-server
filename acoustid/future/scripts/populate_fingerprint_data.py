@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 from contextlib import AsyncExitStack
 from uuid import UUID
@@ -17,12 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 async def insert_data(
-    conn: asyncpg.Connection, batch: list[tuple[int, UUID, bytes, int]]
+    conn: asyncpg.Connection,
+    batch: list[tuple[int, UUID, bytes, int, datetime.datetime]],
 ) -> None:
     async with conn.transaction():
         await conn.executemany(
             """
-            INSERT INTO fingerprint_data (id, gid, fingerprint, simhash) VALUES ($1, $2, $3, $4)
+            INSERT INTO fingerprint_data (id, gid, fingerprint, simhash, created) VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (gid) DO NOTHING
             """,
             batch,
@@ -63,19 +65,19 @@ async def populate_fingerprint_data(postgres_url: str) -> None:
         batch_size = 10000
         for i in range(min_id, max_id, batch_size):
             fingerprints = await conn.fetch(
-                "SELECT id, fingerprint::text FROM fingerprint WHERE id >= $1 AND id < $2",
+                "SELECT id, fingerprint::text, created FROM fingerprint WHERE id >= $1 AND id < $2",
                 i,
                 min(i + batch_size, max_id),
             )
             batch = []
-            for id, hashes_str in fingerprints:
+            for id, hashes_str, created in fingerprints:
                 hashes = decode_postgres_array(hashes_str, signed=True)
                 encoded_fingerprint = encode_legacy_fingerprint(
                     hashes, 1, base64=False, signed=True
                 )
                 gid = compute_fingerprint_gid(1, hashes)
                 simhash = compute_simhash(hashes, signed=True)
-                batch.append((id, gid, encoded_fingerprint, simhash))
+                batch.append((id, gid, encoded_fingerprint, simhash, created))
 
             logger.info(
                 "Processing batch %s to %s",
