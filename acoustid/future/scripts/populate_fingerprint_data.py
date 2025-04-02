@@ -21,7 +21,10 @@ async def insert_data(
 ) -> None:
     async with conn.transaction():
         await conn.executemany(
-            "INSERT INTO fingerprint_data (id, gid, fingerprint, simhash) VALUES ($1, $2, $3, $4)",
+            """
+            INSERT INTO fingerprint_data (id, gid, fingerprint, simhash) VALUES ($1, $2, $3, $4)
+            ON CONFLICT (gid) DO NOTHING
+            """,
             batch,
         )
 
