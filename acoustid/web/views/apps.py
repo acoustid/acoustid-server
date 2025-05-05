@@ -125,10 +125,10 @@ def edit_application(application_id) -> str | Response:
         sql.text(
             """
         SELECT * FROM application
-        WHERE id = %s
+        WHERE id = :app_id
     """
         ),
-        (application_id,),
+        {"app_id": application_id},
     ).fetchone()
     if application is None:
         abort(404)
