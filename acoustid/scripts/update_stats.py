@@ -60,7 +60,7 @@ TRACK_MBID_QUERY = """
 
 def get_track_count_stats(db, query):
     counts = dict((i, 0) for i in range(11))
-    for count_1, count_2 in db.execute(query):
+    for count_1, count_2 in db.execute(sql.text(query)):
         if count_1 >= 10:
             count_1 = 10
         counts[count_1] += count_2
