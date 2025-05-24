@@ -2,7 +2,7 @@ import msgspec
 from starlette.requests import Request
 from starlette.responses import Response
 
-from ..utils import MsgspecResponse
+from ...apiutils import MsgspecResponse
 
 
 class Health(msgspec.Struct):
