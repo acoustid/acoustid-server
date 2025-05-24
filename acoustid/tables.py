@@ -140,6 +140,13 @@ source = Table(
     info={"bind_key": "app"},
 )
 
+pending_submission = Table(
+    "pending_submission",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    info={"bind_key": "ingest"},
+)
+
 submission = Table(
     "submission",
     metadata,
