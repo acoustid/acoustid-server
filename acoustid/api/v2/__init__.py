@@ -7,6 +7,7 @@ import logging
 import operator
 import re
 import time
+import uuid
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -393,7 +394,10 @@ class LookupHandler(APIHandler):
 
     def extract_recording(self, m, only_id=False):
         # type: (Dict[str, Any], bool) -> Dict[str, Any]
-        recording: dict[str, Any] = {"id": str(m["recording_id"])}
+        recording_id = m["recording_id"]
+        if isinstance(recording_id, uuid.UUID):
+            recording_id = str(recording_id)
+        recording: dict[str, Any] = {"id": recording_id}
         if only_id:
             return recording
         recording["title"] = m["recording_title"] or ""
