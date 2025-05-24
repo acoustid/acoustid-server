@@ -1,4 +1,3 @@
-
 def test_get_fingerprint_success(client):
     response = client.post(
         "/v2/fingerprint/_get",

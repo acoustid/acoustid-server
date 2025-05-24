@@ -9,7 +9,7 @@ from starlette.responses import Response
 
 from acoustid.fingerprint import FingerprintError, FingerprintInfo, process_fingerprint
 
-from ..utils import MsgspecResponse
+from ...apiutils import MsgspecResponse
 
 
 class Metadata(msgspec.Struct):

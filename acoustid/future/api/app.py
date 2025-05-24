@@ -9,9 +9,9 @@ from starlette.middleware.authentication import (
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
 
+from ..apiutils import on_auth_error, on_validation_error
 from .handlers.monitoring import handle_health
 from .handlers.submit import handle_submit
-from ..apiutils import on_auth_error, on_validation_error
 
 
 class ApiUser(BaseUser):
