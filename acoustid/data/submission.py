@@ -5,7 +5,7 @@ import array
 import datetime
 import logging
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable
 
 import pytz
 from acoustid_ext.fingerprint import compute_simhash
@@ -38,22 +38,20 @@ from acoustid.indexclient import IndexClientPool
 logger = logging.getLogger(__name__)
 
 
-def insert_submission(ingest_db, values):
-    # type: (IngestDB, Dict[str, Any]) -> int
+def insert_submission(ingest_db: IngestDB, values: dict[str, Any]) -> int:
     """
     Insert a new submission into the database
     """
     values = dict((k, v) for (k, v) in values.items() if v is not None)
-    submission_id = ingest_db.execute(
-        schema.submission.insert().values(values)
-    ).inserted_primary_key[0]
+    result = ingest_db.execute(schema.submission.insert().values(values))
+    assert result.inserted_primary_key is not None
+    submission_id = result.inserted_primary_key[0]
     ingest_db.execute(schema.pending_submission.insert().values(id=submission_id))
     logger.debug("Inserted submission %r with data %r", submission_id, values)
     return submission_id
 
 
-def insert_submission_result(ingest_db, values):
-    # type: (IngestDB, Dict[str, Any]) -> int
+def insert_submission_result(ingest_db: IngestDB, values: dict[str, Any]) -> int:
     """
     Insert a new submission result into the database
     """
@@ -65,8 +63,13 @@ def insert_submission_result(ingest_db, values):
     return submission_id
 
 
-def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission):
-    # type: (IngestDB, AppDB, FingerprintDB, IndexClientPool, RowMapping) -> Optional[Dict[str, Any]]
+def import_submission(
+    ingest_db: IngestDB,
+    app_db: AppDB,
+    fingerprint_db: FingerprintDB,
+    index_pool: IndexClientPool,
+    submission: RowMapping,
+) -> dict[str, Any] | None:
     """
     Import the given submission into the main fingerprint database
     """
@@ -177,8 +180,8 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
     searcher.min_score = const.TRACK_MERGE_THRESHOLD
     matches = searcher.search(submission["fingerprint"], submission["length"])
     if matches:
-        all_track_ids = set()  # type: Set[int]
-        possible_track_ids = set()  # type: Set[int]
+        all_track_ids: set[int] = set()
+        possible_track_ids: set[int] = set()
         for m in matches:
             if m.track_id in all_track_ids:
                 continue
@@ -252,8 +255,8 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
         submission_result["puid"] = submission["puid"]
 
     if has_meta:
-        meta_id = submission["meta_id"]  # type: Optional[int]
-        meta_gid = None  # type: Optional[uuid.UUID]
+        meta_id: int | None = submission["meta_id"]
+        meta_gid: uuid.UUID | None = submission["meta_gid"]
         if meta_id is None:
             meta = fix_meta(submission["meta"])
             meta_id, meta_gid = find_or_insert_meta(fingerprint_db, meta)
@@ -297,9 +300,13 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
 
 
 def import_queued_submissions(
-    ingest_db, app_db, fingerprint_db, index, limit=100, ids=None
-):
-    # type: (IngestDB, AppDB, FingerprintDB, IndexClientPool, int, Optional[List[int]]) -> int
+    ingest_db: IngestDB,
+    app_db: AppDB,
+    fingerprint_db: FingerprintDB,
+    index_pool: IndexClientPool,
+    limit: int = 100,
+    ids: list[int] | None = None,
+) -> int:
     """
     Import the given submission into the main fingerprint database
     """
@@ -321,14 +328,16 @@ def import_queued_submissions(
     )
     count = 0
     for submission in submissions:
-        import_submission(ingest_db, app_db, fingerprint_db, index, submission._mapping)
+        import_submission(
+            ingest_db, app_db, fingerprint_db, index_pool, submission._mapping
+        )
         count += 1
     return count
 
 
 def lookup_submission_status(
     ingest_db: IngestDB, fingerprint_db: FingerprintDB, ids: Iterable[int]
-) -> Dict[int, str]:
+) -> dict[int, str]:
     if not ids:
         return {}
 
