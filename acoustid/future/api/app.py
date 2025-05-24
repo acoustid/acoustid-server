@@ -11,7 +11,7 @@ from starlette.routing import Route
 
 from .handlers.monitoring import handle_health
 from .handlers.submit import handle_submit
-from .utils import on_auth_error, on_validation_error
+from ..apiutils import on_auth_error, on_validation_error
 
 
 class ApiUser(BaseUser):
