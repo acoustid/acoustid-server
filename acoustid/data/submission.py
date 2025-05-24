@@ -308,13 +308,19 @@ def import_queued_submissions(
         query = query.where(schema.pending_submission.c.id.in_(ids))
     if limit is not None:
         query = query.limit(limit)
+
+    submission_ids = [row[0] for row in ingest_db.execute(query)]
+    if not submission_ids:
+        return 0
+
+    submissions = ingest_db.execute(
+        schema.submission.select().where(
+            schema.submission.c.id.in_(submission_ids),
+            schema.submission.c.handled.is_(False),
+        )
+    )
     count = 0
-    for submission_id in ingest_db.execute(query):
-        submission = ingest_db.execute(
-            schema.submission.select().where(
-                schema.pending_submission.c.id == submission_id
-            )
-        ).one()
+    for submission in submissions:
         import_submission(ingest_db, app_db, fingerprint_db, index, submission._mapping)
         count += 1
     return count
