@@ -19,3 +19,4 @@
 *.egg-info
 /libs/acoustid_ext/build/
 /libs/acoustid_ext/src/acoustid_ext/fingerprint.c
+.aider*

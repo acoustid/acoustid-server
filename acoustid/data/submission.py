@@ -44,8 +44,10 @@ def insert_submission(ingest_db, values):
     Insert a new submission into the database
     """
     values = dict((k, v) for (k, v) in values.items() if v is not None)
-    insert_stmt = schema.submission.insert().values(values)
-    submission_id = ingest_db.execute(insert_stmt).inserted_primary_key[0]
+    submission_id = ingest_db.execute(
+        schema.submission.insert().values(values)
+    ).inserted_primary_key[0]
+    ingest_db.execute(schema.pending_submission.insert().values(id=submission_id))
     logger.debug("Inserted submission %r with data %r", submission_id, values)
     return submission_id
 
@@ -91,11 +93,16 @@ def import_submission(ingest_db, app_db, fingerprint_db, index_pool, submission)
 
     handled_at = datetime.datetime.now(pytz.utc)
 
-    update_stmt = schema.submission.update().where(
-        schema.submission.c.id == submission["id"]
+    ingest_db.execute(
+        schema.submission.update()
+        .where(schema.submission.c.id == submission["id"])
+        .values(handled=True, handled_at=handled_at)
     )
-    ingest_db.execute(update_stmt.values(handled=True))
-    ingest_db.execute(update_stmt.values(handled=True, handled_at=handled_at))
+    ingest_db.execute(
+        schema.pending_submission.delete().where(
+            schema.pending_submission.c.id == submission["id"]
+        )
+    )
     logger.info(
         "Importing submission %d with MBIDs %s", submission["id"], submission["mbid"]
     )
@@ -296,17 +303,18 @@ def import_queued_submissions(
     """
     Import the given submission into the main fingerprint database
     """
-    query = (
-        schema.submission.select()
-        .where(schema.submission.c.handled.is_(False))
-        .with_for_update(skip_locked=True)
-    )
+    query = sql.select(schema.pending_submission.c.id).with_for_update(skip_locked=True)
     if ids is not None:
-        query = query.where(schema.submission.c.id.in_(ids))
+        query = query.where(schema.pending_submission.c.id.in_(ids))
     if limit is not None:
         query = query.limit(limit)
     count = 0
-    for submission in ingest_db.execute(query):
+    for submission_id in ingest_db.execute(query):
+        submission = ingest_db.execute(
+            schema.submission.select().where(
+                schema.pending_submission.c.id == submission_id
+            )
+        ).one()
         import_submission(ingest_db, app_db, fingerprint_db, index, submission._mapping)
         count += 1
     return count
