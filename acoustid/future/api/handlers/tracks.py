@@ -33,6 +33,6 @@ async def handle_list_tracks_by_mbid(request: Request) -> Response:
 
 async def handle_list_tracks_by_fingerprint(request: Request) -> Response:
     params = dict(request.query_params)
-    req = msgspec.convert(params, type=ListByMBIDRequest)
+    req = msgspec.convert(params, type=ListByFingerprintRequest)
     _ = req
     return MsgspecResponse(ListResponse(tracks=[]))
