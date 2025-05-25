@@ -12,6 +12,6 @@ def test_list_by_mbid(client: TestClient) -> None:
 def test_list_by_fingerprint(client: TestClient) -> None:
     response = client.get(
         "/v3/track/list_by_fingerprint",
-        params={"id": "b700e9ff-c8b0-4563-8033-e073b886be56"},
+        params={"id": "1"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text

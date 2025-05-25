@@ -6,17 +6,21 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from acoustid.future.data.db import FingerprintDB
-from acoustid.future.data.tracks import list_tracks_by_mbid
+from acoustid.future.data.tracks import (
+    list_track_by_fingerprint_id,
+    list_tracks_by_mbid,
+)
 
 from ..utils import MsgspecResponse, get_ctx
 
 
 class ListByMBIDRequest(msgspec.Struct):
     mbid: uuid.UUID
+    disabled: bool = False
 
 
 class ListByFingerprintRequest(msgspec.Struct):
-    id: uuid.UUID
+    id: int
 
 
 class TrackInfo(msgspec.Struct):
@@ -32,14 +36,19 @@ async def handle_list_tracks_by_mbid(request: Request) -> Response:
     ctx = get_ctx(request)
 
     params = dict(request.query_params)
-    req = msgspec.convert(params, type=ListByMBIDRequest)
+    req = msgspec.convert(params, type=ListByMBIDRequest, strict=False, str_keys=True)
 
     tracks = []
 
     async with ctx.app_context.get_fingerprint_db().connect() as db:
         fp_db = cast(FingerprintDB, db)
-        for track in await list_tracks_by_mbid(fp_db, req.mbid):
-            tracks.append(TrackInfo(id=track["gid"], disabled=track["disabled"]))
+        for track in await list_tracks_by_mbid(
+            fp_db, req.mbid, include_disabled=req.disabled
+        ):
+            if req.disabled:
+                tracks.append(TrackInfo(id=track["gid"], disabled=track["disabled"]))
+            else:
+                tracks.append(TrackInfo(id=track["gid"]))
 
     return MsgspecResponse(ListResponse(tracks=tracks))
 
@@ -48,9 +57,13 @@ async def handle_list_tracks_by_fingerprint(request: Request) -> Response:
     ctx = get_ctx(request)
 
     params = dict(request.query_params)
-    req = msgspec.convert(params, type=ListByFingerprintRequest)
+    req = msgspec.convert(params, type=ListByFingerprintRequest, strict=False, str_keys=True)
 
-    _ = ctx
-    _ = req
+    tracks = []
 
-    return MsgspecResponse(ListResponse(tracks=[]))
+    async with ctx.app_context.get_fingerprint_db().connect() as db:
+        fp_db = cast(FingerprintDB, db)
+        for track in await list_track_by_fingerprint_id(fp_db, req.id):
+            tracks.append(TrackInfo(id=track["gid"]))
+
+    return MsgspecResponse(ListResponse(tracks=tracks))

@@ -27,3 +27,17 @@ async def list_tracks_by_mbid(
         stmt = stmt.where(schema.track_mbid.c.disabled == sql.false())
     rows = await db.execute(stmt)
     return [TrackInfo(gid=row.gid, disabled=row.disabled) for row in rows]
+
+
+async def list_track_by_fingerprint_id(
+    db: FingerprintDB, fingerprint_id: int
+) -> list[TrackInfo]:
+    """List tracks by fingerprint ID."""
+    stmt = (
+        sql.select(schema.track.c.gid)
+        .select_from(schema.fingerprint)
+        .join(schema.track, schema.track.c.id == schema.fingerprint.c.track_id)
+        .where(schema.fingerprint.c.id == fingerprint_id)
+    )
+    rows = await db.execute(stmt)
+    return [TrackInfo(gid=row.gid, disabled=False) for row in rows]
