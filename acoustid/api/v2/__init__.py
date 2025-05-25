@@ -891,7 +891,7 @@ class SubmissionStatusHandler(APIHandler):
             track_gid = tracks.get(submission_id)
             if track_gid is not None:
                 submission["status"] = "imported"
-                submission["result"] = {"id": track_gid}
+                submission["result"] = {"id": str(track_gid)}
         return response
 
 
