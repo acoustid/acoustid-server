@@ -586,6 +586,16 @@ class Config(object):
         self.statsd = StatsdConfig()
         self.sentry = SentryConfig()
 
+    @classmethod
+    def load(cls, path: str | None = None, tests: bool = False) -> "Config":
+        config = cls()
+        if path is None:
+            path = os.environ.get("ACOUSTID_CONFIG")
+        if path is not None:
+            config.read(path)
+        config.read_env(tests=tests)
+        return config
+
     def read(self, path: str) -> None:
         logger.info("Loading configuration file %s", path)
         parser = RawConfigParser()

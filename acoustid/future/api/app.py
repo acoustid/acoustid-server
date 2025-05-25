@@ -1,3 +1,5 @@
+import os
+
 from msgspec import ValidationError
 from starlette.applications import Starlette
 from starlette.authentication import AuthCredentials, BaseUser
@@ -8,6 +10,8 @@ from starlette.middleware.authentication import (
 )
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
+
+from acoustid.config import Config
 
 from .handlers.list_by_mbid import handle_list_by_mbid
 from .handlers.monitoring import handle_health
@@ -50,7 +54,10 @@ class ApiAuthBackend(AuthenticationBackend):
         return AuthCredentials(["app", "user"]), ApiUser(app_id, user_id)
 
 
-def create_app() -> Starlette:
+def create_app(config_file: str | None = None, tests: bool = False) -> Starlette:
+    config = Config.load(config_file, tests=tests)
+    _ = config
+
     return Starlette(
         routes=[
             Route("/v3/submit", handle_submit, methods=["POST"]),
