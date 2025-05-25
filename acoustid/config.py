@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, List, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import URL
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from acoustid.const import DEFAULT_GLOBAL_RATE_LIMIT
 
@@ -92,6 +93,17 @@ class DatabasesConfig(BaseConfig):
                 engines[name] = db_config.create_engine(**kwargs)
         return engines
 
+    def create_async_engines(self, **kwargs) -> dict[str, AsyncEngine]:
+        engines: dict[str, AsyncEngine] = {}
+        for name, db_config in self.databases.items():
+            for other_name, other_db_config in self.databases.items():
+                if other_name in engines and other_db_config == db_config:
+                    engines[name] = engines[other_name]
+                    break
+            else:
+                engines[name] = db_config.create_async_engine(**kwargs)
+        return engines
+
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
         if parser.has_option(section, "two_phase_commit"):
@@ -155,7 +167,7 @@ class DatabaseConfig(BaseConfig):
             and self.pool_timeout == other.pool_timeout
         )
 
-    def create_url(self) -> URL:
+    def create_url(self, driver: str | None = None) -> URL:
         kwargs: dict[str, Any] = {
             "username": self.user,
             "database": self.name,
@@ -166,10 +178,12 @@ class DatabaseConfig(BaseConfig):
             kwargs["port"] = self.port
         if self.password is not None:
             kwargs["password"] = self.password
-        return URL.create("postgresql", **kwargs)
+        scheme = "postgresql"
+        if driver is not None:
+            scheme += "+" + driver
+        return URL.create(scheme, **kwargs)
 
-    def create_engine(self, **kwargs):
-        # type: (**Any) -> Engine
+    def create_engine_params(self, **kwargs) -> dict[str, Any]:
         if "poolclass" not in kwargs:
             if self.pool_size is not None and "pool_size" not in kwargs:
                 kwargs["pool_size"] = self.pool_size
@@ -179,10 +193,17 @@ class DatabaseConfig(BaseConfig):
                 kwargs["pool_pre_ping"] = self.pool_pre_ping
             if self.pool_timeout is not None and "pool_timeout" not in kwargs:
                 kwargs["pool_timeout"] = self.pool_timeout
-        return create_engine(self.create_url(), **kwargs)
+        return kwargs
 
-    def create_psql_args(self):
-        # type: () -> List[str]
+    def create_engine(self, **kwargs) -> Engine:
+        return create_engine(self.create_url(), **self.create_engine_params(**kwargs))
+
+    def create_async_engine(self, **kwargs) -> AsyncEngine:
+        return create_async_engine(
+            self.create_url(driver="asyncpg"), **self.create_engine_params(**kwargs)
+        )
+
+    def create_psql_args(self) -> list[str]:
         args = []
         args.append("-U")
         args.append(self.user)
@@ -585,6 +606,16 @@ class Config(object):
         self.gunicorn = GunicornConfig()
         self.statsd = StatsdConfig()
         self.sentry = SentryConfig()
+
+    @classmethod
+    def load(cls, path: str | None = None, tests: bool = False) -> "Config":
+        config = cls()
+        if path is None:
+            path = os.environ.get("ACOUSTID_CONFIG")
+        if path is not None:
+            config.read(path)
+        config.read_env(tests=tests)
+        return config
 
     def read(self, path: str) -> None:
         logger.info("Loading configuration file %s", path)

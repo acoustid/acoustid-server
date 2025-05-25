@@ -1,3 +1,7 @@
+import functools
+import logging
+from contextlib import asynccontextmanager
+
 from msgspec import ValidationError
 from starlette.applications import Starlette
 from starlette.authentication import AuthCredentials, BaseUser
@@ -9,9 +13,22 @@ from starlette.middleware.authentication import (
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
 
+from acoustid.config import Config
+
 from .handlers.monitoring import handle_health
 from .handlers.submit import handle_submit
-from .utils import on_auth_error, on_validation_error
+from .handlers.tracks import (
+    handle_list_tracks_by_fingerprint,
+    handle_list_tracks_by_mbid,
+)
+from .utils import (
+    AppContext,
+    RequestContextMiddleware,
+    on_auth_error,
+    on_validation_error,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class ApiUser(BaseUser):
@@ -49,13 +66,34 @@ class ApiAuthBackend(AuthenticationBackend):
         return AuthCredentials(["app", "user"]), ApiUser(app_id, user_id)
 
 
-def create_app() -> Starlette:
+@asynccontextmanager
+async def app_lifespan(config: Config, app: Starlette):
+    async with AppContext(config) as app_ctx:
+        app.state.app_ctx = app_ctx
+        yield
+
+
+def create_app(config_file: str | None = None, tests: bool = False) -> Starlette:
+    config = Config.load(config_file, tests=tests)
+    _ = config
+
     return Starlette(
         routes=[
             Route("/v3/submit", handle_submit, methods=["POST"]),
+            Route(
+                "/v3/track/list_by_mbid", handle_list_tracks_by_mbid, methods=["GET"]
+            ),
+            Route(
+                "/v3/track/list_by_fingerprint",
+                handle_list_tracks_by_fingerprint,
+                methods=["GET"],
+            ),
             Route("/health", handle_health, methods=["GET"]),
         ],
         middleware=[
+            Middleware(
+                RequestContextMiddleware,
+            ),
             Middleware(
                 AuthenticationMiddleware,
                 backend=ApiAuthBackend(),
@@ -65,4 +103,5 @@ def create_app() -> Starlette:
         exception_handlers={
             ValidationError: on_validation_error,
         },
+        lifespan=functools.partial(app_lifespan, config),
     )
