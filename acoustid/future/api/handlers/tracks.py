@@ -57,7 +57,9 @@ async def handle_list_tracks_by_fingerprint(request: Request) -> Response:
     ctx = get_ctx(request)
 
     params = dict(request.query_params)
-    req = msgspec.convert(params, type=ListByFingerprintRequest, strict=False, str_keys=True)
+    req = msgspec.convert(
+        params, type=ListByFingerprintRequest, strict=False, str_keys=True
+    )
 
     tracks = []
 
