@@ -1,12 +1,8 @@
 import functools
 import logging
-import os
-from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, TypedDict
+from contextlib import asynccontextmanager
 
-import sqlalchemy
 from msgspec import ValidationError
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from starlette.applications import Starlette
 from starlette.authentication import AuthCredentials, BaseUser
 from starlette.middleware import Middleware
@@ -14,9 +10,7 @@ from starlette.middleware.authentication import (
     AuthenticationBackend,
     AuthenticationMiddleware,
 )
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.requests import HTTPConnection, Request
-from starlette.responses import Response
+from starlette.requests import HTTPConnection
 from starlette.routing import Route
 
 from acoustid.config import Config
@@ -27,7 +21,12 @@ from .handlers.tracks import (
     handle_list_tracks_by_fingerprint,
     handle_list_tracks_by_mbid,
 )
-from .utils import on_auth_error, on_validation_error
+from .utils import (
+    AppContext,
+    RequestContextMiddleware,
+    on_auth_error,
+    on_validation_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,53 +64,6 @@ class ApiAuthBackend(AuthenticationBackend):
         user_id = 1 if user_key else None
 
         return AuthCredentials(["app", "user"]), ApiUser(app_id, user_id)
-
-
-class AppContext:
-    def __init__(self, config: Config) -> None:
-        self.config = config
-        self.database_engines = config.databases.create_async_engines()
-
-    async def get_fingerprint_db(self) -> AsyncEngine:
-        return self.database_engines["fingerprint"]
-
-    async def get_app_db(self) -> AsyncEngine:
-        return self.database_engines["app"]
-
-    async def get_ingest_db(self) -> AsyncEngine:
-        return self.database_engines["ingest"]
-
-    async def aclose(self) -> None:
-        for engine in self.database_engines.values():
-            await engine.dispose()
-
-    async def __aenter__(self) -> "AppContext":
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.aclose()
-
-
-class RequestContext:
-    def __init__(self, app_context: AppContext) -> None:
-        self.app_context = app_context
-        self.cleanup = AsyncExitStack()
-
-    async def __aenter__(self) -> "RequestContext":
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.cleanup.aclose()
-
-
-class RequestContextMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        async with RequestContext(request.app.state.app_ctx) as request_ctx:
-            request.state.ctx = request_ctx
-            response = await call_next(request)
-            return response
 
 
 @asynccontextmanager
