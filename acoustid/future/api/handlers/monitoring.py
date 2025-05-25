@@ -10,4 +10,5 @@ class Health(msgspec.Struct):
 
 
 def handle_health(request: Request) -> Response:
+    print(request.state.ctx)
     return MsgspecResponse(Health(ready=True))

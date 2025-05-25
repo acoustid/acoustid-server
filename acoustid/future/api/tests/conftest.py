@@ -1,4 +1,5 @@
 import os
+from typing import Iterator
 
 import pytest
 from starlette.applications import Starlette
@@ -25,5 +26,6 @@ def app(config_file: str) -> Starlette:
 
 
 @pytest.fixture
-def client(app: Starlette) -> TestClient:
-    return TestClient(app)
+def client(app: Starlette) -> Iterator[TestClient]:
+    with TestClient(app) as client:
+        yield client
