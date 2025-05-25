@@ -5,19 +5,7 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from ..app import create_app
-
-
-@pytest.fixture(scope="session")
-def config_file() -> str:
-    return os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..",
-        "..",
-        "..",
-        "..",
-        "acoustid-test.conf",
-    )
+from acoustid.future.api.app import create_app
 
 
 @pytest.fixture
