@@ -4,7 +4,7 @@
 import logging
 
 import requests
-from sqlalchemy import sql
+from sqlalchemy import String, sql
 
 from acoustid import tables as schema
 from acoustid.api import errors
@@ -38,9 +38,9 @@ class TrackListByMBIDHandler(APIHandler):
         response = {}
         query = (
             sql.select(
-                schema.track_mbid.c.mbid,
+                sql.cast(schema.track_mbid.c.mbid, String).label("mbid"),
                 schema.track_mbid.c.disabled,
-                schema.track.c.gid,
+                sql.cast(schema.track.c.gid, String).label("gid"),
             )
             .where(schema.track_mbid.c.mbid.in_(params.mbids))
             .select_from(schema.track_mbid.join(schema.track))
