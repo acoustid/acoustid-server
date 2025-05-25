@@ -9,6 +9,7 @@ from starlette.middleware.authentication import (
 from starlette.requests import HTTPConnection
 from starlette.routing import Route
 
+from .handlers.list_by_mbid import handle_list_by_mbid
 from .handlers.monitoring import handle_health
 from .handlers.submit import handle_submit
 from .utils import on_auth_error, on_validation_error
@@ -53,6 +54,7 @@ def create_app() -> Starlette:
     return Starlette(
         routes=[
             Route("/v3/submit", handle_submit, methods=["POST"]),
+            Route("/v2/track/list_by_mbid", handle_list_by_mbid, methods=["GET"]),
             Route("/health", handle_health, methods=["GET"]),
         ],
         middleware=[
