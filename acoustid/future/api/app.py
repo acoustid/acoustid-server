@@ -16,6 +16,7 @@ from starlette.routing import Route
 from acoustid.config import Config
 
 from .handlers.monitoring import handle_health
+from .handlers.search import handle_search
 from .handlers.submit import handle_submit
 from .handlers.tracks import (
     handle_list_tracks_by_fingerprint,
@@ -79,6 +80,7 @@ def create_app(config_file: str | None = None, tests: bool = False) -> Starlette
 
     return Starlette(
         routes=[
+            Route("/v3/search", handle_search, methods=["POST", "GET"]),
             Route("/v3/submit", handle_submit, methods=["POST"]),
             Route(
                 "/v3/track/list_by_mbid", handle_list_tracks_by_mbid, methods=["GET"]
