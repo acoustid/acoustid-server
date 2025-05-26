@@ -10,7 +10,7 @@ class SearchRequest(msgspec.Struct):
     pass
 
 
-class SubmissionResponse(msgspec.Struct):
+class SearchResponse(msgspec.Struct):
     pass
 
 
@@ -21,5 +21,5 @@ async def handle_search(request: Request) -> Response:
 
     _ = req
 
-    response = SearchRequest()
+    response = SearchResponse()
     return MsgspecResponse(response)
