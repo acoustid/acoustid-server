@@ -52,7 +52,7 @@ def test_backfill_meta_gid_update(ctx: ScriptContext) -> None:
     submission = ingest_db.execute(query).one()
     assert submission is not None
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
     )
     assert fingerprint is not None
@@ -109,7 +109,7 @@ def test_backfill_meta_gid_merge(ctx: ScriptContext) -> None:
     submission = ingest_db.execute(query).one()
     assert submission is not None
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
     )
     assert fingerprint is not None
@@ -150,7 +150,7 @@ def test_backfill_meta_gid_merge(ctx: ScriptContext) -> None:
     submission = ingest_db.execute(query).one()
     assert submission is not None
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
     )
     assert fingerprint is not None
@@ -189,7 +189,7 @@ def test_backfill_meta_gid_merge_duplicate(ctx: ScriptContext) -> None:
     submission = ingest_db.execute(query).one()
     assert submission is not None
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
     )
     assert fingerprint is not None
@@ -230,7 +230,7 @@ def test_backfill_meta_gid_merge_duplicate(ctx: ScriptContext) -> None:
     submission = ingest_db.execute(query).one()
     assert submission is not None
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
     )
     assert fingerprint is not None

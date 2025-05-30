@@ -69,7 +69,7 @@ def import_submission(
     fingerprint_db: FingerprintDB,
     index_pool: IndexClientPool,
     submission: RowMapping,
-) -> dict[str, Any] | None:
+) -> tuple[bool, dict[str, Any] | None]:
     """
     Import the given submission into the main fingerprint database
     """
@@ -82,7 +82,7 @@ def import_submission(
             "Skipping import of submission %d because a related submission is being imported (will be retried)",
             submission["id"],
         )
-        return None
+        return False, None
 
     if submission["mbid"]:
         if not pg_try_advisory_xact_lock(
@@ -92,7 +92,7 @@ def import_submission(
                 "Skipping import of submission %d because a related submission is being imported (will be retried)",
                 submission["id"],
             )
-            return None
+            return False, None
 
     handled_at = datetime.datetime.now(pytz.utc)
 
@@ -100,11 +100,6 @@ def import_submission(
         schema.submission.update()
         .where(schema.submission.c.id == submission["id"])
         .values(handled=True, handled_at=handled_at)
-    )
-    ingest_db.execute(
-        schema.pending_submission.delete().where(
-            schema.pending_submission.c.id == submission["id"]
-        )
     )
     logger.info(
         "Importing submission %d with MBIDs %s", submission["id"], submission["mbid"]
@@ -122,12 +117,12 @@ def import_submission(
 
     if not has_mbid and not has_puid and not has_meta:
         logger.info("Skipping, missing metadata")
-        return None
+        return True, None
 
     num_unique_items = len(set(submission["fingerprint"]))
     if num_unique_items < const.FINGERPRINT_MIN_UNIQUE_ITEMS:
         logger.info("Skipping, has only %d unique items", num_unique_items)
-        return None
+        return True, None
 
     num_query_items = fingerprint_db.execute(
         sql.select(
@@ -136,14 +131,14 @@ def import_submission(
     ).scalar()
     if not num_query_items:
         logger.info("Skipping, no data to index")
-        return None
+        return True, None
 
     source_id = submission["source_id"]
     if source_id is not None:
         source = get_source(app_db, source_id)
         if source is None:
             logger.error("Source not found")
-            return None
+            return True, None
     else:
         source = {
             "application_id": submission["application_id"],
@@ -296,7 +291,7 @@ def import_submission(
 
     insert_submission_result(ingest_db, submission_result)
 
-    return fingerprint
+    return True, fingerprint
 
 
 def import_queued_submissions(
@@ -316,7 +311,7 @@ def import_queued_submissions(
     if limit is not None:
         query = query.limit(limit)
 
-    submission_ids = [row[0] for row in ingest_db.execute(query)]
+    submission_ids = set([row[0] for row in ingest_db.execute(query)])
     if not submission_ids:
         return 0
 
@@ -328,10 +323,19 @@ def import_queued_submissions(
     )
     count = 0
     for submission in submissions:
-        import_submission(
+        handled, fingerprint = import_submission(
             ingest_db, app_db, fingerprint_db, index_pool, submission._mapping
         )
+        if not handled:
+            submission_ids.remove(submission.id)
         count += 1
+
+    ingest_db.execute(
+        schema.pending_submission.delete().where(
+            schema.pending_submission.c.id.in_(submission_ids)
+        )
+    )
+
     return count
 
 

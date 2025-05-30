@@ -81,7 +81,7 @@ def test_import_submission_with_meta(ctx):
     query = select(tables.submission).where(tables.submission.c.id == submission_id)
     submission = ingest_db.execute(query).one()
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission._mapping
     )
 
@@ -129,7 +129,7 @@ def test_import_submission_with_foreignid(ctx):
     query = select(tables.submission).where(tables.submission.c.id == submission_id)
     submission = ingest_db.execute(query).one()._mapping
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
 
@@ -156,7 +156,7 @@ def test_import_submission_with_foreignid(ctx):
     query = select(tables.submission).where(tables.submission.c.id == submission_id)
     submission = ingest_db.execute(query).one()._mapping
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
 
@@ -195,7 +195,7 @@ def test_import_submission(ctx):
     submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
 
@@ -243,7 +243,7 @@ def test_import_submission(ctx):
     submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
     assert fingerprint is not None
@@ -272,7 +272,7 @@ def test_import_submission(ctx):
     submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
     assert fingerprint is not None
@@ -334,7 +334,7 @@ def test_import_submission_reuse_fingerprint_97(ctx):
     submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
     assert fingerprint is not None
@@ -373,7 +373,7 @@ def test_import_submission_reuse_fingerprint_100(ctx):
     submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
     assert fingerprint is not None
@@ -415,7 +415,7 @@ def test_import_submission_reuse_track_93(ctx):
     try:
         old_threshold = const.FINGERPRINT_MERGE_THRESHOLD
         const.FINGERPRINT_MERGE_THRESHOLD = 0.95
-        fingerprint = import_submission(
+        handled, fingerprint = import_submission(
             ingest_db, app_db, fingerprint_db, ctx.index, submission
         )
     finally:
@@ -459,7 +459,7 @@ def test_import_submission_new_track(ctx):
     try:
         old_threshold = const.TRACK_MERGE_THRESHOLD
         const.TRACK_MERGE_THRESHOLD = 0.9
-        fingerprint = import_submission(
+        handled, fingerprint = import_submission(
             ingest_db, app_db, fingerprint_db, ctx.index, submission
         )
     finally:
@@ -500,7 +500,7 @@ def test_import_submission_new_track_different(ctx):
     submission = ingest_db.execute(query).one()._mapping
     assert submission["handled"] is False
 
-    fingerprint = import_submission(
+    handled, fingerprint = import_submission(
         ingest_db, app_db, fingerprint_db, ctx.index, submission
     )
     assert fingerprint is not None
@@ -548,7 +548,7 @@ def test_import_submission_merge_existing_tracks(ctx):
     try:
         old_threshold = const.FINGERPRINT_MERGE_THRESHOLD
         const.FINGERPRINT_MERGE_THRESHOLD = 0.85
-        fingerprint = import_submission(
+        handled, fingerprint = import_submission(
             ingest_db, app_db, fingerprint_db, ctx.index, submission
         )
     finally:
