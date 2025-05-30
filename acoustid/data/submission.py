@@ -101,11 +101,6 @@ def import_submission(
         .where(schema.submission.c.id == submission["id"])
         .values(handled=True, handled_at=handled_at)
     )
-    ingest_db.execute(
-        schema.pending_submission.delete().where(
-            schema.pending_submission.c.id == submission["id"]
-        )
-    )
     logger.info(
         "Importing submission %d with MBIDs %s", submission["id"], submission["mbid"]
     )
@@ -332,6 +327,13 @@ def import_queued_submissions(
             ingest_db, app_db, fingerprint_db, index_pool, submission._mapping
         )
         count += 1
+
+    ingest_db.execute(
+        schema.pending_submission.delete().where(
+            schema.pending_submission.c.id.in_(submission_ids)
+        )
+    )
+
     return count
 
 
