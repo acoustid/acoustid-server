@@ -1,3 +1,4 @@
+import uuid
 import msgspec
 from starlette.authentication import requires
 from starlette.requests import Request
@@ -10,8 +11,20 @@ class SearchRequest(msgspec.Struct):
     pass
 
 
+class Metadata(msgspec.Struct):
+    id: uuid.UUID
+    sources: int
+
+
+class Result(msgspec.Struct):
+    id: uuid.UUID
+    score: float
+    sources: int
+    metadata: list[Metadata]
+
+
 class SearchResponse(msgspec.Struct):
-    pass
+    results: list[Result]
 
 
 @requires(["app"])
@@ -21,5 +34,5 @@ async def handle_search(request: Request) -> Response:
 
     _ = req
 
-    response = SearchResponse()
+    response = SearchResponse(results=[])
     return MsgspecResponse(response)
