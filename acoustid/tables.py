@@ -439,6 +439,10 @@ track_puid = Table(
     Column("updated", DateTime(timezone=True)),
     Column("id", Integer, primary_key=True),
     Column("submission_count", Integer, nullable=False),
+    Column(
+        "disabled", Boolean, default=False, server_default=sql.false(), nullable=False
+    ),
+    Column("merged_into", Integer, ForeignKey("track_puid.id")),
     Index("track_puid_idx_uniq", "track_id", "puid", unique=True),
     info={"bind_key": "fingerprint"},
 )
@@ -473,6 +477,10 @@ track_meta = Table(
     ),
     Column("updated", DateTime(timezone=True)),
     Column("submission_count", Integer, nullable=False),
+    Column(
+        "disabled", Boolean, default=False, server_default=sql.false(), nullable=False
+    ),
+    Column("merged_into", Integer, ForeignKey("track_meta.id")),
     Index("track_meta_idx_uniq", "track_id", "meta_id", unique=True),
     info={"bind_key": "fingerprint"},
 )
@@ -509,6 +517,10 @@ track_foreignid = Table(
     ),
     Column("updated", DateTime(timezone=True)),
     Column("submission_count", Integer, nullable=False),
+    Column(
+        "disabled", Boolean, default=False, server_default=sql.false(), nullable=False
+    ),
+    Column("merged_into", Integer, ForeignKey("track_foreignid.id")),
     Index("track_foreignid_idx_uniq", "track_id", "foreignid_id", unique=True),
     info={"bind_key": "fingerprint"},
 )
