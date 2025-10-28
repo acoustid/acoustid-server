@@ -38,7 +38,7 @@ This is the recommended way to use Chromaprint if all you need is generate finge
 
 ### Development
 
-You can dowload the development version of the source code from [GitHub](https://github.com/acoustid/chromaprint).
+You can download the development version of the source code from [GitHub](https://github.com/acoustid/chromaprint).
 Either you can use [Git][git] to clone the repository or download a
 zip/tar.gz file with the latest version.
 

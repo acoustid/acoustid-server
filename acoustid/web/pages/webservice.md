@@ -22,7 +22,7 @@ into your application.
 ### Overview
 
 You can use both GET and POST HTTP methods to send requests to the web service,
-but since the audio fingerprints get fairly long, compressed POST requests are prefered.
+but since the audio fingerprints get fairly long, compressed POST requests are preferred.
 
 The web service can return results in two formats, XML and JSON. If you don't specify
 which one you prefer, it will return JSON.
@@ -174,7 +174,7 @@ And also additional metadata about the recordings from the MusicBrainz database 
 ### Lookup by track ID
 
 You can also look up data connected to a track ID,
-wich is a cluster of fingerprints.
+which is a cluster of fingerprints.
 
 #### URL
 
