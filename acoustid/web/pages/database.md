@@ -5,7 +5,7 @@ user-submitted audio fingerprints, their mapping to MusicBrainz IDs and
 some other mappings.
 
 The data is published daily, as incremental update files in JSON format,
-which you can use to reconstruct the database and keep it up to udate.
+which you can use to reconstruct the database and keep it up to date.
 The files can be downloaded [here](http://data.acoustid.org/).
 
 The data is licensed under the [Creative Commons Attribution-ShareAlike 3.0

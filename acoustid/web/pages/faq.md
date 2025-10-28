@@ -36,7 +36,7 @@ existing MusicBrainz user account.
 
 There are two kinds of API keys. The one you see immediately after logging in is
 an [user API key](/api-key) that is meant to be entered into an application like
-MusicBrainz Picard for the purpose of identifying yourself or. This is the API
+MusicBrainz Picard for the purpose of identifying yourself. This is the API
 key that needs to be sent to the "submit" endpoint as the "user" parameter.
 
 If you are developing an new application and need an API key for the "client" parameter,

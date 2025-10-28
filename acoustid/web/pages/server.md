@@ -8,8 +8,8 @@ Fingerprint lookups are currently implemented using [PostgreSQL GIN indexes][gin
 but there are plans to implement a custom special-purpose index server for
 more efficient searches.
 
-The source code is licensed under the [MIT License][mit]. You can dowload it
-from from [GitHub][gh].
+The source code is licensed under the [MIT License][mit]. You can download it
+from [GitHub][gh].
 
 [mit]: http://creativecommons.org/licenses/MIT/
 [gh]: https://github.com/acoustid/acoustid-server
