@@ -346,7 +346,7 @@ class LookupHandler(APIHandler):
         missing_mbids = set(expected_mbids) - set(m["recording_id"] for m in meta)
         if missing_mbids:
             for mbid in missing_mbids:
-                logger.warning("Missing metadata for MBID %s", mbid)
+                logger.debug("Missing metadata for MBID %s", mbid)
                 enqueue_task(self.ctx, "merge_missing_mbid", {"mbid": str(mbid)})
 
     def _inject_recording_ids_internal(self, add=True, add_sources=False):
