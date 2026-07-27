@@ -110,7 +110,12 @@ class IndexClient(Index):
         assert self.sock is not None
         request = b"%s%s" % (line.encode("utf8"), CRLF)
         logger.debug("Sending request %r", request)
-        self.sock.sendall(request)
+        try:
+            self.sock.sendall(request)
+        except socket.error as e:
+            logger.debug("Failed to send request due to socket error")
+            self.close()
+            raise IndexClientError("failed to send request (%s)" % (e,)) from e
 
     def _getline(self, timeout: float | None = None) -> str:
         assert self.sock is not None
@@ -126,8 +131,9 @@ class IndexClient(Index):
             except select.error as e:
                 if getattr(e, "errno", None) == errno.EINTR:
                     continue
+                logger.debug("Failed to receive response due to select error")
                 self.close()
-                raise
+                raise IndexClientError("failed to receive response (%s)" % (e,)) from e
             if in_error:
                 logger.debug("Failed to receive response due to select error")
                 self.close()
@@ -143,7 +149,9 @@ class IndexClient(Index):
                             break
                         logger.debug("Failed to receive response due to socket error")
                         self.close()
-                        raise
+                        raise IndexClientError(
+                            "failed to receive response (%s)" % (e,)
+                        ) from e
                     if not data:
                         break
                     self._buffer += data
