@@ -1,6 +1,7 @@
 # Copyright (C) 2026 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import errno
 import socket
 import threading
 from typing import Iterator
@@ -119,15 +120,97 @@ def test_receive_failure_is_wrapped(index_server: FakeIndexServer) -> None:
     client = IndexClient(host=index_server.host, port=index_server.port)
     assert client.sock is not None
     # The request goes out and the server answers, so select reports the socket
-    # readable and the failure lands on the read.
+    # readable and the failure lands on the read. get_attribute rather than ping
+    # because it allows the full timeout, leaving no race with the reply.
     client.sock = FailingSocket(  # type: ignore[assignment]
         client.sock, ConnectionResetError(104, "Connection reset by peer"), "recv"
     )
 
     with pytest.raises(IndexClientError) as excinfo:
-        client.ping()
+        client.get_attribute("whatever")
     assert isinstance(excinfo.value.__cause__, ConnectionResetError)
     assert client.sock is None
+
+
+def test_select_failure_is_wrapped(
+    index_server: FakeIndexServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = IndexClient(host=index_server.host, port=index_server.port)
+
+    def broken_select(*args: object, **kwargs: object) -> object:
+        raise OSError(errno.EBADF, "Bad file descriptor")
+
+    monkeypatch.setattr("acoustid.indexclient.select.select", broken_select)
+
+    with pytest.raises(IndexClientError) as excinfo:
+        client.get_attribute("whatever")
+    assert isinstance(excinfo.value.__cause__, OSError)
+    assert client.sock is None
+
+
+def test_failure_inside_transaction_does_not_recurse(
+    index_server: FakeIndexServer,
+) -> None:
+    """close() must not send anything back down the dead socket.
+
+    It rolls back an open transaction, and the rollback goes out through
+    _putline(), which closes on failure -- so unless close() also clears the
+    flag, the two call each other until the recursion limit stops them.
+    """
+    client = IndexClient(host=index_server.host, port=index_server.port)
+    client.begin()
+    assert client.in_transaction is True
+    assert client.sock is not None
+    client.sock = FailingSocket(  # type: ignore[assignment]
+        client.sock, BrokenPipeError(32, "Broken pipe"), "sendall"
+    )
+
+    depth = {"current": 0, "max": 0}
+    original_close = IndexClient.close
+
+    def counting_close(self: IndexClient) -> None:
+        depth["current"] += 1
+        depth["max"] = max(depth["max"], depth["current"])
+        try:
+            original_close(self)
+        finally:
+            depth["current"] -= 1
+
+    IndexClient.close = counting_close  # type: ignore[method-assign]
+    try:
+        with pytest.raises(IndexClientError):
+            client.insert(1, [1, 2, 3])
+    finally:
+        IndexClient.close = original_close  # type: ignore[method-assign]
+
+    assert depth["max"] == 1
+    assert client.in_transaction is False
+    assert client.sock is None
+
+
+def test_pooled_transaction_failure_raises_index_client_error(
+    index_server: FakeIndexServer,
+) -> None:
+    """Leaving the `with` block must not raise on the way out.
+
+    IndexClientWrapper.close() rolls back an open transaction, so if the flag
+    survived the failure it would go back through _putline() on a closed socket
+    and trip its `assert self.sock is not None`.
+    """
+    pool = IndexClientPool(host=index_server.host, port=index_server.port)
+
+    with pytest.raises(IndexClientError):
+        with pool.connect() as index:
+            index.begin()
+            assert index._client.sock is not None
+            index._client.sock = FailingSocket(  # type: ignore[assignment]
+                index._client.sock, BrokenPipeError(32, "Broken pipe"), "sendall"
+            )
+            index.insert(1, [1, 2, 3])
+
+    # The dead connection was discarded rather than handed back to the pool.
+    assert list(pool.clients) == []
+    pool.dispose()
 
 
 def test_pool_replaces_connection_whose_peer_is_gone(

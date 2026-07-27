@@ -218,11 +218,15 @@ class IndexClient(Index):
         )
 
     def close(self):
+        # Clear the flag before rolling back, not after: the rollback goes out
+        # through _putline(), which closes on failure, and this is what stops
+        # the two calling each other until the recursion limit intervenes.
+        in_transaction, self.in_transaction = self.in_transaction, False
         # The connection is being discarded either way, so a failure on the way
         # out changes nothing and there is nothing to act on.
         try:
             if self.sock is not None:
-                if self.in_transaction:
+                if in_transaction:
                     try:
                         self.rollback()
                     except Exception:
@@ -261,9 +265,13 @@ class IndexClientWrapper(Index):
         return str(self._client)
 
     def close(self):
-        if self._client.in_transaction:
-            self._client.rollback()
-        self._pool._release(self._client)
+        try:
+            if self._client.in_transaction:
+                self._client.rollback()
+        finally:
+            # Release even if the rollback failed, or the connection is lost to
+            # the pool rather than being discarded or reused.
+            self._pool._release(self._client)
 
 
 class IndexClientPool(object):
