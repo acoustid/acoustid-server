@@ -5,6 +5,7 @@ import errno
 import logging
 import select
 import socket
+import threading
 import time
 from collections import deque, namedtuple
 from typing import Any, List
@@ -110,7 +111,12 @@ class IndexClient(Index):
         assert self.sock is not None
         request = b"%s%s" % (line.encode("utf8"), CRLF)
         logger.debug("Sending request %r", request)
-        self.sock.sendall(request)
+        try:
+            self.sock.sendall(request)
+        except socket.error as e:
+            logger.debug("Failed to send request due to socket error")
+            self.close()
+            raise IndexClientError("failed to send request (%s)" % (e,)) from e
 
     def _getline(self, timeout: float | None = None) -> str:
         assert self.sock is not None
@@ -126,8 +132,9 @@ class IndexClient(Index):
             except select.error as e:
                 if getattr(e, "errno", None) == errno.EINTR:
                     continue
+                logger.debug("Failed to receive response due to select error")
                 self.close()
-                raise
+                raise IndexClientError("failed to receive response (%s)" % (e,)) from e
             if in_error:
                 logger.debug("Failed to receive response due to select error")
                 self.close()
@@ -143,7 +150,9 @@ class IndexClient(Index):
                             break
                         logger.debug("Failed to receive response due to socket error")
                         self.close()
-                        raise
+                        raise IndexClientError(
+                            "failed to receive response (%s)" % (e,)
+                        ) from e
                     if not data:
                         break
                     self._buffer += data
@@ -210,13 +219,19 @@ class IndexClient(Index):
         )
 
     def close(self):
+        # Clear the flag before rolling back, not after: the rollback goes out
+        # through _putline(), which closes on failure, and this is what stops
+        # the two calling each other until the recursion limit intervenes.
+        in_transaction, self.in_transaction = self.in_transaction, False
         # The connection is being discarded either way, so a failure on the way
         # out changes nothing and there is nothing to act on.
         try:
             if self.sock is not None:
-                if self.in_transaction:
+                if in_transaction:
                     try:
-                        self.rollback()
+                        # Not rollback(), which guards on the flag we just
+                        # cleared. The command still goes to the server.
+                        self._request("rollback")
                     except Exception:
                         logger.warning(
                             "Error while trying to rollback transaction",
@@ -253,9 +268,13 @@ class IndexClientWrapper(Index):
         return str(self._client)
 
     def close(self):
-        if self._client.in_transaction:
-            self._client.rollback()
-        self._pool._release(self._client)
+        try:
+            if self._client.in_transaction:
+                self._client.rollback()
+        finally:
+            # Release even if the rollback failed, or the connection is lost to
+            # the pool rather than being discarded or reused.
+            self._pool._release(self._client)
 
 
 class IndexClientPool(object):
@@ -266,30 +285,38 @@ class IndexClientPool(object):
         self.recycle = recycle
         self.clients: deque[IndexClient] = deque()
         self.args = kwargs
+        # Held only across the deque operations, never while talking to the
+        # index server, so a slow or dead connection cannot block the pool.
+        self.lock = threading.Lock()
 
     def dispose(self) -> None:
         logger.debug("Closing all connections")
-        while self.clients:
-            client = self.clients.popleft()
+        while True:
+            with self.lock:
+                if not self.clients:
+                    return
+                client = self.clients.popleft()
             logger.debug("Closing connection %s", client)
             client.close()
 
     def _release(self, client: IndexClient) -> None:
         if client.sock is None:
             logger.debug("Discarding closed connection %s", client)
-        else:
-            if len(self.clients) >= self.max_idle_clients:
-                logger.debug("Too many idle connections, closing %s", client)
-                client.close()
-            else:
+            return
+        with self.lock:
+            if len(self.clients) < self.max_idle_clients:
                 logger.debug("Checking in connection %s", client)
                 self.clients.append(client)
+                return
+        logger.debug("Too many idle connections, closing %s", client)
+        client.close()
 
     def connect(self) -> IndexClientWrapper:
         client: IndexClient | None = None
-        if self.clients:
-            client = self.clients.popleft()
-            assert client is not None
+        with self.lock:
+            if self.clients:
+                client = self.clients.popleft()
+        if client is not None:
             try:
                 if self.recycle > 0 and client.created + self.recycle < time.time():
                     logger.debug(
