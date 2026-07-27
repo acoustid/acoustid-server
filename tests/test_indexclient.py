@@ -20,6 +20,7 @@ class FakeIndexServer(object):
         self.sock.bind(("127.0.0.1", 0))
         self.sock.listen(8)
         self.host, self.port = self.sock.getsockname()
+        self.received: list[str] = []
         self.thread = threading.Thread(target=self._accept, daemon=True)
         self.thread.start()
 
@@ -43,7 +44,8 @@ class FakeIndexServer(object):
                     return
                 buffer += data
                 while CRLF in buffer:
-                    _, buffer = buffer.split(CRLF, 1)
+                    line, buffer = buffer.split(CRLF, 1)
+                    self.received.append(line.decode("utf8"))
                     try:
                         conn.sendall(b"OK " + CRLF)
                     except OSError:
@@ -148,14 +150,31 @@ def test_select_failure_is_wrapped(
     assert client.sock is None
 
 
+def test_close_rolls_back_an_open_transaction(index_server: FakeIndexServer) -> None:
+    """A healthy close still tells the server to roll back.
+
+    close() clears in_transaction before rolling back, so it cannot go through
+    rollback(), which guards on that flag -- the command would be skipped and
+    the failure swallowed as a warning.
+    """
+    client = IndexClient(host=index_server.host, port=index_server.port)
+    client.begin()
+    client.close()
+
+    assert "rollback" in index_server.received
+    assert client.in_transaction is False
+
+
 def test_failure_inside_transaction_does_not_recurse(
     index_server: FakeIndexServer,
 ) -> None:
-    """close() must not send anything back down the dead socket.
+    """close() and _putline() must not call each other without end.
 
-    It rolls back an open transaction, and the rollback goes out through
-    _putline(), which closes on failure -- so unless close() also clears the
-    flag, the two call each other until the recursion limit stops them.
+    close() rolls back an open transaction, and the rollback goes out through
+    _putline(), which closes on failure. One nested close is expected -- the
+    rollback attempt fails and closes again -- but unless close() clears the
+    flag first, the two recurse until the recursion limit stops them, which
+    measured 199 levels deep before this was fixed.
     """
     client = IndexClient(host=index_server.host, port=index_server.port)
     client.begin()
@@ -183,7 +202,7 @@ def test_failure_inside_transaction_does_not_recurse(
     finally:
         IndexClient.close = original_close  # type: ignore[method-assign]
 
-    assert depth["max"] == 1
+    assert depth["max"] <= 2
     assert client.in_transaction is False
     assert client.sock is None
 
@@ -238,4 +257,48 @@ def test_pool_replaces_connection_whose_peer_is_gone(
     assert replacement.ping() is True
     replacement.close()
 
+    pool.dispose()
+
+
+def test_pool_keeps_at_most_max_idle_clients(index_server: FakeIndexServer) -> None:
+    pool = IndexClientPool(host=index_server.host, port=index_server.port)
+    pool.max_idle_clients = 2
+
+    held = [pool.connect() for _ in range(5)]
+    for index in held:
+        index.close()
+
+    assert len(pool.clients) == 2
+    pool.dispose()
+
+
+def test_pool_is_safe_under_concurrent_use(index_server: FakeIndexServer) -> None:
+    """Checking out and releasing from several threads must not race.
+
+    connect() used to test the deque and then pop it as two steps, so two
+    callers finding one idle connection would both try to take it and the
+    loser would get an IndexError out of the pool.
+    """
+    pool = IndexClientPool(host=index_server.host, port=index_server.port)
+    pool.max_idle_clients = 3
+    errors: list[BaseException] = []
+    barrier = threading.Barrier(8)
+
+    def worker() -> None:
+        try:
+            barrier.wait()
+            for _ in range(25):
+                with pool.connect() as index:
+                    index.ping()
+        except BaseException as e:  # noqa: B036 - recorded and re-raised below
+            errors.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert len(pool.clients) <= pool.max_idle_clients
     pool.dispose()

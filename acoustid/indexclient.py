@@ -5,6 +5,7 @@ import errno
 import logging
 import select
 import socket
+import threading
 import time
 from collections import deque, namedtuple
 from typing import Any, List
@@ -228,7 +229,9 @@ class IndexClient(Index):
             if self.sock is not None:
                 if in_transaction:
                     try:
-                        self.rollback()
+                        # Not rollback(), which guards on the flag we just
+                        # cleared. The command still goes to the server.
+                        self._request("rollback")
                     except Exception:
                         logger.warning(
                             "Error while trying to rollback transaction",
@@ -282,30 +285,38 @@ class IndexClientPool(object):
         self.recycle = recycle
         self.clients: deque[IndexClient] = deque()
         self.args = kwargs
+        # Held only across the deque operations, never while talking to the
+        # index server, so a slow or dead connection cannot block the pool.
+        self.lock = threading.Lock()
 
     def dispose(self) -> None:
         logger.debug("Closing all connections")
-        while self.clients:
-            client = self.clients.popleft()
+        while True:
+            with self.lock:
+                if not self.clients:
+                    return
+                client = self.clients.popleft()
             logger.debug("Closing connection %s", client)
             client.close()
 
     def _release(self, client: IndexClient) -> None:
         if client.sock is None:
             logger.debug("Discarding closed connection %s", client)
-        else:
-            if len(self.clients) >= self.max_idle_clients:
-                logger.debug("Too many idle connections, closing %s", client)
-                client.close()
-            else:
+            return
+        with self.lock:
+            if len(self.clients) < self.max_idle_clients:
                 logger.debug("Checking in connection %s", client)
                 self.clients.append(client)
+                return
+        logger.debug("Too many idle connections, closing %s", client)
+        client.close()
 
     def connect(self) -> IndexClientWrapper:
         client: IndexClient | None = None
-        if self.clients:
-            client = self.clients.popleft()
-            assert client is not None
+        with self.lock:
+            if self.clients:
+                client = self.clients.popleft()
+        if client is not None:
             try:
                 if self.recycle > 0 and client.created + self.recycle < time.time():
                     logger.debug(
