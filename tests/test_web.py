@@ -2,6 +2,7 @@ import pytest
 from flask import Flask
 
 from acoustid.web import db
+from acoustid.web.views.user import LoginError, validate_openid_identifier
 from tests import make_web_application
 
 
@@ -98,3 +99,32 @@ def test_track_page_show_disabled(app: Flask) -> None:
     assert "54b7b412-fc69-4fc7-8c96-17800eda3a98" in rv.text
     assert "Show 1 disabled recording" not in rv.text
     assert rv.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "identifier",
+    [
+        "",
+        "   ",
+        "hueypeard@gmail.com",
+        "ade.bateman@outlook.com",
+        "doubleuotb",
+        "dybgm665953",
+        "http://localhost",
+    ],
+)
+def test_validate_openid_identifier_rejects(identifier: str) -> None:
+    with pytest.raises(LoginError):
+        validate_openid_identifier(identifier)
+
+
+@pytest.mark.parametrize(
+    "identifier",
+    [
+        "https://example.com/openid",
+        "example.com/openid",
+        "https://musicbrainz.org/user/someone",
+    ],
+)
+def test_validate_openid_identifier_accepts(identifier: str) -> None:
+    assert validate_openid_identifier(identifier) == identifier
