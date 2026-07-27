@@ -1,5 +1,9 @@
+from urllib.parse import parse_qs, urlparse
+
 import pytest
 from flask import Flask
+from itsdangerous import URLSafeSerializer
+from rauth import OAuth2Service
 
 from acoustid.web import db
 from acoustid.web.views.user import LoginError, validate_openid_identifier
@@ -131,3 +135,152 @@ def test_validate_openid_identifier_rejects(identifier: str) -> None:
 )
 def test_validate_openid_identifier_accepts(identifier: str) -> None:
     assert validate_openid_identifier(identifier) == identifier
+
+
+def spy_on_token_exchange(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record every call to an OAuth2 token endpoint, and make it fail.
+
+    The state check is only worth anything if it happens *before* we spend the
+    authorization code, so the tests below assert on ordering rather than only
+    on the error the user ends up seeing. They record instead of asserting
+    because the login routes catch every exception -- an AssertionError raised
+    in here would be swallowed and turned into a redirect, and the test would
+    pass whether or not the code had already been exchanged.
+    """
+    calls: list[str] = []
+
+    def record(self: OAuth2Service, *args: object, **kwargs: object) -> None:
+        calls.append(self.name)
+        raise RuntimeError("the token endpoint must not be contacted")
+
+    monkeypatch.setattr(OAuth2Service, "get_raw_access_token", record)
+    monkeypatch.setattr(OAuth2Service, "get_auth_session", record)
+    return calls
+
+
+def test_google_login_sends_state(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/login/google")
+    assert rv.status_code == 302
+
+    query = parse_qs(urlparse(rv.headers["Location"]).query)
+    with client.session_transaction() as flask_session:
+        token = flask_session["google_login_token"]
+
+    assert token
+    assert query["state"] == [token]
+
+
+def test_musicbrainz_login_sends_state(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/login/musicbrainz")
+    assert rv.status_code == 302
+
+    query = parse_qs(urlparse(rv.headers["Location"]).query)
+    with client.session_transaction() as flask_session:
+        token = flask_session["mb_login_token"]
+
+    assert token
+    # MusicBrainz wraps the token in a signed blob alongside the return URL.
+    state = URLSafeSerializer(app.config["SECRET_KEY"]).loads(query["state"][0])
+    assert state["token"] == token
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        None,  # no state parameter at all -- the flaw this fixes
+        "",
+        "not-the-token-we-issued",
+        "— not even ascii",
+    ],
+)
+def test_google_login_rejects_bad_state(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, state: str | None
+) -> None:
+    calls = spy_on_token_exchange(monkeypatch)
+    client = app.test_client()
+
+    with client.session_transaction() as flask_session:
+        flask_session["google_login_token"] = "the-token-we-issued"
+
+    args = {"code": "an-authorization-code"}
+    if state is not None:
+        args["state"] = state
+
+    rv = client.get("/login/google", query_string=args)
+
+    assert rv.status_code == 302
+    assert urlparse(rv.headers["Location"]).path == "/login"
+    assert calls == []  # rejected before the code was spent
+    with client.session_transaction() as flask_session:
+        assert "id" not in flask_session
+
+
+def test_google_login_rejects_state_with_no_session_token(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = spy_on_token_exchange(monkeypatch)
+    client = app.test_client()
+
+    rv = client.get(
+        "/login/google",
+        query_string={"code": "an-authorization-code", "state": "anything"},
+    )
+
+    assert rv.status_code == 302
+    assert urlparse(rv.headers["Location"]).path == "/login"
+    assert calls == []
+    with client.session_transaction() as flask_session:
+        assert "id" not in flask_session
+
+
+def test_google_login_state_is_single_use(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A callback URL out of somebody's history must not work twice."""
+    calls = spy_on_token_exchange(monkeypatch)
+    client = app.test_client()
+
+    with client.session_transaction() as flask_session:
+        flask_session["google_login_token"] = "the-token-we-issued"
+
+    args = {"code": "an-authorization-code", "state": "the-token-we-issued"}
+
+    # The first attempt matches, gets past the check, and reaches the token
+    # endpoint -- which is as far as it should get here.
+    client.get("/login/google", query_string=args)
+    assert calls == ["google"]
+
+    with client.session_transaction() as flask_session:
+        assert "google_login_token" not in flask_session
+
+    # The second finds nothing left to check against and never gets that far.
+    rv = client.get("/login/google", query_string=args)
+    assert rv.status_code == 302
+    assert urlparse(rv.headers["Location"]).path == "/login"
+    assert calls == ["google"]
+
+
+def test_musicbrainz_login_rejects_bad_state(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = spy_on_token_exchange(monkeypatch)
+    client = app.test_client()
+
+    with client.session_transaction() as flask_session:
+        flask_session["mb_login_token"] = "the-token-we-issued"
+
+    state = URLSafeSerializer(app.config["SECRET_KEY"]).dumps(
+        {"return_url": None, "token": "not-the-token-we-issued"}
+    )
+    rv = client.get(
+        "/login/musicbrainz",
+        query_string={"code": "an-authorization-code", "state": state},
+    )
+
+    assert rv.status_code == 302
+    assert urlparse(rv.headers["Location"]).path == "/login"
+    assert calls == []

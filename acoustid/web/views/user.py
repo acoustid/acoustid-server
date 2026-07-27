@@ -1,7 +1,8 @@
 import base64
+import hmac
 import json
 import logging
-import random
+import secrets
 import urllib.request as urllib2
 from urllib.parse import urlparse
 
@@ -104,6 +105,48 @@ def login_user_and_redirect(user_id, return_url=None):
     return redirect(url_for("general.index"))
 
 
+def generate_login_token(session_key):
+    """Make a CSRF token for an OAuth2 `state` parameter and remember it.
+
+    `secrets` rather than `random`: the token only protects anything if the
+    attacker cannot work out which value we are about to accept, and the
+    Mersenne Twister behind `random` is reconstructible from its own output.
+    """
+    token = secrets.token_urlsafe(32)
+    session[session_key] = token
+    return token
+
+
+def check_login_token(session_key, state):
+    """Check an OAuth2 callback's `state` against the token in the session.
+
+    Without this, anyone can send a victim's browser to our callback carrying
+    an authorization code for the *attacker's* account -- the victim ends up
+    silently signed in as someone else, and whatever they do next belongs to
+    the attacker. A missing or mismatched token is rejected, never warned
+    about and waved through.
+
+    The token is dropped from the session either way, so a callback URL is
+    good for one attempt and cannot be replayed out of somebody's history.
+    """
+    token = session.pop(session_key, None)
+    if not token:
+        raise LoginError(
+            "Your sign-in session has expired. Please try again.",
+            "no %s in the session to check the OAuth2 state against" % (session_key,),
+        )
+    if not state:
+        raise LoginError(
+            "Your sign-in session has expired. Please try again.",
+            "no state in the OAuth2 callback to check %s against" % (session_key,),
+        )
+    if not hmac.compare_digest(token.encode("utf-8"), state.encode("utf-8")):
+        raise LoginError(
+            "Your sign-in session has expired. Please try again.",
+            "%s does not match the state in the OAuth2 callback" % (session_key,),
+        )
+
+
 def handle_musicbrainz_oauth2_login():
     musicbrainz = OAuth2Service(
         name="musicbrainz",
@@ -118,8 +161,7 @@ def handle_musicbrainz_oauth2_login():
 
     code = request.args.get("code")
     if not code:
-        token = str(random.getrandbits(64))
-        session["mb_login_token"] = token
+        token = generate_login_token("mb_login_token")
         url = musicbrainz.get_authorize_url(
             **{
                 "response_type": "code",
@@ -141,12 +183,7 @@ def handle_musicbrainz_oauth2_login():
     else:
         state = {}
 
-    token = session.get("mb_login_token") or ""
-    if not token:
-        raise Exception("token not found in session")
-
-    if token != state.get("token"):
-        raise Exception("token from session does not match token from oauth2 state")
+    check_login_token("mb_login_token", state.get("token"))
 
     auth_session = musicbrainz.get_auth_session(
         data={
@@ -170,6 +207,10 @@ def musicbrainz_login():
     try:
         response = handle_musicbrainz_oauth2_login()
         db.session.commit()
+    except LoginError as e:
+        logger.warning("MusicBrainz login failed: %s", e)
+        db.session.rollback()
+        return redirect(url_for(".login", error=e.message))
     except Exception:
         logger.exception("MusicBrainz login failed")
         db.session.rollback()
@@ -385,9 +426,14 @@ def handle_google_oauth2_login():
                 "scope": "openid",
                 "redirect_uri": url_for(".google_login", _external=True),
                 "openid.realm": get_openid_realm(),
+                "state": generate_login_token("google_login_token"),
             }
         )
         return redirect(url)
+
+    # Before the code is spent: an authorization code we were not expecting is
+    # someone else's, and exchanging it is the whole attack.
+    check_login_token("google_login_token", request.args.get("state"))
 
     response = json.loads(
         google.get_raw_access_token(
