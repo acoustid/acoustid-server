@@ -9,11 +9,29 @@ import time
 from typing import Any, Dict, Optional
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from acoustid.data.submission import import_queued_submissions
+from acoustid.indexclient import IndexClientConnectError
 from acoustid.script import Script
 
 logger = logging.getLogger(__file__)
+
+
+def is_transient_import_error(ex: BaseException) -> bool:
+    """Is this an error that costs one pass but no work?
+
+    The importer retries in a loop, and both of these leave the queue intact:
+    the statement timeout rolls back the transaction so the pending rows
+    survive, and a failed index connection is simply reconnected next time. How
+    often they happen is a question for the importer metrics; an individual
+    occurrence is not something anyone can act on.
+    """
+    if isinstance(ex, IndexClientConnectError):
+        return True
+    if isinstance(ex, OperationalError):
+        return "canceling statement due to statement timeout" in str(ex)
+    return False
 
 
 def do_import(script: Script, limit: int = 100) -> int:
@@ -70,8 +88,11 @@ def run_import_on_master(script):
         try:
             imported = do_import(script)
             logger.info("Imported %d submissions", imported)
-        except Exception:
-            logger.exception("Failed to import submissions")
+        except Exception as ex:
+            if is_transient_import_error(ex):
+                logger.warning("Could not import submissions this pass", exc_info=True)
+            else:
+                logger.exception("Failed to import submissions")
             imported = 0
 
         if imported == 0:

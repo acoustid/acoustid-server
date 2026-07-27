@@ -112,7 +112,9 @@ def update_lookup_counter(redis, application_id: int, hit: bool) -> None:
     try:
         redis.hincrby(root_key, key, 1)
     except Exception:
-        logger.exception("Can't update lookup stats for %s" % key)
+        # Losing a counter increment does not affect the request that triggered
+        # it, so this is not worth reporting per occurrence.
+        logger.warning("Can't update lookup stats for %s" % key, exc_info=True)
 
 
 def pack_user_agent_stats_key(application_id: int, user_agent: str, ip: str) -> str:
@@ -151,7 +153,8 @@ def update_user_agent_counter(
     try:
         redis.hincrby(root_key, key, 1)
     except Exception:
-        logger.exception("Can't update user agent stats for %s" % key)
+        # As above -- a dropped counter, not a failed request.
+        logger.warning("Can't update user agent stats for %s" % key, exc_info=True)
 
 
 def update_lookup_stats(

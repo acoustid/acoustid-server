@@ -66,7 +66,10 @@ class FpstoreClient:
                 )
                 raise TimeoutError()
             else:
-                logger.error(
+                # Logged at warning because raise_for_status() is what carries
+                # this onwards -- the caller reports the failure, so logging it
+                # at error here only reports the same event a second time.
+                logger.warning(
                     f"Failed to search fingerprint store: {response.status_code} {response.text}"
                 )
                 response.raise_for_status()
