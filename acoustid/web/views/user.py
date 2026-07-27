@@ -3,6 +3,7 @@ import json
 import logging
 import random
 import urllib.request as urllib2
+from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
@@ -28,6 +29,19 @@ from acoustid.web.utils import is_our_url, require_user
 logger = logging.getLogger(__name__)
 
 user_page = Blueprint("user", __name__)
+
+
+class LoginError(Exception):
+    """A login attempt that failed for a reason the user can act on.
+
+    These are expected in normal operation -- a mistyped identifier, a stale
+    authorization code -- so they are logged at WARNING and turned into a
+    message on the login page, rather than reported as server errors.
+    """
+
+    def __init__(self, message, log_message=None):
+        super(LoginError, self).__init__(log_message or message)
+        self.message = message
 
 
 # monkey-patch uidutil.log to use the standard logging framework
@@ -163,17 +177,52 @@ def musicbrainz_login():
     return response
 
 
+def validate_openid_identifier(openid_url):
+    """Reject identifiers that cannot possibly be OpenID URLs.
+
+    python-openid prepends "http://" to anything without a scheme, so a bare
+    username becomes http://username/ and an email address becomes
+    http://user@example.com/ -- both fail DNS resolution deep inside the
+    fetcher. Catch them here, where we can still say something useful.
+    """
+    openid_url = openid_url.strip()
+    if not openid_url:
+        raise LoginError("Please enter your OpenID URL.")
+    if "@" in openid_url:
+        raise LoginError(
+            "That looks like an email address. OpenID needs the URL of your "
+            "OpenID provider, for example https://example.com/openid."
+        )
+    url = openid_url if "://" in openid_url else "http://" + openid_url
+    try:
+        hostname = urlparse(url).hostname or ""
+    except ValueError:
+        # urlparse raises on unbalanced square brackets ("Invalid IPv6 URL").
+        hostname = ""
+    if "." not in hostname.strip("."):
+        raise LoginError(
+            "That does not look like an OpenID URL. It should be a full "
+            "address, for example https://example.com/openid."
+        )
+    return openid_url
+
+
 def handle_openid_login_request():
-    openid_url = request.form["openid_identifier"]
+    openid_url = validate_openid_identifier(request.form.get("openid_identifier", ""))
     try:
         consumer = openid.Consumer(session, None)
         openid_req = consumer.begin(openid_url)
-    except openid.DiscoveryFailure:
-        logger.exception("Error in OpenID discovery")
-        raise
+    except openid.DiscoveryFailure as e:
+        raise LoginError(
+            "We could not find an OpenID provider at that address.",
+            "OpenID discovery failed for %r: %s" % (openid_url, e),
+        )
     else:
         if openid_req is None:
-            raise Exception("No OpenID services found for the given URL")
+            raise LoginError(
+                "We could not find an OpenID provider at that address.",
+                "No OpenID services found for %r" % (openid_url,),
+            )
         else:
             ax_req = ax.FetchRequest()
             ax_req.add(
@@ -233,9 +282,13 @@ def handle_openid_login_response():
         )
         return login_user_and_redirect(account_id)
     elif info.status == openid.CANCEL:
-        raise Exception("OpenID login has been canceled")
+        raise LoginError("OpenID login was canceled.")
     else:
-        raise Exception("OpenID login failed")
+        raise LoginError(
+            "OpenID login failed.",
+            "OpenID login failed with status %r: %s"
+            % (info.status, getattr(info, "message", None)),
+        )
 
 
 def handle_openid_login():
@@ -250,6 +303,10 @@ def openid_login():
     try:
         response = handle_openid_login()
         db.session.commit()
+    except LoginError as e:
+        logger.warning("OpenID login failed: %s", e)
+        db.session.rollback()
+        return redirect(url_for(".login", error=e.message))
     except Exception:
         logger.exception("OpenID login failed")
         db.session.rollback()
@@ -342,6 +399,23 @@ def handle_google_oauth2_login():
         ).content
     )
 
+    if "id_token" not in response:
+        # Google returns {"error": "invalid_grant"} for an authorization code
+        # that was already used or has expired -- typically someone reloading
+        # the callback URL. Without this the KeyError hides what went wrong.
+        # Log the error and the keys only -- a response without an id_token can
+        # still carry an access_token, which must not reach the logs.
+        raise LoginError(
+            "Your Google sign-in link has expired. Please try again.",
+            "Google token endpoint returned no id_token (error=%r, "
+            "error_description=%r, keys=%r)"
+            % (
+                response.get("error"),
+                response.get("error_description"),
+                sorted(response),
+            ),
+        )
+
     header, payload, secret = str(response["id_token"]).split(".")
     payload += "=" * (4 - (len(payload) % 4))
     id_token = json.loads(base64.urlsafe_b64decode(payload))
@@ -357,6 +431,10 @@ def google_login():
     try:
         response = handle_google_oauth2_login()
         db.session.commit()
+    except LoginError as e:
+        logger.warning("Google login failed: %s", e)
+        db.session.rollback()
+        return redirect(url_for(".login", error=e.message))
     except Exception:
         logger.exception("Google login failed")
         db.session.rollback()

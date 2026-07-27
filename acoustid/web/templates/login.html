@@ -18,12 +18,19 @@
 </p>
 
 <p class="openid-form" style="display:none">
-    <input name="openid_identifier" type="text" class="openid form-control" />
+    <label for="openid_identifier">Your OpenID URL</label>
+    <input name="openid_identifier" id="openid_identifier" type="url"
+           placeholder="https://example.com/openid"
+           class="openid form-control" />
     <input type="submit" value="Sign in" class="btn btn-default" />
 </p>
 
-<input type="hidden" name="return_url" value="{{ return_url }}" /> 
-<input type="hidden" name="login" value="openid" /> 
+<input type="hidden" name="return_url" value="{{ return_url }}" />
+{# Defaults to empty on purpose: clients that ignore the inline display:none
+   (text browsers, crawlers) can otherwise submit this form without ever
+   choosing a provider, which used to land in the OpenID path with an empty
+   identifier. #}
+<input type="hidden" name="login" value="" />
 
 </form> 
 
