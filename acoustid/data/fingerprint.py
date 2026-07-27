@@ -240,7 +240,9 @@ class FingerprintSearcher(object):
                     except IndexClientError:
                         if not self.fast:
                             raise
-                        logger.exception("Index search error")
+                        # In fast mode we carry on without the index, so this is
+                        # a degraded search rather than a failed one.
+                        logger.warning("Index search error", exc_info=True)
         else:
             max_indexed_fingerprint_id = 0
 

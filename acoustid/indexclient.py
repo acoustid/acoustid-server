@@ -27,6 +27,16 @@ class IndexClientError(Exception):
     pass
 
 
+class IndexClientConnectError(IndexClientError):
+    """Could not reach the index server.
+
+    Separate from the base class so that callers which retry anyway can tell a
+    transient connection failure from a protocol-level error.
+    """
+
+    pass
+
+
 class Index(object):
     def begin(self):
         # type: () -> None
@@ -89,10 +99,12 @@ class IndexClient(Index):
             )
             self.sock.setblocking(False)
         except socket.error as e:
-            raise IndexClientError(
+            # Chained so that callers can tell a timeout from a refused
+            # connection or a name that does not resolve.
+            raise IndexClientConnectError(
                 "unable to connect to the index server at %s:%s (%s)"
                 % (self.host, self.port, e)
-            )
+            ) from e
 
     def _putline(self, line: str) -> None:
         assert self.sock is not None
@@ -198,16 +210,21 @@ class IndexClient(Index):
         )
 
     def close(self):
+        # The connection is being discarded either way, so a failure on the way
+        # out changes nothing and there is nothing to act on.
         try:
             if self.sock is not None:
                 if self.in_transaction:
                     try:
                         self.rollback()
                     except Exception:
-                        logger.exception("Error while trying to rollback transaction")
+                        logger.warning(
+                            "Error while trying to rollback transaction",
+                            exc_info=True,
+                        )
                 self.sock.close()
         except Exception:
-            logger.exception("Error while closing connection %s", self)
+            logger.warning("Error while closing connection %s", self, exc_info=True)
         self.sock = None
 
 
