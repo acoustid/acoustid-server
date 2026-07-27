@@ -111,6 +111,9 @@ def test_track_page_show_disabled(app: Flask) -> None:
         "doubleuotb",
         "dybgm665953",
         "http://localhost",
+        "[bad",
+        "http://[bad",
+        "]",
     ],
 )
 def test_validate_openid_identifier_rejects(identifier: str) -> None:

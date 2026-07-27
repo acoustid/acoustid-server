@@ -194,7 +194,11 @@ def validate_openid_identifier(openid_url):
             "OpenID provider, for example https://example.com/openid."
         )
     url = openid_url if "://" in openid_url else "http://" + openid_url
-    hostname = urlparse(url).hostname or ""
+    try:
+        hostname = urlparse(url).hostname or ""
+    except ValueError:
+        # urlparse raises on unbalanced square brackets ("Invalid IPv6 URL").
+        hostname = ""
     if "." not in hostname.strip("."):
         raise LoginError(
             "That does not look like an OpenID URL. It should be a full "
@@ -399,9 +403,17 @@ def handle_google_oauth2_login():
         # Google returns {"error": "invalid_grant"} for an authorization code
         # that was already used or has expired -- typically someone reloading
         # the callback URL. Without this the KeyError hides what went wrong.
+        # Log the error and the keys only -- a response without an id_token can
+        # still carry an access_token, which must not reach the logs.
         raise LoginError(
             "Your Google sign-in link has expired. Please try again.",
-            "Google token endpoint returned no id_token: %r" % (response,),
+            "Google token endpoint returned no id_token (error=%r, "
+            "error_description=%r, keys=%r)"
+            % (
+                response.get("error"),
+                response.get("error_description"),
+                sorted(response),
+            ),
         )
 
     header, payload, secret = str(response["id_token"]).split(".")
