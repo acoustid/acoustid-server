@@ -5,6 +5,7 @@
 
 import json
 import logging
+import socket
 import time
 from typing import Any, Dict, Optional
 
@@ -23,12 +24,18 @@ def is_transient_import_error(ex: BaseException) -> bool:
 
     The importer retries in a loop, and both of these leave the queue intact:
     the statement timeout rolls back the transaction so the pending rows
-    survive, and a failed index connection is simply reconnected next time. How
+    survive, and a timed out index connection is reconnected next time. How
     often they happen is a question for the importer metrics; an individual
     occurrence is not something anyone can act on.
+
+    Errors that will not fix themselves on a retry are not included, however
+    often the loop runs into them.
     """
     if isinstance(ex, IndexClientConnectError):
-        return True
+        # Only a timeout is transient. A refused connection or a name that does
+        # not resolve usually means the endpoint is wrong, and a misconfigured
+        # deployment has to stay visible however often it retries.
+        return isinstance(ex.__cause__, socket.timeout)
     if isinstance(ex, OperationalError):
         return "canceling statement due to statement timeout" in str(ex)
     return False

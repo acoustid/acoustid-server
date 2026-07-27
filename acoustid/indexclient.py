@@ -99,10 +99,12 @@ class IndexClient(Index):
             )
             self.sock.setblocking(False)
         except socket.error as e:
+            # Chained so that callers can tell a timeout from a refused
+            # connection or a name that does not resolve.
             raise IndexClientConnectError(
                 "unable to connect to the index server at %s:%s (%s)"
                 % (self.host, self.port, e)
-            )
+            ) from e
 
     def _putline(self, line: str) -> None:
         assert self.sock is not None
