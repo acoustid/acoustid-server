@@ -81,14 +81,23 @@ def iter_args_suffixes(args: dict, *prefixes: str) -> Iterable[str]:
     return [f".{i}" if i != -1 else "" for i in sorted(results)]
 
 
-api_key_cache = cachetools.TTLCache(maxsize=1000, ttl=60.0)  # type: cachetools.Cache
+# One cache per kind of key. The same string can legitimately be both an
+# application key and an account key, so a shared cache would let either lookup
+# return the other's id. Separate caches also stop the busier application
+# lookups from evicting account entries.
+app_api_key_cache = cachetools.TTLCache(
+    maxsize=1000, ttl=60.0
+)  # type: cachetools.Cache
+user_api_key_cache = cachetools.TTLCache(
+    maxsize=1000, ttl=60.0
+)  # type: cachetools.Cache
 
 
 def check_app_api_key_cache_key(config, db, application_apikey):
     return application_apikey
 
 
-@cachetools.cached(api_key_cache, key=check_app_api_key_cache_key)
+@cachetools.cached(app_api_key_cache, key=check_app_api_key_cache_key)
 def check_app_api_key(config, db, application_apikey):
     app_db = db.get_app_db(read_only=True)
     application_id = lookup_application_id_by_apikey(
@@ -104,7 +113,7 @@ def user_api_key_cache_key(config, db, user_apikey):
     return user_apikey
 
 
-@cachetools.cached(api_key_cache, key=check_app_api_key_cache_key)
+@cachetools.cached(user_api_key_cache, key=user_api_key_cache_key)
 def check_user_api_key(config, db, user_apikey):
     app_db = db.get_app_db(read_only=True)
     return lookup_account_id_by_apikey(app_db, user_apikey)
