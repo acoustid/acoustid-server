@@ -8,8 +8,12 @@ RUN apt-get update && \
 WORKDIR /opt/chromaprint
 
 ARG CHROMAPRINT_VERSION=1.6.1
+# Release assets can be replaced after the fact, so the tarball is pinned by
+# digest rather than by name. Both have to be changed together.
+ARG CHROMAPRINT_SHA256=3368805af0ee47b9df74df10b5001a44569e01df2844dab520031720dde9ad23
 
-RUN curl -L https://github.com/acoustid/chromaprint/releases/download/v${CHROMAPRINT_VERSION}/chromaprint-${CHROMAPRINT_VERSION}.tar.gz -o chromaprint.tar.gz && \
+RUN curl --fail --show-error --silent --location https://github.com/acoustid/chromaprint/releases/download/v${CHROMAPRINT_VERSION}/chromaprint-${CHROMAPRINT_VERSION}.tar.gz -o chromaprint.tar.gz && \
+    echo "${CHROMAPRINT_SHA256}  chromaprint.tar.gz" | sha256sum --check --strict - && \
     tar xzf chromaprint.tar.gz && \
     cd chromaprint-${CHROMAPRINT_VERSION} && \
     mkdir build && cd build && \
