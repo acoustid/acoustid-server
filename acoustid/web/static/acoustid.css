@@ -202,6 +202,12 @@ a:visited {
     margin: 10px 0;
 }
 
+/* The default link colour is hard to read on the banner background. */
+.maintenance-header a {
+    color: inherit;
+    text-decoration: underline;
+}
+
 .list-nopadding {
     padding-left: 1.5em;
 }
