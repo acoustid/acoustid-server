@@ -1,6 +1,6 @@
 [project]
 name = "acoustid-server"
-version = "26.7.0"
+version = "26.7.1"
 description = "AcoustID server"
 readme = "README.md"
 requires-python = ">=3.12"
