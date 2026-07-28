@@ -136,6 +136,7 @@ def edit_application(application_id) -> str | Response:
         abort(404)
     errors = []
     title = "Edit Application"
+    form: dict[str, str]
     if request.form.get("submit"):
         name = request.form.get("name")
         if not name:
@@ -163,12 +164,21 @@ def edit_application(application_id) -> str | Response:
             )
             db.session.commit()
             return redirect(url_for(".application", application_id=application.id))
+        # Redisplay what was submitted rather than the stored values, so the
+        # errors are shown against the input that caused them.
+        form = {
+            "name": name or "",
+            "version": version or "",
+            "email": email or "",
+            "website": website or "",
+        }
     else:
-        form: dict[str, str] = {}
-        form["name"] = application.name
-        form["version"] = application.version or ""
-        form["email"] = application.email or ""
-        form["website"] = application.website or ""
+        form = {
+            "name": application.name,
+            "version": application.version or "",
+            "email": application.email or "",
+            "website": application.website or "",
+        }
     return render_template(
         "edit-application.html", title=title, form=form, errors=errors, app=application
     )

@@ -284,3 +284,56 @@ def test_musicbrainz_login_rejects_bad_state(
     assert rv.status_code == 302
     assert urlparse(rv.headers["Location"]).path == "/login"
     assert calls == []
+
+
+def test_edit_application_page(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.get("/application/1/edit")
+    assert rv.status_code == 200
+    assert 'value="App 1"' in rv.text
+
+
+def test_edit_application_rejects_missing_name(app: Flask) -> None:
+    """A validation error must re-render the form, not fail the request.
+
+    The form values were only prepared on the GET path, so submitting an
+    invalid form fell through to the template with them unbound.
+    """
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.post(
+        "/application/1/edit",
+        data={"submit": "1", "name": "", "version": "0.2", "email": "", "website": ""},
+    )
+
+    assert rv.status_code == 200
+    assert "Missing application name" in rv.text
+    # The version the user typed survives, rather than being reset to the
+    # stored value.
+    assert 'value="0.2"' in rv.text
+
+
+def test_edit_application_rejects_invalid_email(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.post(
+        "/application/1/edit",
+        data={
+            "submit": "1",
+            "name": "App 1",
+            "version": "0.1",
+            "email": "not-an-email",
+            "website": "",
+        },
+    )
+
+    assert rv.status_code == 200
+    assert "Invalid email address" in rv.text
+    assert 'value="not-an-email"' in rv.text
