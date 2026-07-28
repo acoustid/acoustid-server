@@ -337,3 +337,31 @@ def test_edit_application_rejects_invalid_email(app: Flask) -> None:
     assert rv.status_code == 200
     assert "Invalid email address" in rv.text
     assert 'value="not-an-email"' in rv.text
+
+
+def test_new_application_page_does_not_call_email_optional(app: Flask) -> None:
+    """The form must not offer the email as optional when it is not."""
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.get("/new-application")
+    assert rv.status_code == 200
+    assert "Contact email" in rv.text
+    assert "Contact email (optional)" not in rv.text
+    # The website really is optional, and should still say so.
+    assert "Website (optional)" in rv.text
+
+
+def test_new_application_requires_email(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.post(
+        "/new-application",
+        data={"submit": "1", "name": "App 3", "version": "0.1", "email": ""},
+    )
+
+    assert rv.status_code == 200
+    assert "Missing email address" in rv.text
