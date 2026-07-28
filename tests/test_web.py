@@ -392,3 +392,25 @@ def test_edit_application_page_does_not_call_email_optional(app: Flask) -> None:
     assert "Contact email" in rv.text
     assert "Contact email (optional)" not in rv.text
     assert "Website (optional)" in rv.text
+
+
+def test_maintenance_banner_hidden_by_default(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/")
+    assert rv.status_code == 200
+    assert "read-only mode for maintenance" not in rv.text
+
+
+def test_maintenance_banner_links_to_status_page(app: Flask) -> None:
+    website = app.acoustid_config.website  # type: ignore[attr-defined]
+    website.maintenance = True
+    try:
+        client = app.test_client()
+
+        rv = client.get("/")
+        assert rv.status_code == 200
+        assert "read-only mode for maintenance" in rv.text
+        assert "https://status.acoustid.org/" in rv.text
+    finally:
+        website.maintenance = False
