@@ -1,17 +1,19 @@
 FROM ubuntu:24.04 AS chromaprint-build
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends cmake make gcc g++ curl ca-certificates unzip && \
+    apt-get install -y --no-install-recommends cmake make gcc g++ curl ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/chromaprint
 
-RUN curl -L https://github.com/acoustid/chromaprint/archive/41a3e8fb3eb907d7a0338ada291982672a2226df.zip -o 41a3e8fb3eb907d7a0338ada291982672a2226df.zip && \
-    unzip 41a3e8fb3eb907d7a0338ada291982672a2226df.zip && \
-    cd chromaprint-41a3e8fb3eb907d7a0338ada291982672a2226df && \
+ARG CHROMAPRINT_VERSION=1.6.1
+
+RUN curl -L https://github.com/acoustid/chromaprint/releases/download/v${CHROMAPRINT_VERSION}/chromaprint-${CHROMAPRINT_VERSION}.tar.gz -o chromaprint.tar.gz && \
+    tar xzf chromaprint.tar.gz && \
+    cd chromaprint-${CHROMAPRINT_VERSION} && \
     mkdir build && cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS="-O3 -march=haswell -ffast-math" -DCMAKE_CXX_FLAGS="-O3 -march=haswell -ffast-math" -DCMAKE_BUILD_TYPE=Release && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS="-O3 -march=haswell -ffast-math" -DCMAKE_CXX_FLAGS="-O3 -march=haswell -ffast-math" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF && \
     make -j$(nproc) && \
     make install DESTDIR=/opt/chromaprint/install
 
