@@ -4,6 +4,8 @@
 import logging
 import time
 
+from sqlalchemy.exc import IntegrityError
+
 from acoustid.data.stats import (
     NUM_PARTITIONS,
     unpack_user_agent_stats_key,
@@ -14,6 +16,15 @@ from acoustid.tasks import enqueue_task
 from acoustid.utils import call_internal_api
 
 logger = logging.getLogger(__name__)
+
+
+# SQLSTATE for foreign_key_violation. A counter keyed on an application that
+# does not exist can never be applied, however often it is retried.
+FOREIGN_KEY_VIOLATION = "23503"
+
+
+def _is_unknown_application(error: IntegrityError) -> bool:
+    return getattr(error.orig, "pgcode", None) == FOREIGN_KEY_VIOLATION
 
 
 def run_update_all_user_agent_stats(script: Script) -> None:
@@ -41,19 +52,31 @@ def run_update_user_agent_stats(script: Script, partition: int) -> None:
                 # nothing touched it since then, so it's safe to delete
                 redis.hdel(root_key, key)
             else:
-                if script.config.cluster.role == "master":
-                    update_user_agent_stats(
-                        db, application_id, date, user_agent, ip, count
+                try:
+                    if script.config.cluster.role == "master":
+                        update_user_agent_stats(
+                            db, application_id, date, user_agent, ip, count
+                        )
+                    else:
+                        call_internal_api(
+                            script.config,
+                            "update_user_agent_stats",
+                            application_id=application_id,
+                            date=date,
+                            user_agent=user_agent,
+                            ip=ip,
+                            count=count,
+                        )
+                except IntegrityError as error:
+                    if not _is_unknown_application(error):
+                        raise
+                    ctx.db.session.rollback()
+                    logger.warning(
+                        "Discarding user agent stats for unknown application %s (key %s)",
+                        application_id,
+                        key,
                     )
-                else:
-                    call_internal_api(
-                        script.config,
-                        "update_user_agent_stats",
-                        application_id=application_id,
-                        date=date,
-                        user_agent=user_agent,
-                        ip=ip,
-                        count=count,
-                    )
+                    redis.hdel(root_key, key)
+                    continue
                 redis.hincrby(root_key, key, -count)
             ctx.db.session.commit()

@@ -4,6 +4,8 @@
 import logging
 import time
 
+from sqlalchemy.exc import IntegrityError
+
 from acoustid.data.stats import (
     NUM_PARTITIONS,
     unpack_lookup_stats_key,
@@ -14,6 +16,15 @@ from acoustid.tasks import enqueue_task
 from acoustid.utils import call_internal_api
 
 logger = logging.getLogger(__name__)
+
+
+# SQLSTATE for foreign_key_violation. A counter keyed on an application that
+# does not exist can never be applied, however often it is retried.
+FOREIGN_KEY_VIOLATION = "23503"
+
+
+def _is_unknown_application(error: IntegrityError) -> bool:
+    return getattr(error.orig, "pgcode", None) == FOREIGN_KEY_VIOLATION
 
 
 def run_update_all_lookup_stats(script: Script) -> None:
@@ -41,17 +52,31 @@ def run_update_lookup_stats(script: Script, partition: int):
                 # nothing touched it since then, so it's safe to delete
                 redis.hdel(root_key, key)
             else:
-                if script.config.cluster.role == "master":
-                    update_lookup_stats(db, application_id, date, hour, type, count)
-                else:
-                    call_internal_api(
-                        script.config,
-                        "update_lookup_stats",
-                        application_id=application_id,
-                        date=date,
-                        hour=hour,
-                        type=type,
-                        count=count,
+                try:
+                    if script.config.cluster.role == "master":
+                        update_lookup_stats(db, application_id, date, hour, type, count)
+                    else:
+                        call_internal_api(
+                            script.config,
+                            "update_lookup_stats",
+                            application_id=application_id,
+                            date=date,
+                            hour=hour,
+                            type=type,
+                            count=count,
+                        )
+                except IntegrityError as error:
+                    if not _is_unknown_application(error):
+                        raise
+                    # Left in place it fails the same way on every run, and
+                    # takes every counter behind it in this partition with it.
+                    ctx.db.session.rollback()
+                    logger.warning(
+                        "Discarding lookup stats for unknown application %s (key %s)",
+                        application_id,
+                        key,
                     )
+                    redis.hdel(root_key, key)
+                    continue
                 redis.hincrby(root_key, key, -count)
             ctx.db.session.commit()
