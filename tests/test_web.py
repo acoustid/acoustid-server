@@ -365,3 +365,30 @@ def test_new_application_requires_email(app: Flask) -> None:
 
     assert rv.status_code == 200
     assert "Missing email address" in rv.text
+
+
+def test_edit_application_requires_email(app: Flask) -> None:
+    """Clearing the email must be rejected, as it is on registration."""
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.post(
+        "/application/1/edit",
+        data={"submit": "1", "name": "App 1", "version": "0.1", "email": ""},
+    )
+
+    assert rv.status_code == 200
+    assert "Missing email address" in rv.text
+
+
+def test_edit_application_page_does_not_call_email_optional(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.get("/application/1/edit")
+    assert rv.status_code == 200
+    assert "Contact email" in rv.text
+    assert "Contact email (optional)" not in rv.text
+    assert "Website (optional)" in rv.text
