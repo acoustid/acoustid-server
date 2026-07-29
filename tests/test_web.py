@@ -1,3 +1,4 @@
+from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -6,6 +7,7 @@ from itsdangerous import URLSafeSerializer
 from rauth import OAuth2Service
 
 from acoustid.web import db
+from acoustid.web.views import general
 from acoustid.web.views.user import LoginError, validate_openid_identifier
 from tests import make_web_application
 
@@ -33,11 +35,64 @@ def test_docs_page(app: Flask) -> None:
     assert "Documentation" in rv.text
 
 
-def test_chromaprint_page(app: Flask) -> None:
+FAKE_RELEASE = {
+    "name": "Chromaprint 1.6.1",
+    "published_at": "2026-07-27T10:00:00Z",
+    "assets": [
+        {
+            "name": "chromaprint-1.6.1-linux-x86_64.tar.gz",
+            "browser_download_url": "https://example.com/chromaprint.tar.gz",
+            "size": 1234567,
+        }
+    ],
+}
+
+
+@pytest.fixture()
+def latest_release():
+    with mock.patch.object(general, "get_latest_chromaprint_release") as m:
+        yield m
+
+
+def test_chromaprint_page(app: Flask, latest_release) -> None:
+    latest_release.return_value = FAKE_RELEASE
     client = app.test_client()
 
     rv = client.get("/chromaprint")
     assert rv.status_code == 200
+    assert "Download" in rv.text
+    # The name has "Chromaprint" stripped and the timestamp is cut to a date,
+    # so assert the rendered forms rather than substrings of the raw values.
+    assert "1.6.1 (2026-07-27)" in rv.text
+    assert "2026-07-27T" not in rv.text
+    assert "Chromaprint 1.6.1" not in rv.text
+    assert "chromaprint-1.6.1-linux-x86_64.tar.gz" in rv.text
+    assert "https://example.com/chromaprint.tar.gz" in rv.text
+    assert "1.2 MB" in rv.text
+
+
+def test_chromaprint_page_without_a_release(app: Flask, latest_release) -> None:
+    latest_release.return_value = None
+    client = app.test_client()
+
+    rv = client.get("/chromaprint")
+    assert rv.status_code == 200
+    assert "Download" not in rv.text
+
+
+def test_latest_chromaprint_release_is_the_newest_one() -> None:
+    older = dict(FAKE_RELEASE, name="Chromaprint 1.6.0")
+    with mock.patch.object(general.requests, "get") as get:
+        get.return_value.json.return_value = [FAKE_RELEASE, older]
+
+        assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+
+
+def test_latest_chromaprint_release_when_there_are_none() -> None:
+    with mock.patch.object(general.requests, "get") as get:
+        get.return_value.json.return_value = []
+
+        assert general.get_latest_chromaprint_release() is None
 
 
 def test_faq_page(app: Flask) -> None:
