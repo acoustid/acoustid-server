@@ -2,14 +2,18 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import datetime
+import importlib.util
+import os
 
 import pytest
 from sqlalchemy import sql
 from sqlalchemy.exc import OperationalError
 
 import tests
+from acoustid import tables
 from acoustid.scripts.fpindex_changelog import (
     _existing_partitions,
+    _server_today,
     check_default_partition,
     create_partitions,
     drop_partitions,
@@ -171,11 +175,52 @@ def test_default_partition_is_reported_when_used(engine):
     """A row in the default partition means create-ahead fell behind. Writes
     still succeed -- that is the point of the backstop -- so this counter is
     the only thing that will tell anyone."""
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        # The assertion below only means anything if nothing covers today:
+        # with a dated partition present the row lands there instead and the
+        # test would fail for a reason that has nothing to do with the backstop.
+        # Enforced rather than assumed, since any test that runs the real
+        # maintenance task would otherwise break this one confusingly.
+        today = _server_today(conn)
+        assert not [day for day in _existing_partitions(conn).values() if day == today]
+
     with engine.connect() as conn:
         conn.execute(sql.text(INSERT_FINGERPRINT), {"fingerprint": _fingerprint(1)})
         conn.commit()
 
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        # No dated partition covers today in the test database, so the row can
-        # only have landed in the default one.
         assert check_default_partition(conn) == 1
+
+
+# Path rather than an import: alembic versions are not a package, and a
+# migration must never import acoustid.tables anyway -- it has to keep working
+# as the models move, which is why the DDL is written out twice to begin with.
+MIGRATION_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..",
+    "alembic",
+    "versions",
+    "a1f4c72b90de_add_fpindex_changelog.py",
+)
+
+
+def test_migration_and_models_agree_on_the_advisory_lock_key():
+    """The one duplication that fails silently and catastrophically.
+
+    The trigger DDL is deliberately written out twice -- once in tables.py for
+    create_all, once in the migration -- because a migration must not import the
+    models. Most drift between the two would surface as an obvious schema
+    mismatch. A divergent lock key would not: writers would take two *different*
+    advisory locks, stop serialising against each other, and the skipped-row gap
+    this whole changelog exists to close would quietly come back, with every
+    test still passing.
+    """
+    spec = importlib.util.spec_from_file_location("fpindex_migration", MIGRATION_PATH)
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    assert migration.LOCK_KEY == tables.FPINDEX_CHANGELOG_LOCK_KEY
+    # And that the key each side actually emits is that constant, not a literal
+    # that drifted away from it.
+    assert str(tables.FPINDEX_CHANGELOG_LOCK_KEY) in tables.FPINDEX_CHANGELOG_DDL
