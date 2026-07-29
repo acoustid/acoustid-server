@@ -30,6 +30,10 @@ def create_schedule(script: Script) -> Scheduler:
     schedule.every().minute.do(run_task("update_all_lookup_stats"))
     schedule.every().hour.do(run_task("update_all_user_agent_stats"))
     schedule.every().day.at("00:10").do(run_task("update_stats"))
+    # Hourly rather than daily: the work is idempotent and nearly free, and a
+    # job that only gets one attempt a day turns a single missed run into a
+    # day of lost headroom.
+    schedule.every().hour.do(run_task("manage_fpindex_changelog"))
     return schedule
 
 

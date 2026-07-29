@@ -1,6 +1,7 @@
 import sqlalchemy.event
 from sqlalchemy import (
     DDL,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -11,6 +12,8 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     MetaData,
+    PrimaryKeyConstraint,
+    Sequence,
     SmallInteger,
     String,
     Table,
@@ -18,6 +21,7 @@ from sqlalchemy import (
     sql,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, UUID
+from sqlalchemy.types import UserDefinedType
 
 metadata = MetaData(
     naming_convention={
@@ -367,6 +371,117 @@ fingerprint_source = Table(
     Index("fingerprint_source_idx_submission_id", "submission_id"),
     info={"bind_key": "ingest"},
 )
+
+
+class XID8(UserDefinedType):
+    """PostgreSQL xid8 -- a transaction ID that does not wrap around.
+
+    Unlike the 32-bit xmin system column, xid8 carries the epoch, so values
+    stay comparable for the lifetime of the cluster.
+    """
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw: object) -> str:
+        return "xid8"
+
+
+# Every writer serialises on this key inside fpindex_changelog_insert(), which
+# is what makes the changelog id order equal to the commit order. The value is
+# arbitrary but must never change: two different values are two different locks
+# and would silently stop serialising writers against each other.
+FPINDEX_CHANGELOG_LOCK_KEY = 7723016524936704001
+
+# Changes to the fingerprint table, in commit order, for fpindex to replay.
+#
+# `id` is the consumer cursor: a consumer tails `WHERE id > cursor ORDER BY id`
+# and that is safe ONLY because the trigger takes an advisory lock before the id
+# is allocated (see fpindex_changelog_insert below). Without it a transaction
+# that grabbed a lower id but committed later would be skipped forever, which is
+# the bug in the old index updater.
+#
+# Partitioned by `created` so retention is a calendar job: dropping whole
+# partitions keeps vacuum out of the picture entirely, and a create-ahead job
+# working on dates cannot be caught out by a change in write volume the way an
+# id-range one could.
+#
+# `created` uses clock_timestamp(), NOT now(): now() is transaction start time,
+# so a long transaction would file its row under an earlier partition than its
+# id-neighbours and the retained rows would stop being a contiguous id range.
+# Taken inside the advisory lock, clock_timestamp() advances in the same order
+# as the id, so time partitions and an id cursor agree.
+fpindex_changelog = Table(
+    "fpindex_changelog",
+    metadata,
+    Column(
+        "id",
+        BigInteger,
+        Sequence("fpindex_changelog_id_seq", metadata=metadata),
+        server_default=sql.text("nextval('fpindex_changelog_id_seq')"),
+        nullable=False,
+    ),
+    Column("fingerprint_id", Integer, nullable=False),
+    Column("query", ARRAY(Integer), nullable=False),
+    # Diagnostic, and it keeps the xmin-horizon read strategy available without
+    # a migration if the advisory lock ever needs to come out.
+    Column(
+        "xid",
+        XID8,
+        server_default=sql.text("pg_current_xact_id()"),
+        nullable=False,
+    ),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.text("clock_timestamp()"),
+        nullable=False,
+    ),
+    # A partitioned table may only have a unique constraint that covers the
+    # partition key, so the primary key is the pair. `id` alone is still unique
+    # -- it comes from a sequence -- and leads the index, which is what the
+    # consumer's `id > cursor` scan needs.
+    PrimaryKeyConstraint("id", "created"),
+    postgresql_partition_by="RANGE (created)",
+    info={"bind_key": "fingerprint"},
+)
+
+
+# Kept in sync by hand with the alembic migration that introduces it. Migrations
+# must not import this module -- they have to keep working as the models move --
+# so the DDL is written out twice on purpose.
+#
+# Attached to the metadata rather than to fpindex_changelog because the trigger
+# is created on `fingerprint`, and only a metadata-level hook is guaranteed to
+# run after every table exists. There is deliberately no foreign key from the
+# changelog to the fingerprint: it is a log, and an FK would both cost writes
+# and stand in the way of dropping partitions.
+FPINDEX_CHANGELOG_DDL = f"""
+CREATE TABLE IF NOT EXISTS fpindex_changelog_default
+    PARTITION OF fpindex_changelog DEFAULT;
+
+CREATE OR REPLACE FUNCTION fpindex_changelog_insert() RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_advisory_xact_lock({FPINDEX_CHANGELOG_LOCK_KEY});
+    INSERT INTO fpindex_changelog (fingerprint_id, query)
+        VALUES (NEW.id, acoustid_extract_query(NEW.fingerprint));
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS fingerprint_fpindex_changelog ON fingerprint;
+
+CREATE TRIGGER fingerprint_fpindex_changelog
+    AFTER INSERT ON fingerprint
+    FOR EACH ROW
+    EXECUTE FUNCTION fpindex_changelog_insert();
+"""
+
+sqlalchemy.event.listen(
+    metadata,
+    "after_create",
+    DDL(FPINDEX_CHANGELOG_DDL),
+)
+
 
 track_mbid = Table(
     "track_mbid",
