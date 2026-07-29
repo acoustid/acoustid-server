@@ -101,7 +101,7 @@ def import_submission(
         .where(schema.submission.c.id == submission["id"])
         .values(handled=True, handled_at=handled_at)
     )
-    logger.info(
+    logger.debug(
         "Importing submission %d with MBIDs %s", submission["id"], submission["mbid"]
     )
 
@@ -323,9 +323,14 @@ def import_queued_submissions(
     )
     count = 0
     for submission in submissions:
-        handled, fingerprint = import_submission(
-            ingest_db, app_db, fingerprint_db, index_pool, submission._mapping
-        )
+        try:
+            handled, fingerprint = import_submission(
+                ingest_db, app_db, fingerprint_db, index_pool, submission._mapping
+            )
+        except Exception:
+            # The caller reports the failure without naming the submission.
+            logger.error("Failed to import submission %d", submission.id)
+            raise
         if not handled:
             submission_ids.remove(submission.id)
         count += 1

@@ -33,7 +33,8 @@ class RateLimiter(object):
 
         if count > rate * self.interval:
             self.redis.decr(full_key)
-            logger.info(
+            # Counted as api.rate_limit_exceeded_total by the caller.
+            logger.debug(
                 "Key %s:%s exceeded the rate limit of %s requests per %s seconds",
                 bucket,
                 key,

@@ -40,7 +40,7 @@ def run_update_lookup_stats(script: Script, partition: int):
         root_key = "lookups"
     else:
         root_key = f"lookups:{partition:02x}"
-    logger.info("Updating lookup stats (key %s)", root_key)
+    logger.debug("Updating lookup stats (key %s)", root_key)
     with script.context() as ctx:
         redis = ctx.redis
         for key, count in redis.hgetall(root_key).items():

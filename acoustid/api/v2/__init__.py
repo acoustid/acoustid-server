@@ -169,6 +169,16 @@ class APIHandler(Handler):
         response_data.update(data)
         return serialize_response(response_data, format)
 
+    def _count_rate_limited(self, bucket, application_id=None):
+        # type: (str, Optional[int]) -> None
+        if self.ctx.statsd is None:
+            return
+        # Never tag by IP: unbounded cardinality. app is always emitted, None
+        # included, so this can be joined with api.requests_total.
+        self.ctx.statsd.incr(
+            f"api.rate_limit_exceeded_total,bucket={bucket},app={application_id}"
+        )
+
     def _rate_limit(self, user_ip, application_id):
         # type: (str, Optional[int]) -> None
 
@@ -184,11 +194,13 @@ class APIHandler(Handler):
             if self.rate_limiter.limit(
                 "app", str(application_id), application_rate_limit
             ):
+                self._count_rate_limited("app", application_id)
                 raise errors.TooManyRequests(application_rate_limit)
 
         global_rate_limit = self.ctx.config.rate_limiter.global_rate_limit
         if global_rate_limit is not None:
             if self.rate_limiter.limit("global", "", global_rate_limit):
+                self._count_rate_limited("global", application_id)
                 raise errors.TooManyRequests(global_rate_limit)
 
         if check_ip_rate_limit:
@@ -196,6 +208,7 @@ class APIHandler(Handler):
                 user_ip, MAX_REQUESTS_PER_SECOND
             )
             if self.rate_limiter.limit("ip", user_ip, ip_rate_limit):
+                self._count_rate_limited("ip", application_id)
                 raise errors.TooManyRequests(ip_rate_limit)
 
     def handle(self, req: Request) -> Response:
