@@ -40,7 +40,7 @@ def run_update_user_agent_stats(script: Script, partition: int) -> None:
         root_key = "ua"
     else:
         root_key = f"ua:{partition:02x}"
-    logger.info("Updating user agent stats (key %s)", root_key)
+    logger.debug("Updating user agent stats (key %s)", root_key)
     with script.context() as ctx:
         redis = ctx.redis
         for key, count in redis.hgetall(root_key).items():

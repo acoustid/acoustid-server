@@ -56,11 +56,13 @@ def handle_task(script: Script, name: str, kwargs: dict) -> None:
             if ctx.statsd is not None:
                 ctx.statsd.incr(f"tasks_started_total,task={name}")
 
-        logger.info(
-            "Running task %s(%s)",
-            name,
-            ", ".join(f"{k}={repr(v)}" for k, v in kwargs.items()),
-        )
+        # Guarded: the kwargs are formatted eagerly.
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Running task %s(%s)",
+                name,
+                ", ".join(f"{k}={repr(v)}" for k, v in kwargs.items()),
+            )
 
         try:
             func(script, **kwargs)
