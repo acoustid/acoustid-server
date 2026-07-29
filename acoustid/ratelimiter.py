@@ -4,6 +4,7 @@
 from __future__ import division
 
 import logging
+import math
 import time
 
 from redis import Redis
@@ -18,6 +19,17 @@ class RateLimiter(object):
         self.prefix = prefix
         self.interval = interval
         self.steps = steps
+
+    def seconds_until_next_step(self):
+        # type: () -> int
+        """Seconds until the oldest step of the sliding window expires.
+
+        The window is split into `steps` buckets keyed on absolute time, so
+        capacity frees up when the current bucket rolls over. Rounded up, and
+        never zero, so it can be used as a Retry-After value.
+        """
+        step = self.interval / self.steps
+        return max(1, int(math.ceil(step - (time.time() % step))))
 
     def limit(self, bucket, key, rate):
         # type: (str, str, float) -> bool

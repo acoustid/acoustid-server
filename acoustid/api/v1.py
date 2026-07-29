@@ -20,13 +20,13 @@ class APIHandlerParams(v2.APIHandlerParams):
 class APIHandler(v2.APIHandler):
     params_class = None  # type: Type[APIHandlerParams]
 
-    def _error(self, code, message, format=FORMAT, status=400):
+    def _error(self, code, message, format=FORMAT, status=400, headers=None):
         assert format == FORMAT
         response_data = {
             "@status": "error",
             "error": message,
         }
-        return serialize_response(response_data, format, status=status)
+        return serialize_response(response_data, format, status=status, headers=headers)
 
     def _ok(self, data, format=FORMAT):
         assert format == FORMAT

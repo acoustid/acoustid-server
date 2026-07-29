@@ -28,6 +28,9 @@ class FakeRateLimiter:
     def limit(self, bucket: str, key: str, rate: float) -> bool:
         return bucket == self.reject
 
+    def seconds_until_next_step(self) -> int:
+        return 5
+
 
 def make_handler(
     reject: str, application_rate_limits: Any = None

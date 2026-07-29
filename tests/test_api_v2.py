@@ -153,6 +153,13 @@ class InternalErrorHandler(APIHandler):
         return {"infinity": 43 / 0}
 
 
+class TooManyRequestsHandler(APIHandler):
+    params_class = APIHandlerParams
+
+    def _handle_internal(self, params):
+        raise errors.TooManyRequests(3.0, 5)
+
+
 @with_script_context
 def test_apihandler_ws_error_400(ctx):
     # type: (ScriptContext) -> None
@@ -189,6 +196,38 @@ def test_apihandler_ws_error_500(ctx):
     }
     assert_json_equals(expected, resp.data)
     assert "500 INTERNAL SERVER ERROR" == resp.status
+
+
+@with_script_context
+def test_apihandler_ws_error_429_sets_retry_after(ctx):
+    # type: (ScriptContext) -> None
+    values = {"format": "json"}
+    builder = EnvironBuilder(method="POST", data=values)
+    handler = TooManyRequestsHandler(ctx)
+    resp = handler.handle(Request(builder.get_environ()))
+    assert "application/json; charset=UTF-8" == resp.content_type
+    expected = {
+        "status": "error",
+        "error": {
+            "message": "rate limit (3.000000 requests per second) exceeded, "
+            "try again later",
+            "code": 14,
+        },
+    }
+    assert_json_equals(expected, resp.data)
+    assert "429 TOO MANY REQUESTS" == resp.status
+    assert "5" == resp.headers["Retry-After"]
+
+
+@with_script_context
+def test_apihandler_ws_error_has_no_retry_after(ctx):
+    # type: (ScriptContext) -> None
+    values = {"format": "json"}
+    builder = EnvironBuilder(method="POST", data=values)
+    handler = WebServiceErrorHandler(ctx)
+    resp = handler.handle(Request(builder.get_environ()))
+    assert "400 BAD REQUEST" == resp.status
+    assert "Retry-After" not in resp.headers
 
 
 @with_script_context

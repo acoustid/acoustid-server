@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+from typing import Optional
 
 from acoustid import const
 
@@ -37,6 +38,7 @@ for name, value in list(globals().items()):
 
 class WebServiceError(Exception):
     status = 400
+    retry_after = None  # type: Optional[int]
 
     @property
     def code_name(self) -> str:
@@ -145,9 +147,10 @@ class ServiceUnavailable(WebServiceError):
 class TooManyRequests(WebServiceError):
     status = 429
 
-    def __init__(self, rate) -> None:
+    def __init__(self, rate: float, retry_after: Optional[int] = None) -> None:
         message = "rate limit (%f requests per second) exceeded, try again later" % rate
         WebServiceError.__init__(self, ERROR_TOO_MANY_REQUESTS, message)
+        self.retry_after = retry_after
 
 
 class InvalidMusicBrainzAccessTokenError(WebServiceError):

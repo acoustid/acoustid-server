@@ -158,10 +158,10 @@ DEFAULT_APPLICATION_RATE_LIMIT = 10
 class APIHandler(Handler):
     params_class = None  # type: Type[APIHandlerParams]
 
-    def _error(self, code, message, format=DEFAULT_FORMAT, status=400):
-        # type: (int, str, str, int) -> Response
+    def _error(self, code, message, format=DEFAULT_FORMAT, status=400, headers=None):
+        # type: (int, str, str, int, Optional[Dict[str, str]]) -> Response
         response_data = {"status": "error", "error": {"code": code, "message": message}}
-        return serialize_response(response_data, format, status=status)
+        return serialize_response(response_data, format, status=status, headers=headers)
 
     def _ok(self, data, format=DEFAULT_FORMAT):
         # type: (Dict[str, Any], str) -> Response
@@ -195,13 +195,17 @@ class APIHandler(Handler):
                 "app", str(application_id), application_rate_limit
             ):
                 self._count_rate_limited("app", application_id)
-                raise errors.TooManyRequests(application_rate_limit)
+                raise errors.TooManyRequests(
+                    application_rate_limit, self.rate_limiter.seconds_until_next_step()
+                )
 
         global_rate_limit = self.ctx.config.rate_limiter.global_rate_limit
         if global_rate_limit is not None:
             if self.rate_limiter.limit("global", "", global_rate_limit):
                 self._count_rate_limited("global", application_id)
-                raise errors.TooManyRequests(global_rate_limit)
+                raise errors.TooManyRequests(
+                    global_rate_limit, self.rate_limiter.seconds_until_next_step()
+                )
 
         if check_ip_rate_limit:
             ip_rate_limit = self.ctx.config.rate_limiter.ips.get(
@@ -209,7 +213,9 @@ class APIHandler(Handler):
             )
             if self.rate_limiter.limit("ip", user_ip, ip_rate_limit):
                 self._count_rate_limited("ip", application_id)
-                raise errors.TooManyRequests(ip_rate_limit)
+                raise errors.TooManyRequests(
+                    ip_rate_limit, self.rate_limiter.seconds_until_next_step()
+                )
 
     def handle(self, req: Request) -> Response:
         ctx = contextvars.copy_context()
@@ -274,8 +280,15 @@ class APIHandler(Handler):
                         e.code_name, request_type
                     )
                 )
+            headers = None
+            if e.retry_after is not None:
+                headers = {"Retry-After": str(e.retry_after)}
             return self._error(
-                e.code, e.message, getattr(params, "format", "unknown"), status=e.status
+                e.code,
+                e.message,
+                getattr(params, "format", "unknown"),
+                status=e.status,
+                headers=headers,
             )
 
     def _handle_internal(self, params):
