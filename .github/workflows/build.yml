@@ -24,7 +24,12 @@ jobs:
     services:
 
       postgresql:
-        image: quay.io/acoustid/postgresql:master
+        # Same image and tag as docker-compose.yml, so CI, local dev and
+        # production all run the same PostgreSQL. This was
+        # quay.io/acoustid/postgresql:master, which is 12.3 -- EOL, and five
+        # majors behind production, so CI could neither catch version-dependent
+        # problems nor accept code that works everywhere it actually runs.
+        image: ghcr.io/acoustid/postgres:pg17.4-main-00c3a23
         ports:
           - 5432/tcp
         env:
