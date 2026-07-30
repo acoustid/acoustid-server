@@ -5,6 +5,7 @@ from typing import Optional
 import click
 
 from acoustid.cron import run_cron
+from acoustid.future.fpindex.feed import DEFAULT_PORT, run_feed_app
 from acoustid.script import Script
 from acoustid.scripts.import_submissions import run_import
 from acoustid.worker import run_worker
@@ -47,6 +48,23 @@ def run_api_cmd(config, workers=None, threads=None):
     script = Script(config)
     script.setup_console_logging()
     run_api_app(script.config, workers=workers, threads=threads)
+
+
+@run.command("fpindex-feed")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option("-h", "--host", default="0.0.0.0")
+@click.option("-p", "--port", type=int, default=DEFAULT_PORT)
+@click.option("-w", "--workers", type=int)
+def run_fpindex_feed_cmd(
+    config: str, host: str, port: int, workers: Optional[int]
+) -> None:
+    """Run the changelog feed that fpindex nodes replicate from."""
+    # Set for the benefit of the uvicorn factory, which is re-imported in each
+    # worker process and so cannot be handed the path directly.
+    os.environ["ACOUSTID_CONFIG"] = config
+    script = Script(config)
+    script.setup_console_logging()
+    run_feed_app(host=host, port=port, workers=workers)
 
 
 @run.command("cron")

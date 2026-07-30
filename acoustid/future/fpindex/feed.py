@@ -186,6 +186,40 @@ async def handle_read_meta(request: Request) -> Response:
     )
 
 
+async def handle_health(request: Request) -> Response:
+    """Readiness, and it actually checks something.
+
+    A handler that returns ready=True unconditionally is a check whose pass and
+    fail look identical -- it reports the process as able to serve while every
+    request it serves is failing. The only thing this app needs in order to
+    answer is the fingerprint database, so that is what gets verified.
+
+    Deliberately NOT a check on how far consumers have got, or on the retention
+    margin: readiness must mean "can serve requests". Tying it to replication
+    state would take the feed out of service exactly when nodes most need to
+    reach it.
+    """
+    engine = request.app.state.app_ctx.get_fingerprint_db()
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(sql.text("SELECT 1"))
+    except Exception:
+        # Deliberately broad, and this was found by running it rather than by
+        # reasoning: a refused connection arrives as ConnectionRefusedError --
+        # an OSError, straight from asyncpg, NOT wrapped in SQLAlchemyError.
+        # Catching SQLAlchemyError alone made this handler return 500 in exactly
+        # the situation it exists to report, while a unit test that raised
+        # OperationalError by hand reported it working.
+        #
+        # For a readiness probe the only question is "can I serve requests", so
+        # every way of failing to reach the database has the same answer.
+        logger.exception("health check failed: fingerprint database unreachable")
+        return Response(
+            b'{"ready":false}', status_code=503, media_type="application/json"
+        )
+    return Response(b'{"ready":true}', media_type="application/json")
+
+
 routes = [
     Route(
         "/_changelog/{index}/{generation:int}",
@@ -193,10 +227,14 @@ routes = [
         methods=["GET"],
     ),
     Route("/_meta", handle_read_meta, methods=["GET"]),
+    Route("/health", handle_health, methods=["GET"]),
 ]
 
 
 def create_feed_app(config_file: str | None = None, tests: bool = False) -> Starlette:
+    """Also the uvicorn factory. Called with no arguments in production, where
+    Config.load falls back to $ACOUSTID_CONFIG -- the same way the web and api
+    apps get their configuration."""
     import functools
 
     from acoustid.config import Config
@@ -206,4 +244,27 @@ def create_feed_app(config_file: str | None = None, tests: bool = False) -> Star
     return Starlette(
         routes=routes,
         lifespan=functools.partial(app_lifespan, config),
+    )
+
+
+# api is on 3031 and web on 3032; this continues the sequence.
+DEFAULT_PORT = 3033
+
+# Referenced as a string so uvicorn can re-import it in each worker process.
+# Kept next to the function it names, since a typo here would only surface at
+# deploy time -- there is a test that resolves it.
+APP_FACTORY = "acoustid.future.fpindex.feed:create_feed_app"
+
+
+def run_feed_app(host: str, port: int, workers: int | None = None) -> None:
+    import uvicorn
+
+    uvicorn.run(
+        APP_FACTORY,
+        factory=True,
+        host=host,
+        port=port,
+        workers=workers,
+        # Leave logging to Script.setup_console_logging, which has already run.
+        log_config=None,
     )

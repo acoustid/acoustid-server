@@ -4,6 +4,7 @@
 import msgspec
 import pytest
 from sqlalchemy import sql
+from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 import tests
@@ -290,3 +291,85 @@ def test_meta_feed_is_drained_once(client: TestClient):
         client.get("/_meta", params={"after": GENERATION}).content
     )
     assert decoded["o"] == []
+
+
+# --- running it --------------------------------------------------------------
+
+
+def test_health_reports_ready_when_the_database_answers(client: TestClient):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"ready": True}
+
+
+def test_health_reports_unready_when_the_database_does_not(
+    app: Starlette, client: TestClient, monkeypatch
+):
+    """A readiness check that cannot fail is not a check.
+
+    Without this the handler could return ready=True while every request it
+    serves is erroring, and nothing would take the process out of rotation.
+    """
+
+    class UnreachableEngine:
+        def connect(self):
+            # The real failure, taken from actually starting the service against
+            # a database that was not listening. asyncpg raises this straight
+            # through -- it is an OSError, NOT a SQLAlchemyError. An earlier
+            # version of this test raised OperationalError instead and passed
+            # while the handler returned 500 in production.
+            raise ConnectionRefusedError(111, "Connection refused")
+
+    # AsyncEngine.connect is read-only, so stand in a whole engine rather than
+    # patching a method on the real one.
+    monkeypatch.setattr(
+        app.state.app_ctx,
+        "get_fingerprint_db",
+        lambda: UnreachableEngine(),
+    )
+
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json() == {"ready": False}
+
+
+def test_health_reports_unready_on_a_sqlalchemy_error_too(
+    app: Starlette, client: TestClient, monkeypatch
+):
+    """The other shape of database failure: a pool or dialect error that does
+    arrive wrapped."""
+    from sqlalchemy.exc import OperationalError
+
+    class BrokenEngine:
+        def connect(self):
+            raise OperationalError("SELECT 1", {}, Exception("boom"))
+
+    monkeypatch.setattr(app.state.app_ctx, "get_fingerprint_db", lambda: BrokenEngine())
+
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json() == {"ready": False}
+
+
+def test_uvicorn_factory_string_resolves():
+    """APP_FACTORY is a string, so nothing checks it at import time.
+
+    uvicorn re-imports it in every worker process; a typo would start the
+    process, fail there, and only be visible in a deploy.
+    """
+    import importlib
+
+    from acoustid.future.fpindex.feed import APP_FACTORY, create_feed_app
+
+    module_name, _, attr = APP_FACTORY.partition(":")
+    resolved = getattr(importlib.import_module(module_name), attr)
+    assert resolved is create_feed_app
+    assert callable(resolved)
+
+
+def test_cli_exposes_the_feed_command():
+    """`manage.py run fpindex-feed` is what admin/docker/run-fpindex-feed.sh
+    calls, so the name has to exist."""
+    from acoustid.cli import run
+
+    assert "fpindex-feed" in run.commands
