@@ -164,3 +164,32 @@ def meta_response(after: int, limit: int, retry_after_ms: int) -> MetaReadRespon
 
 def encode_meta(response: MetaReadResponse) -> bytes:
     return msgspec.msgpack.encode(response)
+
+
+class BootstrapHeader(msgspec.Struct, rename=_field_name_prefix):
+    """First value in a bootstrap stream.
+
+    `position` is the changelog position the streamed state corresponds to, taken
+    before the first chunk is read. The node applies every change in the stream at
+    this one position and resumes the feed from it.
+    """
+
+    position: int
+
+
+def encode_bootstrap_header(position: int) -> bytes:
+    return msgspec.msgpack.encode(BootstrapHeader(position=position))
+
+
+def encode_bootstrap_chunk(changes: Sequence[Change]) -> bytes:
+    """One value in the bootstrap stream: a msgpack array of changes.
+
+    msgpack values are self-delimiting, so a reader decodes arrays one after
+    another off the socket without a length prefix or separator.
+
+    An empty array is the terminator, and never appears anywhere else. That puts
+    completion in the msgpack layer itself: a reader that hits end-of-stream
+    without having seen it knows the bootstrap died mid-scan, rather than having
+    to trust HTTP chunked-encoding termination to say so.
+    """
+    return msgspec.msgpack.encode(list(changes))

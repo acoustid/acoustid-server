@@ -470,3 +470,136 @@ def test_a_newline_in_the_index_name_cannot_forge_a_log_line(
     message = caplog.records[-1].getMessage()
     assert "\n" not in message, message
     assert "\\n" in message, message
+
+
+# --- bootstrap ---------------------------------------------------------------
+
+
+def _decode_stream(payload: bytes):
+    """Pull successive msgpack values off the stream, as the Zig client does."""
+    decoder = msgspec.msgpack.Decoder()
+    out = []
+    view = memoryview(payload)
+    offset = 0
+    while offset < len(view):
+        # msgspec has no incremental reader, so find each value's end by growing
+        # the slice until it decodes -- fine for test-sized payloads.
+        for end in range(offset + 1, len(view) + 1):
+            try:
+                out.append(decoder.decode(view[offset:end]))
+            except msgspec.DecodeError:
+                continue
+            offset = end
+            break
+        else:
+            raise AssertionError(f"undecodable tail at {offset}")
+    return out
+
+
+BOOTSTRAP = f"/_bootstrap/{INDEX_NAME}/{GENERATION}"
+
+
+def _decode_bootstrap(payload: bytes):
+    """Split a bootstrap stream into (header, changes), checking the framing:
+    arrays of changes, and the empty-array terminator exactly once, at the end."""
+    values = _decode_stream(payload)
+    header, chunks = values[0], values[1:]
+    assert chunks and chunks[-1] == [], "stream must end with the terminator"
+    assert all(chunks[:-1]), "an empty array mid-stream would falsely terminate"
+    return header, [change for chunk in chunks[:-1] for change in chunk]
+
+
+def test_bootstrap_streams_the_whole_corpus(client: TestClient, changelog):
+    """What the changelog structurally cannot serve: fingerprints that existed
+    before the log did."""
+    ids = [_add_fingerprint(changelog, seed) for seed in range(3)]
+
+    header, changes = _decode_bootstrap(client.get(BOOTSTRAP).content)
+
+    assert header["p"] == _positions(changelog)[-1]
+    assert [c["i"]["i"] for c in changes] == ids
+    assert all(0 < len(c["i"]["h"]) <= 120 for c in changes)
+
+
+def test_bootstrap_skips_fingerprints_that_extract_to_nothing(
+    client: TestClient, changelog
+):
+    """An all-silence fingerprint yields an empty query array. Streaming it would
+    add a document with no terms, which can never match anything."""
+    silence = [627964279] * 200
+    with changelog.connect() as conn:
+        conn.execute(sql.text(INSERT_FINGERPRINT), {"fingerprint": silence})
+        conn.commit()
+    good = _add_fingerprint(changelog, 7)
+
+    _, changes = _decode_bootstrap(client.get(BOOTSTRAP).content)
+    assert [c["i"]["i"] for c in changes] == [good]
+
+    # With one row per chunk, the silence row makes an entire chunk extract to
+    # nothing. It must vanish from the wire, not appear as an empty array the
+    # reader would take for the terminator -- _decode_bootstrap checks that.
+    _, changes = _decode_bootstrap(client.get(BOOTSTRAP, params={"chunk": 1}).content)
+    assert [c["i"]["i"] for c in changes] == [good]
+
+
+def test_bootstrap_of_nothing_is_a_header_and_a_terminator(
+    client: TestClient, changelog
+):
+    """An empty corpus still ends with the terminator, so the reader gets a
+    positive completion signal rather than a bare end-of-stream."""
+    header, changes = _decode_bootstrap(client.get(BOOTSTRAP).content)
+    assert header["p"] == 0
+    assert changes == []
+
+
+def test_bootstrap_rejects_an_unknown_lineage(client: TestClient):
+    assert client.get(f"/_bootstrap/other/{GENERATION}").status_code == 404
+
+
+def test_bootstrap_chunk_only_tunes_framing(client: TestClient, changelog):
+    """`chunk` changes how many rows each transaction reads and how the arrays
+    are cut, never which changes are streamed. And 0 is clamped to 1 rather
+    than honoured: LIMIT 0 looks exactly like the end of the table, which would
+    end the stream after the header -- a silently empty bootstrap."""
+    for seed in range(3):
+        _add_fingerprint(changelog, seed)
+
+    whole = _decode_bootstrap(client.get(BOOTSTRAP).content)
+    assert (
+        _decode_bootstrap(client.get(BOOTSTRAP, params={"chunk": 1}).content) == whole
+    )
+    assert (
+        _decode_bootstrap(client.get(BOOTSTRAP, params={"chunk": 0}).content) == whole
+    )
+
+
+def test_a_fingerprint_inserted_mid_scan_is_covered_by_the_changelog(
+    client: TestClient, changelog
+):
+    """The correctness argument for chunking, exercised rather than asserted.
+
+    A row that appears after `position` was read may or may not land in a chunk,
+    depending on where its id falls. Either way the node ends up with it: it is in
+    the stream, or in the changelog above `position`, or both. What must never
+    happen is neither.
+    """
+    before = [_add_fingerprint(changelog, seed) for seed in range(2)]
+    position = _positions(changelog)[-1]
+
+    # Arrives after the position was captured.
+    during = _add_fingerprint(changelog, 99)
+
+    streamed = [
+        c["i"]["i"] for c in _decode_bootstrap(client.get(BOOTSTRAP).content)[1]
+    ]
+    tail = [
+        e["c"]["i"]["i"]
+        for e in msgspec.msgpack.decode(
+            client.get(FEED, params={"after": position}).content
+        )["e"]
+    ]
+
+    for fingerprint_id in before + [during]:
+        assert fingerprint_id in streamed or fingerprint_id in tail, fingerprint_id
+    # And specifically: the late arrival is recoverable from the feed alone.
+    assert during in tail
