@@ -15,6 +15,7 @@ from acoustid.scripts.fpindex_changelog import (
     RETENTION_MONTHS,
     _consecutive_months,
     _existing_partitions,
+    _record_last_deleted,
     _server_today,
     create_partitions,
     drop_partitions,
@@ -47,12 +48,49 @@ def engine():
     with engine.connect() as conn:
         conn.execute(sql.text("DELETE FROM fingerprint"))
         conn.execute(sql.text("DELETE FROM fpindex_changelog"))
+        conn.execute(sql.text("DELETE FROM fpindex_meta"))
         conn.commit()
     yield engine
     with engine.connect() as conn:
         conn.execute(sql.text("DELETE FROM fingerprint"))
         conn.execute(sql.text("DELETE FROM fpindex_changelog"))
+        conn.execute(sql.text("DELETE FROM fpindex_meta"))
         conn.commit()
+
+
+# Retention only touches partitions whose whole month is past the cutoff, so
+# anything staged for it has to be genuinely old. These bypass the trigger and
+# write straight to the changelog with an explicit `created`, which is the only
+# way to put a row in a month that has already been and gone.
+INSERT_OLD_CHANGELOG_ROW = """
+    INSERT INTO fpindex_changelog (fingerprint_id, query, created)
+    VALUES (:fingerprint_id, ARRAY[:fingerprint_id], :created)
+    RETURNING id
+"""
+
+
+def _stage_old_partition(conn, month, fingerprint_ids):
+    """Create a partition for `month` and fill it. Returns the row ids."""
+    conn.execute(sql.text(tables.fpindex_changelog_create_partition_sql(month)))
+    created = datetime.datetime(
+        month.year, month.month, 15, tzinfo=datetime.timezone.utc
+    )
+    return [
+        conn.execute(
+            sql.text(INSERT_OLD_CHANGELOG_ROW),
+            {"fingerprint_id": fingerprint_id, "created": created},
+        ).scalar_one()
+        for fingerprint_id in fingerprint_ids
+    ]
+
+
+def _watermark(conn):
+    return conn.execute(
+        sql.text(
+            "SELECT last_deleted_id, last_deleted_created, last_deleted_xid "
+            "FROM fpindex_meta"
+        )
+    ).one_or_none()
 
 
 def test_trigger_records_the_extracted_query(engine):
@@ -301,6 +339,143 @@ def test_retention_keeps_whole_months_behind_the_current_one(engine):
         finally:
             for name in names:
                 conn.execute(sql.text(f"DROP TABLE IF EXISTS {name}"))
+
+
+def test_retention_records_the_last_row_it_deleted(engine):
+    """Without this the log cannot distinguish "nothing changed since your
+    cursor" from "what changed since your cursor was dropped a fortnight ago".
+    Both answer `WHERE id > cursor` with zero rows.
+    """
+    month = datetime.date(2020, 3, 1)
+    name = tables.fpindex_changelog_partition_name(month)
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        try:
+            ids = _stage_old_partition(conn, month, [11, 22, 33])
+            assert _watermark(conn) is None
+
+            drop_partitions(conn, _server_today(conn))
+
+            mark = _watermark(conn)
+            assert mark is not None
+            # The highest id in the partition, not the first or an arbitrary
+            # one: everything at or below it is what a consumer can no longer
+            # reach.
+            assert mark.last_deleted_id == max(ids)
+            assert mark.last_deleted_created.date() == datetime.date(2020, 3, 15)
+            assert mark.last_deleted_xid is not None
+        finally:
+            conn.execute(sql.text(f"DROP TABLE IF EXISTS {name}"))
+
+
+def test_a_consumer_below_the_watermark_can_tell_it_has_fallen_off(engine):
+    """The whole point, stated as the consumer's check.
+
+    A cursor at or above the watermark is still resumable from the log alone.
+    Below it, the ids in between are gone and the consumer has to bootstrap
+    from a peer snapshot instead of quietly carrying on with a hole.
+    """
+    month = datetime.date(2020, 3, 1)
+    name = tables.fpindex_changelog_partition_name(month)
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        try:
+            ids = _stage_old_partition(conn, month, [11, 22, 33])
+            drop_partitions(conn, _server_today(conn))
+            last_deleted_id = _watermark(conn).last_deleted_id
+
+            # A consumer that had read everything before retention ran sits
+            # exactly on the watermark: nothing between its cursor and the
+            # start of the log was removed, so it may carry on.
+            assert ids[-1] >= last_deleted_id
+            # One that stopped in the middle of what was dropped may not, and
+            # the log itself would have told it nothing -- it is empty now.
+            stale_cursor = ids[0]
+            assert stale_cursor < last_deleted_id
+            assert (
+                conn.execute(
+                    sql.text(
+                        "SELECT count(*) FROM fpindex_changelog WHERE id > :cursor"
+                    ),
+                    {"cursor": stale_cursor},
+                ).scalar_one()
+                == 0
+            )
+        finally:
+            conn.execute(sql.text(f"DROP TABLE IF EXISTS {name}"))
+
+
+def test_watermark_never_moves_backwards(engine):
+    """Drops run oldest first, so this should not arise -- but a watermark that
+    could go backwards would re-authorise a cursor that is no longer resumable,
+    which is worse than never having recorded anything.
+    """
+    older, newer = datetime.date(2020, 1, 1), datetime.date(2020, 6, 1)
+    older_name, newer_name = (
+        tables.fpindex_changelog_partition_name(m) for m in (older, newer)
+    )
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        try:
+            # Staged in id order, so the older month holds the lower id. Both
+            # rows have to exist before either is recorded -- the sequence is
+            # global, so a row written into an old partition later still takes
+            # a higher id than one written into a newer partition earlier.
+            older_ids = _stage_old_partition(conn, older, [11])
+            newer_ids = _stage_old_partition(conn, newer, [22])
+            assert older_ids[0] < newer_ids[0]
+
+            # Record and remove the newer month first, out of the order the job
+            # would use, so the watermark is already ahead of what is left.
+            _record_last_deleted(conn, newer_name)
+            conn.execute(sql.text(f"DROP TABLE {newer_name}"))
+            assert _watermark(conn).last_deleted_id == newer_ids[0]
+
+            # Now the job reaches the older month, whose highest id is below
+            # the watermark. Dropping it is still correct; moving the watermark
+            # down to match it would not be.
+            drop_partitions(conn, _server_today(conn))
+
+            assert older_name not in _existing_partitions(conn)
+            assert _watermark(conn).last_deleted_id == newer_ids[0]
+        finally:
+            for name in (older_name, newer_name):
+                conn.execute(sql.text(f"DROP TABLE IF EXISTS {name}"))
+
+
+def test_dropping_an_empty_partition_records_nothing(engine):
+    """Nothing was lost, so there is nothing a consumer needs warning about."""
+    month = datetime.date(2020, 3, 1)
+    name = tables.fpindex_changelog_partition_name(month)
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        try:
+            conn.execute(sql.text(tables.fpindex_changelog_create_partition_sql(month)))
+
+            drop_partitions(conn, _server_today(conn))
+
+            assert name not in _existing_partitions(conn)
+            assert _watermark(conn) is None
+        finally:
+            conn.execute(sql.text(f"DROP TABLE IF EXISTS {name}"))
+
+
+def test_fpindex_meta_holds_at_most_one_row(engine):
+    """The watermark is a single value, and the schema says so rather than
+    trusting the job to only ever write one row."""
+    with engine.connect() as conn:
+        conn.execute(
+            sql.text(
+                "INSERT INTO fpindex_meta "
+                "(last_deleted_id, last_deleted_created, last_deleted_xid) "
+                "VALUES (1, now(), pg_current_xact_id())"
+            )
+        )
+        with pytest.raises(DatabaseError):
+            conn.execute(
+                sql.text(
+                    "INSERT INTO fpindex_meta (singleton, last_deleted_id, "
+                    "last_deleted_created, last_deleted_xid) "
+                    "VALUES (false, 2, now(), pg_current_xact_id())"
+                )
+            )
+        conn.rollback()
 
 
 def test_headroom_stops_at_the_first_gap():

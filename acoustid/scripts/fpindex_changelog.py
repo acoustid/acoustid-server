@@ -155,12 +155,68 @@ def create_partitions(conn: Connection, today: datetime.date) -> None:
             continue
 
 
+def _record_last_deleted(conn: Connection, name: str) -> int | None:
+    """Watermark the highest row in a partition that is about to be dropped.
+
+    Returns the id recorded, or None if the partition was empty and there is
+    therefore nothing to say.
+
+    Done as one statement so the row read and the row written cannot disagree,
+    and guarded so the watermark only ever moves forward -- partitions are
+    dropped oldest first, but a retry after a failure could revisit them in any
+    order, and a watermark that went backwards would quietly re-authorise a
+    cursor that is no longer resumable.
+    """
+    return conn.execute(
+        sql.text(
+            f"""
+            INSERT INTO fpindex_meta (
+                singleton,
+                last_deleted_id,
+                last_deleted_created,
+                last_deleted_xid,
+                updated
+            )
+            SELECT true, id, created, xid, clock_timestamp()
+            FROM ONLY {name}
+            ORDER BY id DESC
+            LIMIT 1
+            ON CONFLICT (singleton) DO UPDATE SET
+                last_deleted_id = EXCLUDED.last_deleted_id,
+                last_deleted_created = EXCLUDED.last_deleted_created,
+                last_deleted_xid = EXCLUDED.last_deleted_xid,
+                updated = EXCLUDED.updated
+            WHERE fpindex_meta.last_deleted_id < EXCLUDED.last_deleted_id
+            RETURNING last_deleted_id
+            """
+        )
+    ).scalar_one_or_none()
+
+
 def drop_partitions(conn: Connection, today: datetime.date) -> None:
     cutoff = fpindex_changelog_add_months(
         fpindex_changelog_month(today), -RETENTION_MONTHS
     )
     for name, month in sorted(_existing_partitions(conn).items(), key=lambda kv: kv[1]):
         if month >= cutoff:
+            continue
+        try:
+            # Before the drop, and committed separately from it. If the drop
+            # then fails the watermark is merely conservative -- it claims rows
+            # are gone while they are still there, so a consumer sitting right
+            # on the boundary bootstraps once for nothing, and the next run
+            # drops the partition anyway. The other order has no such margin:
+            # the rows vanish, nothing records that they did, and a consumer
+            # reading `id > cursor` gets an empty result and concludes it is up
+            # to date.
+            last_deleted_id = _record_last_deleted(conn, name)
+        except SQLAlchemyError:
+            logger.exception(
+                "Failed to record the retention watermark for %s, so not "
+                "dropping it: losing the rows without recording that they went "
+                "is the one thing fpindex_meta exists to prevent",
+                name,
+            )
             continue
         try:
             # Dropping the partition detaches it too, so this is one lock
@@ -172,7 +228,19 @@ def drop_partitions(conn: Connection, today: datetime.date) -> None:
             # and the next run tries again.
             logger.exception("Failed to drop changelog partition %s", name)
             continue
-        logger.info("Dropped changelog partition %s", name)
+        if last_deleted_id is None:
+            # Empty partition, or -- and this should not happen, since drops go
+            # oldest first -- one whose rows were all below the watermark
+            # already.
+            logger.info(
+                "Dropped changelog partition %s; retention watermark unchanged", name
+            )
+        else:
+            logger.info(
+                "Dropped changelog partition %s; the log now resumes after id %d",
+                name,
+                last_deleted_id,
+            )
 
 
 def report_headroom(conn: Connection, today: datetime.date) -> int:

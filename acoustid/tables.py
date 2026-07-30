@@ -455,6 +455,47 @@ fpindex_changelog = Table(
 )
 
 
+# What retention threw away, so a consumer can tell that it did.
+#
+# The changelog on its own cannot express this. A consumer tailing
+# `WHERE id > cursor` that has fallen behind the retention window gets back an
+# empty result -- exactly what it gets when it is up to date. Nothing in the log
+# distinguishes "no changes since your cursor" from "the changes since your
+# cursor were dropped a fortnight ago", and the second one silently produces an
+# index that is missing fingerprints forever.
+#
+# So retention records the highest row it removed before removing it. A consumer
+# at `cursor` is safe if and only if `cursor >= last_deleted_id`; below that the
+# ids in `(cursor, last_deleted_id]` are gone and it has to bootstrap from a peer
+# snapshot instead of from the log. No row at all means nothing has ever been
+# deleted and any cursor is still resumable.
+#
+# `last_deleted_created` and `last_deleted_xid` are carried for the same reason
+# the changelog carries them: diagnostics, and they keep a snapshot-horizon read
+# strategy possible without another migration.
+#
+# One row, enforced. This mirrors the changelog's own decision not to carry a
+# lineage dimension -- there is one stream, so there is one watermark. If a
+# per-index or per-generation dimension ever arrives, both tables gain it
+# together.
+fpindex_meta = Table(
+    "fpindex_meta",
+    metadata,
+    Column("singleton", Boolean, primary_key=True, server_default=sql.true()),
+    Column("last_deleted_id", BigInteger, nullable=False),
+    Column("last_deleted_created", DateTime(timezone=True), nullable=False),
+    Column("last_deleted_xid", XID8, nullable=False),
+    Column(
+        "updated",
+        DateTime(timezone=True),
+        server_default=sql.text("clock_timestamp()"),
+        nullable=False,
+    ),
+    CheckConstraint("singleton", name="fpindex_meta_singleton"),
+    info={"bind_key": "fingerprint"},
+)
+
+
 # There is deliberately no DEFAULT partition.
 #
 # A default partition looks like a safe backstop and is the opposite. Rows that

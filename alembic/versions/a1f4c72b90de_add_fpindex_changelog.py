@@ -140,9 +140,27 @@ def upgrade_fingerprint():
         """
     )
 
+    # What retention threw away. Left empty on purpose: no row means nothing has
+    # ever been deleted, which is the truth on a fresh install, and it saves
+    # seeding the same row from both here and create_all. Retention upserts it.
+    op.execute(
+        """
+        CREATE TABLE fpindex_meta (
+            singleton boolean NOT NULL DEFAULT true,
+            last_deleted_id bigint NOT NULL,
+            last_deleted_created timestamp with time zone NOT NULL,
+            last_deleted_xid xid8 NOT NULL,
+            updated timestamp with time zone NOT NULL DEFAULT clock_timestamp(),
+            CONSTRAINT fpindex_meta_pkey PRIMARY KEY (singleton),
+            CONSTRAINT fpindex_meta_singleton CHECK (singleton)
+        )
+        """
+    )
+
 
 def downgrade_fingerprint():
     op.execute("DROP TRIGGER IF EXISTS fingerprint_fpindex_changelog ON fingerprint")
     op.execute("DROP FUNCTION IF EXISTS fpindex_changelog_insert()")
+    op.execute("DROP TABLE IF EXISTS fpindex_meta")
     op.execute("DROP TABLE IF EXISTS fpindex_changelog")
     op.execute("DROP SEQUENCE IF EXISTS fpindex_changelog_id_seq")
