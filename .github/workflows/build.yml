@@ -24,7 +24,7 @@ jobs:
     services:
 
       postgresql:
-        image: quay.io/acoustid/postgresql:master
+        image: ghcr.io/acoustid/postgres:pg17.4-main-00c3a23
         ports:
           - 5432/tcp
         env:
@@ -94,6 +94,35 @@ jobs:
           PGUSER: acoustid
           PGPASSWORD: acoustid
           PGDATABASE: postgres
+
+      # The test suite builds its database with metadata.create_all, so nothing
+      # else here ever runs a migration. This uses the acoustid_app /
+      # acoustid_fingerprint / acoustid_ingest databases that create_db.sql
+      # already makes and that the tests never touch -- three separate
+      # databases, which is what alembic's multi-database setup expects and
+      # what the single acoustid_test database could not provide.
+      #
+      # No config file: acoustid.conf is gitignored, RawConfigParser ignores a
+      # path that is not there, and everything comes from the environment.
+      - name: Test database migrations
+        run: uv run alembic -c alembic.ini upgrade head
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          ACOUSTID_DATABASE_APP_NAME: acoustid_app
+          ACOUSTID_DATABASE_APP_HOST: localhost
+          ACOUSTID_DATABASE_APP_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_DATABASE_APP_USER: acoustid
+          ACOUSTID_DATABASE_APP_PASSWORD: acoustid
+          ACOUSTID_DATABASE_FINGERPRINT_NAME: acoustid_fingerprint
+          ACOUSTID_DATABASE_FINGERPRINT_HOST: localhost
+          ACOUSTID_DATABASE_FINGERPRINT_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_DATABASE_FINGERPRINT_USER: acoustid
+          ACOUSTID_DATABASE_FINGERPRINT_PASSWORD: acoustid
+          ACOUSTID_DATABASE_INGEST_NAME: acoustid_ingest
+          ACOUSTID_DATABASE_INGEST_HOST: localhost
+          ACOUSTID_DATABASE_INGEST_PORT: ${{ job.services.postgresql.ports['5432'] }}
+          ACOUSTID_DATABASE_INGEST_USER: acoustid
+          ACOUSTID_DATABASE_INGEST_PASSWORD: acoustid
 
       - name: Run tests
         run: ./check.sh --test

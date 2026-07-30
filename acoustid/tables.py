@@ -1,6 +1,9 @@
+import datetime
+
 import sqlalchemy.event
 from sqlalchemy import (
     DDL,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -11,6 +14,8 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     MetaData,
+    PrimaryKeyConstraint,
+    Sequence,
     SmallInteger,
     String,
     Table,
@@ -18,6 +23,8 @@ from sqlalchemy import (
     sql,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, UUID
+from sqlalchemy.engine import Connection
+from sqlalchemy.types import UserDefinedType
 
 metadata = MetaData(
     naming_convention={
@@ -367,6 +374,232 @@ fingerprint_source = Table(
     Index("fingerprint_source_idx_submission_id", "submission_id"),
     info={"bind_key": "ingest"},
 )
+
+
+class XID8(UserDefinedType):
+    """PostgreSQL xid8 -- a transaction ID that does not wrap around.
+
+    Unlike the 32-bit xmin system column, xid8 carries the epoch, so values
+    stay comparable for the lifetime of the cluster.
+    """
+
+    cache_ok = True
+
+    def get_col_spec(self, **kw: object) -> str:
+        return "xid8"
+
+
+# Every writer serialises on this key inside fpindex_changelog_insert(), which
+# is what makes the changelog id order equal to the commit order. The value is
+# arbitrary but must never change: two different values are two different locks
+# and would silently stop serialising writers against each other.
+FPINDEX_CHANGELOG_LOCK_KEY = 7723016524936704001
+
+# Changes to the fingerprint table, in commit order, for fpindex to replay.
+#
+# `id` is the consumer cursor: a consumer tails `WHERE id > cursor ORDER BY id`
+# and that is safe ONLY because the trigger takes an advisory lock before the id
+# is allocated (see fpindex_changelog_insert below). Without it a transaction
+# that grabbed a lower id but committed later would be skipped forever, which is
+# the bug in the old index updater.
+#
+# Partitioned by `created` so retention is a calendar job: dropping whole
+# partitions keeps vacuum out of the picture entirely, and a create-ahead job
+# working on dates cannot be caught out by a change in write volume the way an
+# id-range one could.
+#
+# Monthly, not daily. At the current rate -- around 13.5k new fingerprints a
+# day -- a month is roughly 400k rows, which is a perfectly ordinary table, and
+# the create-ahead job only has real work to do twelve times a year instead of
+# 365. That matters more than it sounds: creating a partition takes ACCESS
+# EXCLUSIVE on the parent, which queues the trigger's own inserts behind it.
+#
+# `created` uses clock_timestamp(), NOT now(): now() is transaction start time,
+# so a long transaction would file its row under an earlier partition than its
+# id-neighbours and the retained rows would stop being a contiguous id range.
+# Taken inside the advisory lock, clock_timestamp() advances in the same order
+# as the id, so time partitions and an id cursor agree.
+fpindex_changelog = Table(
+    "fpindex_changelog",
+    metadata,
+    Column(
+        "id",
+        BigInteger,
+        Sequence("fpindex_changelog_id_seq", metadata=metadata),
+        server_default=sql.text("nextval('fpindex_changelog_id_seq')"),
+        nullable=False,
+    ),
+    Column("fingerprint_id", Integer, nullable=False),
+    Column("query", ARRAY(Integer), nullable=False),
+    # Diagnostic, and it keeps the xmin-horizon read strategy available without
+    # a migration if the advisory lock ever needs to come out.
+    Column(
+        "xid",
+        XID8,
+        server_default=sql.text("pg_current_xact_id()"),
+        nullable=False,
+    ),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.text("clock_timestamp()"),
+        nullable=False,
+    ),
+    # A partitioned table may only have a unique constraint that covers the
+    # partition key, so the primary key is the pair. `id` alone is still unique
+    # -- it comes from a sequence -- and leads the index, which is what the
+    # consumer's `id > cursor` scan needs.
+    PrimaryKeyConstraint("id", "created"),
+    postgresql_partition_by="RANGE (created)",
+    info={"bind_key": "fingerprint"},
+)
+
+
+# What retention threw away, so a consumer can tell that it did.
+#
+# The changelog on its own cannot express this. A consumer tailing
+# `WHERE id > cursor` that has fallen behind the retention window gets back an
+# empty result -- exactly what it gets when it is up to date. Nothing in the log
+# distinguishes "no changes since your cursor" from "the changes since your
+# cursor were dropped a fortnight ago", and the second one silently produces an
+# index that is missing fingerprints forever.
+#
+# So retention records the highest row it removed before removing it. A consumer
+# at `cursor` is safe if and only if `cursor >= last_deleted_id`; below that the
+# ids in `(cursor, last_deleted_id]` are gone and it has to bootstrap from a peer
+# snapshot instead of from the log. No row at all means nothing has ever been
+# deleted and any cursor is still resumable.
+#
+# `last_deleted_created` and `last_deleted_xid` are carried for the same reason
+# the changelog carries them: diagnostics, and they keep a snapshot-horizon read
+# strategy possible without another migration.
+#
+# One row, enforced. This mirrors the changelog's own decision not to carry a
+# lineage dimension -- there is one stream, so there is one watermark. If a
+# per-index or per-generation dimension ever arrives, both tables gain it
+# together.
+fpindex_meta = Table(
+    "fpindex_meta",
+    metadata,
+    Column("singleton", Boolean, primary_key=True, server_default=sql.true()),
+    Column("last_deleted_id", BigInteger, nullable=False),
+    Column("last_deleted_created", DateTime(timezone=True), nullable=False),
+    Column("last_deleted_xid", XID8, nullable=False),
+    Column(
+        "updated",
+        DateTime(timezone=True),
+        server_default=sql.text("clock_timestamp()"),
+        nullable=False,
+    ),
+    CheckConstraint("singleton", name="fpindex_meta_singleton"),
+    info={"bind_key": "fingerprint"},
+)
+
+
+# There is deliberately no DEFAULT partition.
+#
+# A default partition looks like a safe backstop and is the opposite. Rows that
+# land in it permanently block creating the dated partition that would have
+# covered them, retention can never reclaim them because it only drops dated
+# partitions, and writes keep succeeding the whole time, so nothing pages. The
+# failure it is meant to prevent -- an insert with nowhere to go -- is not
+# actually an outage here: insert_fingerprint() is only ever reached from the
+# importer, the submission is already durable in the ingest database, and
+# pending_submission is cleared in the same transaction that would fail. So the
+# row stays queued and retries. Loud and self-healing beats silent and
+# hand-repairable, and dropping the default partition also keeps
+# DETACH PARTITION ... CONCURRENTLY available if retention ever needs it.
+#
+# What it costs: the partitions have to actually be there. See
+# acoustid.scripts.fpindex_changelog.
+FPINDEX_CHANGELOG_CREATE_AHEAD_MONTHS = 12
+
+
+def fpindex_changelog_month(day: datetime.date) -> datetime.date:
+    """The partition a date belongs to, identified by its first day."""
+    return day.replace(day=1)
+
+
+def fpindex_changelog_add_months(month: datetime.date, count: int) -> datetime.date:
+    index = month.year * 12 + (month.month - 1) + count
+    return datetime.date(index // 12, index % 12 + 1, 1)
+
+
+def fpindex_changelog_partition_name(month: datetime.date) -> str:
+    return "fpindex_changelog_" + month.strftime("%Y%m")
+
+
+def fpindex_changelog_create_partition_sql(month: datetime.date) -> str:
+    """DDL for the partition covering `month`.
+
+    The bounds are formatted into the statement rather than bound as
+    parameters. Partition bounds are DDL, and the parameterised form only works
+    at all because psycopg2 binds client-side -- it would break the day
+    anything here moves to psycopg3 or asyncpg. The values come from date
+    arithmetic, never from input.
+    """
+    end = fpindex_changelog_add_months(month, 1)
+    return (
+        f"CREATE TABLE IF NOT EXISTS {fpindex_changelog_partition_name(month)} "
+        f"PARTITION OF fpindex_changelog "
+        f"FOR VALUES FROM ('{month.isoformat()}') TO ('{end.isoformat()}')"
+    )
+
+
+# Kept in sync by hand with the alembic migration that introduces it. Migrations
+# must not import this module -- they have to keep working as the models move --
+# so the DDL is written out twice on purpose.
+FPINDEX_CHANGELOG_DDL = f"""
+CREATE OR REPLACE FUNCTION fpindex_changelog_insert() RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_advisory_xact_lock({FPINDEX_CHANGELOG_LOCK_KEY});
+    INSERT INTO fpindex_changelog (fingerprint_id, query)
+        VALUES (NEW.id, acoustid_extract_query(NEW.fingerprint));
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS fingerprint_fpindex_changelog ON fingerprint;
+
+CREATE TRIGGER fingerprint_fpindex_changelog
+    AFTER INSERT ON fingerprint
+    FOR EACH ROW
+    EXECUTE FUNCTION fpindex_changelog_insert();
+"""
+
+
+def _create_fpindex_changelog(
+    target: MetaData, connection: Connection, **kw: object
+) -> None:
+    """Partitions first, then the trigger.
+
+    Attached to the metadata rather than to fpindex_changelog because the
+    trigger is created on `fingerprint`, and only a metadata-level hook is
+    guaranteed to run after every table exists. There is deliberately no
+    foreign key from the changelog to the fingerprint: it is a log, and an FK
+    would both cost writes and stand in the way of dropping partitions.
+
+    The partitions matter here specifically because there is no DEFAULT to
+    catch a row that misses: create_all builds dev and test databases, where
+    nothing runs the hourly maintenance task, so without this the first
+    fingerprint insert would fail. The server's calendar is used, not this
+    process's, for the same reason the maintenance task uses it.
+    """
+    today = connection.execute(sql.text("SELECT current_date")).scalar_one()
+    month = fpindex_changelog_month(today)
+    for offset in range(FPINDEX_CHANGELOG_CREATE_AHEAD_MONTHS + 1):
+        connection.execute(
+            DDL(
+                fpindex_changelog_create_partition_sql(
+                    fpindex_changelog_add_months(month, offset)
+                )
+            )
+        )
+    connection.execute(DDL(FPINDEX_CHANGELOG_DDL))
+
+
+sqlalchemy.event.listen(metadata, "after_create", _create_fpindex_changelog)
+
 
 track_mbid = Table(
     "track_mbid",
