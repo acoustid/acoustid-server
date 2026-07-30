@@ -49,8 +49,8 @@ from acoustid.future.fpindex.wire import (
     INDEX_NAME,
     changelog_response,
     encode,
+    encode_bootstrap_chunk,
     encode_bootstrap_header,
-    encode_change,
     encode_meta,
     insert_change,
     meta_response,
@@ -253,8 +253,9 @@ async def handle_bootstrap(request: Request) -> Response:
 
     Not resumable. It runs once per cluster -- one node pays for it and the rest
     take a peer snapshot of the result -- so an interrupted run just starts over.
-    The one parameter, `chunk`, only tunes how many rows each transaction reads;
-    it cannot change what the stream contains.
+    The one parameter, `chunk`, tunes how many rows each transaction reads and
+    therefore how the stream is framed into arrays; it cannot change which
+    changes are streamed.
 
     Correct without holding a snapshot open, which is the part worth understanding.
     `position` is read first, then the table is scanned in chunks, each its own
@@ -299,20 +300,19 @@ async def handle_bootstrap(request: Request) -> Response:
             rows = await _fingerprints_after(engine, last_id, chunk)
             if not rows:
                 break
-            # One yield per chunk, not per row: a per-row yield is a hundred
-            # million tiny sends at production scale, each paying its own HTTP
-            # chunk framing. Backpressure is unaffected -- its unit was already
-            # the chunk of database work.
-            parts = []
+            changes = []
             for fingerprint_id, query in rows:
                 # An all-silence fingerprint extracts to nothing. Sending it would
                 # add a document with no terms, which can never match.
                 if query:
-                    parts.append(encode_change(insert_change(fingerprint_id, query)))
+                    changes.append(insert_change(fingerprint_id, query))
                 last_id = fingerprint_id
-            if parts:
-                yield b"".join(parts)
-            streamed += len(parts)
+            # A chunk whose every row extracted to nothing stays off the wire:
+            # an empty array is the terminator, and must mean nothing else.
+            if changes:
+                yield encode_bootstrap_chunk(changes)
+            streamed += len(changes)
+        yield encode_bootstrap_chunk([])
         logger.info(
             "bootstrap streamed %d fingerprints at position %d", streamed, position
         )

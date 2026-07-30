@@ -499,13 +499,22 @@ def _decode_stream(payload: bytes):
 BOOTSTRAP = f"/_bootstrap/{INDEX_NAME}/{GENERATION}"
 
 
+def _decode_bootstrap(payload: bytes):
+    """Split a bootstrap stream into (header, changes), checking the framing:
+    arrays of changes, and the empty-array terminator exactly once, at the end."""
+    values = _decode_stream(payload)
+    header, chunks = values[0], values[1:]
+    assert chunks and chunks[-1] == [], "stream must end with the terminator"
+    assert all(chunks[:-1]), "an empty array mid-stream would falsely terminate"
+    return header, [change for chunk in chunks[:-1] for change in chunk]
+
+
 def test_bootstrap_streams_the_whole_corpus(client: TestClient, changelog):
     """What the changelog structurally cannot serve: fingerprints that existed
     before the log did."""
     ids = [_add_fingerprint(changelog, seed) for seed in range(3)]
 
-    values = _decode_stream(client.get(BOOTSTRAP).content)
-    header, changes = values[0], values[1:]
+    header, changes = _decode_bootstrap(client.get(BOOTSTRAP).content)
 
     assert header["p"] == _positions(changelog)[-1]
     assert [c["i"]["i"] for c in changes] == ids
@@ -523,25 +532,45 @@ def test_bootstrap_skips_fingerprints_that_extract_to_nothing(
         conn.commit()
     good = _add_fingerprint(changelog, 7)
 
-    values = _decode_stream(client.get(BOOTSTRAP).content)
-    assert [c["i"]["i"] for c in values[1:]] == [good]
+    _, changes = _decode_bootstrap(client.get(BOOTSTRAP).content)
+    assert [c["i"]["i"] for c in changes] == [good]
+
+    # With one row per chunk, the silence row makes an entire chunk extract to
+    # nothing. It must vanish from the wire, not appear as an empty array the
+    # reader would take for the terminator -- _decode_bootstrap checks that.
+    _, changes = _decode_bootstrap(client.get(BOOTSTRAP, params={"chunk": 1}).content)
+    assert [c["i"]["i"] for c in changes] == [good]
+
+
+def test_bootstrap_of_nothing_is_a_header_and_a_terminator(
+    client: TestClient, changelog
+):
+    """An empty corpus still ends with the terminator, so the reader gets a
+    positive completion signal rather than a bare end-of-stream."""
+    header, changes = _decode_bootstrap(client.get(BOOTSTRAP).content)
+    assert header["p"] == 0
+    assert changes == []
 
 
 def test_bootstrap_rejects_an_unknown_lineage(client: TestClient):
     assert client.get(f"/_bootstrap/other/{GENERATION}").status_code == 404
 
 
-def test_bootstrap_chunk_only_tunes_transaction_size(client: TestClient, changelog):
-    """`chunk` changes how many rows each transaction reads, never what the
-    stream contains. And 0 is clamped to 1 rather than honoured: LIMIT 0 looks
-    exactly like the end of the table, which would end the stream after the
-    header -- a silently empty bootstrap."""
+def test_bootstrap_chunk_only_tunes_framing(client: TestClient, changelog):
+    """`chunk` changes how many rows each transaction reads and how the arrays
+    are cut, never which changes are streamed. And 0 is clamped to 1 rather
+    than honoured: LIMIT 0 looks exactly like the end of the table, which would
+    end the stream after the header -- a silently empty bootstrap."""
     for seed in range(3):
         _add_fingerprint(changelog, seed)
 
-    whole = client.get(BOOTSTRAP).content
-    assert client.get(BOOTSTRAP, params={"chunk": 1}).content == whole
-    assert client.get(BOOTSTRAP, params={"chunk": 0}).content == whole
+    whole = _decode_bootstrap(client.get(BOOTSTRAP).content)
+    assert (
+        _decode_bootstrap(client.get(BOOTSTRAP, params={"chunk": 1}).content) == whole
+    )
+    assert (
+        _decode_bootstrap(client.get(BOOTSTRAP, params={"chunk": 0}).content) == whole
+    )
 
 
 def test_a_fingerprint_inserted_mid_scan_is_covered_by_the_changelog(
@@ -560,7 +589,9 @@ def test_a_fingerprint_inserted_mid_scan_is_covered_by_the_changelog(
     # Arrives after the position was captured.
     during = _add_fingerprint(changelog, 99)
 
-    streamed = [c["i"]["i"] for c in _decode_stream(client.get(BOOTSTRAP).content)[1:]]
+    streamed = [
+        c["i"]["i"] for c in _decode_bootstrap(client.get(BOOTSTRAP).content)[1]
+    ]
     tail = [
         e["c"]["i"]["i"]
         for e in msgspec.msgpack.decode(

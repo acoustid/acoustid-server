@@ -181,10 +181,15 @@ def encode_bootstrap_header(position: int) -> bytes:
     return msgspec.msgpack.encode(BootstrapHeader(position=position))
 
 
-def encode_change(change: Change) -> bytes:
-    """One value in the bootstrap stream, framed only by msgpack itself.
+def encode_bootstrap_chunk(changes: Sequence[Change]) -> bytes:
+    """One value in the bootstrap stream: a msgpack array of changes.
 
-    msgpack values are self-delimiting, so a reader decodes them one after another
-    off the socket without a length prefix or separator.
+    msgpack values are self-delimiting, so a reader decodes arrays one after
+    another off the socket without a length prefix or separator.
+
+    An empty array is the terminator, and never appears anywhere else. That puts
+    completion in the msgpack layer itself: a reader that hits end-of-stream
+    without having seen it knows the bootstrap died mid-scan, rather than having
+    to trust HTTP chunked-encoding termination to say so.
     """
-    return msgspec.msgpack.encode(change)
+    return msgspec.msgpack.encode(list(changes))
