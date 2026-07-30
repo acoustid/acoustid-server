@@ -72,13 +72,17 @@ RETENTION_MONTHS = 2
 # (Unrelated idle-in-transaction sessions that never touched the table do not
 # block it.)
 #
-# What that means for the feed: a consumer must not hold a transaction open
-# across a long-poll wait. Query, end the transaction, wait outside it, query
-# again -- then the lock is held for milliseconds and an hourly retry finds a gap
-# immediately. Hold it for a 20s poll window and every attempt collides.
+# What that means for the feed, and why it is not a problem: the feed never holds
+# a transaction open waiting for anything. It answers with whatever is there and
+# tells the consumer how long to sleep before asking again, so its transactions
+# last milliseconds and there is no window for this job to collide with. That is
+# a constraint on the feed, not a property it happens to have -- a long-polling
+# version that kept a transaction open for a 20s window would collide with every
+# attempt here, retention would quietly stop progressing, and the only symptom
+# would be this job logging lock timeouts. See acoustid.future.fpindex.feed.
 #
-# Hence a short timeout: give up rather than stall the feed, and try again next
-# hour. In the steady state this costs nothing anyway -- the no-op
+# Hence a short timeout: give up rather than stall fingerprint inserts, and try
+# again next hour. In the steady state this costs nothing anyway -- the no-op
 # CREATE TABLE IF NOT EXISTS calls, which is all but one of them a month, do not
 # take the parent lock at all, because PostgreSQL checks for the relation before
 # it locks.
