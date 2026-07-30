@@ -373,3 +373,41 @@ def test_cli_exposes_the_feed_command():
     from acoustid.cli import run
 
     assert "fpindex-feed" in run.commands
+
+
+# --- refusing writes ---------------------------------------------------------
+
+
+def test_every_write_route_is_refused_with_403(client: TestClient):
+    """403, not 405 and not 503.
+
+    The changelog has one writer -- the trigger on `fingerprint` -- so a write
+    arriving over HTTP is refused permanently, and the status has to say so.
+    Without these routes the request hits a GET-only route, Starlette answers 405,
+    and the node's statusToError turns any unrecognised status into
+    CoordinatorError, which it reports as 503: "try again later" for something that
+    will never work.
+    """
+    attempts = [
+        ("POST", f"/_changelog/{INDEX_NAME}/{GENERATION}"),  # append
+        ("POST", f"/_index/{INDEX_NAME}"),  # createIndex
+        ("DELETE", f"/_index/{INDEX_NAME}"),  # deleteIndex
+        ("POST", f"/_truncate/{INDEX_NAME}/{GENERATION}"),  # setRetentionFloor
+    ]
+    for method, path in attempts:
+        response = client.request(method, path)
+        assert response.status_code == 403, f"{method} {path} -> {response.status_code}"
+        assert "read-only" in response.json()["error"]
+
+
+def test_refusing_a_write_does_not_shadow_the_read(client: TestClient, changelog):
+    """The append and read routes share a path and differ only by method, so a
+    mistake in registration order would break replication rather than writes."""
+    assert client.get(FEED, params={"after": 0}).status_code == 200
+    assert client.post(FEED).status_code == 403
+
+
+def test_a_write_to_an_unknown_lineage_is_still_refused(client: TestClient):
+    """The refusal is about the feed being read-only, not about the target, so it
+    must not depend on the lineage matching."""
+    assert client.post(f"/_changelog/other/{GENERATION + 5}").status_code == 403

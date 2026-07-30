@@ -220,6 +220,40 @@ async def handle_health(request: Request) -> Response:
     return Response(b'{"ready":true}', media_type="application/json")
 
 
+async def handle_refuse_write(request: Request) -> Response:
+    """The write half of the coordinator protocol, answered with a refusal.
+
+    This log has exactly one writer: the AFTER INSERT trigger on `fingerprint`.
+    Entries appear because a submission was stored, and nothing arriving over HTTP
+    can or should add to them. Index lifecycle is equally fixed -- one index,
+    created once -- and retention belongs to the maintenance task, not to whoever
+    happens to call.
+
+    These routes exist precisely because they are refused. Without them the
+    request lands on a route registered GET-only, Starlette answers 405,
+    RemoteCoordinator.statusToError funnels every unrecognised status into
+    error.CoordinatorError, and the node reports 503 Service Unavailable -- "try
+    again later" for a condition that will never change, so a client retries
+    forever. 403 says it is refused on purpose.
+
+    Note the node has to learn to read that: statusToError maps 403 into the same
+    CoordinatorError bucket today, so this only reads correctly once the client
+    side gains a case for it.
+    """
+    logger.warning(
+        "refusing %s %s: this feed is read-only, the changelog is written by "
+        "the fingerprint trigger",
+        request.method,
+        request.url.path,
+    )
+    return Response(
+        b'{"error":"read-only feed: the changelog is written by the fingerprint '
+        b'trigger, not over HTTP"}',
+        status_code=403,
+        media_type="application/json",
+    )
+
+
 routes = [
     Route(
         "/_changelog/{index}/{generation:int}",
@@ -228,6 +262,20 @@ routes = [
     ),
     Route("/_meta", handle_read_meta, methods=["GET"]),
     Route("/health", handle_health, methods=["GET"]),
+    # Every write route the coordinator protocol defines
+    # (acoustid-index src/coordinator_server.zig registerRoutes), so a node that
+    # tries one gets a straight answer rather than a routing accident.
+    Route(
+        "/_changelog/{index}/{generation:int}",
+        handle_refuse_write,
+        methods=["POST"],
+    ),
+    Route("/_index/{index}", handle_refuse_write, methods=["POST", "DELETE"]),
+    Route(
+        "/_truncate/{index}/{generation:int}",
+        handle_refuse_write,
+        methods=["POST"],
+    ),
 ]
 
 
