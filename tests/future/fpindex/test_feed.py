@@ -531,6 +531,19 @@ def test_bootstrap_rejects_an_unknown_lineage(client: TestClient):
     assert client.get(f"/_bootstrap/other/{GENERATION}").status_code == 404
 
 
+def test_bootstrap_chunk_only_tunes_transaction_size(client: TestClient, changelog):
+    """`chunk` changes how many rows each transaction reads, never what the
+    stream contains. And 0 is clamped to 1 rather than honoured: LIMIT 0 looks
+    exactly like the end of the table, which would end the stream after the
+    header -- a silently empty bootstrap."""
+    for seed in range(3):
+        _add_fingerprint(changelog, seed)
+
+    whole = client.get(BOOTSTRAP).content
+    assert client.get(BOOTSTRAP, params={"chunk": 1}).content == whole
+    assert client.get(BOOTSTRAP, params={"chunk": 0}).content == whole
+
+
 def test_a_fingerprint_inserted_mid_scan_is_covered_by_the_changelog(
     client: TestClient, changelog
 ):

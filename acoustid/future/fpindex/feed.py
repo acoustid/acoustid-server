@@ -71,9 +71,10 @@ IDLE_RETRY_MS = 1000
 # come straight back.
 BUSY_RETRY_MS = 0
 
-# Fingerprints read per transaction while streaming a bootstrap. Each chunk is its
-# own short transaction, so nothing holds a snapshot open across a scan that reads
-# roughly 10 KB per row -- about a terabyte at production scale.
+# Fingerprints read per transaction while streaming a bootstrap, unless the client
+# asks otherwise ("?chunk="). Each chunk is its own short transaction, so nothing
+# holds a snapshot open across a scan that reads roughly 10 KB per row -- about a
+# terabyte at production scale.
 BOOTSTRAP_CHUNK = 1000
 
 
@@ -125,7 +126,7 @@ async def _last_deleted_id(engine) -> int | None:
 
 async def handle_read_changelog(request: Request) -> Response:
     index_name = request.path_params["index"]
-    generation = int(request.path_params["generation"])
+    generation = request.path_params["generation"]
 
     # A mismatch means the consumer is following a different lineage. Saying so
     # is the point: silently serving this one's data would apply it to the wrong
@@ -250,9 +251,10 @@ async def handle_bootstrap(request: Request) -> Response:
     submissions from then on, so replaying it from 0 builds an index missing every
     fingerprint that already existed.
 
-    Not resumable, and takes no parameters. It runs once per cluster -- one node
-    pays for it and the rest take a peer snapshot of the result -- so an interrupted
-    run just starts over.
+    Not resumable. It runs once per cluster -- one node pays for it and the rest
+    take a peer snapshot of the result -- so an interrupted run just starts over.
+    The one parameter, `chunk`, only tunes how many rows each transaction reads;
+    it cannot change what the stream contains.
 
     Correct without holding a snapshot open, which is the part worth understanding.
     `position` is read first, then the table is scanned in chunks, each its own
@@ -275,12 +277,17 @@ async def handle_bootstrap(request: Request) -> Response:
     pulling a terabyte through the primary's buffer cache as fast as it can.
     """
     index_name = request.path_params["index"]
-    generation = int(request.path_params["generation"])
+    generation = request.path_params["generation"]
     if index_name != INDEX_NAME or generation != GENERATION:
         logger.warning(
             "bootstrap requested for unknown lineage %r/%r", index_name, generation
         )
         return Response(status_code=404)
+
+    # Floored at 1 rather than _int_param's 0: LIMIT 0 reads no rows, which is
+    # indistinguishable from the end of the table -- the stream would end after
+    # the header, a silently empty bootstrap.
+    chunk = max(1, _int_param(request, "chunk", BOOTSTRAP_CHUNK, MAX_ENTRIES))
 
     engine = request.app.state.app_ctx.get_fingerprint_db()
     position = await _current_position(engine)
@@ -289,16 +296,23 @@ async def handle_bootstrap(request: Request) -> Response:
         last_id = 0
         streamed = 0
         while True:
-            rows = await _fingerprints_after(engine, last_id, BOOTSTRAP_CHUNK)
+            rows = await _fingerprints_after(engine, last_id, chunk)
             if not rows:
                 break
+            # One yield per chunk, not per row: a per-row yield is a hundred
+            # million tiny sends at production scale, each paying its own HTTP
+            # chunk framing. Backpressure is unaffected -- its unit was already
+            # the chunk of database work.
+            parts = []
             for fingerprint_id, query in rows:
                 # An all-silence fingerprint extracts to nothing. Sending it would
                 # add a document with no terms, which can never match.
                 if query:
-                    yield encode_change(insert_change(fingerprint_id, query))
+                    parts.append(encode_change(insert_change(fingerprint_id, query)))
                 last_id = fingerprint_id
-            streamed += len(rows)
+            if parts:
+                yield b"".join(parts)
+            streamed += len(parts)
         logger.info(
             "bootstrap streamed %d fingerprints at position %d", streamed, position
         )
