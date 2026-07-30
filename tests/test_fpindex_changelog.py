@@ -7,14 +7,15 @@ import os
 
 import pytest
 from sqlalchemy import sql
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DatabaseError, OperationalError
 
 import tests
 from acoustid import tables
 from acoustid.scripts.fpindex_changelog import (
+    RETENTION_MONTHS,
+    _consecutive_months,
     _existing_partitions,
     _server_today,
-    check_default_partition,
     create_partitions,
     drop_partitions,
     report_headroom,
@@ -121,9 +122,9 @@ def test_changelog_ids_and_timestamps_advance_together(engine):
     """created must be monotonic in id, or time partitions and an id cursor
     disagree and the retained rows stop being a contiguous id range.
 
-    This is why the trigger uses clock_timestamp() and not now(): now() is
-    transaction start time, so a slow transaction would file its row under an
-    earlier timestamp than rows with lower ids.
+    The sequential case only. now() would satisfy this one too -- see
+    test_created_follows_the_lock_not_the_transaction_start for the case that
+    actually separates the two.
     """
     with engine.connect() as conn:
         for seed in range(5):
@@ -141,55 +142,196 @@ def test_changelog_ids_and_timestamps_advance_together(engine):
     assert all(r.xid is not None for r in rows)
 
 
-def test_partitions_are_created_ahead_and_dropped_behind(engine):
-    """Exercised on a date far from today so it cannot collide with the
-    partitions a real deployment holds."""
-    today = datetime.date(2031, 6, 15)
+def test_created_follows_the_lock_not_the_transaction_start(engine):
+    """The case that distinguishes clock_timestamp() from now().
+
+    Staged so the writer that takes the *later* changelog id has the *earlier*
+    transaction start: `second` opens its transaction first, then `first` runs
+    and commits, then `second` inserts. With now() the second row would carry
+    the earlier timestamp despite the higher id -- and once created goes
+    backwards against id, the rows a partition holds are no longer a contiguous
+    id range, so retention would start cutting holes in the middle of the feed
+    rather than off its tail.
+    """
+    first = engine.connect()
+    second = engine.connect()
+    try:
+        # Opens second's transaction, fixing its now() before first inserts.
+        second.execute(sql.text("SELECT 1"))
+
+        first.execute(sql.text(INSERT_FINGERPRINT), {"fingerprint": _fingerprint(1)})
+        first.commit()
+
+        second.execute(sql.text(INSERT_FINGERPRINT), {"fingerprint": _fingerprint(2)})
+        second.commit()
+
+        rows = first.execute(
+            sql.text("SELECT id, created FROM fpindex_changelog ORDER BY id")
+        ).all()
+    finally:
+        first.close()
+        second.close()
+
+    assert len(rows) == 2
+    assert rows[0].created < rows[1].created
+
+
+def test_create_all_leaves_the_current_month_covered(engine):
+    """The database the rest of the suite runs against is built by create_all,
+    and with no DEFAULT partition every fingerprint insert in the whole suite
+    depends on that hook having created this month. Asserted directly, because
+    otherwise a break in it shows up as unrelated tests failing.
+
+    It also pins tables.py and the maintenance task to the same naming: the
+    task recognises partitions only by its own pattern, so a partition it
+    cannot see is a partition it will neither count nor drop.
+    """
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        created_names = []
+        today = _server_today(conn)
+        name = tables.fpindex_changelog_partition_name(
+            tables.fpindex_changelog_month(today)
+        )
+        assert name in _existing_partitions(conn)
+        assert report_headroom(conn, today) >= 1
+
+
+def test_insert_fails_loudly_when_no_partition_covers_today(engine):
+    """The cost of having no DEFAULT partition, made explicit.
+
+    This is the trade: rather than silently absorbing the row and blocking the
+    partition that should have held it, the insert fails where someone will see
+    it. The importer's transaction rolls back, pending_submission is untouched,
+    and the submission retries once a partition exists.
+
+    Safe to assert because DDL is transactional in PostgreSQL -- the DROP is
+    rolled back with everything else, so the partition is still there
+    afterwards.
+    """
+    with engine.connect() as conn:
+        today = _server_today(conn)
+        name = tables.fpindex_changelog_partition_name(
+            tables.fpindex_changelog_month(today)
+        )
+        conn.execute(sql.text(f"DROP TABLE {name}"))
+        with pytest.raises(DatabaseError) as excinfo:
+            conn.execute(sql.text(INSERT_FINGERPRINT), {"fingerprint": _fingerprint(1)})
+        assert "no partition of relation" in str(excinfo.value)
+        conn.rollback()
+
+    with engine.connect() as conn:
+        assert name in _existing_partitions(conn)
+
+
+def test_partitions_are_created_a_year_ahead(engine):
+    """Exercised on a date far from today so it cannot collide with the
+    partitions the test database actually needs."""
+    today = datetime.date(2031, 6, 15)
+    expected = ["fpindex_changelog_2031%02d" % month for month in range(6, 13)] + [
+        "fpindex_changelog_2032%02d" % month for month in range(1, 7)
+    ]
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
         try:
             create_partitions(conn, today)
             partitions = _existing_partitions(conn)
-            created_names = [name for name, day in partitions.items() if day >= today]
 
-            assert partitions.get("fpindex_changelog_20310615") == today
-            assert report_headroom(conn, today) >= 30
-
-            # Nothing is old enough yet, so a drop pass must leave them alone.
-            drop_partitions(conn, today)
-            assert set(_existing_partitions(conn)) >= set(created_names)
-
-            # Far enough in the future that every partition just made has
-            # fallen entirely outside the retention window.
-            later = today + datetime.timedelta(days=365)
-            drop_partitions(conn, later)
-            remaining = set(_existing_partitions(conn))
-            assert not (remaining & set(created_names))
-            created_names = []
+            assert set(expected) <= set(partitions)
+            assert partitions["fpindex_changelog_203106"] == datetime.date(2031, 6, 1)
+            # A year of runway, counted as consecutive months rather than as a
+            # total, so a hole in the middle cannot pass for a full tank.
+            assert report_headroom(conn, today) == 13
         finally:
-            for name in created_names:
+            for name in expected:
                 conn.execute(sql.text(f"DROP TABLE IF EXISTS {name}"))
 
 
-def test_default_partition_is_reported_when_used(engine):
-    """A row in the default partition means create-ahead fell behind. Writes
-    still succeed -- that is the point of the backstop -- so this counter is
-    the only thing that will tell anyone."""
+def test_partitions_past_retention_are_dropped(engine):
+    """Run against the real current month, because the thing most likely to go
+    wrong with a cutoff is that it takes the live partition with it."""
+    old = [datetime.date(2020, 1, 1), datetime.date(2020, 2, 1)]
+    old_names = [tables.fpindex_changelog_partition_name(month) for month in old]
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        # The assertion below only means anything if nothing covers today:
-        # with a dated partition present the row lands there instead and the
-        # test would fail for a reason that has nothing to do with the backstop.
-        # Enforced rather than assumed, since any test that runs the real
-        # maintenance task would otherwise break this one confusingly.
         today = _server_today(conn)
-        assert not [day for day in _existing_partitions(conn).values() if day == today]
+        current = tables.fpindex_changelog_partition_name(
+            tables.fpindex_changelog_month(today)
+        )
+        try:
+            for month in old:
+                conn.execute(
+                    sql.text(tables.fpindex_changelog_create_partition_sql(month))
+                )
+            assert set(old_names) <= set(_existing_partitions(conn))
 
-    with engine.connect() as conn:
-        conn.execute(sql.text(INSERT_FINGERPRINT), {"fingerprint": _fingerprint(1)})
-        conn.commit()
+            drop_partitions(conn, today)
 
+            remaining = set(_existing_partitions(conn))
+            assert not (remaining & set(old_names))
+            assert current in remaining
+        finally:
+            for name in old_names:
+                conn.execute(sql.text(f"DROP TABLE IF EXISTS {name}"))
+
+
+def test_retention_keeps_whole_months_behind_the_current_one(engine):
+    """A partition is only dropped once its entire month is past the cutoff, so
+    the log always reaches back at least RETENTION_MONTHS."""
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        assert check_default_partition(conn) == 1
+        today = _server_today(conn)
+        current = tables.fpindex_changelog_month(today)
+        boundary = tables.fpindex_changelog_add_months(current, -RETENTION_MONTHS)
+        names = [
+            tables.fpindex_changelog_partition_name(boundary),
+            tables.fpindex_changelog_partition_name(
+                tables.fpindex_changelog_add_months(boundary, -1)
+            ),
+        ]
+        try:
+            for name, month in zip(
+                names, [boundary, tables.fpindex_changelog_add_months(boundary, -1)]
+            ):
+                conn.execute(
+                    sql.text(tables.fpindex_changelog_create_partition_sql(month))
+                )
+
+            drop_partitions(conn, today)
+
+            remaining = set(_existing_partitions(conn))
+            # Exactly on the cutoff survives; one month older does not.
+            assert names[0] in remaining
+            assert names[1] not in remaining
+        finally:
+            for name in names:
+                conn.execute(sql.text(f"DROP TABLE IF EXISTS {name}"))
+
+
+def test_headroom_stops_at_the_first_gap():
+    """Pure, because the interesting case is hard to stage against a live
+    database without dropping a partition the rest of the suite needs.
+
+    A gap is the failure mode create_partitions is written to survive -- it
+    carries on past a month it could not create -- so headroom has to notice
+    one. A plain count of future partitions would not.
+    """
+    months = {
+        datetime.date(2026, 7, 1),
+        datetime.date(2026, 8, 1),
+        # September missing.
+        datetime.date(2026, 10, 1),
+        datetime.date(2026, 11, 1),
+    }
+    assert _consecutive_months(months, datetime.date(2026, 7, 1)) == 2
+    assert _consecutive_months(months, datetime.date(2026, 10, 1)) == 2
+    assert _consecutive_months(months, datetime.date(2026, 9, 1)) == 0
+
+
+def test_month_arithmetic_crosses_year_boundaries():
+    add_months = tables.fpindex_changelog_add_months
+    assert add_months(datetime.date(2026, 12, 1), 1) == datetime.date(2027, 1, 1)
+    assert add_months(datetime.date(2026, 1, 1), -1) == datetime.date(2025, 12, 1)
+    assert add_months(datetime.date(2026, 7, 1), 12) == datetime.date(2027, 7, 1)
+    assert add_months(datetime.date(2026, 7, 1), 0) == datetime.date(2026, 7, 1)
+    assert tables.fpindex_changelog_month(datetime.date(2026, 7, 31)) == datetime.date(
+        2026, 7, 1
+    )
 
 
 # Path rather than an import: alembic versions are not a package, and a

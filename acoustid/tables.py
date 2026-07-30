@@ -1,3 +1,5 @@
+import datetime
+
 import sqlalchemy.event
 from sqlalchemy import (
     DDL,
@@ -21,6 +23,7 @@ from sqlalchemy import (
     sql,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, UUID
+from sqlalchemy.engine import Connection
 from sqlalchemy.types import UserDefinedType
 
 metadata = MetaData(
@@ -405,6 +408,12 @@ FPINDEX_CHANGELOG_LOCK_KEY = 7723016524936704001
 # working on dates cannot be caught out by a change in write volume the way an
 # id-range one could.
 #
+# Monthly, not daily. At the current rate -- around 13.5k new fingerprints a
+# day -- a month is roughly 400k rows, which is a perfectly ordinary table, and
+# the create-ahead job only has real work to do twelve times a year instead of
+# 365. That matters more than it sounds: creating a partition takes ACCESS
+# EXCLUSIVE on the parent, which queues the trigger's own inserts behind it.
+#
 # `created` uses clock_timestamp(), NOT now(): now() is transaction start time,
 # so a long transaction would file its row under an earlier partition than its
 # id-neighbours and the retained rows would stop being a contiguous id range.
@@ -446,19 +455,60 @@ fpindex_changelog = Table(
 )
 
 
+# There is deliberately no DEFAULT partition.
+#
+# A default partition looks like a safe backstop and is the opposite. Rows that
+# land in it permanently block creating the dated partition that would have
+# covered them, retention can never reclaim them because it only drops dated
+# partitions, and writes keep succeeding the whole time, so nothing pages. The
+# failure it is meant to prevent -- an insert with nowhere to go -- is not
+# actually an outage here: insert_fingerprint() is only ever reached from the
+# importer, the submission is already durable in the ingest database, and
+# pending_submission is cleared in the same transaction that would fail. So the
+# row stays queued and retries. Loud and self-healing beats silent and
+# hand-repairable, and dropping the default partition also keeps
+# DETACH PARTITION ... CONCURRENTLY available if retention ever needs it.
+#
+# What it costs: the partitions have to actually be there. See
+# acoustid.scripts.fpindex_changelog.
+FPINDEX_CHANGELOG_CREATE_AHEAD_MONTHS = 12
+
+
+def fpindex_changelog_month(day: datetime.date) -> datetime.date:
+    """The partition a date belongs to, identified by its first day."""
+    return day.replace(day=1)
+
+
+def fpindex_changelog_add_months(month: datetime.date, count: int) -> datetime.date:
+    index = month.year * 12 + (month.month - 1) + count
+    return datetime.date(index // 12, index % 12 + 1, 1)
+
+
+def fpindex_changelog_partition_name(month: datetime.date) -> str:
+    return "fpindex_changelog_" + month.strftime("%Y%m")
+
+
+def fpindex_changelog_create_partition_sql(month: datetime.date) -> str:
+    """DDL for the partition covering `month`.
+
+    The bounds are formatted into the statement rather than bound as
+    parameters. Partition bounds are DDL, and the parameterised form only works
+    at all because psycopg2 binds client-side -- it would break the day
+    anything here moves to psycopg3 or asyncpg. The values come from date
+    arithmetic, never from input.
+    """
+    end = fpindex_changelog_add_months(month, 1)
+    return (
+        f"CREATE TABLE IF NOT EXISTS {fpindex_changelog_partition_name(month)} "
+        f"PARTITION OF fpindex_changelog "
+        f"FOR VALUES FROM ('{month.isoformat()}') TO ('{end.isoformat()}')"
+    )
+
+
 # Kept in sync by hand with the alembic migration that introduces it. Migrations
 # must not import this module -- they have to keep working as the models move --
 # so the DDL is written out twice on purpose.
-#
-# Attached to the metadata rather than to fpindex_changelog because the trigger
-# is created on `fingerprint`, and only a metadata-level hook is guaranteed to
-# run after every table exists. There is deliberately no foreign key from the
-# changelog to the fingerprint: it is a log, and an FK would both cost writes
-# and stand in the way of dropping partitions.
 FPINDEX_CHANGELOG_DDL = f"""
-CREATE TABLE IF NOT EXISTS fpindex_changelog_default
-    PARTITION OF fpindex_changelog DEFAULT;
-
 CREATE OR REPLACE FUNCTION fpindex_changelog_insert() RETURNS trigger AS $$
 BEGIN
     PERFORM pg_advisory_xact_lock({FPINDEX_CHANGELOG_LOCK_KEY});
@@ -476,11 +526,38 @@ CREATE TRIGGER fingerprint_fpindex_changelog
     EXECUTE FUNCTION fpindex_changelog_insert();
 """
 
-sqlalchemy.event.listen(
-    metadata,
-    "after_create",
-    DDL(FPINDEX_CHANGELOG_DDL),
-)
+
+def _create_fpindex_changelog(
+    target: MetaData, connection: Connection, **kw: object
+) -> None:
+    """Partitions first, then the trigger.
+
+    Attached to the metadata rather than to fpindex_changelog because the
+    trigger is created on `fingerprint`, and only a metadata-level hook is
+    guaranteed to run after every table exists. There is deliberately no
+    foreign key from the changelog to the fingerprint: it is a log, and an FK
+    would both cost writes and stand in the way of dropping partitions.
+
+    The partitions matter here specifically because there is no DEFAULT to
+    catch a row that misses: create_all builds dev and test databases, where
+    nothing runs the hourly maintenance task, so without this the first
+    fingerprint insert would fail. The server's calendar is used, not this
+    process's, for the same reason the maintenance task uses it.
+    """
+    today = connection.execute(sql.text("SELECT current_date")).scalar_one()
+    month = fpindex_changelog_month(today)
+    for offset in range(FPINDEX_CHANGELOG_CREATE_AHEAD_MONTHS + 1):
+        connection.execute(
+            DDL(
+                fpindex_changelog_create_partition_sql(
+                    fpindex_changelog_add_months(month, offset)
+                )
+            )
+        )
+    connection.execute(DDL(FPINDEX_CHANGELOG_DDL))
+
+
+sqlalchemy.event.listen(metadata, "after_create", _create_fpindex_changelog)
 
 
 track_mbid = Table(

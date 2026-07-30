@@ -21,6 +21,12 @@ depends_on = None
 # different locks and silently stop serialising writers.
 LOCK_KEY = 7723016524936704001
 
+# Must match acoustid.tables.FPINDEX_CHANGELOG_CREATE_AHEAD_MONTHS, for the same
+# reason and with the same caveat about not importing it. Drift here is benign
+# next to the lock key: the hourly task tops the runway back up, and headroom is
+# alerted on regardless.
+CREATE_AHEAD_MONTHS = 12
+
 
 def upgrade(engine_name):
     globals()["upgrade_%s" % engine_name]()
@@ -62,13 +68,43 @@ def upgrade_fingerprint():
     )
     op.execute("ALTER SEQUENCE fpindex_changelog_id_seq OWNED BY fpindex_changelog.id")
 
-    # Backstop so a create-ahead job that falls behind cannot fail writes. It
-    # should always be empty; alert if it is not, because a row landing here
-    # also blocks creating the dated partition that would have covered it.
+    # The current month plus a year of runway, created here rather than left to
+    # the hourly maintenance task.
+    #
+    # This has to happen in the same transaction as the trigger below. There is
+    # no DEFAULT partition -- see acoustid.tables for that argument -- so the
+    # moment the trigger exists, a fingerprint insert with no partition to land
+    # in fails. Waiting for the first cron run would leave that window open.
+    #
+    # Done in plpgsql, on the server, so the months come from the database's own
+    # calendar and timezone. That is the same calendar the maintenance task uses
+    # (`SELECT current_date`) and the same one the partition key is compared
+    # against, so the two cannot disagree about where a month begins. Keep the
+    # naming in step with acoustid.tables.fpindex_changelog_partition_name: the
+    # maintenance task recognises partitions by that pattern and ignores
+    # anything else, so a mismatch here would leave it reporting no headroom.
     op.execute(
-        """
-        CREATE TABLE fpindex_changelog_default
-            PARTITION OF fpindex_changelog DEFAULT
+        f"""
+        DO $$
+        DECLARE
+            start_month date := date_trunc('month', current_date)::date;
+            part_month date;
+            offset_months int;
+        BEGIN
+            FOR offset_months IN 0..{CREATE_AHEAD_MONTHS} LOOP
+                part_month := (
+                    start_month + (offset_months || ' months')::interval
+                )::date;
+                EXECUTE format(
+                    'CREATE TABLE %I PARTITION OF fpindex_changelog '
+                    'FOR VALUES FROM (%L) TO (%L)',
+                    'fpindex_changelog_' || to_char(part_month, 'YYYYMM'),
+                    part_month,
+                    (part_month + interval '1 month')::date
+                );
+            END LOOP;
+        END
+        $$
         """
     )
 
