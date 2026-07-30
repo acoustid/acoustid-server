@@ -411,3 +411,62 @@ def test_a_write_to_an_unknown_lineage_is_still_refused(client: TestClient):
     """The refusal is about the feed being read-only, not about the target, so it
     must not depend on the lineage matching."""
     assert client.post(f"/_changelog/other/{GENERATION + 5}").status_code == 403
+
+
+# --- review findings ---------------------------------------------------------
+
+
+def test_max_zero_is_honoured_not_turned_into_a_full_batch(
+    client: TestClient, changelog
+):
+    """`max=0` used to be silently rewritten to MAX_ENTRIES.
+
+    `_int_param` already substitutes the default when `max` is missing or
+    unparsable, so a trailing `or MAX_ENTRIES` only ever caught an explicit zero --
+    and answered with 10000 rows instead of none.
+    """
+    for seed in range(3):
+        _add_fingerprint(changelog, seed)
+
+    decoded = msgspec.msgpack.decode(
+        client.get(FEED, params={"after": 0, "max": 0}).content
+    )
+    assert decoded["e"] == []
+
+
+def test_max_zero_does_not_ask_the_consumer_to_come_straight_back(
+    client: TestClient, changelog
+):
+    """The trap in honouring max=0: an empty result is also a "full" batch (0 == 0),
+    which would answer BUSY_RETRY_MS -- come back immediately, for nothing. Only
+    the client's own poll floor would stop it spinning."""
+    for seed in range(3):
+        _add_fingerprint(changelog, seed)
+
+    decoded = msgspec.msgpack.decode(
+        client.get(FEED, params={"after": 0, "max": 0}).content
+    )
+    assert decoded["r"] == IDLE_RETRY_MS
+    assert decoded["r"] > 0
+
+
+def test_meta_max_zero_is_honoured(client: TestClient):
+    decoded = msgspec.msgpack.decode(client.get("/_meta", params={"max": 0}).content)
+    assert decoded["o"] == []
+
+
+def test_a_newline_in_the_index_name_cannot_forge_a_log_line(
+    client: TestClient, caplog
+):
+    """ASGI hands over path params percent-decoded, so `%0a` in the URL arrives as
+    a real newline. Logged with %s it would split one record into two."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="acoustid.future.fpindex.feed"):
+        response = client.get(f"/_changelog/acoustid%0aforged/{GENERATION}")
+
+    assert response.status_code == 404
+    assert caplog.records, "expected the unknown-lineage warning"
+    message = caplog.records[-1].getMessage()
+    assert "\n" not in message, message
+    assert "\\n" in message, message

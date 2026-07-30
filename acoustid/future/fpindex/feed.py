@@ -123,13 +123,20 @@ async def handle_read_changelog(request: Request) -> Response:
     # is the point: silently serving this one's data would apply it to the wrong
     # index.
     if index_name != INDEX_NAME or generation != GENERATION:
+        # %r, not %s: the index name comes from the URL path, and ASGI hands over
+        # path params already percent-decoded -- so `%0a` in a request arrives as a
+        # real newline and would forge log lines. Verified, and note it is
+        # path_params that carries it; request.url.path came back sanitised.
         logger.warning(
-            "changelog requested for unknown lineage %s/%s", index_name, generation
+            "changelog requested for unknown lineage %r/%r", index_name, generation
         )
         return Response(status_code=404)
 
     after = _int_param(request, "after", 0, 2**63 - 1)
-    limit = _int_param(request, "max", MAX_ENTRIES, MAX_ENTRIES) or MAX_ENTRIES
+    # No `or MAX_ENTRIES` fallback: _int_param already substitutes MAX_ENTRIES when
+    # `max` is missing or unparsable, so the only value that fallback ever caught
+    # was an explicit max=0 -- which it silently turned into a 10000-row batch.
+    limit = _int_param(request, "max", MAX_ENTRIES, MAX_ENTRIES)
 
     engine = request.app.state.app_ctx.get_fingerprint_db()
 
@@ -154,7 +161,13 @@ async def handle_read_changelog(request: Request) -> Response:
 
     # A full batch means there is probably more behind it; anything less means
     # the consumer is caught up as of this query.
-    retry_after_ms = BUSY_RETRY_MS if len(rows) == limit else IDLE_RETRY_MS
+    #
+    # `rows` first, and not just the length comparison: with max=0 an empty result
+    # is also a "full" batch (0 == 0), which would answer BUSY_RETRY_MS -- come
+    # straight back for nothing. That is a hot loop, and only the client's own
+    # min_poll floor would keep it from spinning flat out. Honouring max=0 without
+    # this guard trades a silently-ignored parameter for a busy wait.
+    retry_after_ms = BUSY_RETRY_MS if rows and len(rows) == limit else IDLE_RETRY_MS
 
     return Response(
         content=encode(changelog_response(rows, retry_after_ms)),
@@ -175,7 +188,10 @@ async def handle_read_meta(request: Request) -> Response:
     would only be a place for this to disagree with itself.
     """
     after = _int_param(request, "after", 0, 2**63 - 1)
-    limit = _int_param(request, "max", MAX_ENTRIES, MAX_ENTRIES) or MAX_ENTRIES
+    # As in handle_read_changelog: no `or MAX_ENTRIES`, so max=0 means what it
+    # says. This feed always answers IDLE_RETRY_MS, so there is no busy path for an
+    # empty batch to fall into here.
+    limit = _int_param(request, "max", MAX_ENTRIES, MAX_ENTRIES)
 
     response = meta_response(after, limit, IDLE_RETRY_MS)
     # The feed is fixed, so a caught-up consumer is caught up for good. Nothing
@@ -241,7 +257,7 @@ async def handle_refuse_write(request: Request) -> Response:
     side gains a case for it.
     """
     logger.warning(
-        "refusing %s %s: this feed is read-only, the changelog is written by "
+        "refusing %r %r: this feed is read-only, the changelog is written by "
         "the fingerprint trigger",
         request.method,
         request.url.path,
