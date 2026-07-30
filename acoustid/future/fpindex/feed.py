@@ -270,7 +270,11 @@ routes = [
         handle_refuse_write,
         methods=["POST"],
     ),
-    Route("/_index/{index}", handle_refuse_write, methods=["POST", "DELETE"]),
+    # PUT, not POST: createIndex is idempotent and the path names the index, so
+    # the protocol uses PUT. If this list and the client's verb ever disagree the
+    # request lands on a route that does not accept it, Starlette answers 405, and
+    # the node is back to reporting 503 for a permanent refusal.
+    Route("/_index/{index}", handle_refuse_write, methods=["PUT", "DELETE"]),
     Route(
         "/_truncate/{index}/{generation:int}",
         handle_refuse_write,

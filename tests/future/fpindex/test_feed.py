@@ -390,7 +390,7 @@ def test_every_write_route_is_refused_with_403(client: TestClient):
     """
     attempts = [
         ("POST", f"/_changelog/{INDEX_NAME}/{GENERATION}"),  # append
-        ("POST", f"/_index/{INDEX_NAME}"),  # createIndex
+        ("PUT", f"/_index/{INDEX_NAME}"),  # createIndex (idempotent -> PUT)
         ("DELETE", f"/_index/{INDEX_NAME}"),  # deleteIndex
         ("POST", f"/_truncate/{INDEX_NAME}/{GENERATION}"),  # setRetentionFloor
     ]
