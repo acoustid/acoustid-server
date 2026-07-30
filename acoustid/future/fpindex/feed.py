@@ -123,31 +123,19 @@ async def handle_read_changelog(request: Request) -> Response:
     # is the point: silently serving this one's data would apply it to the wrong
     # index.
     if index_name != INDEX_NAME or generation != GENERATION:
-        # %r, not %s: the index name comes from the URL path, and ASGI hands over
-        # path params already percent-decoded -- so `%0a` in a request arrives as a
-        # real newline and would forge log lines. Verified, and note it is
-        # path_params that carries it; request.url.path came back sanitised.
         logger.warning(
             "changelog requested for unknown lineage %r/%r", index_name, generation
         )
         return Response(status_code=404)
 
     after = _int_param(request, "after", 0, 2**63 - 1)
-    # No `or MAX_ENTRIES` fallback: _int_param already substitutes MAX_ENTRIES when
-    # `max` is missing or unparsable, so the only value that fallback ever caught
-    # was an explicit max=0 -- which it silently turned into a 10000-row batch.
     limit = _int_param(request, "max", MAX_ENTRIES, MAX_ENTRIES)
 
     engine = request.app.state.app_ctx.get_fingerprint_db()
 
-    # Everything at or below last_deleted_id is gone, so a consumer whose next
-    # wanted position (after + 1) falls in there cannot be served from the log.
-    #
-    # Deliberately no `after > 0` special case. A brand-new node starts at 0, and
-    # if anything has been dropped it genuinely cannot build a complete index by
-    # replaying what is left -- it has to bootstrap from a peer. Exempting 0 would
-    # serve it a partial log as though it were the whole thing, and the index
-    # would come up quietly incomplete.
+    # Everything at or below last_deleted_id is gone. No `after > 0` exemption:
+    # a new node starting at 0 cannot build a complete index from what is left
+    # either, and serving it the remainder would bring it up quietly incomplete.
     last_deleted = await _last_deleted_id(engine)
     if last_deleted is not None and after < last_deleted:
         logger.info(
@@ -159,14 +147,9 @@ async def handle_read_changelog(request: Request) -> Response:
 
     rows = await _read_batch(engine, after, limit)
 
-    # A full batch means there is probably more behind it; anything less means
-    # the consumer is caught up as of this query.
-    #
-    # `rows` first, and not just the length comparison: with max=0 an empty result
-    # is also a "full" batch (0 == 0), which would answer BUSY_RETRY_MS -- come
-    # straight back for nothing. That is a hot loop, and only the client's own
-    # min_poll floor would keep it from spinning flat out. Honouring max=0 without
-    # this guard trades a silently-ignored parameter for a busy wait.
+    # A full batch means there is probably more behind it. `rows` first because
+    # with max=0 an empty result is also "full" (0 == 0), which would tell the
+    # consumer to come straight back for nothing.
     retry_after_ms = BUSY_RETRY_MS if rows and len(rows) == limit else IDLE_RETRY_MS
 
     return Response(
@@ -188,9 +171,6 @@ async def handle_read_meta(request: Request) -> Response:
     would only be a place for this to disagree with itself.
     """
     after = _int_param(request, "after", 0, 2**63 - 1)
-    # As in handle_read_changelog: no `or MAX_ENTRIES`, so max=0 means what it
-    # says. This feed always answers IDLE_RETRY_MS, so there is no busy path for an
-    # empty batch to fall into here.
     limit = _int_param(request, "max", MAX_ENTRIES, MAX_ENTRIES)
 
     response = meta_response(after, limit, IDLE_RETRY_MS)
@@ -220,15 +200,9 @@ async def handle_health(request: Request) -> Response:
         async with engine.connect() as conn:
             await conn.execute(sql.text("SELECT 1"))
     except Exception:
-        # Deliberately broad, and this was found by running it rather than by
-        # reasoning: a refused connection arrives as ConnectionRefusedError --
-        # an OSError, straight from asyncpg, NOT wrapped in SQLAlchemyError.
-        # Catching SQLAlchemyError alone made this handler return 500 in exactly
-        # the situation it exists to report, while a unit test that raised
-        # OperationalError by hand reported it working.
-        #
-        # For a readiness probe the only question is "can I serve requests", so
-        # every way of failing to reach the database has the same answer.
+        # Broad on purpose. A refused connection arrives as ConnectionRefusedError
+        # -- an OSError from asyncpg, not wrapped in SQLAlchemyError -- so catching
+        # the latter returned 500 in the one case this exists to report.
         logger.exception("health check failed: fingerprint database unreachable")
         return Response(
             b'{"ready":false}', status_code=503, media_type="application/json"
@@ -278,18 +252,16 @@ routes = [
     ),
     Route("/_meta", handle_read_meta, methods=["GET"]),
     Route("/health", handle_health, methods=["GET"]),
-    # Every write route the coordinator protocol defines
-    # (acoustid-index src/coordinator_server.zig registerRoutes), so a node that
-    # tries one gets a straight answer rather than a routing accident.
+    # Every write route the protocol defines (acoustid-index
+    # coordinator_server.zig registerRoutes), so a node gets a straight answer
+    # rather than a routing accident.
     Route(
         "/_changelog/{index}/{generation:int}",
         handle_refuse_write,
         methods=["POST"],
     ),
-    # PUT, not POST: createIndex is idempotent and the path names the index, so
-    # the protocol uses PUT. If this list and the client's verb ever disagree the
-    # request lands on a route that does not accept it, Starlette answers 405, and
-    # the node is back to reporting 503 for a permanent refusal.
+    # These verbs must match the client's, or the request hits a route that does
+    # not accept it and 405 becomes an opaque 503 again.
     Route("/_index/{index}", handle_refuse_write, methods=["PUT", "DELETE"]),
     Route(
         "/_truncate/{index}/{generation:int}",
@@ -318,9 +290,8 @@ def create_feed_app(config_file: str | None = None, tests: bool = False) -> Star
 # api is on 3031 and web on 3032; this continues the sequence.
 DEFAULT_PORT = 3033
 
-# Referenced as a string so uvicorn can re-import it in each worker process.
-# Kept next to the function it names, since a typo here would only surface at
-# deploy time -- there is a test that resolves it.
+# A string so uvicorn can re-import it per worker; a typo would only surface at
+# deploy time, so a test resolves it.
 APP_FACTORY = "acoustid.future.fpindex.feed:create_feed_app"
 
 
