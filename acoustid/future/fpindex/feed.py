@@ -41,7 +41,7 @@ import logging
 from sqlalchemy import sql
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 from starlette.routing import Route
 
 from acoustid.future.fpindex.wire import (
@@ -49,7 +49,10 @@ from acoustid.future.fpindex.wire import (
     INDEX_NAME,
     changelog_response,
     encode,
+    encode_bootstrap_header,
+    encode_change,
     encode_meta,
+    insert_change,
     meta_response,
 )
 
@@ -67,6 +70,11 @@ IDLE_RETRY_MS = 1000
 # Told to a consumer that got a full batch: there is probably more waiting, so
 # come straight back.
 BUSY_RETRY_MS = 0
+
+# Fingerprints read per transaction while streaming a bootstrap. Each chunk is its
+# own short transaction, so nothing holds a snapshot open across a scan that reads
+# roughly 10 KB per row -- about a terabyte at production scale.
+BOOTSTRAP_CHUNK = 1000
 
 
 def _int_param(request: Request, name: str, default: int, maximum: int) -> int:
@@ -210,6 +218,103 @@ async def handle_health(request: Request) -> Response:
     return Response(b'{"ready":true}', media_type="application/json")
 
 
+async def _current_position(engine) -> int:
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            sql.text("SELECT coalesce(max(id), 0) FROM fpindex_changelog")
+        )
+        return int(result.scalar_one())
+
+
+async def _fingerprints_after(engine, after_id: int, limit: int):
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            sql.text(
+                """
+                SELECT id, acoustid_extract_query(fingerprint) AS query
+                FROM fingerprint
+                WHERE id > :after_id
+                ORDER BY id
+                LIMIT :limit
+                """
+            ),
+            {"after_id": after_id, "limit": limit},
+        )
+        return [(row.id, list(row.query)) for row in result]
+
+
+async def handle_bootstrap(request: Request) -> Response:
+    """Stream the whole current corpus, for a node that has nothing.
+
+    The changelog cannot serve this: it starts at the migration and only records
+    submissions from then on, so replaying it from 0 builds an index missing every
+    fingerprint that already existed.
+
+    Not resumable, and takes no parameters. It runs once per cluster -- one node
+    pays for it and the rest take a peer snapshot of the result -- so an interrupted
+    run just starts over.
+
+    Correct without holding a snapshot open, which is the part worth understanding.
+    `position` is read first, then the table is scanned in chunks, each its own
+    transaction:
+
+      - a fingerprint that existed when `position` was read is still there when its
+        chunk runs, because fingerprints are never deleted or updated, so the chunks
+        cannot miss it,
+      - anything inserted during the scan has a changelog row above `position`,
+        including a straggler that took a low id and committed late into a range
+        already scanned,
+      - replaying from `position` afterwards covers every gap, and the overlap costs
+        nothing because inserts are upserts by document id.
+
+    That matters at 100M rows: a single REPEATABLE READ scan would hold the xmin
+    horizon for the whole run and block vacuum database-wide.
+
+    Streaming also gives backpressure for free. The next chunk is only read once the
+    client has drained the last, so a slow node throttles the scan instead of
+    pulling a terabyte through the primary's buffer cache as fast as it can.
+    """
+    index_name = request.path_params["index"]
+    generation = int(request.path_params["generation"])
+    if index_name != INDEX_NAME or generation != GENERATION:
+        logger.warning(
+            "bootstrap requested for unknown lineage %r/%r", index_name, generation
+        )
+        return Response(status_code=404)
+
+    engine = request.app.state.app_ctx.get_fingerprint_db()
+    position = await _current_position(engine)
+
+    async def stream():
+        last_id = 0
+        streamed = 0
+        while True:
+            rows = await _fingerprints_after(engine, last_id, BOOTSTRAP_CHUNK)
+            if not rows:
+                break
+            for fingerprint_id, query in rows:
+                # An all-silence fingerprint extracts to nothing. Sending it would
+                # add a document with no terms, which can never match.
+                if query:
+                    yield encode_change(insert_change(fingerprint_id, query))
+                last_id = fingerprint_id
+            streamed += len(rows)
+        logger.info(
+            "bootstrap streamed %d fingerprints at position %d", streamed, position
+        )
+
+    return StreamingResponse(
+        _prepend(encode_bootstrap_header(position), stream()),
+        media_type=MSGPACK_MEDIA_TYPE,
+    )
+
+
+async def _prepend(head: bytes, rest):
+    yield head
+    async for chunk in rest:
+        yield chunk
+
+
 async def handle_refuse_write(request: Request) -> Response:
     """The write half of the coordinator protocol, answered with a refusal.
 
@@ -251,6 +356,11 @@ routes = [
         methods=["GET"],
     ),
     Route("/_meta", handle_read_meta, methods=["GET"]),
+    Route(
+        "/_bootstrap/{index}/{generation:int}",
+        handle_bootstrap,
+        methods=["GET"],
+    ),
     Route("/health", handle_health, methods=["GET"]),
     # Every write route the protocol defines (acoustid-index
     # coordinator_server.zig registerRoutes), so a node gets a straight answer

@@ -164,3 +164,27 @@ def meta_response(after: int, limit: int, retry_after_ms: int) -> MetaReadRespon
 
 def encode_meta(response: MetaReadResponse) -> bytes:
     return msgspec.msgpack.encode(response)
+
+
+class BootstrapHeader(msgspec.Struct, rename=_field_name_prefix):
+    """First value in a bootstrap stream.
+
+    `position` is the changelog position the streamed state corresponds to, taken
+    before the first chunk is read. The node applies every change in the stream at
+    this one position and resumes the feed from it.
+    """
+
+    position: int
+
+
+def encode_bootstrap_header(position: int) -> bytes:
+    return msgspec.msgpack.encode(BootstrapHeader(position=position))
+
+
+def encode_change(change: Change) -> bytes:
+    """One value in the bootstrap stream, framed only by msgpack itself.
+
+    msgpack values are self-delimiting, so a reader decodes them one after another
+    off the socket without a length prefix or separator.
+    """
+    return msgspec.msgpack.encode(change)

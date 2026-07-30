@@ -470,3 +470,92 @@ def test_a_newline_in_the_index_name_cannot_forge_a_log_line(
     message = caplog.records[-1].getMessage()
     assert "\n" not in message, message
     assert "\\n" in message, message
+
+
+# --- bootstrap ---------------------------------------------------------------
+
+
+def _decode_stream(payload: bytes):
+    """Pull successive msgpack values off the stream, as the Zig client does."""
+    decoder = msgspec.msgpack.Decoder()
+    out = []
+    view = memoryview(payload)
+    offset = 0
+    while offset < len(view):
+        # msgspec has no incremental reader, so find each value's end by growing
+        # the slice until it decodes -- fine for test-sized payloads.
+        for end in range(offset + 1, len(view) + 1):
+            try:
+                out.append(decoder.decode(view[offset:end]))
+            except msgspec.DecodeError:
+                continue
+            offset = end
+            break
+        else:
+            raise AssertionError(f"undecodable tail at {offset}")
+    return out
+
+
+BOOTSTRAP = f"/_bootstrap/{INDEX_NAME}/{GENERATION}"
+
+
+def test_bootstrap_streams_the_whole_corpus(client: TestClient, changelog):
+    """What the changelog structurally cannot serve: fingerprints that existed
+    before the log did."""
+    ids = [_add_fingerprint(changelog, seed) for seed in range(3)]
+
+    values = _decode_stream(client.get(BOOTSTRAP).content)
+    header, changes = values[0], values[1:]
+
+    assert header["p"] == _positions(changelog)[-1]
+    assert [c["i"]["i"] for c in changes] == ids
+    assert all(0 < len(c["i"]["h"]) <= 120 for c in changes)
+
+
+def test_bootstrap_skips_fingerprints_that_extract_to_nothing(
+    client: TestClient, changelog
+):
+    """An all-silence fingerprint yields an empty query array. Streaming it would
+    add a document with no terms, which can never match anything."""
+    silence = [627964279] * 200
+    with changelog.connect() as conn:
+        conn.execute(sql.text(INSERT_FINGERPRINT), {"fingerprint": silence})
+        conn.commit()
+    good = _add_fingerprint(changelog, 7)
+
+    values = _decode_stream(client.get(BOOTSTRAP).content)
+    assert [c["i"]["i"] for c in values[1:]] == [good]
+
+
+def test_bootstrap_rejects_an_unknown_lineage(client: TestClient):
+    assert client.get(f"/_bootstrap/other/{GENERATION}").status_code == 404
+
+
+def test_a_fingerprint_inserted_mid_scan_is_covered_by_the_changelog(
+    client: TestClient, changelog
+):
+    """The correctness argument for chunking, exercised rather than asserted.
+
+    A row that appears after `position` was read may or may not land in a chunk,
+    depending on where its id falls. Either way the node ends up with it: it is in
+    the stream, or in the changelog above `position`, or both. What must never
+    happen is neither.
+    """
+    before = [_add_fingerprint(changelog, seed) for seed in range(2)]
+    position = _positions(changelog)[-1]
+
+    # Arrives after the position was captured.
+    during = _add_fingerprint(changelog, 99)
+
+    streamed = [c["i"]["i"] for c in _decode_stream(client.get(BOOTSTRAP).content)[1:]]
+    tail = [
+        e["c"]["i"]["i"]
+        for e in msgspec.msgpack.decode(
+            client.get(FEED, params={"after": position}).content
+        )["e"]
+    ]
+
+    for fingerprint_id in before + [during]:
+        assert fingerprint_id in streamed or fingerprint_id in tail, fingerprint_id
+    # And specifically: the late arrival is recoverable from the feed alone.
+    assert during in tail
