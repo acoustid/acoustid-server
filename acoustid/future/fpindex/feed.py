@@ -44,6 +44,7 @@ from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 from starlette.routing import Route
 
+from acoustid.fingerprint import to_unsigned
 from acoustid.future.fpindex.wire import (
     GENERATION,
     INDEX_NAME,
@@ -103,7 +104,12 @@ async def _read_batch(engine, after: int, limit: int) -> list[tuple[int, int, li
             ),
             {"after": after, "limit": limit},
         )
-        return [(row.id, row.fingerprint_id, list(row.query)) for row in result]
+        # to_unsigned, not list(): `query` is PostgreSQL integer[], which is
+        # SIGNED, so every term with the top bit set comes back negative. The
+        # index declares these u32 (acoustid-index src/change.zig), and decoding
+        # a negative into u32 fails the whole batch with IntegerOverflow. Same
+        # conversion fpstore.py already does on its way to the wire.
+        return [(row.id, row.fingerprint_id, to_unsigned(row.query)) for row in result]
 
 
 async def _last_deleted_id(engine) -> int | None:
@@ -241,7 +247,10 @@ async def _fingerprints_after(engine, after_id: int, limit: int):
             ),
             {"after_id": after_id, "limit": limit},
         )
-        return [(row.id, list(row.query)) for row in result]
+        # Unsigned on the way out, exactly as in _read_batch. Bootstrap is where
+        # this bites first: a new node has to finish it before it ever tails the
+        # changelog, so a signed term here stops replication before it starts.
+        return [(row.id, to_unsigned(row.query)) for row in result]
 
 
 async def handle_bootstrap(request: Request) -> Response:

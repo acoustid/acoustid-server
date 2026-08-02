@@ -603,3 +603,66 @@ def test_a_fingerprint_inserted_mid_scan_is_covered_by_the_changelog(
         assert fingerprint_id in streamed or fingerprint_id in tail, fingerprint_id
     # And specifically: the late arrival is recoverable from the feed alone.
     assert during in tail
+
+
+# --- signed/unsigned ---------------------------------------------------------
+#
+# `query` is PostgreSQL integer[], which is SIGNED, so any term with the top bit
+# set is stored negative. acoustid-index declares these u32 (src/change.zig), and
+# msgpack-decoding a negative into u32 fails the entire batch with
+# IntegerOverflow -- which is what a real node did against the v26.8.0 feed: it
+# could not seed at all, and retried forever.
+#
+# _fingerprint() cannot catch this. Its terms are small positives, so the signed
+# representation never appears; every existing test here passes either way.
+
+
+def _fingerprint_with_high_bit_terms() -> list[int]:
+    """A fingerprint whose extracted query really does contain terms above 2^31.
+
+    Chosen by measurement, not by construction -- acoustid_extract_query is a C
+    function and which inputs produce a high bit is not obvious from the outside.
+    This input yields 53 negative terms where _fingerprint() yields none.
+    """
+    return [-2000000000 + i * 7 for i in range(1, 201)]
+
+
+def _add_high_bit_fingerprint(engine) -> int:
+    with engine.connect() as conn:
+        fingerprint_id = conn.execute(
+            sql.text(INSERT_FINGERPRINT),
+            {"fingerprint": _fingerprint_with_high_bit_terms()},
+        ).scalar_one()
+        conn.commit()
+    return fingerprint_id
+
+
+def _assert_u32(hashes: list[int]) -> None:
+    assert hashes, "the fixture must produce terms, or this asserts nothing"
+    out_of_range = [h for h in hashes if not 0 <= h <= 0xFFFFFFFF]
+    assert not out_of_range, f"not representable as u32: {out_of_range[:5]}"
+
+
+def test_changelog_hashes_are_unsigned(client: TestClient, changelog):
+    """Signed terms on the wire stop a node dead, so assert the range itself."""
+    _add_high_bit_fingerprint(changelog)
+
+    decoded = msgspec.msgpack.decode(client.get(FEED, params={"after": 0}).content)
+    hashes = [h for entry in decoded["e"] for h in entry["c"]["i"]["h"]]
+
+    # Guards the guard: if extract_query ever stops producing high-bit terms for
+    # this input, the range assertion below would pass vacuously.
+    assert any(h > 0x7FFFFFFF for h in hashes), "fixture no longer exercises the bug"
+    _assert_u32(hashes)
+
+
+def test_bootstrap_hashes_are_unsigned(client: TestClient, changelog):
+    """The path that fails first: a new node must finish bootstrap before it
+    tails the changelog at all."""
+    _add_high_bit_fingerprint(changelog)
+
+    _, changes = _decode_bootstrap(client.get(BOOTSTRAP).content)
+    hashes = [h for c in changes for h in c["i"]["h"]]
+
+    assert any(h > 0x7FFFFFFF for h in hashes), "fixture no longer exercises the bug"
+    _assert_u32(hashes)
