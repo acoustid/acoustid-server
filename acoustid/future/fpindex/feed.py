@@ -62,7 +62,13 @@ logger = logging.getLogger(__name__)
 MSGPACK_MEDIA_TYPE = "application/vnd.msgpack"
 
 # Bound what a client can ask for, whatever it sends.
-MAX_ENTRIES = 10000
+#
+# This is a ceiling against a silly request, not a tuning knob -- the sizes that
+# matter are the defaults below. It also serves as the default for `max` on the
+# changelog and meta reads, so raising it raises those defaults too; in practice
+# nothing changes there, because the only client always sends an explicit `max`
+# sized to its own buffer (acoustid-index RemoteCoordinator.readImpl).
+MAX_ENTRIES = 100000
 
 # What to tell a caught-up consumer to wait. This is the whole knob for feed
 # latency versus query load, and it is deliberately the server's to turn.
@@ -74,9 +80,22 @@ BUSY_RETRY_MS = 0
 
 # Fingerprints read per transaction while streaming a bootstrap, unless the client
 # asks otherwise ("?chunk="). Each chunk is its own short transaction, so nothing
-# holds a snapshot open across a scan that reads roughly 10 KB per row -- about a
-# terabyte at production scale.
-BOOTSTRAP_CHUNK = 1000
+# holds a snapshot open across the scan.
+#
+# This is the number that actually decides bootstrap cost, because the only
+# client never sends ?chunk= -- acoustid-index builds the bootstrap URL with no
+# query string at all, so whatever is set here is what every node gets.
+#
+# Measured on the production corpus rather than guessed: 93,081,262 fingerprints,
+# a 349 GB table, averaging 3.6 KB per row read and 120 query terms (~504 bytes)
+# per row emitted. At 1000 that was 93,081 separate transactions, each paying its
+# own round trip and plan, and a real node streamed ~534 of them a minute.
+# At 10000 it is 9,309 -- one order of magnitude fewer -- for about 36 MB read
+# and 6 MB encoded per chunk, which is comfortable against the feed's memory.
+#
+# (The older comment here claimed ~10 KB per row and "about a terabyte"; both
+# were roughly 3x over the measured figures.)
+BOOTSTRAP_CHUNK = 10000
 
 
 def _int_param(request: Request, name: str, default: int, maximum: int) -> int:
