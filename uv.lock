@@ -9,7 +9,7 @@ source = { directory = "libs/acoustid_ext" }
 
 [[package]]
 name = "acoustid-server"
-version = "25.3.1"
+version = "26.8.0"
 source = { virtual = "." }
 dependencies = [
     { name = "acoustid-ext" },
