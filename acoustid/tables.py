@@ -547,6 +547,7 @@ mb_iso_3166_1 = mbdata.models.ISO31661.__table__
 mb_medium_format = mbdata.models.MediumFormat.__table__
 mb_medium = mbdata.models.Medium.__table__
 mb_recording_gid_redirect = mbdata.models.RecordingGIDRedirect.__table__
+mb_isrc = mbdata.models.ISRC.__table__
 mb_recording = mbdata.models.Recording.__table__
 mb_release_group = mbdata.models.ReleaseGroup.__table__
 mb_release_group_primary_type = mbdata.models.ReleaseGroupPrimaryType.__table__

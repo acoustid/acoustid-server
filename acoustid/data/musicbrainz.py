@@ -117,6 +117,39 @@ def _load_release_events(
     return result
 
 
+def _load_isrcs(
+    conn: MusicBrainzDB, recording_ids: Iterable[str]
+) -> dict[str, list[str]]:
+    """ISRCs per recording MBID.
+
+    A separate query rather than a join. A recording can carry several ISRCs,
+    and the main metadata query already fans out one row per track and release,
+    so joining here would multiply those rows and duplicate every release under
+    a recording that happens to have two codes.
+
+    Sorted, because MusicBrainz returns them in whatever order the rows come
+    back in and a response that reorders itself between identical requests is
+    unpleasant to cache or diff.
+    """
+    if not recording_ids:
+        return {}
+    src = schema.mb_isrc.join(
+        schema.mb_recording, schema.mb_isrc.c.recording == schema.mb_recording.c.id
+    )
+    columns = [
+        sql.cast(schema.mb_recording.c.gid, String).label("recording_id"),
+        schema.mb_isrc.c.isrc,
+    ]
+    condition = schema.mb_recording.c.gid.in_(recording_ids)
+    query = sql.select(*columns).where(condition).select_from(src)
+    result: dict[str, list[str]] = {}
+    for row in conn.execute(query):
+        result.setdefault(row.recording_id, []).append(row.isrc)
+    for isrcs in result.values():
+        isrcs.sort()
+    return result
+
+
 def _load_release_group_secondary_types(
     conn: MusicBrainzDB, release_group_ids: Iterable[int]
 ) -> dict[int, list[str]]:
@@ -186,6 +219,7 @@ def lookup_metadata(
     load_releases: bool = False,
     load_release_groups: bool = False,
     load_artists: bool = False,
+    load_isrcs: bool = False,
 ) -> list[dict[str, Any]]:
     if not recording_ids:
         return []
@@ -259,6 +293,15 @@ def lookup_metadata(
                 rg_id = row2.pop("release_group_rid")
                 row2.update(release_groups[rg_id])
                 artist_credit_ids.add(row2["release_group_artist_credit"])
+
+    if load_isrcs:
+        # Attached to every row for the recording, not just the first. Rows are
+        # grouped by recording downstream and the group's representative is
+        # whichever came back first, so putting it on one row would be a
+        # coin toss.
+        isrcs = _load_isrcs(conn, {r["recording_id"] for r in results})
+        for row2 in results:
+            row2["recording_isrcs"] = isrcs.get(row2["recording_id"], [])
 
     artists = _load_artists(conn, artist_credit_ids)
     for row2 in results:

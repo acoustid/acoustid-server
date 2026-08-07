@@ -110,7 +110,7 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 	<tr>
 		<td>meta</td>
 		<td>no</td>
-		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources</td>
+		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources, isrcs</td>
 		<td>returned metadata</td>
 	</tr>
 </table>
@@ -143,6 +143,18 @@ Include MusicBrainz recording IDs (meta=recordingids):
         }]
       }]
     }
+
+ISRCs are available as a modifier on recordings (meta=recordings+isrcs). They
+come from MusicBrainz, so coverage is patchy: a recording with none is returned
+without an `isrcs` field rather than with an empty one. A recording may carry
+several codes, and the same code may appear on several recordings, so treat the
+value as a list in both directions.
+
+    "recordings": [{
+      "id": "38035858-f990-4fbb-b3b2-f2f8b958eeba",
+      "title": "Track One",
+      "isrcs": ["GBAYE0601498", "USRC17607839"]
+    }]
 
 And also additional metadata about the recordings from the MusicBrainz database (meta=recordings+releasegroups+compress):
 
@@ -216,7 +228,7 @@ wich is a cluster of fingerprints.
 	<tr>
 		<td>meta</td>
 		<td>no</td>
-		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources</td>
+		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources, isrcs</td>
 		<td>returned metadata</td>
 	</tr>
 </table>
