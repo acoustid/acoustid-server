@@ -427,6 +427,10 @@ class LookupHandler(APIHandler):
             recording["duration"] = float(m["recording_duration"])
         if m["recording_artists"]:
             recording["artists"] = m["recording_artists"]
+        # Only present when asked for, and omitted when the recording has none,
+        # which is common: ISRC coverage in MusicBrainz is patchy.
+        if m.get("recording_isrcs"):
+            recording["isrcs"] = m["recording_isrcs"]
 
         return recording
 
@@ -527,6 +531,7 @@ class LookupHandler(APIHandler):
             recording_els.keys(),
             load_releases=load_releases,
             load_release_groups=load_release_groups,
+            load_isrcs="isrcs" in meta,
         )
         self.check_for_missing_recordings(recording_els.keys(), metadata)
         if "usermeta" in meta and not metadata:
@@ -759,7 +764,13 @@ class LookupHandler(APIHandler):
         self.el_result = result_map
         if "m2" in meta:
             self.inject_m2(meta)
-        elif "recordings" in meta or "recordingids" in meta:
+        elif "recordings" in meta or "recordingids" in meta or "isrcs" in meta:
+            # isrcs is a modifier on recordings, the way sources is, so the
+            # normal form is meta=recordings+isrcs. It is listed here as well so
+            # that meta=isrcs on its own returns recordings carrying their
+            # ISRCs, rather than the empty result a bare modifier would
+            # otherwise produce. Getting nothing back for a value the docs
+            # advertise is a support mail waiting to happen.
             self.inject_recordings(meta)
         elif "releasegroups" in meta or "releasegroupids" in meta:
             self.inject_release_groups(meta)

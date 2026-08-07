@@ -110,7 +110,7 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 	<tr>
 		<td>meta</td>
 		<td>no</td>
-		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources</td>
+		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources, isrcs</td>
 		<td>returned metadata</td>
 	</tr>
 </table>
@@ -216,7 +216,7 @@ wich is a cluster of fingerprints.
 	<tr>
 		<td>meta</td>
 		<td>no</td>
-		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources</td>
+		<td>recordings, recordingids, releases, releaseids, releasegroups, releasegroupids, tracks, compress, usermeta, sources, isrcs</td>
 		<td>returned metadata</td>
 	</tr>
 </table>
