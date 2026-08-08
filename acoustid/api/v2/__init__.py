@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import contextvars
+import hmac
 import json
 import logging
 import operator
@@ -179,6 +180,26 @@ class APIHandler(Handler):
             f"api.rate_limit_exceeded_total,bucket={bucket},app={application_id}"
         )
 
+    def _is_cluster_request(self, req: Request) -> bool:
+        """Whether the caller authenticated itself with the cluster secret.
+
+        Such a caller is our own infrastructure, not a client, and the per-IP
+        limit measures the wrong thing for it: acoustid.biz syncs every API key
+        from a single address, so at the 4/s default it was refused about half
+        of every hourly run and the failures were invisible until the client
+        started checking responses.
+        """
+        secret = self.ctx.config.cluster.secret
+        given = req.values.get("secret")
+        if not secret or not given:
+            return False
+        # Compared as bytes: compare_digest rejects a str containing anything
+        # outside ASCII, and the secret arrives from the query string where a
+        # caller can put whatever it likes.
+        return hmac.compare_digest(
+            given.encode("utf-8", "replace"), secret.encode("utf-8", "replace")
+        )
+
     def _rate_limit(self, user_ip, application_id):
         # type: (str, Optional[int]) -> None
 
@@ -239,7 +260,8 @@ class APIHandler(Handler):
                                 application_id, request_type
                             )
                         )
-                    self._rate_limit(self.user_ip, application_id)
+                    if not self._is_cluster_request(req):
+                        self._rate_limit(self.user_ip, application_id)
                     return self._ok(self._handle_internal(params), params.format)
                 except errors.WebServiceError:
                     raise
