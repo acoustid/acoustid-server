@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import contextvars
+import hmac
 import json
 import logging
 import operator
@@ -179,6 +180,42 @@ class APIHandler(Handler):
             f"api.rate_limit_exceeded_total,bucket={bucket},app={application_id}"
         )
 
+    def _is_cluster_request(self, req: Request) -> bool:
+        """Whether the caller authenticated itself with the cluster secret.
+
+        Such a caller is our own infrastructure, not a client. What prompted
+        this was the per-IP bucket: acoustid.biz syncs every API key from a
+        single address, so at the 4/s default about half of every hourly run
+        was refused, invisibly, until the client started checking responses.
+
+        The caller skips ALL THREE buckets, not just the per-IP one, and that
+        is deliberate rather than an oversight:
+
+        - The `app` bucket is keyed by params.application_id, which on a public
+          handler is the CALLER's application and on an internal one is the
+          application being administered. Charging an admin request to the
+          target's own bucket means a request to disable a busy application is
+          refused because that application is busy -- backwards.
+        - The `global` bucket is what protects the service from public load. A
+          control-plane operation that fails because customers are busy is the
+          failure mode you least want, and RateLimiter.limit() increments
+          before it checks, so merely evaluating it would spend a paying
+          application's budget on our own bookkeeping.
+
+        Anyone holding this secret can already call every /v2/internal handler,
+        so nothing is granted here that was not granted already.
+        """
+        secret = self.ctx.config.cluster.secret
+        given = req.values.get("secret")
+        if not secret or not given:
+            return False
+        # Compared as bytes: compare_digest rejects a str containing anything
+        # outside ASCII, and the secret arrives from the query string where a
+        # caller can put whatever it likes.
+        return hmac.compare_digest(
+            given.encode("utf-8", "replace"), secret.encode("utf-8", "replace")
+        )
+
     def _rate_limit(self, user_ip, application_id):
         # type: (str, Optional[int]) -> None
 
@@ -239,7 +276,8 @@ class APIHandler(Handler):
                                 application_id, request_type
                             )
                         )
-                    self._rate_limit(self.user_ip, application_id)
+                    if not self._is_cluster_request(req):
+                        self._rate_limit(self.user_ip, application_id)
                     return self._ok(self._handle_internal(params), params.format)
                 except errors.WebServiceError:
                     raise

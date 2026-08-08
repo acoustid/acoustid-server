@@ -3,7 +3,8 @@
 
 import json
 import unittest
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from unittest import mock
 from uuid import UUID
 
 from werkzeug.datastructures import MultiDict
@@ -761,3 +762,111 @@ def test_user_lookup_handler_missing(ctx):
     data = json.loads(resp.data)
     assert "error" == data["status"]
     assert 6 == data["error"]["code"]
+
+
+def _cluster_secret_request(secret):
+    # type: (Optional[str]) -> Request
+    values = {"format": "json"}
+    if secret is not None:
+        values["secret"] = secret
+    builder = EnvironBuilder(method="POST", data=values)
+    return Request(builder.get_environ())
+
+
+@with_script_context
+def test_is_cluster_request_accepts_the_configured_secret(ctx):
+    # type: (ScriptContext) -> None
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = APIHandler(ctx)
+    assert handler._is_cluster_request(_cluster_secret_request("s3cr3t")) is True
+
+
+@with_script_context
+def test_is_cluster_request_rejects_a_wrong_or_missing_secret(ctx):
+    # type: (ScriptContext) -> None
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = APIHandler(ctx)
+    assert handler._is_cluster_request(_cluster_secret_request("wrong")) is False
+    assert handler._is_cluster_request(_cluster_secret_request(None)) is False
+    assert handler._is_cluster_request(_cluster_secret_request("")) is False
+
+
+@with_script_context
+def test_is_cluster_request_is_false_when_no_secret_is_configured(ctx):
+    # type: (ScriptContext) -> None
+    """Otherwise an unconfigured deployment would let anyone sending an empty
+    secret past the rate limiter."""
+    ctx.config.cluster.secret = None
+    handler = APIHandler(ctx)
+    assert handler._is_cluster_request(_cluster_secret_request(None)) is False
+    assert handler._is_cluster_request(_cluster_secret_request("")) is False
+    assert handler._is_cluster_request(_cluster_secret_request("anything")) is False
+
+
+@with_script_context
+def test_is_cluster_request_survives_a_non_ascii_secret(ctx):
+    # type: (ScriptContext) -> None
+    """compare_digest raises TypeError on a str with anything outside ASCII,
+    and the value comes straight from the request."""
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = APIHandler(ctx)
+    assert handler._is_cluster_request(_cluster_secret_request("s3cr3té")) is False
+
+
+@with_script_context
+def test_cluster_requests_skip_the_rate_limiter(ctx):
+    # type: (ScriptContext) -> None
+    ctx.config.cluster.secret = "s3cr3t"
+
+    class RateLimitedHandler(APIHandler):
+        params_class = APIHandlerParams
+
+        def _handle_internal(self, params):
+            return {}
+
+    handler = RateLimitedHandler(ctx)
+    calls = []
+    handler._rate_limit = lambda *args: calls.append(args)  # type: ignore[assignment]
+
+    resp = handler.handle(_cluster_secret_request("s3cr3t"))
+    assert "200 OK" == resp.status
+    assert [] == calls
+
+    resp = handler.handle(_cluster_secret_request("wrong"))
+    assert "200 OK" == resp.status
+    assert 1 == len(calls)
+
+
+@with_script_context
+def test_cluster_requests_touch_no_bucket_at_all(ctx):
+    # type: (ScriptContext) -> None
+    """Not just the IP bucket. The app bucket is keyed by the application being
+    administered, so charging an admin request to it would refuse a request to
+    disable a busy application because that application is busy; and limit()
+    increments before it checks, so merely evaluating the global bucket would
+    spend a paying application's budget on our own bookkeeping."""
+    ctx.config.cluster.secret = "s3cr3t"
+    buckets = []
+
+    class RecordingRateLimiter:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def limit(self, bucket, key, rate):
+            buckets.append(bucket)
+            return False
+
+    class RateLimitedHandler(APIHandler):
+        params_class = APIHandlerParams
+
+        def _handle_internal(self, params):
+            return {}
+
+    with mock.patch("acoustid.api.v2.RateLimiter", RecordingRateLimiter):
+        handler = RateLimitedHandler(ctx)
+        assert "200 OK" == handler.handle(_cluster_secret_request("s3cr3t")).status
+        assert [] == buckets
+
+        assert "200 OK" == handler.handle(_cluster_secret_request("wrong")).status
+        assert "global" in buckets
+        assert "ip" in buckets
