@@ -4,6 +4,7 @@
 import json
 import unittest
 from typing import Any, Dict, Optional
+from unittest import mock
 from uuid import UUID
 
 from werkzeug.datastructures import MultiDict
@@ -834,3 +835,38 @@ def test_cluster_requests_skip_the_rate_limiter(ctx):
     resp = handler.handle(_cluster_secret_request("wrong"))
     assert "200 OK" == resp.status
     assert 1 == len(calls)
+
+
+@with_script_context
+def test_cluster_requests_touch_no_bucket_at_all(ctx):
+    # type: (ScriptContext) -> None
+    """Not just the IP bucket. The app bucket is keyed by the application being
+    administered, so charging an admin request to it would refuse a request to
+    disable a busy application because that application is busy; and limit()
+    increments before it checks, so merely evaluating the global bucket would
+    spend a paying application's budget on our own bookkeeping."""
+    ctx.config.cluster.secret = "s3cr3t"
+    buckets = []
+
+    class RecordingRateLimiter:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def limit(self, bucket, key, rate):
+            buckets.append(bucket)
+            return False
+
+    class RateLimitedHandler(APIHandler):
+        params_class = APIHandlerParams
+
+        def _handle_internal(self, params):
+            return {}
+
+    with mock.patch("acoustid.api.v2.RateLimiter", RecordingRateLimiter):
+        handler = RateLimitedHandler(ctx)
+        assert "200 OK" == handler.handle(_cluster_secret_request("s3cr3t")).status
+        assert [] == buckets
+
+        assert "200 OK" == handler.handle(_cluster_secret_request("wrong")).status
+        assert "global" in buckets
+        assert "ip" in buckets

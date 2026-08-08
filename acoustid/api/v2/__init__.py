@@ -183,11 +183,27 @@ class APIHandler(Handler):
     def _is_cluster_request(self, req: Request) -> bool:
         """Whether the caller authenticated itself with the cluster secret.
 
-        Such a caller is our own infrastructure, not a client, and the per-IP
-        limit measures the wrong thing for it: acoustid.biz syncs every API key
-        from a single address, so at the 4/s default it was refused about half
-        of every hourly run and the failures were invisible until the client
-        started checking responses.
+        Such a caller is our own infrastructure, not a client. What prompted
+        this was the per-IP bucket: acoustid.biz syncs every API key from a
+        single address, so at the 4/s default about half of every hourly run
+        was refused, invisibly, until the client started checking responses.
+
+        The caller skips ALL THREE buckets, not just the per-IP one, and that
+        is deliberate rather than an oversight:
+
+        - The `app` bucket is keyed by params.application_id, which on a public
+          handler is the CALLER's application and on an internal one is the
+          application being administered. Charging an admin request to the
+          target's own bucket means a request to disable a busy application is
+          refused because that application is busy -- backwards.
+        - The `global` bucket is what protects the service from public load. A
+          control-plane operation that fails because customers are busy is the
+          failure mode you least want, and RateLimiter.limit() increments
+          before it checks, so merely evaluating it would spend a paying
+          application's budget on our own bookkeeping.
+
+        Anyone holding this secret can already call every /v2/internal handler,
+        so nothing is granted here that was not granted already.
         """
         secret = self.ctx.config.cluster.secret
         given = req.values.get("secret")
