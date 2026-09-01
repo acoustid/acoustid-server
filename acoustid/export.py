@@ -96,14 +96,16 @@ class ExportError(Exception):
 # predicates are in use: fingerprint and meta have no meaningful `updated`
 # column to filter on, the rest do. That difference is deliberate.
 #
-# track_mbid, track_puid and track_meta drop their `id`. Nothing in the
-# published data refers to it, and it is not stable: merging two tracks keeps
-# one row per distinct mbid/puid/meta_id and deletes the rest, so the row that
-# survives for a given pair can have a different id than the one a consumer
-# already holds. Publishing it invited people to key on it, which is what makes
-# a merge look like two rows for one pair (issue #108). The pairs themselves
-# are unique and are the real identity. `track.id`, `fingerprint.id` and
-# `meta.id` are referenced from the other files and stay.
+# The link files -- track_fingerprint, track_mbid, track_puid, track_meta --
+# publish no surrogate id. Nothing in the published data refers to one, and for
+# the three real tables it is not even stable: merging two tracks keeps one row
+# per distinct mbid/puid/meta_id and deletes the rest, so the row that survives
+# for a given pair can have a different id than the one a consumer already
+# holds. Publishing it invited people to key on it, which is what makes a merge
+# look like two rows for one pair (issue #108). The column pairs are unique and
+# are the real identity. `track.id`, `fingerprint.id` and `meta.id` are
+# referenced from the other files as track_id, fingerprint_id and meta_id, and
+# they stay.
 
 EXPORT_FINGERPRINT_UPDATE_QUERY = """
 SELECT id, fingerprint, length, created
@@ -126,10 +128,15 @@ WHERE
   (updated >= %(start)s AND updated < %(end)s)
 """
 
-# Yes, from fingerprint. The file is named after the track_fingerprint table
-# that this data used to live in; the column list is what consumers expect.
+# Yes, from fingerprint. The file is shaped like a track_fingerprint link table
+# that does not exist yet -- the columns are the link, not the fingerprint, and
+# the payload is deliberately absent. It used to publish the fingerprint id
+# twice, once as `id` and once as `fingerprint_id`; only the second name means
+# anything, and a link table would have had a surrogate id of its own that
+# nothing would refer to. `fingerprint_id` is unique on its own here, because a
+# fingerprint belongs to exactly one track.
 EXPORT_TRACK_FINGERPRINT_UPDATE_QUERY = """
-SELECT id, track_id, id AS fingerprint_id, submission_count, created, updated
+SELECT track_id, id AS fingerprint_id, submission_count, created, updated
 FROM fingerprint
 WHERE
   (created >= %(start)s AND created < %(end)s)

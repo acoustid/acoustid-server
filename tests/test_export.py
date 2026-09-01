@@ -372,22 +372,27 @@ def test_fingerprint_and_meta_filter_on_created_only(script: Script) -> None:
             201
         ]
         assert sorted(
-            row["id"] for row in read_export(directory, "track_fingerprint-update")
+            row["fingerprint_id"]
+            for row in read_export(directory, "track_fingerprint-update")
         ) == [201, 202]
         assert [row["id"] for row in read_export(directory, "meta-update")] == [301]
 
 
 @with_script
-def test_track_fingerprint_repeats_the_id_as_fingerprint_id(script: Script) -> None:
+def test_track_fingerprint_is_the_link_without_the_payload(script: Script) -> None:
+    """The file is shaped like a track_fingerprint table that does not exist
+    yet: the link columns, and none of the fingerprint itself."""
     insert_fixtures(script)
     with tempfile.TemporaryDirectory() as directory:
         run_export(script.db_engines["fingerprint:ro"], directory, max_days=1, now=NOW)
         rows = {
-            row["id"]: row for row in read_export(directory, "track_fingerprint-update")
+            row["fingerprint_id"]: row
+            for row in read_export(directory, "track_fingerprint-update")
         }
-        assert rows[201]["fingerprint_id"] == 201
         assert rows[201]["track_id"] == 101
+        assert rows[201]["submission_count"] == 1
         assert "fingerprint" not in rows[201]
+        assert "length" not in rows[201]
 
 
 @with_script
@@ -601,6 +606,7 @@ def test_link_tables_do_not_publish_their_surrogate_id(script: Script) -> None:
         )
 
         for name, natural_key in [
+            ("track_fingerprint-update", ("track_id", "fingerprint_id")),
             ("track_mbid-update", ("track_id", "mbid")),
             ("track_puid-update", ("track_id", "puid")),
             ("track_meta-update", ("track_id", "meta_id")),
@@ -632,6 +638,12 @@ def test_ids_referenced_from_other_files_are_still_published(script: Script) -> 
         meta_ids = {row["id"] for row in read_export(directory, "meta-update")}
         track_meta = read_export(directory, "track_meta-update")
         assert {row["meta_id"] for row in track_meta} <= meta_ids
+
+        fingerprint_ids = {
+            row["id"] for row in read_export(directory, "fingerprint-update")
+        }
+        track_fingerprint = read_export(directory, "track_fingerprint-update")
+        assert fingerprint_ids <= {row["fingerprint_id"] for row in track_fingerprint}
 
 
 def test_day_windows_are_utc_whatever_the_host_clock_says() -> None:
