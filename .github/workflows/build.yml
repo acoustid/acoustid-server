@@ -24,7 +24,7 @@ jobs:
     services:
 
       postgresql:
-        image: ghcr.io/acoustid/postgres:pg17.4-main-00c3a23
+        image: ghcr.io/acoustid/postgres:pg18.4-main-688e2ac
         ports:
           - 5432/tcp
         env:
