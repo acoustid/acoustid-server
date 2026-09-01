@@ -5,6 +5,7 @@ from typing import Optional
 import click
 
 from acoustid.cron import run_cron
+from acoustid.export import run_export
 from acoustid.future.fpindex.feed import DEFAULT_PORT, run_feed_app
 from acoustid.script import Script
 from acoustid.scripts.import_submissions import run_import
@@ -107,6 +108,52 @@ def run_script_cmd(name, config):
     func_name = "run_{}".format(name)
     func = getattr(mod, func_name)
     func(script, None, None)
+
+
+@cli.group()
+def data():
+    # type: () -> None
+    """Commands for working with the public data files."""
+
+
+@data.command("export")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option(
+    "-d",
+    "--directory",
+    help="Directory to write the export files into.",
+)
+@click.option(
+    "--max-days",
+    type=int,
+    help="How many past days to export. Only complete days are exported, so "
+    "this is a window ending at midnight today.",
+)
+def data_export_cmd(
+    config: str, directory: Optional[str], max_days: Optional[int]
+) -> None:
+    """Export the daily data files published at data.acoustid.org.
+
+    Runs are idempotent -- a file that is already there is left alone -- so
+    this is safe to run on a schedule, and re-running it with a larger
+    --max-days is how a gap in the published files gets backfilled.
+    """
+    script = Script(config)
+    script.setup_console_logging()
+    script.setup_sentry(component="export")
+
+    if directory is None:
+        directory = script.config.export.directory
+    if not directory:
+        raise click.UsageError(
+            "No export directory configured, use --directory or "
+            "ACOUSTID_EXPORT_DIRECTORY."
+        )
+    if max_days is None:
+        max_days = script.config.export.max_days
+
+    bind_key = script.config.databases.read_only_bind_key("fingerprint")
+    run_export(script.db_engines[bind_key], directory, max_days=max_days)
 
 
 @cli.command("shell")

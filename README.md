@@ -53,6 +53,33 @@ You can use the provided `docker-compose.yml` file to quickly set up a test envi
 
     docker-compose up -d
 
+Public data export
+------------------
+
+Writes the daily incremental files published at
+[data.acoustid.org](https://data.acoustid.org/) into a local directory:
+
+    python manage.py data export --directory /var/lib/acoustid/data-export
+
+The layout is `{YYYY}/{YYYY-MM}/{YYYY-MM-DD}-{table}.jsonl.gz`, gzipped JSON
+Lines with null fields removed, seven files per day. Only complete days are
+exported, so the newest file is always for yesterday.
+
+Runs walk backwards from midnight today and skip files that already exist, so
+running this hourly is safe and re-running it with a larger window is how a gap
+gets backfilled:
+
+    python manage.py data export --max-days 45
+
+The default window is 30 days. The directory can also come from `[export]
+directory` in `acoustid.conf` or from `ACOUSTID_EXPORT_DIRECTORY`.
+
+Getting the files from that directory to the bucket that serves
+data.acoustid.org is a separate step. **That sync must be additive.** The
+export directory only ever holds the last `--max-days` of files, while the
+bucket holds every file back to 2011, so an `rsync --delete` out of it would
+delete the archive.
+
 Database migrations
 -------------------
 
