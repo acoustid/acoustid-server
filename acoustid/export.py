@@ -91,10 +91,19 @@ class ExportError(Exception):
     pass
 
 
-# The queries below are copied verbatim from pkg/export/queries.go, with the Go
-# template placeholders replaced by psycopg2 ones. Note that two different delta
+# The queries below come from pkg/export/queries.go, with the Go template
+# placeholders replaced by psycopg2 ones. Note that two different delta
 # predicates are in use: fingerprint and meta have no meaningful `updated`
 # column to filter on, the rest do. That difference is deliberate.
+#
+# track_mbid, track_puid and track_meta drop their `id`. Nothing in the
+# published data refers to it, and it is not stable: merging two tracks keeps
+# one row per distinct mbid/puid/meta_id and deletes the rest, so the row that
+# survives for a given pair can have a different id than the one a consumer
+# already holds. Publishing it invited people to key on it, which is what makes
+# a merge look like two rows for one pair (issue #108). The pairs themselves
+# are unique and are the real identity. `track.id`, `fingerprint.id` and
+# `meta.id` are referenced from the other files and stay.
 
 EXPORT_FINGERPRINT_UPDATE_QUERY = """
 SELECT id, fingerprint, length, created
@@ -129,7 +138,7 @@ WHERE
 """
 
 EXPORT_TRACK_MBID_UPDATE_QUERY = """
-SELECT id, track_id, mbid, submission_count, nullif(disabled, false) AS disabled, created, updated
+SELECT track_id, mbid, submission_count, nullif(disabled, false) AS disabled, created, updated
 FROM track_mbid
 WHERE
   (created >= %(start)s AND created < %(end)s)
@@ -138,7 +147,7 @@ WHERE
 """
 
 EXPORT_TRACK_PUID_UPDATE_QUERY = """
-SELECT id, track_id, puid, submission_count, created, updated
+SELECT track_id, puid, submission_count, created, updated
 FROM track_puid
 WHERE
   (created >= %(start)s AND created < %(end)s)
@@ -147,7 +156,7 @@ WHERE
 """
 
 EXPORT_TRACK_META_UPDATE_QUERY = """
-SELECT id, track_id, meta_id, submission_count, created, updated
+SELECT track_id, meta_id, submission_count, created, updated
 FROM track_meta
 WHERE
   (created >= %(start)s AND created < %(end)s)

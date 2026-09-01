@@ -347,12 +347,14 @@ def test_exports_all_seven_files_for_a_complete_day(script: Script) -> None:
             101,
             102,
         ]
-        assert [row["id"] for row in read_export(directory, "track_puid-update")] == [
-            501
-        ]
-        assert [row["id"] for row in read_export(directory, "track_meta-update")] == [
-            601
-        ]
+        assert [
+            (row["track_id"], row["puid"])
+            for row in read_export(directory, "track_puid-update")
+        ] == [(101, "c81f83ee-4da4-11e0-9ed8-002522535601")]
+        assert [
+            (row["track_id"], row["meta_id"])
+            for row in read_export(directory, "track_meta-update")
+        ] == [(101, 301)]
 
 
 @with_script
@@ -410,9 +412,9 @@ def test_disabled_is_only_present_when_true(script: Script) -> None:
     insert_fixtures(script)
     with tempfile.TemporaryDirectory() as directory:
         run_export(script.db_engines["fingerprint:ro"], directory, max_days=1, now=NOW)
-        rows = {row["id"]: row for row in read_export(directory, "track_mbid-update")}
-        assert "disabled" not in rows[401]
-        assert rows[402]["disabled"] is True
+        rows = {row["mbid"]: row for row in read_export(directory, "track_mbid-update")}
+        assert "disabled" not in rows["b81f83ee-4da4-11e0-9ed8-002522535601"]
+        assert rows["b81f83ee-4da4-11e0-9ed8-002522535602"]["disabled"] is True
 
 
 @with_script
@@ -582,3 +584,51 @@ def test_export_refuses_to_run_without_pg_read_all_stats(script: Script) -> None
         finally:
             db.exec_driver_sql("RESET ROLE")
             db.exec_driver_sql("DROP ROLE IF EXISTS acoustid_export_test_role")
+
+
+@with_script
+def test_link_tables_do_not_publish_their_surrogate_id(script: Script) -> None:
+    """Nothing in the published data refers to it, and a merge can change which
+    id a given pair has, so publishing it only invites consumers to key on
+    something unstable."""
+    insert_fixtures(script)
+    with tempfile.TemporaryDirectory() as directory:
+        run_export(
+            script.db_engines[read_only_bind_key(script)],
+            directory,
+            max_days=1,
+            now=NOW,
+        )
+
+        for name, natural_key in [
+            ("track_mbid-update", ("track_id", "mbid")),
+            ("track_puid-update", ("track_id", "puid")),
+            ("track_meta-update", ("track_id", "meta_id")),
+        ]:
+            rows = read_export(directory, name)
+            assert rows, name
+            for row in rows:
+                assert "id" not in row, name
+                for column in natural_key:
+                    assert column in row, (name, column)
+
+
+@with_script
+def test_ids_referenced_from_other_files_are_still_published(script: Script) -> None:
+    """track.id, fingerprint.id and meta.id are join keys for the other files."""
+    insert_fixtures(script)
+    with tempfile.TemporaryDirectory() as directory:
+        run_export(
+            script.db_engines[read_only_bind_key(script)],
+            directory,
+            max_days=1,
+            now=NOW,
+        )
+
+        assert all("id" in row for row in read_export(directory, "track-update"))
+        assert all("id" in row for row in read_export(directory, "fingerprint-update"))
+        assert all("id" in row for row in read_export(directory, "meta-update"))
+
+        meta_ids = {row["id"] for row in read_export(directory, "meta-update")}
+        track_meta = read_export(directory, "track_meta-update")
+        assert {row["meta_id"] for row in track_meta} <= meta_ids
