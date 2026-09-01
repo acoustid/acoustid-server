@@ -27,6 +27,7 @@ import os
 import random
 from typing import Any, Iterator, List, NamedTuple, Optional, Protocol, Union
 
+from sqlalchemy import sql
 from sqlalchemy.engine import Connection, Engine
 
 from acoustid.const import EXPORT_MAX_DAYS
@@ -40,6 +41,54 @@ GZIP_COMPRESS_LEVEL = 6
 BUFFER_SIZE = 16 * 1024
 
 FILE_NAME_SUFFIX = ".jsonl.gz"
+
+# How long after a day ends before it is even considered for export. The
+# horizon check below is what actually makes a day safe to export; this is
+# there so that the first run after midnight is not routinely the one that
+# finds a transaction still open, and so there is room for a read replica to
+# catch up. Not configurable on purpose -- a value that has to be guessed per
+# deployment is a value that will be guessed wrong.
+SETTLE_DELAY = datetime.timedelta(hours=1)
+
+# `created` and `updated` are current_timestamp, which is transaction START
+# time, but a row only becomes visible when its transaction commits. So a day
+# is only final once every transaction that began before the day ended has
+# finished: until then one of them can still commit a row stamped inside that
+# day, and the day file would be short by exactly those rows -- permanently,
+# because a file that exists is never regenerated.
+#
+# Autovacuum is excluded because it runs long on tables this size and cannot
+# introduce a row with a past `created`. Prepared transactions are included
+# because two-phase commit is configurable here and they do not show up in
+# pg_stat_activity. Other databases in the cluster are excluded because they
+# cannot write these tables.
+WRITE_HORIZON_QUERY = """
+SELECT coalesce(
+    least(
+        (SELECT min(xact_start) FROM pg_stat_activity
+          WHERE xact_start IS NOT NULL
+            AND datname = current_database()
+            AND pid <> pg_backend_pid()
+            AND backend_type <> 'autovacuum worker'),
+        (SELECT min(prepared) FROM pg_prepared_xacts
+          WHERE database = current_database())
+    ),
+    clock_timestamp()
+)
+"""
+
+# Without pg_read_all_stats, pg_stat_activity reports NULL xact_start for
+# backends owned by other roles, so the horizon query would silently see only
+# this session and every day would look settled. That failure looks exactly
+# like success, which is why it is checked up front rather than left to be
+# noticed in the output.
+STATS_PRIVILEGE_QUERY = """
+SELECT pg_has_role(current_user, 'pg_read_all_stats', 'USAGE')
+"""
+
+
+class ExportError(Exception):
+    pass
 
 
 # The queries below are copied verbatim from pkg/export/queries.go, with the Go
@@ -218,9 +267,39 @@ class Exporter(object):
     def run(self, now: Optional[datetime.datetime] = None) -> None:
         if now is None:
             now = datetime.datetime.now().astimezone()
+
+        # Taken once, before any exporting. The real horizon only moves
+        # forward while the run works through the days, so a value read at the
+        # start can only hold a day back that had in fact become safe -- never
+        # release one that has not.
+        horizon = min(self.get_write_horizon(), now - SETTLE_DELAY)
+
+        held_back = []
         for start, end in iter_days(now, self.max_days):
+            if end > horizon:
+                held_back.append(start.date())
+                continue
             for table in self.tables:
                 self.export_delta_file(table, start, end)
+
+        if held_back:
+            # One day held back is the normal state shortly after midnight.
+            # More than that means something is sitting on an open transaction,
+            # and it needs to be noticed well before those days fall out of the
+            # max_days window, because at that point they are lost for good.
+            logger.info(
+                "Holding back %d day(s) from %s onwards, nothing written for "
+                "them: cutoff is %s",
+                len(held_back),
+                min(held_back),
+                horizon,
+            )
+
+    def get_write_horizon(self) -> datetime.datetime:
+        """The time before which no transaction is still able to write."""
+        horizon = self.db.execute(sql.text(WRITE_HORIZON_QUERY)).scalar_one()
+        assert isinstance(horizon, datetime.datetime)
+        return horizon
 
     def export_delta_file(
         self, table: ExportTable, start: datetime.datetime, end: datetime.datetime
@@ -312,6 +391,18 @@ class Exporter(object):
             logger.exception("Failed to delete temporary file %s", path)
 
 
+def check_stats_privilege(db: Connection) -> None:
+    if not db.execute(sql.text(STATS_PRIVILEGE_QUERY)).scalar_one():
+        raise ExportError(
+            "The export needs to see when the oldest running transaction "
+            "started, and without pg_read_all_stats it would see only its own "
+            "session and treat every day as settled. Run: GRANT "
+            "pg_read_all_stats TO {}.".format(
+                db.execute(sql.text("SELECT current_user")).scalar_one()
+            )
+        )
+
+
 def run_export(
     engine: Engine,
     directory: str,
@@ -325,4 +416,5 @@ def run_export(
         # COPY encodes its output in the client encoding, and the files are
         # published as UTF-8 whatever the client happens to default to.
         db.exec_driver_sql("SET client_encoding TO 'UTF8'")
+        check_stats_privilege(db)
         Exporter(db, directory, max_days=max_days).run(now=now)

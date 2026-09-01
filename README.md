@@ -65,6 +65,22 @@ The layout is `{YYYY}/{YYYY-MM}/{YYYY-MM-DD}-{table}.jsonl.gz`, gzipped JSON
 Lines with null fields removed, seven files per day. Only complete days are
 exported, so the newest file is always for yesterday.
 
+A day is exported an hour after it ends at the earliest, and only once no
+transaction that started before the day ended is still running. `created` and
+`updated` are transaction start time but a row only becomes visible at commit,
+so a transaction straddling midnight would otherwise leave the file short by
+exactly its rows -- permanently, since a file that exists is never regenerated.
+A day that is not ready yet is skipped without writing anything and picked up
+by a later run.
+
+Reading that requires the export user to be able to see other sessions:
+
+    GRANT pg_read_all_stats TO acoustid;
+
+Without it `pg_stat_activity` reports NULL for other sessions and every day
+would look settled, so the command refuses to start rather than exporting on
+the strength of a check that cannot fail.
+
 Runs walk backwards from midnight today and skip files that already exist, so
 running this hourly is safe and re-running it with a larger window is how a gap
 gets backfilled:

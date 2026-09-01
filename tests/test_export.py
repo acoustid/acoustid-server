@@ -11,13 +11,17 @@ from typing import Callable, List, Optional
 import pytest
 from sqlalchemy import sql
 
+from acoustid import export as export_module
 from acoustid.config import DatabaseConfig, DatabasesConfig
 from acoustid.export import (
+    SETTLE_DELAY,
     TABLES,
     Exporter,
+    ExportError,
     ExportTable,
     SupportsWrite,
     build_copy_statement,
+    check_stats_privilege,
     file_name_for,
     iter_days,
     relative_path_for,
@@ -52,6 +56,12 @@ class FakeExporter(Exporter):
         self.payload = b'{"id":1}\n'
         self.fail_with: Optional[Exception] = None
         self.check_while_writing: Optional[Callable[[], None]] = None
+        # Far enough ahead that only the settle delay applies, unless a
+        # test moves it.
+        self.horizon = datetime.datetime(2100, 1, 1, tzinfo=UTC)
+
+    def get_write_horizon(self) -> datetime.datetime:
+        return self.horizon
 
     def copy_query_to_file(self, fileobj, query, start, end):
         # type: (SupportsWrite, str, datetime.datetime, datetime.datetime) -> None
@@ -455,3 +465,120 @@ def test_read_only_bind_key_falls_back_when_no_replica_is_configured() -> None:
     config.databases["fingerprint"].name = "acoustid_fingerprint"
     assert config.databases["fingerprint:ro"] == DatabaseConfig()
     assert config.read_only_bind_key("fingerprint") == "fingerprint"
+
+
+def day_directory(directory: str) -> str:
+    return os.path.join(directory, "2026", "2026-07")
+
+
+def test_day_is_held_back_while_an_older_transaction_is_open() -> None:
+    """A transaction that started before the day ended can still commit a row
+    stamped inside it, and the file would be short by exactly those rows."""
+    with tempfile.TemporaryDirectory() as directory:
+        exporter = FakeExporter(directory, max_days=1, tables=one_table())
+        exporter.horizon = in_day(23, DAY)  # an hour before the day ended
+        exporter.run(now=NOW)
+
+        assert exporter.exported == []
+        assert not os.path.exists(day_directory(directory))
+
+
+def test_a_held_back_day_is_only_delayed_not_lost() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        first = FakeExporter(directory, max_days=1, tables=one_table())
+        first.horizon = in_day(23, DAY)
+        first.run(now=NOW)
+        assert first.exported == []
+
+        second = FakeExporter(directory, max_days=1, tables=one_table())
+        second.run(now=NOW + datetime.timedelta(hours=1))
+
+        assert len(second.exported) == 1
+        assert os.path.exists(
+            os.path.join(directory, relative_path_for(DAY, "track-update"))
+        )
+
+
+def test_only_the_days_the_horizon_has_not_reached_are_held_back() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        exporter = FakeExporter(directory, max_days=3, tables=one_table())
+        # Settled through the end of 2026-07-26, still open inside 2026-07-27.
+        exporter.horizon = in_day(4, DAY)
+        exporter.run(now=NOW)
+
+        assert sorted(os.listdir(day_directory(directory))) == [
+            "2026-07-25-track-update.jsonl.gz",
+            "2026-07-26-track-update.jsonl.gz",
+        ]
+
+
+def test_settle_delay_holds_back_a_day_that_has_only_just_ended() -> None:
+    """The horizon check is what makes a day safe; this is so the first run
+    after midnight is not routinely the one that finds a transaction open."""
+    with tempfile.TemporaryDirectory() as directory:
+        exporter = FakeExporter(directory, max_days=1, tables=one_table())
+        just_after_midnight = in_day(0, DAY + datetime.timedelta(days=1))
+        exporter.run(now=just_after_midnight + datetime.timedelta(minutes=30))
+        assert exporter.exported == []
+
+        later = FakeExporter(directory, max_days=1, tables=one_table())
+        later.run(now=just_after_midnight + SETTLE_DELAY)
+        assert len(later.exported) == 1
+
+
+@with_script
+def test_write_horizon_sees_a_transaction_held_by_another_session(
+    script: Script,
+) -> None:
+    engine = script.db_engines[read_only_bind_key(script)]
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as db:
+        exporter = Exporter(db, "/nonexistent")
+
+        before = db.execute(sql.text("SELECT clock_timestamp()")).scalar_one()
+        # Nothing older may already be holding the horizon down, or the rest of
+        # the test would be measuring that instead.
+        assert exporter.get_write_horizon() >= before
+
+        with engine.connect() as other:
+            other.execute(sql.text("SELECT 1"))
+            other_start = other.execute(
+                sql.text(
+                    "SELECT xact_start FROM pg_stat_activity "
+                    "WHERE pid = pg_backend_pid()"
+                )
+            ).scalar_one()
+            assert exporter.get_write_horizon() <= other_start
+
+        assert exporter.get_write_horizon() > other_start
+
+
+@with_script
+def test_write_horizon_is_not_held_back_by_autovacuum(script: Script) -> None:
+    """Vacuum runs long on tables this size and cannot introduce a row with a
+    past created, so it must not stall the feed."""
+    engine = script.db_engines[read_only_bind_key(script)]
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as db:
+        assert (
+            "backend_type <> 'autovacuum worker'" in export_module.WRITE_HORIZON_QUERY
+        )
+        horizon = Exporter(db, "/nonexistent").get_write_horizon()
+        assert horizon.tzinfo is not None
+
+
+@with_script
+def test_export_refuses_to_run_without_pg_read_all_stats(script: Script) -> None:
+    """Without it pg_stat_activity hides other sessions' xact_start, so the
+    horizon query would see only this session and call every day settled."""
+    engine = script.db_engines[read_only_bind_key(script)]
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as db:
+        check_stats_privilege(db)  # the test user is a superuser
+
+        db.exec_driver_sql("DROP ROLE IF EXISTS acoustid_export_test_role")
+        db.exec_driver_sql("CREATE ROLE acoustid_export_test_role")
+        try:
+            db.exec_driver_sql("SET ROLE acoustid_export_test_role")
+            with pytest.raises(ExportError, match="pg_read_all_stats"):
+                check_stats_privilege(db)
+        finally:
+            db.exec_driver_sql("RESET ROLE")
+            db.exec_driver_sql("DROP ROLE IF EXISTS acoustid_export_test_role")
