@@ -632,3 +632,30 @@ def test_ids_referenced_from_other_files_are_still_published(script: Script) -> 
         meta_ids = {row["id"] for row in read_export(directory, "meta-update")}
         track_meta = read_export(directory, "track_meta-update")
         assert {row["meta_id"] for row in track_meta} <= meta_ids
+
+
+def test_day_windows_are_utc_whatever_the_host_clock_says() -> None:
+    """The published files are UTC days. A host on another zone must not write
+    differently bounded data under the same file names."""
+    east_of_utc = datetime.timezone(datetime.timedelta(hours=2))
+    # 2026-07-28 01:00 +02:00 is still 2026-07-27 in UTC.
+    now = datetime.datetime(2026, 7, 28, 1, 0, tzinfo=east_of_utc)
+    assert now.date() != now.astimezone(UTC).date()
+
+    assert list(iter_days(now, 1)) == [
+        (
+            datetime.datetime(2026, 7, 26, tzinfo=UTC),
+            datetime.datetime(2026, 7, 27, tzinfo=UTC),
+        )
+    ]
+
+
+def test_file_is_named_for_the_utc_day_not_the_local_one() -> None:
+    east_of_utc = datetime.timezone(datetime.timedelta(hours=2))
+    now = datetime.datetime(2026, 7, 28, 1, 0, tzinfo=east_of_utc)
+    with tempfile.TemporaryDirectory() as directory:
+        exporter = FakeExporter(directory, max_days=1, tables=one_table())
+        exporter.run(now=now)
+        assert os.listdir(day_directory(directory)) == [
+            "2026-07-26-track-update.jsonl.gz"
+        ]

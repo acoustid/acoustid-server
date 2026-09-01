@@ -220,18 +220,28 @@ def relative_path_for(day: datetime.date, name: str) -> str:
 def iter_days(
     now: datetime.datetime, max_days: int
 ) -> Iterator[tuple[datetime.datetime, datetime.datetime]]:
-    """Yield ``(start, end)`` day windows, most recent first.
+    """Yield ``(start, end)`` day windows in UTC, most recent first.
 
     The first window ends at midnight today, so the day in progress is never
     exported and a file only appears once its day is over and final.
+
+    The days are UTC days because that is what the published files are: every
+    row in 2026-07-27-meta-update falls between 00:00:20Z and 23:59:49Z. That
+    held only because the job happened to run with TZ unset, and a host on
+    another zone would have written differently bounded data under the same
+    file names -- which the existence check would then keep forever.
     """
+    now = now.astimezone(datetime.timezone.utc)
     end_date = now.date()
-    tz = now.tzinfo
     for _ in range(max_days):
         start_date = end_date - datetime.timedelta(days=1)
         yield (
-            datetime.datetime.combine(start_date, datetime.time.min, tzinfo=tz),
-            datetime.datetime.combine(end_date, datetime.time.min, tzinfo=tz),
+            datetime.datetime.combine(
+                start_date, datetime.time.min, tzinfo=datetime.timezone.utc
+            ),
+            datetime.datetime.combine(
+                end_date, datetime.time.min, tzinfo=datetime.timezone.utc
+            ),
         )
         end_date = start_date
 
@@ -275,7 +285,7 @@ class Exporter(object):
 
     def run(self, now: Optional[datetime.datetime] = None) -> None:
         if now is None:
-            now = datetime.datetime.now().astimezone()
+            now = datetime.datetime.now(datetime.timezone.utc)
 
         # Taken once, before any exporting. The real horizon only moves
         # forward while the run works through the days, so a value read at the
