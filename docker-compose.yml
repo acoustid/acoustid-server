@@ -13,7 +13,7 @@ services:
     image: redis
 
   postgres:
-    image: ghcr.io/acoustid/postgres:pg17.4-main-00c3a23
+    image: ghcr.io/acoustid/postgres:pg18.4-main-688e2ac
     command:
       - "-c"
       - "wal_level=logical"
