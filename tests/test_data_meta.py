@@ -3,7 +3,9 @@
 
 import uuid
 
+import pytest
 from sqlalchemy import sql
+from sqlalchemy.exc import IntegrityError
 
 from acoustid.data.meta import fix_meta, generate_meta_gid, insert_meta
 from acoustid.script import ScriptContext
@@ -69,3 +71,29 @@ def test_insert_meta(ctx: ScriptContext) -> None:
     assert row["created"] is not None
     del row["created"]
     assert expected == row
+
+
+@with_script_context
+def test_meta_created_rejects_null(ctx: ScriptContext) -> None:
+    """A NULL created is invisible to the public data export, which selects on
+    day windows of `created` and so matches no window at all. Rows written that
+    way were never published and there is no `updated` column for them to
+    reappear under."""
+    fingerprint_db = ctx.db.get_fingerprint_db()
+    with pytest.raises(IntegrityError):
+        fingerprint_db.execute(
+            sql.text("INSERT INTO meta (id, track, created) VALUES (:id, 'x', NULL)"),
+            {"id": 9001},
+        )
+
+
+@with_script_context
+def test_meta_created_defaults_to_now(ctx: ScriptContext) -> None:
+    """Both insert paths set it explicitly; the default is so that a writer
+    that forgets cannot reintroduce the rows the constraint just removed."""
+    fingerprint_db = ctx.db.get_fingerprint_db()
+    created = fingerprint_db.execute(
+        sql.text("INSERT INTO meta (id, track) VALUES (:id, 'x') RETURNING created"),
+        {"id": 9002},
+    ).scalar_one()
+    assert created is not None
