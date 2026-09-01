@@ -7,6 +7,11 @@ import click
 from acoustid.cron import run_cron
 from acoustid.future.fpindex.feed import DEFAULT_PORT, run_feed_app
 from acoustid.script import Script
+from acoustid.scripts.dedup_meta import (
+    DEFAULT_CHUNK_SIZE,
+    PHASES,
+    dedup_meta,
+)
 from acoustid.scripts.import_submissions import run_import
 from acoustid.worker import run_worker
 from acoustid.wsgi_utils import run_api_app, run_web_app
@@ -107,6 +112,34 @@ def run_script_cmd(name, config):
     func_name = "run_{}".format(name)
     func = getattr(mod, func_name)
     func(script, None, None)
+
+
+@run.command("dedup-meta")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option(
+    "--phase",
+    "phases",
+    multiple=True,
+    type=click.Choice(PHASES),
+    help="Run only these phases, in order. Defaults to all of them.",
+)
+@click.option("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
+@click.option(
+    "--reset",
+    is_flag=True,
+    help="Discard the plan and the progress and decide again from scratch.",
+)
+def run_dedup_meta_cmd(
+    config: str, phases: tuple[str, ...], chunk_size: int, reset: bool
+) -> None:
+    """Collapse duplicate meta rows, using a prepared tmp_meta_gid table.
+
+    Phases are ordered and resumable: every statement is idempotent, so a run
+    that fails partway is continued by running it again.
+    """
+    script = Script(config)
+    script.setup_console_logging(verbose=True)
+    dedup_meta(script, phases=phases or PHASES, chunk_size=chunk_size, reset=reset)
 
 
 @cli.command("shell")
