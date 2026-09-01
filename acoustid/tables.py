@@ -284,8 +284,12 @@ meta = Table(
     Column("track_no", Integer),
     Column("disc_no", Integer),
     Column("year", Integer),
-    # Column('created', DateTime(timezone=True), server_default=sql.func.current_timestamp(), nullable=False),
-    Column("created", DateTime(timezone=True)),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.func.current_timestamp(),
+        nullable=False,
+    ),
     Column("gid", UUID(as_uuid=True), unique=True, index=True),
     info={"bind_key": "fingerprint"},
 )
