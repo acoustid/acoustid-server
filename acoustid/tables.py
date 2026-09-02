@@ -290,15 +290,17 @@ meta = Table(
         server_default=sql.func.current_timestamp(),
         nullable=False,
     ),
-    Column("gid", UUID(as_uuid=True), unique=True, index=True),
+    Column("gid", UUID(as_uuid=True)),
+    Index("meta_created_idx", "created"),
+    Index("meta_idx_gid", "gid", unique=True),
     info={"bind_key": "fingerprint"},
 )
 
 meta_id_history = Table(
     "meta_id_history",
     metadata,
-    Column("id", Integer, primary_key=True),
-    Column("gid", UUID(as_uuid=True), index=True),
+    Column("id", Integer, primary_key=True, autoincrement=False),
+    Column("gid", UUID(as_uuid=True), nullable=False),
     info={"bind_key": "fingerprint"},
 )
 
