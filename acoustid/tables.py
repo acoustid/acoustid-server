@@ -766,14 +766,6 @@ track_foreignid_source = Table(
     info={"bind_key": "ingest"},
 )
 
-meta_gid_backfill_status = Table(
-    "meta_gid_backfill_status",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("last_meta_id", Integer, nullable=False),
-    info={"bind_key": "fingerprint"},
-)
-
 import mbdata.models  # noqa: E402
 
 mb_area = mbdata.models.Area.__table__
