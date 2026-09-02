@@ -450,6 +450,56 @@ def test_validate_reports_an_unexplained_mbid_difference(ctx: ScriptContext) -> 
 
 
 @with_script_context
+def test_validate_accounts_for_mbid_present_on_only_one_side(
+    ctx: ScriptContext,
+) -> None:
+    """The four mbid counts must add up to the per-column total.
+
+    A native MBID with nothing reconstructed is a missing track_mbid_source
+    row -- the mapping error most worth catching -- and it fits neither the
+    merged nor the genuine bucket, so it must have one of its own.
+    """
+    fingerprint_db = ctx.db.get_fingerprint_db()
+    ingest_db = ctx.db.get_ingest_db()
+    create_gid_table(fingerprint_db)
+
+    track_id = insert_track(fingerprint_db)
+    for submission_id in (5030, 5031):
+        fingerprint_id = insert_fingerprint(fingerprint_db, track_id)
+        insert_fingerprint_source(ingest_db, fingerprint_id, submission_id)
+    # 5031 gets an mbid from the reconstruction, 5030 does not.
+    track_mbid_id = link_mbid(fingerprint_db, track_id, MBID)
+    mbid_source_row(ingest_db, track_mbid_id, 5031)
+
+    rows, _ = build(ctx, [5030, 5031])
+    insert_rows(ingest_db, rows)
+    # Native says the reverse of what was reconstructed, in both directions.
+    ingest_db.execute(
+        tables.submission_result.update()
+        .where(tables.submission_result.c.submission_id == 5030)
+        .values(mbid=MBID)
+    )
+    ingest_db.execute(
+        tables.submission_result.update()
+        .where(tables.submission_result.c.submission_id == 5031)
+        .values(mbid=None)
+    )
+
+    diff, _ = compare_batch(ingest_db, fingerprint_db, rows)
+
+    assert diff.mbid_native_only == 1
+    assert diff.mbid_rebuilt_only == 1
+    assert diff.mbid_merged == 0
+    assert diff.mbid_genuine == 0
+    assert (
+        diff.mbid_merged
+        + diff.mbid_genuine
+        + diff.mbid_native_only
+        + diff.mbid_rebuilt_only
+    ) == diff.by_column["mbid"]
+
+
+@with_script_context
 def test_queue_hands_out_each_range_once(ctx: ScriptContext) -> None:
     ingest_db = ctx.db.get_ingest_db()
     try:

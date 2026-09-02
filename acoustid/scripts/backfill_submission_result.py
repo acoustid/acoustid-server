@@ -46,6 +46,13 @@ redirects to the reconstructed one, through track.new_id for tracks and
 track_mbid.merged_into for MBIDs. Only differences that are not explained by a
 redirect are mapping errors.
 
+mbid is nullable, so it is also reported with counts for a value present on
+only one side. Those are unexplainable by a redirect by definition, and a
+native MBID with nothing rebuilt is the most interesting error validate can
+find -- it means track_mbid_source has no row where the submission said there
+was an MBID. All four counts sum to the mbid figure in the per-column
+breakdown, and are printed together so it is clear they are meant to.
+
 Where a submission has more than one fingerprint_source row (0.116% of them,
 and 85% of those are the same fingerprint recorded twice) the lowest
 fingerprint_id wins. That is a deterministic choice, not a reconstruction of
@@ -531,6 +538,8 @@ class Diff:
     track_genuine: int = 0
     mbid_merged: int = 0
     mbid_genuine: int = 0
+    mbid_native_only: int = 0
+    mbid_rebuilt_only: int = 0
     missing_native: int = 0
 
     def add(self, other: "Diff") -> None:
@@ -540,6 +549,8 @@ class Diff:
         self.track_genuine += other.track_genuine
         self.mbid_merged += other.mbid_merged
         self.mbid_genuine += other.mbid_genuine
+        self.mbid_native_only += other.mbid_native_only
+        self.mbid_rebuilt_only += other.mbid_rebuilt_only
         self.missing_native += other.missing_native
         for column, count in other.by_column.items():
             self.by_column[column] = self.by_column.get(column, 0) + count
@@ -657,8 +668,18 @@ def compare_batch(
             diff.by_column[column] = diff.by_column.get(column, 0) + 1
         if "track_id" in differing:
             mismatched_tracks.append((want.track_id, row.track_id))
-        if "mbid" in differing and want.mbid is not None and row.mbid is not None:
-            mismatched_mbids.append((want.mbid, row.mbid))
+        if "mbid" in differing:
+            # mbid is nullable, unlike track_id, so a difference can be a
+            # missing value on either side.  Neither is explainable by a
+            # redirect, and they mean different things: a native MBID with
+            # none rebuilt is a missing track_mbid_source row, which is the
+            # mapping error most worth catching; the reverse is one invented.
+            if want.mbid is None:
+                diff.mbid_rebuilt_only += 1
+            elif row.mbid is None:
+                diff.mbid_native_only += 1
+            else:
+                mismatched_mbids.append((want.mbid, row.mbid))
         records.append(
             {
                 "submission_id": row.submission_id,
@@ -772,10 +793,21 @@ def run_validate(
         total.track_merged,
         total.track_genuine,
     )
+    # Printed with the total so it is visibly a full accounting of the mbid
+    # row in the per-column breakdown above, rather than two numbers a reader
+    # would reasonably assume add up to it.
     logger.info(
-        "mbid differences: %d from MusicBrainz merges, %d genuine",
+        "mbid differences: %d from MusicBrainz merges, %d genuine,"
+        " %d native only, %d rebuilt only (%d of %d)",
         total.mbid_merged,
         total.mbid_genuine,
+        total.mbid_native_only,
+        total.mbid_rebuilt_only,
+        total.mbid_merged
+        + total.mbid_genuine
+        + total.mbid_native_only
+        + total.mbid_rebuilt_only,
+        total.by_column.get("mbid", 0),
     )
     logger.info(
         "%d reconstructed rows had no native row; %d submissions could not be built "
