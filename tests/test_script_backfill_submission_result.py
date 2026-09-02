@@ -276,6 +276,26 @@ def test_insert_is_idempotent(ctx: ScriptContext) -> None:
 
 
 @with_script_context
+def test_insert_counts_only_rows_actually_written(ctx: ScriptContext) -> None:
+    """rows_written in the queue is how anyone judges whether a run worked."""
+    fingerprint_db = ctx.db.get_fingerprint_db()
+    ingest_db = ctx.db.get_ingest_db()
+    create_gid_table(fingerprint_db)
+
+    track_id = insert_track(fingerprint_db)
+    for submission_id in range(5010, 5015):
+        fingerprint_id = insert_fingerprint(fingerprint_db, track_id)
+        insert_fingerprint_source(ingest_db, fingerprint_id, submission_id)
+    rows, _ = build(ctx, list(range(5010, 5015)))
+    assert len(rows) == 5
+
+    assert insert_rows(ingest_db, rows[:3]) == 3
+    # Three already there, two new: the count must be the two.
+    assert insert_rows(ingest_db, rows) == 2
+    assert insert_rows(ingest_db, rows) == 0
+
+
+@with_script_context
 def test_validate_accepts_a_correct_reconstruction(ctx: ScriptContext) -> None:
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()

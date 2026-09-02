@@ -38,6 +38,16 @@ match above FINGERPRINT_MERGE_THRESHOLD, and that score is not recorded
 anywhere. No available rule reproduces it, so --validate reports how often
 this one disagrees rather than pretending to find the real one.
 
+One column is beyond validation's reach. No native submission_result row has
+ever had a non-null foreignid, and all 43,189 track_foreignid_source rows sit
+below the watershed -- so --validate reconstructs NULL for that column on
+every row it compares, matches NULL against NULL, and reports the mapping
+correct without ever exercising it. Below the watershed those 43,189 rows are
+the only ones the script writes a foreignid for, in a column where no native
+row has one. The format is what import_submission would have written, but
+that is read off the code rather than observed in data, and it is the one
+part of the mapping the diff cannot check.
+
 Run --validate before --run. It reconstructs the range above the watershed,
 where native rows already exist, and diffs against them -- 372M rows of
 ground truth at no write risk.
@@ -120,19 +130,31 @@ class Row:
 
 @dataclass
 class Skipped:
-    """Submissions that could not be completed, by reason."""
+    """Submissions that could not be completed, by reason.
 
-    no_track: int = 0
+    no_fingerprint means fingerprint_source named a fingerprint row that does
+    not exist -- a dangling reference, not a fingerprint without a track.
+    fingerprint.track_id is NOT NULL, so the track is never the missing part.
+    """
+
+    no_fingerprint: int = 0
     no_source: int = 0
 
     def total(self) -> int:
-        return self.no_track + self.no_source
+        return self.no_fingerprint + self.no_source
 
 
 def _pick(
     db: IngestDB, table: str, column: str, submission_ids: Sequence[int]
 ) -> dict[int, int]:
-    """One row per submission from a *_source table, lowest id wins."""
+    """One row per submission from a *_source table, lowest id wins.
+
+    The same arbitrary-but-deterministic choice the driver makes for
+    fingerprint_source, and it affects real rows: at least 16,507 submissions
+    have more than one track_meta_source row.  Nothing records which one the
+    import actually used, so there is no better rule available -- only a
+    consistent one.
+    """
     query = sql.text(
         "SELECT DISTINCT ON (submission_id) submission_id, {column}"
         " FROM {table} WHERE submission_id = ANY(CAST(:ids AS integer[]))"
@@ -177,7 +199,15 @@ def lookup_meta_gids(
 def lookup_foreignids(
     fingerprint_db: FingerprintDB, foreignid_ids: Iterable[int]
 ) -> dict[int, str]:
-    """foreignid_id -> "vendor:name", the form submission_result stores."""
+    """foreignid_id -> "vendor:name".
+
+    The format comes from get_foreignid in data/foreignid.py, which is what
+    import_submission assigns to submission_result.foreignid -- so this is
+    what the live path would write.  It has never actually written one: no
+    native row in submission_result has a non-null foreignid, because all
+    43,189 track_foreignid_source rows sit below the watershed.  See the
+    module docstring; validate cannot reach this column.
+    """
     ids = sorted(set(i for i in foreignid_ids if i is not None))
     if not ids:
         return {}
@@ -195,9 +225,10 @@ def lookup_sources(
     """source_id -> (account_id, application_id, version), cached in process.
 
     source_id repeats heavily -- one row per (account, application, version) --
-    so a plain dict pays for itself quickly.  It is cleared rather than evicted
-    one by one when it grows; the table has ~2.2M rows and no worker should
-    hold all of them.
+    so a plain dict pays for itself quickly.  Clearing wholesale rather than
+    evicting is crude and would thrash if a range's working set exceeded the
+    cap, but with that much repetition a range sees far fewer distinct sources
+    than the cap, so the simple version costs nothing in practice.
     """
     if len(cache) > 200000:
         cache.clear()
@@ -286,7 +317,7 @@ def build_rows(
         row = base[submission_id]
         track_id = tracks.get(row.fingerprint_id)
         if track_id is None:
-            skipped.no_track += 1
+            skipped.no_fingerprint += 1
             continue
         source = sources.get(row.source_id)
         if source is None:
@@ -587,7 +618,7 @@ def run_validate(
             )
             diff, records = compare_batch(ingest_db, fingerprint_db, rows)
         total.add(diff)
-        skipped.no_track += batch_skipped.no_track
+        skipped.no_fingerprint += batch_skipped.no_fingerprint
         skipped.no_source += batch_skipped.no_source
         for record in records:
             if shown >= examples:
@@ -623,10 +654,10 @@ def run_validate(
     )
     logger.info(
         "%d reconstructed rows had no native row; %d submissions could not be built "
-        "(%d no track, %d no source)",
+        "(%d no fingerprint, %d no source)",
         total.missing_native,
         skipped.total(),
-        skipped.no_track,
+        skipped.no_fingerprint,
         skipped.no_source,
     )
     return total
@@ -671,7 +702,7 @@ def run_backfill(
                 )
                 written += insert_rows(ingest_db, rows)
                 ctx.db.session.commit()
-            skipped.no_track += batch_skipped.no_track
+            skipped.no_fingerprint += batch_skipped.no_fingerprint
             skipped.no_source += batch_skipped.no_source
 
         with script.context() as ctx:
