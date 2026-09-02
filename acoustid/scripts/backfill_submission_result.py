@@ -51,6 +51,21 @@ part of the mapping the diff cannot check.
 Run --validate before --run. It reconstructs the range above the watershed,
 where native rows already exist, and diffs against them -- 372M rows of
 ground truth at no write risk.
+
+The run itself is recoverable. Ranges are claimed in ascending id order and
+`init` queues up to the watershed by default, so every row written is one
+that had no native row -- which makes
+
+    DELETE FROM submission_result WHERE submission_id < <watershed>
+
+an exact undo: it removes everything the backfill wrote and cannot touch a
+natively written row. That holds only while the queue stays below the
+watershed. Queueing past it, to fill the gaps up there, mixes reconstructed
+rows in among native ones and gives up the clean delete.
+
+--max-ranges stops after a set number of ranges, between ranges rather than
+mid-range, so a first pass can write one range and leave the rest pending
+while you look at what it did.
 """
 
 import logging
@@ -438,7 +453,11 @@ def drop_queue(ingest_db: IngestDB) -> None:
 
 
 def claim_range(ingest_db: IngestDB, worker: str) -> tuple[int, int] | None:
-    """Take the next pending range.
+    """Take the next pending range, lowest first.
+
+    Ascending order is deliberate: the oldest submissions are the ones safely
+    below the watershed, so a run that goes wrong early has only written rows
+    that no native row occupies.
 
     SKIP LOCKED so workers never queue behind each other; a fast range frees
     its worker immediately rather than waiting for a slow neighbour.
@@ -690,8 +709,15 @@ def run_backfill(
     worker: str,
     batch_size: int = DEFAULT_BATCH_SIZE,
     gid_table: str = GID_TABLE,
+    max_ranges: int | None = None,
 ) -> tuple[int, int]:
-    """Claim ranges from the queue and write them until none are left."""
+    """Claim ranges from the queue and write them.
+
+    Ranges come out in ascending id order, so a run starts with the oldest
+    submissions -- the ones furthest from the watershed and least likely to
+    have a native row.  Stops after *max_ranges* if given, always between
+    ranges, leaving the rest pending and nothing half-written.
+    """
     if script.config.cluster.role != "master":
         logger.info("Not running backfill_submission_result in replica mode")
         return 0, 0
@@ -699,8 +725,9 @@ def run_backfill(
     cache: dict[int, Any] = {}
     total_written = 0
     total_skipped = 0
+    done_ranges = 0
 
-    while True:
+    while max_ranges is None or done_ranges < max_ranges:
         with script.context() as ctx:
             claimed = claim_range(ctx.db.get_ingest_db(), worker)
             ctx.db.session.commit()
@@ -747,6 +774,7 @@ def run_backfill(
         )
         total_written += written
         total_skipped += skipped.total()
+        done_ranges += 1
 
     logger.info("Done: %d rows written, %d skipped", total_written, total_skipped)
     return total_written, total_skipped

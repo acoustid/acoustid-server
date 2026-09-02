@@ -210,7 +210,11 @@ def backfill_validate_cmd(config, lo, hi, batch_size, gid_table):
     "--hi",
     type=int,
     default=None,
-    help="Last submission id, exclusive (default: the watershed).",
+    help=(
+        "Last submission id, exclusive. Defaults to the watershed, which keeps"
+        " every written row below the range that has native rows, so the whole"
+        " backfill stays deletable in one statement."
+    ),
 )
 @click.option("--range-size", type=int, default=DEFAULT_RANGE_SIZE)
 def backfill_init_cmd(config, lo, hi, range_size):
@@ -233,13 +237,25 @@ def backfill_init_cmd(config, lo, hi, range_size):
 @click.option("--worker", default=None, help="Worker name recorded on claimed ranges.")
 @click.option("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
 @click.option("--gid-table", default=GID_TABLE)
-def backfill_run_cmd(config, worker, batch_size, gid_table):
-    # type: (str, Optional[str], int, str) -> None
-    """Claim ranges from the queue and write them, until none are left."""
+@click.option(
+    "--max-ranges",
+    type=int,
+    default=None,
+    help="Stop after this many ranges, between ranges. Use 1 for a first pass.",
+)
+def backfill_run_cmd(config, worker, batch_size, gid_table, max_ranges):
+    # type: (str, Optional[str], int, str, Optional[int]) -> None
+    """Claim ranges from the queue and write them, lowest ids first."""
     script = Script(config)
     script.setup_console_logging()
     name = worker or "%s-%d" % (os.uname().nodename, os.getpid())
-    run_backfill(script, name, batch_size=batch_size, gid_table=gid_table)
+    run_backfill(
+        script,
+        name,
+        batch_size=batch_size,
+        gid_table=gid_table,
+        max_ranges=max_ranges,
+    )
 
 
 @backfill_submission_result.command("requeue")

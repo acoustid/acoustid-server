@@ -411,6 +411,19 @@ def test_queue_hands_out_each_range_once(ctx: ScriptContext) -> None:
         ingest_db.execute(sql.text("DROP TABLE IF EXISTS {t}".format(t=PROGRESS_TABLE)))
 
 
+@with_script_context
+def test_ranges_are_handed_out_lowest_first(ctx: ScriptContext) -> None:
+    """A run starts on ids furthest below the watershed, so a bad run is
+    confined to rows no native row occupies."""
+    ingest_db = ctx.db.get_ingest_db()
+    try:
+        init_queue(ingest_db, 0, 500, range_size=100)
+        claimed = [claim_range(ingest_db, "w1") for _ in range(5)]
+        assert claimed == [(0, 100), (100, 200), (200, 300), (300, 400), (400, 500)]
+    finally:
+        ingest_db.execute(sql.text("DROP TABLE IF EXISTS {t}".format(t=PROGRESS_TABLE)))
+
+
 def test_rejects_a_table_name_that_is_not_an_identifier() -> None:
     assert check_table_name("tmp_meta_gid") == "tmp_meta_gid"
     with pytest.raises(ValueError):
