@@ -20,8 +20,7 @@ be reconstructed at all, because fingerprint_id is NOT NULL and nothing
 records which fingerprint they carried. Do not "fix" this by unioning in the
 other source tables; it would reintroduce rows that cannot be completed.
 
-Two things about reconstructed rows differ from natively written ones, both
-unavoidable:
+Two columns cannot be recovered at all:
 
   created     is when the import ran, not when the user submitted. The
               submission rows holding the true time are gone. So there is a
@@ -29,6 +28,23 @@ unavoidable:
               like corruption to anyone who does not know about it.
   handled_at  is always NULL. Nothing anywhere retains it, and an honest gap
               beats a plausible invention.
+
+Two more are recovered correctly but describe today rather than the moment of
+submission, because both follow merges that happened afterwards:
+
+  track_id    comes from fingerprint.track_id, which merge_tracks rewrites to
+              the merge target. A native row names the track as it was.
+  mbid        comes through track_mbid_source, which merge_mbids repoints to
+              the target row when MusicBrainz merges two recordings. A native
+              row holds the MBID as submitted, and that value survives nowhere
+              else -- submission_result is the only record of it, which is the
+              table being reconstructed.
+
+Neither is a defect and neither is fixable. --validate classifies both rather
+than counting them as errors: a difference is a merge if the native value
+redirects to the reconstructed one, through track.new_id for tracks and
+track_mbid.merged_into for MBIDs. Only differences that are not explained by a
+redirect are mapping errors.
 
 Where a submission has more than one fingerprint_source row (0.116% of them,
 and 85% of those are the same fingerprint recorded twice) the lowest
@@ -513,6 +529,8 @@ class Diff:
     by_column: dict[str, int] = field(default_factory=dict)
     track_merged: int = 0
     track_genuine: int = 0
+    mbid_merged: int = 0
+    mbid_genuine: int = 0
     missing_native: int = 0
 
     def add(self, other: "Diff") -> None:
@@ -520,6 +538,8 @@ class Diff:
         self.mismatched += other.mismatched
         self.track_merged += other.track_merged
         self.track_genuine += other.track_genuine
+        self.mbid_merged += other.mbid_merged
+        self.mbid_genuine += other.mbid_genuine
         self.missing_native += other.missing_native
         for column, count in other.by_column.items():
             self.by_column[column] = self.by_column.get(column, 0) + count
@@ -553,6 +573,49 @@ def _merge_targets(
     return targets
 
 
+def _mbid_merge_targets(
+    fingerprint_db: FingerprintDB, mbids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """Map each MBID to the ones it has been merged into.
+
+    merge_mbids keeps the source track_mbid row and points merged_into at the
+    target, so the redirect is recorded in our own database and this needs no
+    MusicBrainz lookup.  An MBID appears once per track it is attached to, and
+    those rows can have been merged at different times, so the answer is a set
+    rather than a single value.
+    """
+    targets: dict[uuid.UUID, set[uuid.UUID]] = {}
+    frontier = {m for m in mbids if m is not None}
+    seen: set[uuid.UUID] = set()
+    for _ in range(4):
+        frontier -= seen
+        if not frontier:
+            break
+        seen |= frontier
+        rows = fingerprint_db.execute(
+            sql.text(
+                "SELECT DISTINCT src.mbid AS old_mbid, dst.mbid AS new_mbid"
+                "  FROM track_mbid src JOIN track_mbid dst ON dst.id = src.merged_into"
+                " WHERE src.mbid = ANY(CAST(:mbids AS uuid[]))"
+            ),
+            {"mbids": [str(m) for m in frontier]},
+        ).all()
+        if not rows:
+            break
+        step: dict[uuid.UUID, set[uuid.UUID]] = {}
+        for row in rows:
+            step.setdefault(row.old_mbid, set()).add(row.new_mbid)
+        for old, news in step.items():
+            targets.setdefault(old, set()).update(news)
+        # Carry transitive merges forward: anything that reached one of these
+        # also reaches wherever it went next.
+        for old, news in targets.items():
+            for new in list(news):
+                news.update(step.get(new, set()))
+        frontier = {new for news in step.values() for new in news}
+    return targets
+
+
 def compare_batch(
     ingest_db: IngestDB, fingerprint_db: FingerprintDB, rows: Sequence[Row]
 ) -> tuple[Diff, list[dict[str, Any]]]:
@@ -574,6 +637,7 @@ def compare_batch(
     }
 
     mismatched_tracks = []
+    mismatched_mbids = []
     records = []
     for row in rows:
         want = native.get(row.submission_id)
@@ -593,6 +657,8 @@ def compare_batch(
             diff.by_column[column] = diff.by_column.get(column, 0) + 1
         if "track_id" in differing:
             mismatched_tracks.append((want.track_id, row.track_id))
+        if "mbid" in differing and want.mbid is not None and row.mbid is not None:
+            mismatched_mbids.append((want.mbid, row.mbid))
         records.append(
             {
                 "submission_id": row.submission_id,
@@ -612,6 +678,19 @@ def compare_batch(
                 diff.track_merged += 1
             else:
                 diff.track_genuine += 1
+
+    # Same reasoning for MBIDs: MusicBrainz merged two recordings, merge_mbids
+    # repointed track_mbid_source at the target, and the native row still names
+    # what was submitted. Expected, and separated so it cannot mask a real one.
+    if mismatched_mbids:
+        mbid_targets = _mbid_merge_targets(
+            fingerprint_db, [n for n, _ in mismatched_mbids]
+        )
+        for native_mbid, rebuilt_mbid in mismatched_mbids:
+            if rebuilt_mbid in mbid_targets.get(native_mbid, set()):
+                diff.mbid_merged += 1
+            else:
+                diff.mbid_genuine += 1
 
     return diff, records
 
@@ -692,6 +771,11 @@ def run_validate(
         "track_id differences: %d from merges, %d genuine",
         total.track_merged,
         total.track_genuine,
+    )
+    logger.info(
+        "mbid differences: %d from MusicBrainz merges, %d genuine",
+        total.mbid_merged,
+        total.mbid_genuine,
     )
     logger.info(
         "%d reconstructed rows had no native row; %d submissions could not be built "
