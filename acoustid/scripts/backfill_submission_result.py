@@ -54,6 +54,7 @@ ground truth at no write risk.
 """
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -75,6 +76,13 @@ PROGRESS_TABLE = "submission_result_backfill_progress"
 # has not run yet, since it deletes meta rows.
 GID_TABLE = "tmp_meta_gid"
 
+# gid_table is the one table name that comes from a command-line option rather
+# than a constant, and it is interpolated into a FROM clause.  Anyone who can
+# pass it can already run `manage.py shell`, so this is not a privilege
+# boundary -- it just turns a typo into a clear error instead of a confusing
+# SQL one.
+_TABLE_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
+
 DEFAULT_BATCH_SIZE = 10000
 DEFAULT_RANGE_SIZE = 1000000
 
@@ -94,6 +102,12 @@ COMPARED_COLUMNS = (
     "puid",
     "foreignid",
 )
+
+
+def check_table_name(name: str) -> str:
+    if not _TABLE_NAME_RE.match(name):
+        raise ValueError("invalid table name: %r" % (name,))
+    return name
 
 
 @dataclass
@@ -191,7 +205,9 @@ def lookup_meta_gids(
     query = sql.text(
         "SELECT m.id, COALESCE(m.gid, t.gid) AS gid"
         " FROM meta m LEFT JOIN {gid_table} t ON t.id = m.id"
-        " WHERE m.id = ANY(CAST(:ids AS integer[]))".format(gid_table=gid_table)
+        " WHERE m.id = ANY(CAST(:ids AS integer[]))".format(
+            gid_table=check_table_name(gid_table)
+        )
     )
     return {r.id: r.gid for r in fingerprint_db.execute(query, {"ids": ids})}
 
@@ -384,6 +400,8 @@ def insert_rows(ingest_db: IngestDB, rows: Sequence[Row]) -> int:
 def init_queue(
     ingest_db: IngestDB, lo: int, hi: int, range_size: int = DEFAULT_RANGE_SIZE
 ) -> int:
+    if range_size < 1:
+        raise ValueError("range_size must be positive")
     ingest_db.execute(
         sql.text(
             "CREATE TABLE IF NOT EXISTS {table} ("
@@ -403,14 +421,16 @@ def init_queue(
     ]
     if not ranges:
         return 0
-    ingest_db.execute(
+    # Only the ranges that were not already queued, so re-running init on a
+    # partly-finished queue reports what it added rather than what it saw.
+    result = ingest_db.execute(
         sql.text(
             "INSERT INTO {table} (lo, hi) VALUES (:lo, :hi)"
             " ON CONFLICT (lo) DO NOTHING".format(table=PROGRESS_TABLE)
         ),
         [{"lo": lo, "hi": hi} for lo, hi in ranges],
     )
-    return len(ranges)
+    return result.rowcount
 
 
 def drop_queue(ingest_db: IngestDB) -> None:
@@ -586,6 +606,8 @@ def _batches(lo: int, hi: int, batch_size: int) -> Iterator[list[int]]:
     The id space is ~95% dense in fingerprint_source, so walking it directly
     beats paging through a DISTINCT query and keeps no cursor state.
     """
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
     for start in range(lo, hi, batch_size):
         yield list(range(start, min(start + batch_size, hi)))
 
@@ -689,21 +711,33 @@ def run_backfill(
 
         written = 0
         skipped = Skipped()
-        for ids in _batches(lo, hi, batch_size):
+        try:
+            for ids in _batches(lo, hi, batch_size):
+                with script.context() as ctx:
+                    ingest_db = ctx.db.get_ingest_db()
+                    rows, batch_skipped = build_rows(
+                        ingest_db,
+                        ctx.db.get_fingerprint_db(read_only=True),
+                        ctx.db.get_app_db(read_only=True),
+                        ids,
+                        cache,
+                        gid_table,
+                    )
+                    written += insert_rows(ingest_db, rows)
+                    ctx.db.session.commit()
+                skipped.no_fingerprint += batch_skipped.no_fingerprint
+                skipped.no_source += batch_skipped.no_source
+        except Exception:
+            # Otherwise the range sits in 'running' looking like a slow worker,
+            # and only comes back after the requeue age -- which is exactly the
+            # distinction requeue_stale is careful not to guess at.
+            logger.exception("Range %d..%d failed after %d rows", lo, hi, written)
             with script.context() as ctx:
-                ingest_db = ctx.db.get_ingest_db()
-                rows, batch_skipped = build_rows(
-                    ingest_db,
-                    ctx.db.get_fingerprint_db(read_only=True),
-                    ctx.db.get_app_db(read_only=True),
-                    ids,
-                    cache,
-                    gid_table,
+                finish_range(
+                    ctx.db.get_ingest_db(), lo, written, skipped.total(), state="failed"
                 )
-                written += insert_rows(ingest_db, rows)
                 ctx.db.session.commit()
-            skipped.no_fingerprint += batch_skipped.no_fingerprint
-            skipped.no_source += batch_skipped.no_source
+            raise
 
         with script.context() as ctx:
             finish_range(ctx.db.get_ingest_db(), lo, written, skipped.total())

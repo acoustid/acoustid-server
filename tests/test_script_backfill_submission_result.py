@@ -4,6 +4,7 @@
 import uuid
 from typing import Any
 
+import pytest
 from sqlalchemy import sql
 
 from acoustid import tables
@@ -12,7 +13,9 @@ from acoustid.scripts.backfill_submission_result import (
     GID_TABLE,
     PROGRESS_TABLE,
     Row,
+    _batches,
     build_rows,
+    check_table_name,
     claim_range,
     compare_batch,
     finish_range,
@@ -406,6 +409,35 @@ def test_queue_hands_out_each_range_once(ctx: ScriptContext) -> None:
         assert claim_range(ingest_db, "w2") == (100, 200)
     finally:
         ingest_db.execute(sql.text("DROP TABLE IF EXISTS {t}".format(t=PROGRESS_TABLE)))
+
+
+def test_rejects_a_table_name_that_is_not_an_identifier() -> None:
+    assert check_table_name("tmp_meta_gid") == "tmp_meta_gid"
+    with pytest.raises(ValueError):
+        check_table_name("meta; DROP TABLE meta")
+    with pytest.raises(ValueError):
+        check_table_name("")
+
+
+@with_script_context
+def test_init_queue_reports_only_the_ranges_it_added(ctx: ScriptContext) -> None:
+    """Re-running init on a partly-filled queue must not claim old ranges."""
+    ingest_db = ctx.db.get_ingest_db()
+    try:
+        assert init_queue(ingest_db, 0, 300, range_size=100) == 3
+        assert init_queue(ingest_db, 0, 300, range_size=100) == 0
+        assert init_queue(ingest_db, 0, 500, range_size=100) == 2
+    finally:
+        ingest_db.execute(sql.text("DROP TABLE IF EXISTS {t}".format(t=PROGRESS_TABLE)))
+
+
+@with_script_context
+def test_rejects_non_positive_sizes(ctx: ScriptContext) -> None:
+    ingest_db = ctx.db.get_ingest_db()
+    with pytest.raises(ValueError):
+        init_queue(ingest_db, 0, 100, range_size=0)
+    with pytest.raises(ValueError):
+        list(_batches(0, 100, 0))
 
 
 @with_script_context
