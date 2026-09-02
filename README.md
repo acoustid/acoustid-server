@@ -53,6 +53,49 @@ You can use the provided `docker-compose.yml` file to quickly set up a test envi
 
     docker-compose up -d
 
+Public data export
+------------------
+
+Writes the daily incremental files published at
+[data.acoustid.org](https://data.acoustid.org/) into a local directory:
+
+    python manage.py data export --directory /var/lib/acoustid/data-export
+
+The layout is `{YYYY}/{YYYY-MM}/{YYYY-MM-DD}-{table}.jsonl.gz`, gzipped JSON
+Lines with null fields removed, seven files per day. Only complete days are
+exported, so the newest file is always for yesterday.
+
+A day is exported an hour after it ends at the earliest, and only once no
+transaction that started before the day ended is still running. `created` and
+`updated` are transaction start time but a row only becomes visible at commit,
+so a transaction straddling midnight would otherwise leave the file short by
+exactly its rows -- permanently, since a file that exists is never regenerated.
+A day that is not ready yet is skipped without writing anything and picked up
+by a later run.
+
+Reading that requires the export user to be able to see other sessions:
+
+    GRANT pg_read_all_stats TO acoustid;
+
+Without it `pg_stat_activity` reports NULL for other sessions and every day
+would look settled, so the command refuses to start rather than exporting on
+the strength of a check that cannot fail.
+
+Runs walk backwards from midnight today and skip files that already exist, so
+running this hourly is safe and re-running it with a larger window is how a gap
+gets backfilled:
+
+    python manage.py data export --max-days 45
+
+The default window is 30 days. The directory can also come from `[export]
+directory` in `acoustid.conf` or from `ACOUSTID_EXPORT_DIRECTORY`.
+
+Getting the files from that directory to the bucket that serves
+data.acoustid.org is a separate step. **That sync must be additive.** The
+export directory only ever holds the last `--max-days` of files, while the
+bucket holds every file back to 2011, so an `rsync --delete` out of it would
+delete the archive.
+
 Database migrations
 -------------------
 

@@ -67,3 +67,7 @@ import_acoustid=http://data.acoustid.org/replication/acoustid-update-{seq}.xml.b
 
 [rate_limiter]
 #application.123=4
+
+[export]
+#directory=/var/lib/acoustid/data-export
+#max_days=30

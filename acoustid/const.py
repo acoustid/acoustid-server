@@ -23,3 +23,6 @@ FINGERPRINT_MAX_ALLOWED_LENGTH_DIFF = 30
 MAX_REQUESTS_PER_SECOND = 4
 
 DEFAULT_GLOBAL_RATE_LIMIT = 100
+
+# how many past days the public data export looks at in one run
+EXPORT_MAX_DAYS = 30

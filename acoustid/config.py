@@ -11,7 +11,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from acoustid.const import DEFAULT_GLOBAL_RATE_LIMIT
+from acoustid.const import DEFAULT_GLOBAL_RATE_LIMIT, EXPORT_MAX_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +103,19 @@ class DatabasesConfig(BaseConfig):
             else:
                 engines[name] = db_config.create_async_engine(**kwargs)
         return engines
+
+    def read_only_bind_key(self, name: str) -> str:
+        """The bind key to read from: the replica if there is one, else the primary.
+
+        A missing ``[database:x:ro]`` section falls back to ``[database:x]``,
+        but the environment variables have no such fallback. With an env-only
+        deployment that does not set ACOUSTID_DATABASE_X_RO_*, the read-only
+        config is still at its defaults and points at a database that does not
+        exist, so it is only worth using once someone has configured it.
+        """
+        if self.databases[name + ":ro"] == DatabaseConfig():
+            return name
+        return name + ":ro"
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
@@ -592,6 +605,27 @@ class SentryConfig(BaseConfig):
         )
 
 
+class ExportConfig(BaseConfig):
+    """Where the public data files at data.acoustid.org are written to.
+
+    The destination is a plain local directory; getting the files from there to
+    the bucket that serves them is a separate step.
+    """
+
+    def __init__(self) -> None:
+        self.directory = ""
+        self.max_days = EXPORT_MAX_DAYS
+
+    def read_section(self, parser: RawConfigParser, section: str) -> None:
+        read_config_str_option(parser, section, self, "directory", "directory")
+        if parser.has_option(section, "max_days"):
+            self.max_days = parser.getint(section, "max_days")
+
+    def read_env(self, prefix: str) -> None:
+        read_env_item(self, "directory", prefix + "EXPORT_DIRECTORY")
+        read_env_item(self, "max_days", prefix + "EXPORT_MAX_DAYS", convert=int)
+
+
 class Config(object):
     def __init__(self) -> None:
         self.databases = DatabasesConfig()
@@ -606,6 +640,7 @@ class Config(object):
         self.gunicorn = GunicornConfig()
         self.statsd = StatsdConfig()
         self.sentry = SentryConfig()
+        self.export = ExportConfig()
 
     @classmethod
     def load(cls, path: str | None = None, tests: bool = False) -> "Config":
@@ -633,6 +668,7 @@ class Config(object):
         self.gunicorn.read(parser, "gunicorn")
         self.statsd.read(parser, "statsd")
         self.sentry.read(parser, "sentry")
+        self.export.read(parser, "export")
 
     def read_env(self, tests: bool = False) -> None:
         if tests:
@@ -651,3 +687,4 @@ class Config(object):
         self.gunicorn.read_env(prefix)
         self.statsd.read_env(prefix)
         self.sentry.read_env(prefix)
+        self.export.read_env(prefix)
