@@ -108,6 +108,24 @@ rows in among native ones and gives up the clean delete.
 --max-ranges stops after a set number of ranges, between ranges rather than
 mid-range, so a first pass can write one range and leave the rest pending
 while you look at what it did.
+
+Two things learned running this over the full 494M:
+
+Reads go through the read-only binds, which point at a replica wherever a
+":ro" alias is configured. A batch read takes minutes, and a standby running
+hot_standby_feedback=off with max_standby_streaming_delay=30s will cancel it
+as a recovery conflict. Roughly half of those arrive as "server closed the
+connection unexpectedly", which reads like a network fault and is not one.
+Point the read-only binds at a primary for the duration, or raise the delay on
+the standby; the error message will not tell you which of the two you are
+looking at.
+
+rows_written in the progress table undercounts. A range that fails partway has
+already written rows, and the successful retry skips them via ON CONFLICT DO
+NOTHING, so the counter misses them. That is the retry working, not data going
+missing. Count the rows if you want the real figure:
+
+    SELECT count(*) FROM submission_result WHERE submission_id < <watershed>;
 """
 
 import logging
