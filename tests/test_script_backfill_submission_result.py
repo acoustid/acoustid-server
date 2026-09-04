@@ -418,12 +418,16 @@ def test_validate_separates_musicbrainz_merges_from_real_errors(
 
     assert diff.by_column["mbid"] == 1
     assert diff.mbid_merged == 1
-    assert diff.mbid_genuine == 0
+    assert diff.mbid_unexplained == 0
 
 
 @with_script_context
 def test_validate_reports_an_unexplained_mbid_difference(ctx: ScriptContext) -> None:
-    """An MBID difference with no merge behind it is a mapping error."""
+    """An MBID difference with no redirect behind it cannot be proven a merge.
+
+    Not necessarily an error: merges before 2025-03-08 left no redirect, so
+    they land here too.  See the module docstring.
+    """
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
     create_gid_table(fingerprint_db)
@@ -445,7 +449,7 @@ def test_validate_reports_an_unexplained_mbid_difference(ctx: ScriptContext) -> 
 
     diff, _ = compare_batch(ingest_db, fingerprint_db, rows)
 
-    assert diff.mbid_genuine == 1
+    assert diff.mbid_unexplained == 1
     assert diff.mbid_merged == 0
 
 
@@ -490,10 +494,10 @@ def test_validate_accounts_for_mbid_present_on_only_one_side(
     assert diff.mbid_native_only == 1
     assert diff.mbid_rebuilt_only == 1
     assert diff.mbid_merged == 0
-    assert diff.mbid_genuine == 0
+    assert diff.mbid_unexplained == 0
     assert (
         diff.mbid_merged
-        + diff.mbid_genuine
+        + diff.mbid_unexplained
         + diff.mbid_native_only
         + diff.mbid_rebuilt_only
     ) == diff.by_column["mbid"]
