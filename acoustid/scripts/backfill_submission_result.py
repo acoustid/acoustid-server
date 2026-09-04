@@ -47,11 +47,30 @@ track_mbid.merged_into for MBIDs. Only differences that are not explained by a
 redirect are mapping errors.
 
 mbid is nullable, so it is also reported with counts for a value present on
-only one side. Those are unexplainable by a redirect by definition, and a
-native MBID with nothing rebuilt is the most interesting error validate can
-find -- it means track_mbid_source has no row where the submission said there
-was an MBID. All four counts sum to the mbid figure in the per-column
+only one side. All four counts sum to the mbid figure in the per-column
 breakdown, and are printed together so it is clear they are meant to.
+
+The two redirects are NOT equally trustworthy, and the difference decides how
+to read the output:
+
+  track.new_id            has existed since 2011, so it covers every track
+                          merge there has ever been. A nonzero genuine count
+                          is a real mapping error. Stop and investigate.
+  track_mbid.merged_into  was added on 2025-03-08. MBID merges before that
+                          left no redirect at all -- the old logic deleted the
+                          source row rather than marking it -- so they cannot
+                          be proven and land in unexplained, or in native only
+                          where the row was deleted outright.
+
+So a nonzero unexplained or native-only count on pre-2025 data is expected and
+is not evidence of a defect. Measured on a 2019 slice: 30.0% of mbid
+differences were provable merges, against 31.6% of disabled track_mbid rows
+having a redirect at all. Those ratios agreeing on independent data is what
+says the unprovable remainder is merges too, rather than something wrong.
+
+Judge the reconstruction on track_id genuine, which is trustworthy, and on
+rebuilt only, which would mean an MBID was invented. Both were zero over the
+slice validated.
 
 Where a submission has more than one fingerprint_source row (0.116% of them,
 and 85% of those are the same fingerprint recorded twice) the lowest
@@ -89,6 +108,24 @@ rows in among native ones and gives up the clean delete.
 --max-ranges stops after a set number of ranges, between ranges rather than
 mid-range, so a first pass can write one range and leave the rest pending
 while you look at what it did.
+
+Two things learned running this over the full 494M:
+
+Reads go through the read-only binds, which point at a replica wherever a
+":ro" alias is configured. A batch read takes minutes, and a standby running
+hot_standby_feedback=off with max_standby_streaming_delay=30s will cancel it
+as a recovery conflict. Roughly half of those arrive as "server closed the
+connection unexpectedly", which reads like a network fault and is not one.
+Point the read-only binds at a primary for the duration, or raise the delay on
+the standby; the error message will not tell you which of the two you are
+looking at.
+
+rows_written in the progress table undercounts. A range that fails partway has
+already written rows, and the successful retry skips them via ON CONFLICT DO
+NOTHING, so the counter misses them. That is the retry working, not data going
+missing. Count the rows if you want the real figure:
+
+    SELECT count(*) FROM submission_result WHERE submission_id < <watershed>;
 """
 
 import logging
@@ -537,7 +574,7 @@ class Diff:
     track_merged: int = 0
     track_genuine: int = 0
     mbid_merged: int = 0
-    mbid_genuine: int = 0
+    mbid_unexplained: int = 0
     mbid_native_only: int = 0
     mbid_rebuilt_only: int = 0
     missing_native: int = 0
@@ -548,7 +585,7 @@ class Diff:
         self.track_merged += other.track_merged
         self.track_genuine += other.track_genuine
         self.mbid_merged += other.mbid_merged
-        self.mbid_genuine += other.mbid_genuine
+        self.mbid_unexplained += other.mbid_unexplained
         self.mbid_native_only += other.mbid_native_only
         self.mbid_rebuilt_only += other.mbid_rebuilt_only
         self.missing_native += other.missing_native
@@ -711,7 +748,7 @@ def compare_batch(
             if rebuilt_mbid in mbid_targets.get(native_mbid, set()):
                 diff.mbid_merged += 1
             else:
-                diff.mbid_genuine += 1
+                diff.mbid_unexplained += 1
 
     return diff, records
 
@@ -797,14 +834,14 @@ def run_validate(
     # row in the per-column breakdown above, rather than two numbers a reader
     # would reasonably assume add up to it.
     logger.info(
-        "mbid differences: %d from MusicBrainz merges, %d genuine,"
+        "mbid differences: %d proven merges, %d unexplained,"
         " %d native only, %d rebuilt only (%d of %d)",
         total.mbid_merged,
-        total.mbid_genuine,
+        total.mbid_unexplained,
         total.mbid_native_only,
         total.mbid_rebuilt_only,
         total.mbid_merged
-        + total.mbid_genuine
+        + total.mbid_unexplained
         + total.mbid_native_only
         + total.mbid_rebuilt_only,
         total.by_column.get("mbid", 0),
