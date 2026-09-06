@@ -362,9 +362,7 @@ def singleton_gids_report_cmd(config, gid_table, dups_table):
     script = Script(config)
     script.setup_console_logging()
     with script.context() as ctx:
-        remaining, blocked = report(
-            ctx.db.get_fingerprint_db(read_only=True), gid_table, dups_table
-        )
+        remaining, blocked = report(ctx.db.get_fingerprint_db(), gid_table, dups_table)
     click.echo("%d singletons still without a gid" % (remaining,))
     click.echo("%d of those blocked by a row that already holds it" % (blocked,))
 

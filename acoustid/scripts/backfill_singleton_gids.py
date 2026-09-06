@@ -195,6 +195,10 @@ def report(
     Meant for after a completed run, when the remaining set is small. Run
     mid-run it has to evaluate the collision check across everything not yet
     done, which is the whole point of not doing this per batch.
+
+    Uses the same connection as the rest of the command group rather than a
+    read-only one: this seq-scans tmp_meta_gid and takes minutes, which a hot
+    standby would cancel as a recovery conflict.
     """
     row = fingerprint_db.execute(
         sql.text(
