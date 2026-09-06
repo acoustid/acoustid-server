@@ -136,21 +136,25 @@ def next_gid_bound(
 ) -> uuid.UUID | None:
     """The gid this batch runs up to, inclusive.
 
-    The last of the ordered batch rather than max() over them, because
-    PostgreSQL has no max aggregate for uuid.
+    The last of the ordered batch rather than max() over it, because
+    PostgreSQL has no max aggregate for uuid, and nested rather than
+    OFFSET :limit-1 LIMIT 1, because that returns nothing when fewer than
+    batch_size groups remain -- which is every final batch, and would end the
+    walk with the tail unclaimed.
 
-    Only the bound crosses into Python; the member arrays stay in the database.
-    The largest holds 108,000 ids and there is no reason to carry that back and
-    forth to learn where the batch ends.
+    One row comes back rather than batch_size of them. The member arrays stay
+    in the database either way; the largest holds 108,000 ids and there is no
+    reason to carry those back and forth to learn where a batch ends.
     """
-    rows = fingerprint_db.execute(
+    return fingerprint_db.execute(
         sql.text(
-            "SELECT gid FROM {table} WHERE gid > CAST(:cursor AS uuid)"
-            " ORDER BY gid LIMIT :limit".format(table=check_table_name(dups_table))
+            "SELECT gid FROM ("
+            "  SELECT gid FROM {table} WHERE gid > CAST(:cursor AS uuid)"
+            "   ORDER BY gid LIMIT :limit"
+            ") t ORDER BY gid DESC LIMIT 1".format(table=check_table_name(dups_table))
         ),
         {"cursor": str(cursor), "limit": batch_size},
-    ).all()
-    return rows[-1].gid if rows else None
+    ).scalar()
 
 
 def claim_batch(
@@ -213,20 +217,22 @@ def report(
     A group can be unclaimed after a completed run only if it has no surviving
     member left to hold the gid, so a nonzero count there is worth looking at
     rather than assuming.
+
+    Counted as total minus claimed rather than with a second FILTER: two
+    FILTERs compile to two subplans and probe meta_idx_gid twice per group,
+    which on 34.4M groups is 68.8M lookups for two numbers that only need
+    34.4M. The subplans are essentially the whole cost of this query.
     """
     row = fingerprint_db.execute(
         sql.text(
-            "SELECT"
+            "SELECT count(*) AS total,"
             "  count(*) FILTER ("
             "    WHERE EXISTS (SELECT 1 FROM meta m WHERE m.gid = d.gid)"
-            "  ) AS claimed,"
-            "  count(*) FILTER ("
-            "    WHERE NOT EXISTS (SELECT 1 FROM meta m WHERE m.gid = d.gid)"
-            "  ) AS unclaimed"
+            "  ) AS claimed"
             " FROM {table} d".format(table=check_table_name(dups_table))
         )
     ).one()
-    return row.claimed, row.unclaimed
+    return row.claimed, row.total - row.claimed
 
 
 def run_claim(

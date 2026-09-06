@@ -286,7 +286,10 @@ def test_batch_bound_walks_in_gid_order(ctx: ScriptContext) -> None:
 
         assert next_gid_bound(db, ZERO_UUID, 1) == gids[0]
         assert next_gid_bound(db, ZERO_UUID, 2) == gids[1]
+        # Fewer groups left than the batch size, which is every final batch.
+        # OFFSET :limit-1 LIMIT 1 would return nothing here and strand them.
         assert next_gid_bound(db, gids[0], 5) == gids[2]
+        assert next_gid_bound(db, ZERO_UUID, 100) == gids[2]
         assert next_gid_bound(db, gids[2], 5) is None
     finally:
         drop_all(db)
