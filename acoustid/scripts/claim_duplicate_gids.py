@@ -44,6 +44,20 @@ Roughly 43% of groups are expected to be claimed already, so this has about
 19.6M rows to write -- one per group, whether the group has two members or a
 hundred thousand.
 
+THE DEAD TUPLES IT LEAVES WILL NOT BE VACUUMED BY THEMSELVES
+
+Each claim is an UPDATE, so this leaves roughly 19.6M dead tuples on meta.
+Autovacuum will not collect them: the default scale factor of 0.2 against
+meta's ~388M rows puts the trigger near 77.6M dead tuples, so a job an order
+of magnitude smaller than that never approaches it. The bloat sits until
+something else triggers a vacuum on the table.
+
+That is a few percent of a 77 GB table rather than a problem, and the batching
+here is not justified by vacuum behaviour -- it is justified by transaction
+size, which is what standby replay and the blast radius of a failure actually
+depend on. Stated so that nobody sizing a later job on this table assumes the
+space comes back on its own.
+
 WHAT THIS DELIBERATELY DOES NOT DO
 
 It does not merge anything, repoint any track_meta row, or delete anything.
