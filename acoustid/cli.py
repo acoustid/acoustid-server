@@ -9,6 +9,22 @@ from acoustid.cron import run_cron
 from acoustid.export import run_export
 from acoustid.future.fpindex.feed import DEFAULT_PORT, run_feed_app
 from acoustid.script import Script
+from acoustid.scripts.backfill_singleton_gids import (
+    DEFAULT_BATCH_SIZE as SINGLETON_BATCH_SIZE,
+)
+from acoustid.scripts.backfill_singleton_gids import (
+    DUPS_TABLE,
+)
+from acoustid.scripts.backfill_singleton_gids import GID_TABLE as SINGLETON_GID_TABLE
+from acoustid.scripts.backfill_singleton_gids import (
+    PROGRESS_TABLE as SINGLETON_PROGRESS,
+)
+from acoustid.scripts.backfill_singleton_gids import (
+    drop_progress,
+    init_progress,
+    report,
+    run_backfill_singleton_gids,
+)
 from acoustid.scripts.backfill_submission_result import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_RANGE_SIZE,
@@ -285,6 +301,85 @@ def backfill_drop_cmd(config):
         drop_queue(ctx.db.get_ingest_db())
         ctx.db.session.commit()
     click.echo("dropped %s" % (PROGRESS_TABLE,))
+
+
+@cli.group("backfill-singleton-gids")
+def backfill_singleton_gids():
+    # type: () -> None
+    """Give a gid to every meta row whose content is unique."""
+
+
+@backfill_singleton_gids.command("init")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+def singleton_gids_init_cmd(config):
+    # type: (str) -> None
+    """Create the progress table."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        init_progress(ctx.db.get_fingerprint_db())
+        ctx.db.session.commit()
+    click.echo("created %s" % (SINGLETON_PROGRESS,))
+
+
+@backfill_singleton_gids.command("run")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option(
+    "--batch-size",
+    type=int,
+    default=SINGLETON_BATCH_SIZE,
+    help="meta ids per transaction, not rows updated.",
+)
+@click.option(
+    "--limit",
+    type=int,
+    default=None,
+    help="Stop after this many batches. Use it for a first pass.",
+)
+@click.option("--gid-table", default=SINGLETON_GID_TABLE)
+@click.option("--dups-table", default=DUPS_TABLE)
+def singleton_gids_run_cmd(config, batch_size, limit, gid_table, dups_table):
+    # type: (str, int, Optional[int], str, str) -> None
+    """Fill in gids from the cursor onwards."""
+    script = Script(config)
+    script.setup_console_logging()
+    run_backfill_singleton_gids(
+        script,
+        batch_size=batch_size,
+        limit=limit,
+        gid_table=gid_table,
+        dups_table=dups_table,
+    )
+
+
+@backfill_singleton_gids.command("report")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option("--gid-table", default=SINGLETON_GID_TABLE)
+@click.option("--dups-table", default=DUPS_TABLE)
+def singleton_gids_report_cmd(config, gid_table, dups_table):
+    # type: (str, str, str) -> None
+    """Count singletons still without a gid, and how many are blocked."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        remaining, blocked = report(
+            ctx.db.get_fingerprint_db(read_only=True), gid_table, dups_table
+        )
+    click.echo("%d singletons still without a gid" % (remaining,))
+    click.echo("%d of those blocked by a row that already holds it" % (blocked,))
+
+
+@backfill_singleton_gids.command("drop")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+def singleton_gids_drop_cmd(config):
+    # type: (str) -> None
+    """Remove the progress table once the backfill is finished."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        drop_progress(ctx.db.get_fingerprint_db())
+        ctx.db.session.commit()
+    click.echo("dropped %s" % (SINGLETON_PROGRESS,))
 
 
 @cli.command("shell")
