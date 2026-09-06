@@ -40,23 +40,30 @@ grouped onto it, so an existing holder always wins.
 not lowest id in the snapshot array. Members have been deleted since it was
 taken.
 
-Roughly 43% of groups are expected to be claimed already, so this has about
-19.6M rows to write -- one per group, whether the group has two members or a
-hundred thousand.
+Measured: 14,803,922 groups already have a holder and 19,617,186 do not, so
+this writes one row for each of the latter, whether the group has two members
+or a hundred thousand.
+
+About 9,400 of the already-held groups are held by a row that is NOT one of
+their members -- which is why the rule below is what it is rather than simply
+"lowest member".
 
 THE DEAD TUPLES IT LEAVES WILL NOT BE VACUUMED BY THEMSELVES
 
 Each claim is an UPDATE, so this leaves roughly 19.6M dead tuples on meta.
 Autovacuum will not collect them: the default scale factor of 0.2 against
 meta's ~388M rows puts the trigger near 77.6M dead tuples, so a job an order
-of magnitude smaller than that never approaches it. The bloat sits until
-something else triggers a vacuum on the table.
+of magnitude smaller never approaches it. The bloat sits until something else
+triggers a vacuum on the table.
 
-That is a few percent of a 77 GB table rather than a problem, and the batching
-here is not justified by vacuum behaviour -- it is justified by transaction
-size, which is what standby replay and the blast radius of a failure actually
-depend on. Stated so that nobody sizing a later job on this table assumes the
-space comes back on its own.
+That is a few percent of a table that is now 95 GB -- it was 68 GB before the
+singleton backfill, which left 27 GB of reusable but unreturned space behind.
+Size anything on 95 GB rather than on the older figure.
+
+Not an argument for doing this differently. It is here because the batching is
+justified by transaction size -- standby replay, and the blast radius of a
+failure -- and not by vacuum behaviour, and someone sizing a later job on this
+table should not assume the space comes back on its own.
 
 WHAT THIS DELIBERATELY DOES NOT DO
 
