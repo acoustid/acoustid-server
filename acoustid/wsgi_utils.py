@@ -128,6 +128,12 @@ def common_gunicorn_args(config, workers=None, threads=None):
         args.extend(["--timeout", six.text_type(config.gunicorn.timeout)])
     if config.gunicorn.backlog:
         args.extend(["--backlog", six.text_type(config.gunicorn.backlog)])
+    # "is not None" rather than truthiness: 0 means close immediately, which
+    # is a real thing to ask for and must not silently become the 2s default.
+    # Both apps run the gevent worker, which honours this; the sync worker
+    # would ignore it.
+    if config.gunicorn.keepalive is not None:
+        args.extend(["--keep-alive", six.text_type(config.gunicorn.keepalive)])
     if config.statsd.enabled:
         args.extend(
             ["--statsd-host", "{}:{}".format(config.statsd.host, config.statsd.port)]
@@ -153,9 +159,11 @@ def run_api_app(config, workers=None, threads=None):
 def run_web_app(config, workers=None, threads=None):
     # type: (Config, Optional[int], Optional[int]) -> int
     args = common_gunicorn_args(config, workers=workers, threads=threads) + [
+        "--worker-class",
+        "gevent",
         "--bind",
         "0.0.0.0:3032",
-        "acoustid.web.app:make_application()",
+        "acoustid.wsgi_web_app:application",
     ]
     if config.statsd.enabled:
         args.extend(["--statsd-prefix", "{}service.web".format(config.statsd.prefix)])

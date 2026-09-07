@@ -434,11 +434,22 @@ class GunicornConfig(BaseConfig):
         self.workers = 1
         self.threads = 1
         self.backlog = 1024
+        # Must be LONGER than the proxy's upstream idle timeout, not equal to
+        # it. Envoy holds an idle upstream connection for 60s; gunicorn's
+        # default is 2s, so Envoy writes onto sockets the server hung up on
+        # ~58s earlier and synthesises a plain-text 503. Matching the two
+        # exactly does not fix it -- both ends then expire at the same instant
+        # and the race just gets rarer. The invariant is that the upstream
+        # closes last, so the proxy always initiates teardown on a connection
+        # it has already decided to discard. 60s plus margin.
+        self.keepalive = 75
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
         if parser.has_option(section, "timeout"):
             self.timeout = parser.getint(section, "timeout")
+        if parser.has_option(section, "keepalive"):
+            self.keepalive = parser.getint(section, "keepalive")
         if parser.has_option(section, "workers"):
             self.workers = parser.getint(section, "workers")
         if parser.has_option(section, "threads"):
@@ -449,6 +460,7 @@ class GunicornConfig(BaseConfig):
     def read_env(self, prefix):
         # type: (str) -> None
         read_env_item(self, "timeout", prefix + "GUNICORN_TIMEOUT", convert=int)
+        read_env_item(self, "keepalive", prefix + "GUNICORN_KEEPALIVE", convert=int)
         read_env_item(self, "workers", prefix + "GUNICORN_WORKERS", convert=int)
         read_env_item(self, "threads", prefix + "GUNICORN_THREADS", convert=int)
         read_env_item(self, "backlog", prefix + "GUNICORN_BACKLOG", convert=int)
