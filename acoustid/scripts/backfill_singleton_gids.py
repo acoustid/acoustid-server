@@ -24,8 +24,14 @@ aborts the whole statement. That is not hypothetical: 9,351 of the 84.5M
 currently collide, so an 84.5M-row UPDATE would abort, throw away hours of
 work, and leave the dead rows behind. Batching also keeps each transaction
 small enough that standbys can replay it without hitting
-max_standby_streaming_delay, and lets autovacuum reclaim as it goes rather
-than after everything.
+max_standby_streaming_delay.
+
+It does NOT let autovacuum reclaim as it goes, which this used to claim. The
+default scale factor of 0.2 against meta's ~388M rows puts the trigger near
+77.6M dead tuples, and a run of 84.5M only crosses it at the very end:
+measured over the real run, autovacuum_count stayed at 0 while the table went
+from 68 GB to 95 GB, and vacuum ran once after the job finished. Batching is
+justified by transaction size, not by vacuum behaviour.
 
 WHAT COLLIDES, AND WHY SKIPPING IT IS RIGHT
 
@@ -81,6 +87,10 @@ PROGRESS_TABLE = "meta_gid_backfill_progress"
 # meta ids per batch, not rows updated. Roughly a fifth of the id space needs a
 # gid, so this is ~20k updates per transaction.
 DEFAULT_BATCH_SIZE = 100000
+
+# meta ids per report window. Large enough that the walk is a handful of
+# queries, small enough that each one's probes into meta_pkey stay local.
+DEFAULT_REPORT_CHUNK = 60000000
 
 _TABLE_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 
@@ -189,32 +199,54 @@ def report(
     fingerprint_db: FingerprintDB,
     gid_table: str = GID_TABLE,
     dups_table: str = DUPS_TABLE,
+    chunk_size: int = DEFAULT_REPORT_CHUNK,
 ) -> tuple[int, int]:
     """Singletons still without a gid, and how many are blocked by a collision.
 
-    Meant for after a completed run, when the remaining set is small. Run
-    mid-run it has to evaluate the collision check across everything not yet
-    done, which is the whole point of not doing this per batch.
+    Walked in id windows rather than as one statement. The cost is not the
+    collision check but the join to meta: every singleton surviving the dups
+    anti-join is a probe into meta_pkey, ~145.8M of them, and as one statement
+    those are random access across a 95 GB table. In windows they become range
+    scans with locality. Measured on production: the single-statement form did
+    not finish in 45 minutes and was killed twice; six 60M-id windows returned
+    the same answer in 18 minutes.
+
+    Note the probe count does not fall as the run progresses -- the m.gid IS
+    NULL filter is applied after the probe, so finishing the backfill makes
+    this cheaper to summarise but not cheaper to compute.
 
     Uses the same connection as the rest of the command group rather than a
-    read-only one: this seq-scans tmp_meta_gid and takes minutes, which a hot
-    standby would cancel as a recovery conflict.
+    read-only one: it takes minutes, which a hot standby would cancel as a
+    recovery conflict.
     """
-    row = fingerprint_db.execute(
-        sql.text(
-            "SELECT count(*) AS remaining,"
-            " count(*) FILTER ("
-            "   WHERE EXISTS (SELECT 1 FROM meta m2 WHERE m2.gid = g.gid)"
-            " ) AS blocked"
-            " FROM {gid_table} g JOIN meta m ON m.id = g.id"
-            " WHERE m.gid IS NULL"
-            "   AND NOT EXISTS (SELECT 1 FROM {dups_table} d WHERE d.gid = g.gid)".format(
-                gid_table=check_table_name(gid_table),
-                dups_table=check_table_name(dups_table),
-            )
+    if chunk_size < 1:
+        raise ValueError("chunk_size must be positive")
+    end = last_snapshot_id(fingerprint_db, gid_table) + 1
+    query = sql.text(
+        "SELECT count(*) AS remaining,"
+        " count(*) FILTER ("
+        "   WHERE EXISTS (SELECT 1 FROM meta m2 WHERE m2.gid = g.gid)"
+        " ) AS blocked"
+        " FROM {gid_table} g JOIN meta m ON m.id = g.id"
+        " WHERE g.id >= :lo AND g.id < :hi"
+        "   AND m.gid IS NULL"
+        "   AND NOT EXISTS (SELECT 1 FROM {dups_table} d WHERE d.gid = g.gid)".format(
+            gid_table=check_table_name(gid_table),
+            dups_table=check_table_name(dups_table),
         )
-    ).one()
-    return row.remaining, row.blocked
+    )
+    remaining = 0
+    blocked = 0
+    for lo in range(0, end, chunk_size):
+        hi = min(lo + chunk_size, end)
+        row = fingerprint_db.execute(query, {"lo": lo, "hi": hi}).one()
+        if row.remaining:
+            logger.info(
+                "%d..%d: %d remaining, %d blocked", lo, hi, row.remaining, row.blocked
+            )
+        remaining += row.remaining
+        blocked += row.blocked
+    return remaining, blocked
 
 
 def run_backfill_singleton_gids(
