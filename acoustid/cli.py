@@ -37,6 +37,13 @@ from acoustid.scripts.backfill_submission_result import (
     run_validate,
     watershed,
 )
+from acoustid.scripts.claim_duplicate_gids import DEFAULT_BATCH_SIZE as CLAIM_BATCH_SIZE
+from acoustid.scripts.claim_duplicate_gids import DUPS_TABLE as CLAIM_DUPS_TABLE
+from acoustid.scripts.claim_duplicate_gids import PROGRESS_TABLE as CLAIM_PROGRESS
+from acoustid.scripts.claim_duplicate_gids import drop_progress as claim_drop_progress
+from acoustid.scripts.claim_duplicate_gids import init_progress as claim_init_progress
+from acoustid.scripts.claim_duplicate_gids import report as claim_report
+from acoustid.scripts.claim_duplicate_gids import run_claim
 from acoustid.scripts.import_submissions import run_import
 from acoustid.worker import run_worker
 from acoustid.wsgi_utils import run_api_app, run_web_app
@@ -378,6 +385,75 @@ def singleton_gids_drop_cmd(config):
         drop_progress(ctx.db.get_fingerprint_db())
         ctx.db.session.commit()
     click.echo("dropped %s" % (SINGLETON_PROGRESS,))
+
+
+@cli.group("claim-duplicate-gids")
+def claim_duplicate_gids():
+    # type: () -> None
+    """Give each duplicate group's gid to one of its members."""
+
+
+@claim_duplicate_gids.command("init")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+def claim_gids_init_cmd(config):
+    # type: (str) -> None
+    """Create the progress table."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        claim_init_progress(ctx.db.get_fingerprint_db())
+        ctx.db.session.commit()
+    click.echo("created %s" % (CLAIM_PROGRESS,))
+
+
+@claim_duplicate_gids.command("run")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option(
+    "--batch-size",
+    type=click.IntRange(min=1),
+    default=CLAIM_BATCH_SIZE,
+    help="Groups per transaction. Each claims at most one row.",
+)
+@click.option(
+    "--limit",
+    type=click.IntRange(min=0),
+    default=None,
+    help="Stop after this many batches. Use it for a first pass.",
+)
+@click.option("--dups-table", default=CLAIM_DUPS_TABLE)
+def claim_gids_run_cmd(config, batch_size, limit, dups_table):
+    # type: (str, int, Optional[int], str) -> None
+    """Claim gids from the cursor onwards."""
+    script = Script(config)
+    script.setup_console_logging()
+    run_claim(script, batch_size=batch_size, limit=limit, dups_table=dups_table)
+
+
+@claim_duplicate_gids.command("report")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option("--dups-table", default=CLAIM_DUPS_TABLE)
+def claim_gids_report_cmd(config, dups_table):
+    # type: (str, str) -> None
+    """Count groups whose gid is held, and groups where it is not."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        claimed, unclaimed = claim_report(ctx.db.get_fingerprint_db(), dups_table)
+    click.echo("%d groups have a member holding the gid" % (claimed,))
+    click.echo("%d groups do not" % (unclaimed,))
+
+
+@claim_duplicate_gids.command("drop")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+def claim_gids_drop_cmd(config):
+    # type: (str) -> None
+    """Remove the progress table once the claim is finished."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        claim_drop_progress(ctx.db.get_fingerprint_db())
+        ctx.db.session.commit()
+    click.echo("dropped %s" % (CLAIM_PROGRESS,))
 
 
 @cli.command("shell")
