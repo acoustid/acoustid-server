@@ -410,13 +410,13 @@ def claim_gids_init_cmd(config):
 @click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
 @click.option(
     "--batch-size",
-    type=int,
+    type=click.IntRange(min=1),
     default=CLAIM_BATCH_SIZE,
     help="Groups per transaction. Each claims at most one row.",
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=0),
     default=None,
     help="Stop after this many batches. Use it for a first pass.",
 )
