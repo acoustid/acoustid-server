@@ -276,6 +276,36 @@ def test_report_separates_blocked_from_merely_unfinished(ctx: ScriptContext) -> 
 
 
 @with_script_context
+def test_report_windows_agree_with_a_single_pass(ctx: ScriptContext) -> None:
+    """Chunking is for locality, so it must not change the answer.
+
+    The single-statement form does not finish on production -- every singleton
+    surviving the dups anti-join is a random probe into meta_pkey across a
+    95 GB table -- so report walks id windows instead.
+    """
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_scratch(db)
+        init_progress(db)
+
+        taken_gid = uuid.uuid4()
+        blocked = add_meta(db, {"track": "Foo"})
+        add_computed(db, blocked, taken_gid)
+        add_meta(db, {"track": "Foo"}, gid=taken_gid)
+        pending = [add_meta(db, {"track": "Track %d" % n}) for n in range(3)]
+        for meta_id in pending:
+            add_computed(db, meta_id, uuid.uuid4())
+
+        whole = report(db, chunk_size=10**9)
+        assert whole == (4, 1)
+        # One row per window, and windows that hold nothing.
+        assert report(db, chunk_size=1) == whole
+        assert report(db, chunk_size=2) == whole
+    finally:
+        drop_scratch(db)
+
+
+@with_script_context
 def test_snapshot_end_is_where_the_walk_stops(ctx: ScriptContext) -> None:
     db = ctx.db.get_fingerprint_db()
     try:

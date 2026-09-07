@@ -13,6 +13,9 @@ from acoustid.scripts.backfill_singleton_gids import (
     DEFAULT_BATCH_SIZE as SINGLETON_BATCH_SIZE,
 )
 from acoustid.scripts.backfill_singleton_gids import (
+    DEFAULT_REPORT_CHUNK as SINGLETON_REPORT_CHUNK,
+)
+from acoustid.scripts.backfill_singleton_gids import (
     DUPS_TABLE,
 )
 from acoustid.scripts.backfill_singleton_gids import GID_TABLE as SINGLETON_GID_TABLE
@@ -197,7 +200,7 @@ def backfill_submission_result():
     "--lo", type=int, default=None, help="First submission id (default: the watershed)."
 )
 @click.option("--hi", type=int, default=None, help="Last submission id, exclusive.")
-@click.option("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
+@click.option("--batch-size", type=click.IntRange(min=1), default=DEFAULT_BATCH_SIZE)
 @click.option("--gid-table", default=GID_TABLE)
 def backfill_validate_cmd(config, lo, hi, batch_size, gid_table):
     # type: (str, Optional[int], Optional[int], int, str) -> None
@@ -232,7 +235,7 @@ def backfill_validate_cmd(config, lo, hi, batch_size, gid_table):
         " backfill stays deletable in one statement."
     ),
 )
-@click.option("--range-size", type=int, default=DEFAULT_RANGE_SIZE)
+@click.option("--range-size", type=click.IntRange(min=1), default=DEFAULT_RANGE_SIZE)
 def backfill_init_cmd(config, lo, hi, range_size):
     # type: (str, int, Optional[int], int) -> None
     """Create the work queue and fill it with ranges."""
@@ -251,11 +254,11 @@ def backfill_init_cmd(config, lo, hi, range_size):
 @backfill_submission_result.command("run")
 @click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
 @click.option("--worker", default=None, help="Worker name recorded on claimed ranges.")
-@click.option("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
+@click.option("--batch-size", type=click.IntRange(min=1), default=DEFAULT_BATCH_SIZE)
 @click.option("--gid-table", default=GID_TABLE)
 @click.option(
     "--max-ranges",
-    type=int,
+    type=click.IntRange(min=0),
     default=None,
     help="Stop after this many ranges, between ranges. Use 1 for a first pass.",
 )
@@ -326,13 +329,13 @@ def singleton_gids_init_cmd(config):
 @click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
 @click.option(
     "--batch-size",
-    type=int,
+    type=click.IntRange(min=1),
     default=SINGLETON_BATCH_SIZE,
     help="meta ids per transaction, not rows updated.",
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(min=0),
     default=None,
     help="Stop after this many batches. Use it for a first pass.",
 )
@@ -356,13 +359,21 @@ def singleton_gids_run_cmd(config, batch_size, limit, gid_table, dups_table):
 @click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
 @click.option("--gid-table", default=SINGLETON_GID_TABLE)
 @click.option("--dups-table", default=DUPS_TABLE)
-def singleton_gids_report_cmd(config, gid_table, dups_table):
-    # type: (str, str, str) -> None
+@click.option(
+    "--chunk-size",
+    type=click.IntRange(min=1),
+    default=SINGLETON_REPORT_CHUNK,
+    help="meta ids per window. Smaller windows, more queries, better locality.",
+)
+def singleton_gids_report_cmd(config, gid_table, dups_table, chunk_size):
+    # type: (str, str, str, int) -> None
     """Count singletons still without a gid, and how many are blocked."""
     script = Script(config)
     script.setup_console_logging()
     with script.context() as ctx:
-        remaining, blocked = report(ctx.db.get_fingerprint_db(), gid_table, dups_table)
+        remaining, blocked = report(
+            ctx.db.get_fingerprint_db(), gid_table, dups_table, chunk_size
+        )
     click.echo("%d singletons still without a gid" % (remaining,))
     click.echo("%d of those blocked by a row that already holds it" % (blocked,))
 
