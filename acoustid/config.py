@@ -435,9 +435,10 @@ class GunicornConfig(BaseConfig):
         self.threads = 1
         self.backlog = 1024
         # Must be LONGER than the proxy's upstream idle timeout, not equal to
-        # it. Envoy holds an idle upstream connection for 60s; gunicorn's
-        # default is 2s, so Envoy writes onto sockets the server hung up on
-        # ~58s earlier and synthesises a plain-text 503. Matching the two
+        # it. Envoy holds an idle upstream connection for 60s; gunicorn closes
+        # one after 2.00s, measured on a live pod rather than read off the
+        # documented default. So Envoy writes onto sockets the server hung up
+        # on ~58s earlier and synthesises a plain-text 503. Matching the two
         # exactly does not fix it -- both ends then expire at the same instant
         # and the race just gets rarer. The invariant is that the upstream
         # closes last, so the proxy always initiates teardown on a connection
