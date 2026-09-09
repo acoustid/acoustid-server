@@ -52,6 +52,7 @@ from acoustid.scripts.merge_duplicate_meta import DEFAULT_BATCH_SIZE as MERGE_BA
 from acoustid.scripts.merge_duplicate_meta import GID_TABLE as MERGE_GID_TABLE
 from acoustid.scripts.merge_duplicate_meta import PROGRESS_TABLE as MERGE_PROGRESS
 from acoustid.scripts.merge_duplicate_meta import drop_progress as merge_drop_progress
+from acoustid.scripts.merge_duplicate_meta import get_deferred as merge_deferred
 from acoustid.scripts.merge_duplicate_meta import init_progress as merge_init_progress
 from acoustid.scripts.merge_duplicate_meta import last_snapshot_id as merge_last_id
 from acoustid.scripts.merge_duplicate_meta import remaining as merge_remaining
@@ -528,7 +529,7 @@ def merge_meta_run_cmd(config, batch_size, limit, gid_table):
 @click.option("--gid-table", default=MERGE_GID_TABLE)
 def merge_meta_report_cmd(config, chunk_size, gid_table):
     # type: (str, int, str) -> None
-    """Count duplicates still present."""
+    """Count duplicates still present, and the ranges the guard skipped."""
     script = Script(config)
     script.setup_console_logging()
     with script.context() as ctx:
@@ -541,7 +542,15 @@ def merge_meta_report_cmd(config, chunk_size, gid_table):
             if found:
                 click.echo("%d..%d: %d" % (lo, hi, found))
             total += found
+        deferred = merge_deferred(db)
     click.echo("%d duplicates still present" % (total,))
+    for lo, hi in deferred:
+        click.echo("deferred %d..%d" % (lo, hi))
+    if deferred:
+        click.echo(
+            "%d ranges deferred by the delete guard, run again to sweep them"
+            % (len(deferred),)
+        )
 
 
 @merge_duplicate_meta.command("drop")

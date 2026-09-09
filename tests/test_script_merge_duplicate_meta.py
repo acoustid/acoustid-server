@@ -13,13 +13,16 @@ from acoustid.scripts.merge_duplicate_meta import (
     GID_TABLE,
     PROGRESS_TABLE,
     check_table_name,
+    clear_deferred,
     delete_duplicates,
     drop_progress,
     find_duplicates,
+    get_deferred,
     get_progress,
     init_progress,
     last_snapshot_id,
     merge_batch,
+    record_deferred,
     record_history,
     remaining,
     repoint_track_meta,
@@ -444,3 +447,173 @@ def test_rejects_a_table_name_that_is_not_an_identifier() -> None:
     assert check_table_name("tmp_meta_gid") == "tmp_meta_gid"
     with pytest.raises(ValueError):
         check_table_name("meta; DROP TABLE meta")
+
+
+@with_script_context
+def test_several_doomed_rows_on_one_track_collapse_into_one(
+    ctx: ScriptContext,
+) -> None:
+    """The shape the large groups produce: one track, several doomed rows.
+
+    This is what the DISTINCT ON promote is for. The lowest doomed row is
+    moved onto the primary and the rest fold into it, summing as they go,
+    because track_meta_idx_uniq would not have any of them side by side.
+    """
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_gid_table(db)
+        init_progress(db)
+        _, primary, losers = a_claimed_group(db, members=4)
+        track = add_track(db)
+        for i, loser in enumerate(losers, start=1):
+            link(db, track, loser, count=i)
+
+        result = merge_batch(db, 0, HIGH)
+
+        rows = track_meta_for(db, [track])
+        assert len(rows) == 1
+        assert rows[0].meta_id == primary
+        assert rows[0].submission_count == 6
+        assert result.promoted == 1
+        assert result.folded == 2
+        assert alive(db, [primary] + losers) == {primary}
+    finally:
+        drop_all(db)
+
+
+@with_script_context
+def test_a_row_whose_gid_points_at_different_content_is_left_alone(
+    ctx: ScriptContext,
+) -> None:
+    """The gid table is prepared elsewhere, so being wrong is possible.
+
+    Merging on a bad gid would move a row's metadata onto unrelated content
+    and delete the original, which nothing could undo. Disagreeing rows are
+    skipped instead, and stay visible to report.
+    """
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_gid_table(db)
+        init_progress(db)
+        gid = uuid.uuid4()
+        primary = add_meta(db, {"track": "Foo"}, gid=gid)
+        add_computed(db, primary, gid)
+        # The gid table claims this hashes to gid. Its content says otherwise.
+        impostor = add_meta(db, {"track": "Something else entirely"})
+        add_computed(db, impostor, gid)
+
+        assert find_duplicates(db, 0, HIGH) == []
+
+        result = merge_batch(db, 0, HIGH)
+
+        assert result.rows == 0
+        assert alive(db, [primary, impostor]) == {primary, impostor}
+        assert history_for(db, [impostor]) == {}
+        # Still counted, so the operator sees that something needs looking at.
+        assert remaining(db, 0, HIGH) == 1
+    finally:
+        drop_all(db)
+
+
+@with_script_context
+def test_an_empty_string_is_the_same_content_as_null(ctx: ScriptContext) -> None:
+    """generate_meta_gid skips falsy values, so the check has to as well.
+
+    A row storing '' and a row storing NULL hash to the same gid and are
+    genuinely duplicates. A strict comparison would refuse to merge exactly
+    the rows the check exists to confirm.
+    """
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_gid_table(db)
+        init_progress(db)
+        gid = uuid.uuid4()
+        primary = add_meta(db, {"track": "Foo"}, gid=gid)
+        add_computed(db, primary, gid)
+        loser = add_meta(db, {"track": "Foo", "album": "", "track_no": 0})
+        add_computed(db, loser, gid)
+
+        result = merge_batch(db, 0, HIGH)
+
+        assert result.rows == 1
+        assert alive(db, [primary, loser]) == {primary}
+    finally:
+        drop_all(db)
+
+
+@with_script_context
+def test_a_deferred_range_is_remembered_until_a_sweep_clears_it(
+    ctx: ScriptContext,
+) -> None:
+    """What the guard skips has to outlive the batch that skipped it.
+
+    The cursor moves past the range regardless, so this table is the only
+    record that the range is unfinished, and a clean pass over it is what
+    removes the record.
+    """
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_gid_table(db)
+        init_progress(db)
+        record_deferred(db, 0, HIGH, 3)
+        record_deferred(db, HIGH, HIGH * 2, 1)
+
+        assert get_deferred(db) == [(0, HIGH), (HIGH, HIGH * 2)]
+
+        # Recording the same range again updates it rather than duplicating it.
+        record_deferred(db, 0, HIGH, 2)
+        assert get_deferred(db) == [(0, HIGH), (HIGH, HIGH * 2)]
+
+        clear_deferred(db, 0)
+        assert get_deferred(db) == [(HIGH, HIGH * 2)]
+    finally:
+        drop_all(db)
+
+
+@with_script_context
+def test_a_batch_with_nothing_left_clears_its_deferred_range(
+    ctx: ScriptContext,
+) -> None:
+    """The sweep is a normal batch, and finishing is how it reports success."""
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_gid_table(db)
+        init_progress(db)
+        _, primary, (loser,) = a_claimed_group(db)
+        record_deferred(db, 0, HIGH, 1)
+
+        result = merge_batch(db, 0, HIGH)
+
+        assert result.rows == 1
+        assert result.deferred == 0
+        assert get_deferred(db) == []
+    finally:
+        drop_all(db)
+
+
+@with_script_context
+def test_a_sweep_does_not_drag_the_cursor_backwards(ctx: ScriptContext) -> None:
+    """Deferred ranges sit behind the cursor, and re-running one must not rewind it.
+
+    Without greatest(), sweeping an early range would send the walk back over
+    everything already merged.
+    """
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_gid_table(db)
+        init_progress(db)
+        db.execute(
+            sql.text(
+                "UPDATE {t} SET last_meta_id = :hi WHERE id = 1".format(
+                    t=PROGRESS_TABLE
+                )
+            ),
+            {"hi": HIGH},
+        )
+
+        merge_batch(db, 0, 10)
+
+        last, _ = get_progress(db)
+        assert last == HIGH
+    finally:
+        drop_all(db)

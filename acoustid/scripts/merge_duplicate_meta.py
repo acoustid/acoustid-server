@@ -43,9 +43,37 @@ ORDER INSIDE A TRANSACTION
 4. delete the losers, guarded so a concurrent reference costs one skipped row
    rather than an aborted batch
 
-Steps 2 and 3 are separate because track_meta_idx_track_id_meta is unique on
+The guard is a snapshot test, so it can still lose: a row committed between
+the DELETE's snapshot and the end-of-statement foreign key check raises
+instead of being skipped. That is the same event with a louder failure mode,
+so it is handled the same way -- the batch rolls back, the range is recorded,
+and the walk carries on. A multi-day run does not end because one submission
+arrived at an unlucky moment.
+
+A guarded skip is not the end of the story. The range is recorded in
+meta_merge_deferred and swept again once the forward walk is done, because a
+reference that appeared mid-batch is gone by the time the repoint runs again.
+Ranges that still defer stay in the table, so "did this finish?" is a query
+rather than a guess: the run does not report itself complete while it holds
+rows it never merged.
+
+Steps 2 and 3 are separate because track_meta_idx_uniq is unique on
 (track_id, meta_id): roughly one repoint in five lands on a track that already
 references the primary, and a plain UPDATE would trip the index.
+
+WHAT IT CHECKS BEFORE DELETING
+
+The gid table is prepared out of band and selectable with --gid-table, and a
+wrong entry sends a row's track_meta into an unrelated meta row and then
+deletes the evidence. Both rows are already joined, so the merge compares the
+seven columns the gid is derived from and leaves any pair that disagrees
+alone, loudly. It costs nothing and makes 207M irreversible deletes
+self-checking rather than trusting a table that is not in the schema.
+
+The comparison uses the same falsy-is-absent rule as generate_meta_gid, which
+skips empty strings and zeros when it hashes: a row storing '' and a row
+storing NULL hash alike and must compare alike, or the check would reject the
+very pairs it exists to confirm.
 
 WHAT THIS ORPHANS, DELIBERATELY
 
@@ -70,6 +98,7 @@ import uuid
 from dataclasses import dataclass
 
 from sqlalchemy import sql
+from sqlalchemy.exc import IntegrityError
 
 from acoustid.db import FingerprintDB
 from acoustid.script import Script
@@ -84,6 +113,28 @@ GID_TABLE = "tmp_meta_gid"
 # tables.py -- meta_gid_backfill_status was this kind of table declared
 # alongside real schema and outlived its script by six years.
 PROGRESS_TABLE = "meta_merge_progress"
+
+# Ranges the delete guard skipped, waiting for another sweep. Same lifetime as
+# PROGRESS_TABLE and dropped with it.
+DEFERRED_TABLE = "meta_merge_deferred"
+
+# The columns generate_meta_gid hashes, with the value that counts as absent.
+# It skips anything falsy, so '' and NULL are one value and so are 0 and NULL;
+# comparing them strictly would reject rows that really do hash alike.
+CONTENT_COLUMNS = (
+    ("track", "''"),
+    ("artist", "''"),
+    ("album", "''"),
+    ("album_artist", "''"),
+    ("track_no", "0"),
+    ("disc_no", "0"),
+    ("year", "0"),
+)
+
+SAME_CONTENT = " AND ".join(
+    "nullif(m.{c}, {a}) IS NOT DISTINCT FROM nullif(p.{c}, {a})".format(c=c, a=a)
+    for c, a in CONTENT_COLUMNS
+)
 
 # meta ids per transaction. Roughly half the id space is a duplicate, so this
 # is ~5000 rows merged and a similar number of track_meta rows touched.
@@ -131,9 +182,30 @@ def init_progress(fingerprint_db: FingerprintDB) -> None:
             " ON CONFLICT (id) DO NOTHING".format(table=PROGRESS_TABLE)
         )
     )
+    # Added after the first version of this script, so a progress table left
+    # by an earlier init gains the column instead of missing it.
+    fingerprint_db.execute(
+        sql.text(
+            "ALTER TABLE {table} ADD COLUMN IF NOT EXISTS"
+            " rows_deferred bigint NOT NULL DEFAULT 0".format(table=PROGRESS_TABLE)
+        )
+    )
+    fingerprint_db.execute(
+        sql.text(
+            "CREATE TABLE IF NOT EXISTS {table} ("
+            " lo integer PRIMARY KEY,"
+            " hi integer NOT NULL,"
+            " rows integer NOT NULL,"
+            " updated timestamptz NOT NULL DEFAULT now()"
+            ")".format(table=DEFERRED_TABLE)
+        )
+    )
 
 
 def drop_progress(fingerprint_db: FingerprintDB) -> None:
+    fingerprint_db.execute(
+        sql.text("DROP TABLE IF EXISTS {t}".format(t=DEFERRED_TABLE))
+    )
     fingerprint_db.execute(
         sql.text("DROP TABLE IF EXISTS {t}".format(t=PROGRESS_TABLE))
     )
@@ -150,6 +222,35 @@ def get_progress(fingerprint_db: FingerprintDB) -> tuple[int, int]:
     if row is None:
         raise RuntimeError("%s is missing, run init first" % (PROGRESS_TABLE,))
     return row.last_meta_id, row.rows_merged
+
+
+def record_deferred(fingerprint_db: FingerprintDB, lo: int, hi: int, rows: int) -> None:
+    """Remember a range the delete guard skipped, so a later sweep finds it."""
+    fingerprint_db.execute(
+        sql.text(
+            "INSERT INTO {t} (lo, hi, rows) VALUES (:lo, :hi, :rows)"
+            " ON CONFLICT (lo) DO UPDATE"
+            " SET hi = excluded.hi, rows = excluded.rows,"
+            "     updated = now()".format(t=DEFERRED_TABLE)
+        ),
+        {"lo": lo, "hi": hi, "rows": rows},
+    )
+
+
+def clear_deferred(fingerprint_db: FingerprintDB, lo: int) -> None:
+    """Forget a range that a later sweep finished."""
+    fingerprint_db.execute(
+        sql.text("DELETE FROM {t} WHERE lo = :lo".format(t=DEFERRED_TABLE)),
+        {"lo": lo},
+    )
+
+
+def get_deferred(fingerprint_db: FingerprintDB) -> list[tuple[int, int]]:
+    """The ranges the delete guard skipped, lowest first."""
+    rows = fingerprint_db.execute(
+        sql.text("SELECT lo, hi FROM {t} ORDER BY lo".format(t=DEFERRED_TABLE))
+    ).all()
+    return [(r.lo, r.hi) for r in rows]
 
 
 def last_snapshot_id(fingerprint_db: FingerprintDB, gid_table: str = GID_TABLE) -> int:
@@ -177,19 +278,36 @@ def find_duplicates(
     A row with no gid whose content gid is held by another row is a copy of
     that row. The join to meta on gid is the whole test -- there is no group
     membership to check, because claiming the gid already settled it.
+
+    The gid comes from a table this script does not own, so the content is
+    compared before the pair is handed on to be deleted. A disagreement means
+    the gid table is wrong about this row; it is reported and the row is left
+    exactly as it is, which is recoverable, unlike merging it.
     """
     rows = fingerprint_db.execute(
         sql.text(
-            "SELECT m.id AS loser_id, p.id AS primary_id, g.gid AS gid"
+            "SELECT m.id AS loser_id, p.id AS primary_id, g.gid AS gid,"
+            "       ({same_content}) AS same_content"
             "  FROM {gid_table} g"
             "  JOIN meta m ON m.id = g.id"
             "  JOIN meta p ON p.gid = g.gid"
             " WHERE m.id >= :lo AND m.id < :hi"
-            "   AND m.gid IS NULL".format(gid_table=check_table_name(gid_table))
+            "   AND m.gid IS NULL".format(
+                gid_table=check_table_name(gid_table), same_content=SAME_CONTENT
+            )
         ),
         {"lo": lo, "hi": hi},
     ).all()
-    return [(r.loser_id, r.primary_id, r.gid) for r in rows]
+    mismatched = [r.loser_id for r in rows if not r.same_content]
+    if mismatched:
+        logger.warning(
+            "%d..%d: %d rows whose gid points at different content, left alone: %s",
+            lo,
+            hi,
+            len(mismatched),
+            ", ".join(str(i) for i in mismatched[:20]),
+        )
+    return [(r.loser_id, r.primary_id, r.gid) for r in rows if r.same_content]
 
 
 def record_history(
@@ -199,6 +317,11 @@ def record_history(
 
     meta_id_history plus the unique index on meta.gid is what lets an old
     meta_id still be resolved: old id -> gid -> the row holding it.
+
+    Nothing in this codebase performs that lookup yet -- the table has been
+    written since 2020 and never read -- so this keeps the resolution possible
+    rather than making it available. A caller that needs it still has to join
+    meta_id_history to meta itself.
     """
     if not pairs:
         return
@@ -219,7 +342,7 @@ def repoint_track_meta(
 ) -> tuple[int, int]:
     """Move track_meta off the duplicates and onto the rows they merge into.
 
-    Two statements, because track_meta_idx_track_id_meta is unique on
+    Two statements, because track_meta_idx_uniq is unique on
     (track_id, meta_id) and roughly one repoint in five lands on a track that
     already references the primary. The first promotes, per (track_id,
     primary), the lowest doomed row where the track has no primary row yet;
@@ -322,6 +445,25 @@ def delete_duplicates(
     ).rowcount
 
 
+def bump_progress(
+    fingerprint_db: FingerprintDB, hi: int, merged: int, deferred: int
+) -> None:
+    """Move the cursor to hi and add to the counters.
+
+    greatest(), because a deferred sweep re-runs ranges behind the cursor and
+    must not drag it back over work that is finished.
+    """
+    fingerprint_db.execute(
+        sql.text(
+            "UPDATE {t} SET last_meta_id = greatest(last_meta_id, :hi),"
+            " rows_merged = rows_merged + :merged,"
+            " rows_deferred = rows_deferred + :deferred, updated = now()"
+            " WHERE id = 1".format(t=PROGRESS_TABLE)
+        ),
+        {"hi": hi, "merged": merged, "deferred": deferred},
+    )
+
+
 def merge_batch(
     fingerprint_db: FingerprintDB,
     lo: int,
@@ -340,22 +482,44 @@ def merge_batch(
         result.promoted, result.folded = repoint_track_meta(fingerprint_db, pairs)
         result.rows = delete_duplicates(fingerprint_db, pairs)
         result.deferred = len(pairs) - result.rows
-        if result.deferred:
-            logger.info(
-                "%d..%d: %d rows still referenced, left for a later pass",
-                lo,
-                hi,
-                result.deferred,
-            )
-    fingerprint_db.execute(
-        sql.text(
-            "UPDATE {t} SET last_meta_id = :hi,"
-            " rows_merged = rows_merged + :merged, updated = now()"
-            " WHERE id = 1".format(t=PROGRESS_TABLE)
-        ),
-        {"hi": hi, "merged": result.rows},
-    )
+    if result.deferred:
+        logger.info(
+            "%d..%d: %d rows still referenced, recorded for another sweep",
+            lo,
+            hi,
+            result.deferred,
+        )
+        record_deferred(fingerprint_db, lo, hi, result.deferred)
+    else:
+        # Nothing left here, so a range recorded by an earlier sweep is done.
+        clear_deferred(fingerprint_db, lo)
+    bump_progress(fingerprint_db, hi, result.rows, result.deferred)
     return result
+
+
+def run_batch(script: Script, lo: int, hi: int, gid_table: str, total: Merged) -> None:
+    """One batch and its commit, treating a lost race as a deferral.
+
+    The foreign key can fire on a row that the guard's snapshot could not see.
+    Nothing is lost when it does -- the batch rolls back whole -- so the range
+    is recorded and the cursor moves on, exactly as for a guarded skip.
+    """
+    try:
+        with script.context() as ctx:
+            total.add(merge_batch(ctx.db.get_fingerprint_db(), lo, hi, gid_table))
+            ctx.db.session.commit()
+    except IntegrityError:
+        logger.warning(
+            "%d..%d: a reference arrived mid-delete and aborted the batch,"
+            " recorded for another sweep",
+            lo,
+            hi,
+        )
+        with script.context() as ctx:
+            fingerprint_db = ctx.db.get_fingerprint_db()
+            record_deferred(fingerprint_db, lo, hi, 0)
+            bump_progress(fingerprint_db, hi, 0, 0)
+            ctx.db.session.commit()
 
 
 def remaining(
@@ -392,7 +556,12 @@ def run_merge(
     limit: int | None = None,
     gid_table: str = GID_TABLE,
 ) -> Merged:
-    """Walk meta by id from the cursor, merging duplicates as it goes."""
+    """Walk meta by id from the cursor, then sweep whatever the guard skipped.
+
+    The walk moves the cursor; the sweep does not. A range the guard skipped
+    is revisited in the same run, and if it skips again it stays recorded, so
+    a finished run and a run with work left over do not look the same.
+    """
     if batch_size < 1:
         raise ValueError("batch_size must be positive")
     total = Merged()
@@ -404,21 +573,25 @@ def run_merge(
         fingerprint_db = ctx.db.get_fingerprint_db()
         lo, already = get_progress(fingerprint_db)
         end = last_snapshot_id(fingerprint_db, gid_table) + 1
+        pending = get_deferred(fingerprint_db)
 
-    if lo >= end:
+    if lo >= end and not pending:
         logger.info(
             "Nothing to do, cursor is at %d and the snapshot ends at %d", lo, end
         )
         return total
 
-    logger.info("Resuming at %d, ending at %d, %d rows merged so far", lo, end, already)
+    if lo < end:
+        logger.info(
+            "Resuming at %d, ending at %d, %d rows merged so far", lo, end, already
+        )
+    else:
+        logger.info("Cursor is at the end, sweeping %d deferred ranges", len(pending))
 
     batches = 0
     while lo < end and (limit is None or batches < limit):
         hi = min(lo + batch_size, end)
-        with script.context() as ctx:
-            total.add(merge_batch(ctx.db.get_fingerprint_db(), lo, hi, gid_table))
-            ctx.db.session.commit()
+        run_batch(script, lo, hi, gid_table, total)
         batches += 1
         lo = hi
         if batches % 100 == 0:
@@ -430,6 +603,19 @@ def run_merge(
                 total.folded,
             )
 
+    # Read again: the walk records ranges of its own as it goes.
+    with script.context() as ctx:
+        pending = get_deferred(ctx.db.get_fingerprint_db())
+
+    for d_lo, d_hi in pending:
+        if limit is not None and batches >= limit:
+            break
+        run_batch(script, d_lo, d_hi, gid_table, total)
+        batches += 1
+
+    with script.context() as ctx:
+        left = get_deferred(ctx.db.get_fingerprint_db())
+
     logger.info(
         "Merged %d rows in %d batches: %d track_meta repointed, %d folded, %d deferred",
         total.rows,
@@ -438,4 +624,10 @@ def run_merge(
         total.folded,
         total.deferred,
     )
+    if left:
+        logger.warning(
+            "%d ranges still hold rows the guard skipped, run again to sweep them: %s",
+            len(left),
+            ", ".join("%d..%d" % r for r in left[:10]),
+        )
     return total
