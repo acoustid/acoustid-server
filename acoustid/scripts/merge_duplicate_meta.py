@@ -246,7 +246,17 @@ def clear_deferred(fingerprint_db: FingerprintDB, lo: int) -> None:
 
 
 def get_deferred(fingerprint_db: FingerprintDB) -> list[tuple[int, int]]:
-    """The ranges the delete guard skipped, lowest first."""
+    """The ranges the delete guard skipped, lowest first.
+
+    Empty when the table is not there. report answered without a progress
+    table before this one existed, and asking what was deferred by a run that
+    never started is a fair question with a boring answer.
+    """
+    exists = fingerprint_db.execute(
+        sql.text("SELECT to_regclass(:t) IS NOT NULL"), {"t": DEFERRED_TABLE}
+    ).scalar()
+    if not exists:
+        return []
     rows = fingerprint_db.execute(
         sql.text("SELECT lo, hi FROM {t} ORDER BY lo".format(t=DEFERRED_TABLE))
     ).all()
@@ -506,8 +516,11 @@ def run_batch(script: Script, lo: int, hi: int, gid_table: str, total: Merged) -
     """
     try:
         with script.context() as ctx:
-            total.add(merge_batch(ctx.db.get_fingerprint_db(), lo, hi, gid_table))
+            batch = merge_batch(ctx.db.get_fingerprint_db(), lo, hi, gid_table)
             ctx.db.session.commit()
+        # After the commit: an abort throws the batch away, and counting work
+        # the database rolled back would overstate every total in the summary.
+        total.add(batch)
     except IntegrityError:
         logger.warning(
             "%d..%d: a reference arrived mid-delete and aborted the batch,"

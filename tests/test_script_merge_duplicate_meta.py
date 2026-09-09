@@ -617,3 +617,14 @@ def test_a_sweep_does_not_drag_the_cursor_backwards(ctx: ScriptContext) -> None:
         assert last == HIGH
     finally:
         drop_all(db)
+
+
+@with_script_context
+def test_deferred_ranges_are_empty_before_init(ctx: ScriptContext) -> None:
+    """report does not need init, and asking early should not raise."""
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_gid_table(db)
+        assert get_deferred(db) == []
+    finally:
+        drop_all(db)
