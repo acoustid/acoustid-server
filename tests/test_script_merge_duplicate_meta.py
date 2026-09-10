@@ -12,6 +12,7 @@ from acoustid.script import ScriptContext
 from acoustid.scripts.merge_duplicate_meta import (
     GID_TABLE,
     PROGRESS_TABLE,
+    Report,
     check_table_name,
     clear_deferred,
     delete_duplicates,
@@ -26,6 +27,7 @@ from acoustid.scripts.merge_duplicate_meta import (
     record_history,
     remaining,
     repoint_track_meta,
+    report_duplicates,
 )
 
 from . import with_script_context
@@ -626,5 +628,31 @@ def test_deferred_ranges_are_empty_before_init(ctx: ScriptContext) -> None:
     try:
         create_gid_table(db)
         assert get_deferred(db) == []
+    finally:
+        drop_all(db)
+
+
+@with_script_context
+def test_report_says_what_is_left_and_what_was_put_off(ctx: ScriptContext) -> None:
+    """One call answers report, so the command has nothing to work out itself."""
+    db = ctx.db.get_fingerprint_db()
+    try:
+        create_gid_table(db)
+        init_progress(db)
+        a_claimed_group(db, members=3)
+        record_deferred(db, 0, HIGH, 1)
+
+        report = report_duplicates(db, chunk_size=HIGH)
+
+        assert report.total == 2
+        # Only windows holding something, so a finished run prints almost nothing.
+        assert [(w[2]) for w in report.windows] == [2]
+        assert report.deferred == [(0, HIGH)]
+
+        merge_batch(db, 0, HIGH)
+
+        assert report_duplicates(db, chunk_size=HIGH) == Report(
+            windows=[], total=0, deferred=[]
+        )
     finally:
         drop_all(db)

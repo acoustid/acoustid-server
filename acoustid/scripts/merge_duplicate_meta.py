@@ -140,6 +140,11 @@ SAME_CONTENT = " AND ".join(
 # is ~5000 rows merged and a similar number of track_meta rows touched.
 DEFAULT_BATCH_SIZE = 10000
 
+# meta ids per counting window. Bigger than a batch because nothing is
+# written, small enough that each window still probes an index rather than
+# walking 95 GB.
+DEFAULT_CHUNK_SIZE = 60000000
+
 _TABLE_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 
@@ -147,6 +152,19 @@ def check_table_name(name: str) -> str:
     if not _TABLE_NAME_RE.match(name):
         raise ValueError("invalid table name: %r" % (name,))
     return name
+
+
+@dataclass
+class Report:
+    """What is left, in the shape report prints it.
+
+    Windows with nothing in them are dropped on the way out, so a run that is
+    nearly finished prints a handful of lines rather than several hundred.
+    """
+
+    windows: list[tuple[int, int, int]]
+    total: int
+    deferred: list[tuple[int, int]]
 
 
 @dataclass
@@ -561,6 +579,31 @@ def remaining(
         ).scalar()
         or 0
     )
+
+
+def report_duplicates(
+    fingerprint_db: FingerprintDB,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    gid_table: str = GID_TABLE,
+) -> Report:
+    """Everything report needs: what is left, and what was put off.
+
+    Counted in windows for the same reason the merge runs in batches -- the
+    join probes two indexes per row and the whole table at once is random
+    access over 95 GB.
+    """
+    if chunk_size < 1:
+        raise ValueError("chunk_size must be positive")
+    end = last_snapshot_id(fingerprint_db, gid_table) + 1
+    windows = []
+    total = 0
+    for lo in range(0, end, chunk_size):
+        hi = min(lo + chunk_size, end)
+        found = remaining(fingerprint_db, lo, hi, gid_table)
+        if found:
+            windows.append((lo, hi, found))
+        total += found
+    return Report(windows=windows, total=total, deferred=get_deferred(fingerprint_db))
 
 
 def run_merge(

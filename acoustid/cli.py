@@ -49,13 +49,12 @@ from acoustid.scripts.claim_duplicate_gids import report as claim_report
 from acoustid.scripts.claim_duplicate_gids import run_claim
 from acoustid.scripts.import_submissions import run_import
 from acoustid.scripts.merge_duplicate_meta import DEFAULT_BATCH_SIZE as MERGE_BATCH_SIZE
+from acoustid.scripts.merge_duplicate_meta import DEFAULT_CHUNK_SIZE as MERGE_CHUNK_SIZE
 from acoustid.scripts.merge_duplicate_meta import GID_TABLE as MERGE_GID_TABLE
 from acoustid.scripts.merge_duplicate_meta import PROGRESS_TABLE as MERGE_PROGRESS
 from acoustid.scripts.merge_duplicate_meta import drop_progress as merge_drop_progress
-from acoustid.scripts.merge_duplicate_meta import get_deferred as merge_deferred
 from acoustid.scripts.merge_duplicate_meta import init_progress as merge_init_progress
-from acoustid.scripts.merge_duplicate_meta import last_snapshot_id as merge_last_id
-from acoustid.scripts.merge_duplicate_meta import remaining as merge_remaining
+from acoustid.scripts.merge_duplicate_meta import report_duplicates as merge_report
 from acoustid.scripts.merge_duplicate_meta import run_merge
 from acoustid.worker import run_worker
 from acoustid.wsgi_utils import run_api_app, run_web_app
@@ -523,7 +522,7 @@ def merge_meta_run_cmd(config, batch_size, limit, gid_table):
 @click.option(
     "--chunk-size",
     type=click.IntRange(min=1),
-    default=60000000,
+    default=MERGE_CHUNK_SIZE,
     help="meta ids per window. Smaller windows, more queries, better locality.",
 )
 @click.option("--gid-table", default=MERGE_GID_TABLE)
@@ -533,23 +532,16 @@ def merge_meta_report_cmd(config, chunk_size, gid_table):
     script = Script(config)
     script.setup_console_logging()
     with script.context() as ctx:
-        db = ctx.db.get_fingerprint_db()
-        end = merge_last_id(db, gid_table) + 1
-        total = 0
-        for lo in range(0, end, chunk_size):
-            hi = min(lo + chunk_size, end)
-            found = merge_remaining(db, lo, hi, gid_table)
-            if found:
-                click.echo("%d..%d: %d" % (lo, hi, found))
-            total += found
-        deferred = merge_deferred(db)
-    click.echo("%d duplicates still present" % (total,))
-    for lo, hi in deferred:
+        report = merge_report(ctx.db.get_fingerprint_db(), chunk_size, gid_table)
+    for lo, hi, found in report.windows:
+        click.echo("%d..%d: %d" % (lo, hi, found))
+    click.echo("%d duplicates still present" % (report.total,))
+    for lo, hi in report.deferred:
         click.echo("deferred %d..%d" % (lo, hi))
-    if deferred:
+    if report.deferred:
         click.echo(
             "%d ranges deferred by the delete guard, run again to sweep them"
-            % (len(deferred),)
+            % (len(report.deferred),)
         )
 
 
