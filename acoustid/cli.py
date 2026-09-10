@@ -48,6 +48,14 @@ from acoustid.scripts.claim_duplicate_gids import init_progress as claim_init_pr
 from acoustid.scripts.claim_duplicate_gids import report as claim_report
 from acoustid.scripts.claim_duplicate_gids import run_claim
 from acoustid.scripts.import_submissions import run_import
+from acoustid.scripts.merge_duplicate_meta import DEFAULT_BATCH_SIZE as MERGE_BATCH_SIZE
+from acoustid.scripts.merge_duplicate_meta import DEFAULT_CHUNK_SIZE as MERGE_CHUNK_SIZE
+from acoustid.scripts.merge_duplicate_meta import GID_TABLE as MERGE_GID_TABLE
+from acoustid.scripts.merge_duplicate_meta import PROGRESS_TABLE as MERGE_PROGRESS
+from acoustid.scripts.merge_duplicate_meta import drop_progress as merge_drop_progress
+from acoustid.scripts.merge_duplicate_meta import init_progress as merge_init_progress
+from acoustid.scripts.merge_duplicate_meta import report_duplicates as merge_report
+from acoustid.scripts.merge_duplicate_meta import run_merge
 from acoustid.worker import run_worker
 from acoustid.wsgi_utils import run_api_app, run_web_app
 
@@ -465,6 +473,89 @@ def claim_gids_drop_cmd(config):
         claim_drop_progress(ctx.db.get_fingerprint_db())
         ctx.db.session.commit()
     click.echo("dropped %s" % (CLAIM_PROGRESS,))
+
+
+@cli.group("merge-duplicate-meta")
+def merge_duplicate_meta():
+    # type: () -> None
+    """Merge each duplicate meta row into the row holding its gid."""
+
+
+@merge_duplicate_meta.command("init")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+def merge_meta_init_cmd(config):
+    # type: (str) -> None
+    """Create the progress table."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        merge_init_progress(ctx.db.get_fingerprint_db())
+        ctx.db.session.commit()
+    click.echo("created %s" % (MERGE_PROGRESS,))
+
+
+@merge_duplicate_meta.command("run")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option(
+    "--batch-size",
+    type=click.IntRange(min=1),
+    default=MERGE_BATCH_SIZE,
+    help="meta ids per transaction, not rows merged.",
+)
+@click.option(
+    "--limit",
+    type=click.IntRange(min=0),
+    default=None,
+    help="Stop after this many batches. Use it for a first pass.",
+)
+@click.option("--gid-table", default=MERGE_GID_TABLE)
+def merge_meta_run_cmd(config, batch_size, limit, gid_table):
+    # type: (str, int, Optional[int], str) -> None
+    """Merge duplicates from the cursor onwards."""
+    script = Script(config)
+    script.setup_console_logging()
+    run_merge(script, batch_size=batch_size, limit=limit, gid_table=gid_table)
+
+
+@merge_duplicate_meta.command("report")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option(
+    "--chunk-size",
+    type=click.IntRange(min=1),
+    default=MERGE_CHUNK_SIZE,
+    help="meta ids per window. Smaller windows, more queries, better locality.",
+)
+@click.option("--gid-table", default=MERGE_GID_TABLE)
+def merge_meta_report_cmd(config, chunk_size, gid_table):
+    # type: (str, int, str) -> None
+    """Count duplicates still present, and the ranges the guard skipped."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        report = merge_report(ctx.db.get_fingerprint_db(), chunk_size, gid_table)
+    for lo, hi, found in report.windows:
+        click.echo("%d..%d: %d" % (lo, hi, found))
+    click.echo("%d duplicates still present" % (report.total,))
+    for lo, hi in report.deferred:
+        click.echo("deferred %d..%d" % (lo, hi))
+    if report.deferred:
+        click.echo(
+            "%d ranges deferred by the delete guard, run again to sweep them"
+            % (len(report.deferred),)
+        )
+
+
+@merge_duplicate_meta.command("drop")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+def merge_meta_drop_cmd(config):
+    # type: (str) -> None
+    """Remove the progress table once the merge is finished."""
+    script = Script(config)
+    script.setup_console_logging()
+    with script.context() as ctx:
+        merge_drop_progress(ctx.db.get_fingerprint_db())
+        ctx.db.session.commit()
+    click.echo("dropped %s" % (MERGE_PROGRESS,))
 
 
 @cli.command("shell")
