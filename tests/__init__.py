@@ -1849,8 +1849,9 @@ INSERT INTO track (id, gid) VALUES
     (4, '014e973b-368e-42bf-b619-84cab14c4af6');
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, 'b81f83ee-4da4-11e0-9ed8-0025225356f3', 1, false);
 INSERT INTO track_mbid (track_id, mbid, submission_count, disabled) VALUES (1, '54b7b412-fc69-4fc7-8c96-17800eda3a98', 1, true);
-INSERT INTO meta (id, track, artist) VALUES (1, 'Custom Track 1', 'Custom Artist');
-INSERT INTO meta (id, track, artist) VALUES (2, 'Custom Track 2', 'Custom Artist');
+INSERT INTO meta (id, track, artist, gid) VALUES
+    (1, 'Custom Track 1', 'Custom Artist', '9d1a6b1e-5c1e-4f3a-8f2b-1e0f5a7c9d01'),
+    (2, 'Custom Track 2', 'Custom Artist', '9d1a6b1e-5c1e-4f3a-8f2b-1e0f5a7c9d02');
 INSERT INTO track_meta (track_id, meta_id, submission_count) VALUES (1, 1, 1);
 INSERT INTO track_meta (track_id, meta_id, submission_count) VALUES (1, 2, 10);
 """
