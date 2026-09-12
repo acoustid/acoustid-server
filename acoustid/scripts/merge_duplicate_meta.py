@@ -380,6 +380,28 @@ def repoint_track_meta(
     Both bump updated, because both change the row: the promote rewrites
     meta_id, the fold changes submission_count. least(created) keeps
     meta.created derivable from min(track_meta.created).
+
+    The fold looks the surviving row up in a MATERIALIZED CTE and then updates
+    it by primary key, instead of joining straight onto (track_id, meta_id).
+    Written as a join, the planner reaches for track_meta_idx_meta_id and
+    puts track_id in a Filter, so a survivor referenced by 639,492 track_meta
+    rows heap-fetches all of them to keep the one that matches: 90 seconds of
+    CPU per statement in production, against 50-75 ms for the same join
+    written as a SELECT, which does pick the composite index. Both quals are
+    indexable and the two paths cost within rounding of each other, and the
+    primary id arrives as a runtime join variable, so no statistics on
+    track_meta reach the decision -- the index has to be chosen by the shape
+    of the query rather than talked into. MATERIALIZED because the CTE is
+    referenced once and would otherwise be folded back into the UPDATE,
+    handing the planner the same choice again.
+
+    Nothing about what the statement does changes. track_meta_idx_uniq makes
+    the join one-to-at-most-one, so no row is updated twice and none is
+    multiplied; an agg row with no surviving track_meta row drops out of the
+    inner join exactly as it previously updated nothing and returned nothing,
+    leaving its doomed ids for a later pass. A target is never one of the
+    doomed ids it carries, because doomed rows point at losers and the target
+    points at the primary.
     """
     if not pairs:
         return 0, 0
@@ -433,14 +455,21 @@ def repoint_track_meta(
             "          array_agg(id) AS doomed_ids"
             "     FROM doomed GROUP BY track_id, primary_id"
             " ),"
+            " target AS MATERIALIZED ("
+            "   SELECT t.id AS target_id, agg.extra_count, agg.min_created,"
+            "          agg.doomed_ids"
+            "     FROM agg"
+            "     JOIN track_meta t"
+            "       ON t.track_id = agg.track_id AND t.meta_id = agg.primary_id"
+            " ),"
             " folded AS ("
             "   UPDATE track_meta t"
-            "      SET submission_count = t.submission_count + agg.extra_count,"
-            "          created = least(t.created, agg.min_created),"
+            "      SET submission_count = t.submission_count + target.extra_count,"
+            "          created = least(t.created, target.min_created),"
             "          updated = now()"
-            "     FROM agg"
-            "    WHERE t.track_id = agg.track_id AND t.meta_id = agg.primary_id"
-            "   RETURNING agg.doomed_ids AS doomed_ids"
+            "     FROM target"
+            "    WHERE t.id = target.target_id"
+            "   RETURNING target.doomed_ids AS doomed_ids"
             " )"
             " DELETE FROM track_meta"
             "  WHERE id IN (SELECT d FROM folded, unnest(folded.doomed_ids) AS d)"
