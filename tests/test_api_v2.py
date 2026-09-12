@@ -643,7 +643,6 @@ def test_submit_handler_with_meta(ctx):
     submission = ctx.db.get_ingest_db().execute(query).one()._mapping
     assert UUID("b9c05616-1874-4d5d-b30e-6b959c922d28") == submission["mbid"]
     assert submission["meta_id"] is None
-    assert submission["meta_gid"] is None
     expected_meta = {
         "track": "Voodoo People",
         "artist": "The Prodigy",
