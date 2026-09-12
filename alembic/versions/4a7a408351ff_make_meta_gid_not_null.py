@@ -59,11 +59,6 @@ def downgrade_app():
 
 
 def upgrade_ingest():
-    # Autogenerate also reports submission.meta_gid as missing.  That is
-    # pre-existing drift of the same kind d3b8f5a21c74 exists to fix -- the
-    # column is declared in tables.py and no revision ever added it -- and it
-    # is deliberately not fixed here, because it has nothing to do with
-    # meta.gid and deserves its own revision.
     pass
 
 

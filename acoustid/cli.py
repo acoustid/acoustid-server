@@ -9,29 +9,9 @@ from acoustid.cron import run_cron
 from acoustid.export import run_export
 from acoustid.future.fpindex.feed import DEFAULT_PORT, run_feed_app
 from acoustid.script import Script
-from acoustid.scripts.backfill_singleton_gids import (
-    DEFAULT_BATCH_SIZE as SINGLETON_BATCH_SIZE,
-)
-from acoustid.scripts.backfill_singleton_gids import (
-    DEFAULT_REPORT_CHUNK as SINGLETON_REPORT_CHUNK,
-)
-from acoustid.scripts.backfill_singleton_gids import (
-    DUPS_TABLE,
-)
-from acoustid.scripts.backfill_singleton_gids import GID_TABLE as SINGLETON_GID_TABLE
-from acoustid.scripts.backfill_singleton_gids import (
-    PROGRESS_TABLE as SINGLETON_PROGRESS,
-)
-from acoustid.scripts.backfill_singleton_gids import (
-    drop_progress,
-    init_progress,
-    report,
-    run_backfill_singleton_gids,
-)
 from acoustid.scripts.backfill_submission_result import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_RANGE_SIZE,
-    GID_TABLE,
     PROGRESS_TABLE,
     drop_queue,
     init_queue,
@@ -40,22 +20,7 @@ from acoustid.scripts.backfill_submission_result import (
     run_validate,
     watershed,
 )
-from acoustid.scripts.claim_duplicate_gids import DEFAULT_BATCH_SIZE as CLAIM_BATCH_SIZE
-from acoustid.scripts.claim_duplicate_gids import DUPS_TABLE as CLAIM_DUPS_TABLE
-from acoustid.scripts.claim_duplicate_gids import PROGRESS_TABLE as CLAIM_PROGRESS
-from acoustid.scripts.claim_duplicate_gids import drop_progress as claim_drop_progress
-from acoustid.scripts.claim_duplicate_gids import init_progress as claim_init_progress
-from acoustid.scripts.claim_duplicate_gids import report as claim_report
-from acoustid.scripts.claim_duplicate_gids import run_claim
 from acoustid.scripts.import_submissions import run_import
-from acoustid.scripts.merge_duplicate_meta import DEFAULT_BATCH_SIZE as MERGE_BATCH_SIZE
-from acoustid.scripts.merge_duplicate_meta import DEFAULT_CHUNK_SIZE as MERGE_CHUNK_SIZE
-from acoustid.scripts.merge_duplicate_meta import GID_TABLE as MERGE_GID_TABLE
-from acoustid.scripts.merge_duplicate_meta import PROGRESS_TABLE as MERGE_PROGRESS
-from acoustid.scripts.merge_duplicate_meta import drop_progress as merge_drop_progress
-from acoustid.scripts.merge_duplicate_meta import init_progress as merge_init_progress
-from acoustid.scripts.merge_duplicate_meta import report_duplicates as merge_report
-from acoustid.scripts.merge_duplicate_meta import run_merge
 from acoustid.worker import run_worker
 from acoustid.wsgi_utils import run_api_app, run_web_app
 
@@ -216,9 +181,8 @@ def backfill_submission_result():
 )
 @click.option("--hi", type=int, default=None, help="Last submission id, exclusive.")
 @click.option("--batch-size", type=click.IntRange(min=1), default=DEFAULT_BATCH_SIZE)
-@click.option("--gid-table", default=GID_TABLE)
-def backfill_validate_cmd(config, lo, hi, batch_size, gid_table):
-    # type: (str, Optional[int], Optional[int], int, str) -> None
+def backfill_validate_cmd(config, lo, hi, batch_size):
+    # type: (str, Optional[int], Optional[int], int) -> None
     """Diff reconstructed rows against the native ones. Writes nothing."""
     script = Script(config)
     script.setup_console_logging()
@@ -234,7 +198,7 @@ def backfill_validate_cmd(config, lo, hi, batch_size, gid_table):
             ).scalar()
         if end is None:
             raise click.ClickException("submission_result is empty, nothing to compare")
-    run_validate(script, start, end, batch_size=batch_size, gid_table=gid_table)
+    run_validate(script, start, end, batch_size=batch_size)
 
 
 @backfill_submission_result.command("init")
@@ -270,15 +234,14 @@ def backfill_init_cmd(config, lo, hi, range_size):
 @click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
 @click.option("--worker", default=None, help="Worker name recorded on claimed ranges.")
 @click.option("--batch-size", type=click.IntRange(min=1), default=DEFAULT_BATCH_SIZE)
-@click.option("--gid-table", default=GID_TABLE)
 @click.option(
     "--max-ranges",
     type=click.IntRange(min=0),
     default=None,
     help="Stop after this many ranges, between ranges. Use 1 for a first pass.",
 )
-def backfill_run_cmd(config, worker, batch_size, gid_table, max_ranges):
-    # type: (str, Optional[str], int, str, Optional[int]) -> None
+def backfill_run_cmd(config, worker, batch_size, max_ranges):
+    # type: (str, Optional[str], int, Optional[int]) -> None
     """Claim ranges from the queue and write them, lowest ids first."""
     script = Script(config)
     script.setup_console_logging()
@@ -287,7 +250,6 @@ def backfill_run_cmd(config, worker, batch_size, gid_table, max_ranges):
         script,
         name,
         batch_size=batch_size,
-        gid_table=gid_table,
         max_ranges=max_ranges,
     )
 
@@ -319,243 +281,6 @@ def backfill_drop_cmd(config):
         drop_queue(ctx.db.get_ingest_db())
         ctx.db.session.commit()
     click.echo("dropped %s" % (PROGRESS_TABLE,))
-
-
-@cli.group("backfill-singleton-gids")
-def backfill_singleton_gids():
-    # type: () -> None
-    """Give a gid to every meta row whose content is unique."""
-
-
-@backfill_singleton_gids.command("init")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-def singleton_gids_init_cmd(config):
-    # type: (str) -> None
-    """Create the progress table."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        init_progress(ctx.db.get_fingerprint_db())
-        ctx.db.session.commit()
-    click.echo("created %s" % (SINGLETON_PROGRESS,))
-
-
-@backfill_singleton_gids.command("run")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-@click.option(
-    "--batch-size",
-    type=click.IntRange(min=1),
-    default=SINGLETON_BATCH_SIZE,
-    help="meta ids per transaction, not rows updated.",
-)
-@click.option(
-    "--limit",
-    type=click.IntRange(min=0),
-    default=None,
-    help="Stop after this many batches. Use it for a first pass.",
-)
-@click.option("--gid-table", default=SINGLETON_GID_TABLE)
-@click.option("--dups-table", default=DUPS_TABLE)
-def singleton_gids_run_cmd(config, batch_size, limit, gid_table, dups_table):
-    # type: (str, int, Optional[int], str, str) -> None
-    """Fill in gids from the cursor onwards."""
-    script = Script(config)
-    script.setup_console_logging()
-    run_backfill_singleton_gids(
-        script,
-        batch_size=batch_size,
-        limit=limit,
-        gid_table=gid_table,
-        dups_table=dups_table,
-    )
-
-
-@backfill_singleton_gids.command("report")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-@click.option("--gid-table", default=SINGLETON_GID_TABLE)
-@click.option("--dups-table", default=DUPS_TABLE)
-@click.option(
-    "--chunk-size",
-    type=click.IntRange(min=1),
-    default=SINGLETON_REPORT_CHUNK,
-    help="meta ids per window. Smaller windows, more queries, better locality.",
-)
-def singleton_gids_report_cmd(config, gid_table, dups_table, chunk_size):
-    # type: (str, str, str, int) -> None
-    """Count singletons still without a gid, and how many are blocked."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        remaining, blocked = report(
-            ctx.db.get_fingerprint_db(), gid_table, dups_table, chunk_size
-        )
-    click.echo("%d singletons still without a gid" % (remaining,))
-    click.echo("%d of those blocked by a row that already holds it" % (blocked,))
-
-
-@backfill_singleton_gids.command("drop")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-def singleton_gids_drop_cmd(config):
-    # type: (str) -> None
-    """Remove the progress table once the backfill is finished."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        drop_progress(ctx.db.get_fingerprint_db())
-        ctx.db.session.commit()
-    click.echo("dropped %s" % (SINGLETON_PROGRESS,))
-
-
-@cli.group("claim-duplicate-gids")
-def claim_duplicate_gids():
-    # type: () -> None
-    """Give each duplicate group's gid to one of its members."""
-
-
-@claim_duplicate_gids.command("init")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-def claim_gids_init_cmd(config):
-    # type: (str) -> None
-    """Create the progress table."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        claim_init_progress(ctx.db.get_fingerprint_db())
-        ctx.db.session.commit()
-    click.echo("created %s" % (CLAIM_PROGRESS,))
-
-
-@claim_duplicate_gids.command("run")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-@click.option(
-    "--batch-size",
-    type=click.IntRange(min=1),
-    default=CLAIM_BATCH_SIZE,
-    help="Groups per transaction. Each claims at most one row.",
-)
-@click.option(
-    "--limit",
-    type=click.IntRange(min=0),
-    default=None,
-    help="Stop after this many batches. Use it for a first pass.",
-)
-@click.option("--dups-table", default=CLAIM_DUPS_TABLE)
-def claim_gids_run_cmd(config, batch_size, limit, dups_table):
-    # type: (str, int, Optional[int], str) -> None
-    """Claim gids from the cursor onwards."""
-    script = Script(config)
-    script.setup_console_logging()
-    run_claim(script, batch_size=batch_size, limit=limit, dups_table=dups_table)
-
-
-@claim_duplicate_gids.command("report")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-@click.option("--dups-table", default=CLAIM_DUPS_TABLE)
-def claim_gids_report_cmd(config, dups_table):
-    # type: (str, str) -> None
-    """Count groups whose gid is held, and groups where it is not."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        claimed, unclaimed = claim_report(ctx.db.get_fingerprint_db(), dups_table)
-    click.echo("%d groups have a member holding the gid" % (claimed,))
-    click.echo("%d groups do not" % (unclaimed,))
-
-
-@claim_duplicate_gids.command("drop")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-def claim_gids_drop_cmd(config):
-    # type: (str) -> None
-    """Remove the progress table once the claim is finished."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        claim_drop_progress(ctx.db.get_fingerprint_db())
-        ctx.db.session.commit()
-    click.echo("dropped %s" % (CLAIM_PROGRESS,))
-
-
-@cli.group("merge-duplicate-meta")
-def merge_duplicate_meta():
-    # type: () -> None
-    """Merge each duplicate meta row into the row holding its gid."""
-
-
-@merge_duplicate_meta.command("init")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-def merge_meta_init_cmd(config):
-    # type: (str) -> None
-    """Create the progress table."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        merge_init_progress(ctx.db.get_fingerprint_db())
-        ctx.db.session.commit()
-    click.echo("created %s" % (MERGE_PROGRESS,))
-
-
-@merge_duplicate_meta.command("run")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-@click.option(
-    "--batch-size",
-    type=click.IntRange(min=1),
-    default=MERGE_BATCH_SIZE,
-    help="meta ids per transaction, not rows merged.",
-)
-@click.option(
-    "--limit",
-    type=click.IntRange(min=0),
-    default=None,
-    help="Stop after this many batches. Use it for a first pass.",
-)
-@click.option("--gid-table", default=MERGE_GID_TABLE)
-def merge_meta_run_cmd(config, batch_size, limit, gid_table):
-    # type: (str, int, Optional[int], str) -> None
-    """Merge duplicates from the cursor onwards."""
-    script = Script(config)
-    script.setup_console_logging()
-    run_merge(script, batch_size=batch_size, limit=limit, gid_table=gid_table)
-
-
-@merge_duplicate_meta.command("report")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-@click.option(
-    "--chunk-size",
-    type=click.IntRange(min=1),
-    default=MERGE_CHUNK_SIZE,
-    help="meta ids per window. Smaller windows, more queries, better locality.",
-)
-@click.option("--gid-table", default=MERGE_GID_TABLE)
-def merge_meta_report_cmd(config, chunk_size, gid_table):
-    # type: (str, int, str) -> None
-    """Count duplicates still present, and the ranges the guard skipped."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        report = merge_report(ctx.db.get_fingerprint_db(), chunk_size, gid_table)
-    for lo, hi, found in report.windows:
-        click.echo("%d..%d: %d" % (lo, hi, found))
-    click.echo("%d duplicates still present" % (report.total,))
-    for lo, hi in report.deferred:
-        click.echo("deferred %d..%d" % (lo, hi))
-    if report.deferred:
-        click.echo(
-            "%d ranges deferred by the delete guard, run again to sweep them"
-            % (len(report.deferred),)
-        )
-
-
-@merge_duplicate_meta.command("drop")
-@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
-def merge_meta_drop_cmd(config):
-    # type: (str) -> None
-    """Remove the progress table once the merge is finished."""
-    script = Script(config)
-    script.setup_console_logging()
-    with script.context() as ctx:
-        merge_drop_progress(ctx.db.get_fingerprint_db())
-        ctx.db.session.commit()
-    click.echo("dropped %s" % (MERGE_PROGRESS,))
 
 
 @cli.command("shell")
