@@ -389,6 +389,69 @@ def repoint_track_meta(
     Both bump updated, because both change the row: the promote rewrites
     meta_id, the fold changes submission_count. least(created) keeps
     meta.created derivable from min(track_meta.created).
+
+    WHY BOTH STATEMENTS SAY "meta_id + 0"
+
+    It defeats an index on purpose, and taking it out costs about 90 seconds
+    per batch. Both statements have to find a track's row for a given meta
+    row, there are two indexes that can do it, and the planner picks the
+    wrong one:
+
+        Index Scan using track_meta_idx_meta_id
+          Index Cond: (meta_id = agg.primary_id)
+          Filter:     (track_id = agg.track_id)
+
+    Both quals are indexable, both paths estimate one row at the same cost,
+    and it takes meta_id. The estimate is right about the result and wrong
+    about the work. The primary here is a merge survivor, and survivors are
+    the most heavily referenced meta rows there are -- up to 639,492
+    track_meta rows for a single one -- so every entry is read and every row
+    heap-fetched to keep the one whose track_id matches. Measured on
+    production over 6,991 pairs: 84,148,065 buffer hits, 93.7 seconds, no IO
+    wait. Pure spinning.
+
+    Statistics cannot reach this. The primary id arrives as a runtime join
+    variable, so the MCV list that does know these ids are outliers is never
+    consulted and the planner uses the average, which is 1.1.
+
+    track_id has no such skew: 1.114 rows per track_id over a 0.5% sample,
+    78 at worst, and 10 at worst across the tracks a batch actually touches.
+    So the cheap direction is to probe by track_id and filter meta_id, and
+    the planner will never choose it while meta_id is sitting there as an
+    Index Cond. Adding 0 makes the column side non-indexable, which leaves
+    track_id as the only indexable qual and track_meta_idx_uniq as the only
+    index with track_id in front:
+
+        Index Scan using track_meta_idx_track_id_meta
+          Index Cond: (track_id = agg.track_id)
+          Filter:     (agg.primary_id = (meta_id + 0))
+
+    633,833 buffers against 84,148,065, and 13.8 seconds against 93.7, most
+    of what is left being physical reads of a cold index rather than CPU.
+    (Production calls the composite index track_meta_idx_track_id_meta; it
+    is the same index this file declares as track_meta_idx_uniq.)
+
+    The point is not that this is cheaper. It is that the wrong index cannot
+    be used at all, so no future drift in the statistics can bring the 90
+    seconds back.
+
+    One side effect, so it is not mistaken later for a bug: the planner
+    cannot estimate selectivity for "meta_id + 0 = X" and falls back to a
+    default, so the fold's Update node reports rows=44 against an actual
+    ~6,500 and the DELETE above it inherits the same error. That misestimate
+    is the opacity doing its job, not a symptom. It does not reach the plan
+    shape, because everything downstream runs off the CTE's real output. An earlier attempt at this moved the lookup into a
+    MATERIALIZED CTE and updated by primary key, on the theory that the
+    planner would prefer the composite index if asked in isolation. It does
+    not; that only relocated the same scan into the CTE.
+
+    Do not validate this with a SELECT. A standalone
+    "SELECT 1 ... WHERE track_id = ? AND meta_id = ?" goes index-only with
+    both columns as Index Cond, which is already optimal and which + 0 makes
+    six times worse. The promote's NOT EXISTS does not get that plan inside
+    the UPDATE it belongs to, and needs the + 0 like the fold does. A
+    SELECT-shaped probe has given the wrong answer about this statement
+    twice now, in both directions. Plan the statement that ships.
     """
     if not pairs:
         return 0, 0
@@ -421,7 +484,10 @@ def repoint_track_meta(
             "  WHERE t.id = cand.id"
             "    AND NOT EXISTS ("
             "      SELECT 1 FROM track_meta s"
-            "       WHERE s.track_id = cand.track_id AND s.meta_id = cand.primary_id"
+            # + 0 is deliberate and load-bearing. See WHY BOTH STATEMENTS SAY
+            # "meta_id + 0" above before removing it.
+            "       WHERE s.track_id = cand.track_id"
+            "         AND s.meta_id + 0 = cand.primary_id"
             "    )"
         ),
         params,
@@ -448,7 +514,10 @@ def repoint_track_meta(
             "          created = least(t.created, agg.min_created),"
             "          updated = now()"
             "     FROM agg"
-            "    WHERE t.track_id = agg.track_id AND t.meta_id = agg.primary_id"
+            # + 0 is deliberate and load-bearing. See WHY BOTH STATEMENTS SAY
+            # "meta_id + 0" above before removing it.
+            "    WHERE t.track_id = agg.track_id"
+            "      AND t.meta_id + 0 = agg.primary_id"
             "   RETURNING agg.doomed_ids AS doomed_ids"
             " )"
             " DELETE FROM track_meta"
