@@ -380,11 +380,14 @@ def repoint_track_meta(
 
     The fold is the common path by a wide margin. Over the 204,432,306 rows
     the production run merged, 14,656,185 were promoted and the remaining
-    92.8% folded, and the ratio holds at 6-7% promoted across every id band
-    from 16M to 328M rather than drifting as the walk proceeds. An earlier
-    version of this docstring guessed one in five and had it backwards; the
-    numbers are the script's own counters, so they are worth about as much as
-    the rowcounts they come from, but not by a factor of four.
+    92.8% folded. Per id band the promote rate runs from 1.6% to 10.7% with
+    no trend as the walk proceeds: the 310-328M tail is 6.07% against 7.31%
+    for the 265M ids beneath it, and the two bands below 2.2% are the two
+    smallest, together 1.3% of everything merged. The ratio is a property of
+    the data, not of how far the cursor has travelled. An earlier version of
+    this docstring guessed one in five and had it backwards; the numbers are
+    the script's own counters, so they are worth about as much as the
+    rowcounts they come from, but not by a factor of four.
 
     Both bump updated, because both change the row: the promote rewrites
     meta_id, the fold changes submission_count. least(created) keeps
