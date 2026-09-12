@@ -58,8 +58,9 @@ rather than a guess: the run does not report itself complete while it holds
 rows it never merged.
 
 Steps 2 and 3 are separate because track_meta_idx_uniq is unique on
-(track_id, meta_id): roughly one repoint in five lands on a track that already
-references the primary, and a plain UPDATE would trip the index.
+(track_id, meta_id): roughly nine repoints in ten land on a track that already
+references the primary, and a plain UPDATE would trip the index. Step 3 is
+therefore the hot one, which is worth knowing before optimising step 2.
 
 WHAT IT CHECKS BEFORE DELETING
 
@@ -371,11 +372,19 @@ def repoint_track_meta(
     """Move track_meta off the duplicates and onto the rows they merge into.
 
     Two statements, because track_meta_idx_uniq is unique on
-    (track_id, meta_id) and roughly one repoint in five lands on a track that
-    already references the primary. The first promotes, per (track_id,
-    primary), the lowest doomed row where the track has no primary row yet;
-    after it every affected track has exactly one, so the second folds the
-    remainder into it unconditionally.
+    (track_id, meta_id) and most repoints land on a track that already
+    references the primary. The first promotes, per (track_id, primary), the
+    lowest doomed row where the track has no primary row yet; after it every
+    affected track has exactly one, so the second folds the remainder into it
+    unconditionally.
+
+    The fold is the common path by a wide margin. Over the 204,432,306 rows
+    the production run merged, 14,656,185 were promoted and the remaining
+    92.8% folded, and the ratio holds at 6-7% promoted across every id band
+    from 16M to 328M rather than drifting as the walk proceeds. An earlier
+    version of this docstring guessed one in five and had it backwards; the
+    numbers are the script's own counters, so they are worth about as much as
+    the rowcounts they come from, but not by a factor of four.
 
     Both bump updated, because both change the row: the promote rewrites
     meta_id, the fold changes submission_count. least(created) keeps
