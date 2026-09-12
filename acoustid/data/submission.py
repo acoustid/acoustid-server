@@ -251,7 +251,9 @@ def import_submission(
 
     if has_meta:
         meta_id: int | None = submission["meta_id"]
-        meta_gid: uuid.UUID | None = submission["meta_gid"]
+        # Assigned by both branches below. The submission table carried a
+        # meta_gid column for this read, and nothing ever wrote to it.
+        meta_gid: uuid.UUID | None
         if meta_id is None:
             meta = fix_meta(submission["meta"])
             meta_id, meta_gid = find_or_insert_meta(fingerprint_db, meta)
