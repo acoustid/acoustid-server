@@ -296,6 +296,23 @@ meta = Table(
     info={"bind_key": "fingerprint"},
 )
 
+# Where a deleted meta row's id went: old id -> gid.  Resolving one is a join
+# nothing in this codebase performs, so it is recorded here rather than beside
+# a caller that does not exist:
+#
+#     SELECT m.* FROM meta_id_history h JOIN meta m ON m.gid = h.gid
+#      WHERE h.id = :old_meta_id
+#
+# meta.gid is unique, so that yields at most one row.  The 2026 dedup wrote
+# 206,838,911 rows here before deleting the ids they name, and the script that
+# wrote them has been deleted along with the rest of the gid-era machinery --
+# the table has no writer and no reader now, which is exactly why the lookup
+# needs to be written down somewhere that survives.  Measured resolving at
+# 97.5% on production; the remainder are dead pointers that predate this work.
+#
+# No index on gid, deliberately: every access is old id -> gid, which the
+# primary key serves, and an index nothing reads over 206M rows is pure write
+# amplification.
 meta_id_history = Table(
     "meta_id_history",
     metadata,
