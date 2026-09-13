@@ -180,7 +180,6 @@ submission = Table(
     Column("format_id", Integer),  # XXX deprecated
     # metadata
     Column("meta", JSONB),
-    Column("meta_gid", UUID(as_uuid=True)),
     Column("meta_id", Integer),  # XXX deprecated
     Column("mbid", UUID),
     Column("puid", UUID),
