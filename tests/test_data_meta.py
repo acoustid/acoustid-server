@@ -82,8 +82,11 @@ def test_meta_created_rejects_null(ctx: ScriptContext) -> None:
     fingerprint_db = ctx.db.get_fingerprint_db()
     with pytest.raises(IntegrityError):
         fingerprint_db.execute(
-            sql.text("INSERT INTO meta (id, track, created) VALUES (:id, 'x', NULL)"),
-            {"id": 9001},
+            sql.text(
+                "INSERT INTO meta (id, track, created, gid)"
+                " VALUES (:id, 'x', NULL, :gid)"
+            ),
+            {"id": 9001, "gid": "9d1a6b1e-5c1e-4f3a-8f2b-1e0f5a7c9f01"},
         )
 
 
@@ -93,7 +96,10 @@ def test_meta_created_defaults_to_now(ctx: ScriptContext) -> None:
     that forgets cannot reintroduce the rows the constraint just removed."""
     fingerprint_db = ctx.db.get_fingerprint_db()
     created = fingerprint_db.execute(
-        sql.text("INSERT INTO meta (id, track) VALUES (:id, 'x') RETURNING created"),
-        {"id": 9002},
+        sql.text(
+            "INSERT INTO meta (id, track, gid)"
+            " VALUES (:id, 'x', :gid) RETURNING created"
+        ),
+        {"id": 9002, "gid": "9d1a6b1e-5c1e-4f3a-8f2b-1e0f5a7c9f02"},
     ).scalar_one()
     assert created is not None

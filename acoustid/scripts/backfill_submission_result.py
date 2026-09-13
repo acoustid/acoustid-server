@@ -144,19 +144,6 @@ logger = logging.getLogger(__name__)
 
 PROGRESS_TABLE = "submission_result_backfill_progress"
 
-# Holds a recomputed gid for every meta row that existed when it was built.
-# Load-bearing: most meta rows still have no gid of their own. The fallback
-# has no hole, because rows created after the snapshot always have a gid --
-# find_or_insert_meta sets one -- but that only holds while the deduplication
-# has not run yet, since it deletes meta rows.
-GID_TABLE = "tmp_meta_gid"
-
-# gid_table is the one table name that comes from a command-line option rather
-# than a constant, and it is interpolated into a FROM clause.  Anyone who can
-# pass it can already run `manage.py shell`, so this is not a privilege
-# boundary -- it just turns a typo into a clear error instead of a confusing
-# SQL one.
-_TABLE_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 DEFAULT_BATCH_SIZE = 10000
 DEFAULT_RANGE_SIZE = 1000000
@@ -177,12 +164,6 @@ COMPARED_COLUMNS = (
     "puid",
     "foreignid",
 )
-
-
-def check_table_name(name: str) -> str:
-    if not _TABLE_NAME_RE.match(name):
-        raise ValueError("invalid table name: %r" % (name,))
-    return name
 
 
 @dataclass
@@ -271,18 +252,19 @@ def _lookup(
 
 
 def lookup_meta_gids(
-    fingerprint_db: FingerprintDB, meta_ids: Iterable[int], gid_table: str = GID_TABLE
+    fingerprint_db: FingerprintDB, meta_ids: Iterable[int]
 ) -> dict[int, uuid.UUID | None]:
-    """meta.gid, falling back to the recomputed snapshot where it is not set."""
+    """meta.gid for each id.
+
+    This used to fall back to a recomputed snapshot table for rows that had
+    no gid of their own, which was most of them.  meta.gid is NOT NULL now,
+    so there is nothing left to fall back to.
+    """
     ids = sorted(set(i for i in meta_ids if i is not None))
     if not ids:
         return {}
     query = sql.text(
-        "SELECT m.id, COALESCE(m.gid, t.gid) AS gid"
-        " FROM meta m LEFT JOIN {gid_table} t ON t.id = m.id"
-        " WHERE m.id = ANY(CAST(:ids AS integer[]))".format(
-            gid_table=check_table_name(gid_table)
-        )
+        "SELECT m.id, m.gid FROM meta m" " WHERE m.id = ANY(CAST(:ids AS integer[]))"
     )
     return {r.id: r.gid for r in fingerprint_db.execute(query, {"ids": ids})}
 
@@ -346,7 +328,6 @@ def build_rows(
     app_db: AppDB,
     submission_ids: Sequence[int],
     source_cache: dict[int, Any] | None = None,
-    gid_table: str = GID_TABLE,
 ) -> tuple[list[Row], Skipped]:
     """Reconstruct submission_result rows for a batch of submission ids."""
     skipped = Skipped()
@@ -396,7 +377,7 @@ def build_rows(
         "foreignid_id",
         track_foreignid.values(),
     )
-    gids = lookup_meta_gids(fingerprint_db, meta_ids.values(), gid_table)
+    gids = lookup_meta_gids(fingerprint_db, meta_ids.values())
     foreignids = lookup_foreignids(fingerprint_db, foreignid_ids.values())
 
     if source_cache is None:
@@ -773,7 +754,6 @@ def run_validate(
     lo: int,
     hi: int,
     batch_size: int = DEFAULT_BATCH_SIZE,
-    gid_table: str = GID_TABLE,
     examples: int = 20,
 ) -> Diff:
     """Reconstruct a range that already has native rows, and diff against them."""
@@ -792,7 +772,6 @@ def run_validate(
                 ctx.db.get_app_db(read_only=True),
                 ids,
                 cache,
-                gid_table,
             )
             diff, records = compare_batch(ingest_db, fingerprint_db, rows)
         total.add(diff)
@@ -861,7 +840,6 @@ def run_backfill(
     script: Script,
     worker: str,
     batch_size: int = DEFAULT_BATCH_SIZE,
-    gid_table: str = GID_TABLE,
     max_ranges: int | None = None,
 ) -> tuple[int, int]:
     """Claim ranges from the queue and write them.
@@ -901,7 +879,6 @@ def run_backfill(
                         ctx.db.get_app_db(read_only=True),
                         ids,
                         cache,
-                        gid_table,
                     )
                     written += insert_rows(ingest_db, rows)
                     ctx.db.session.commit()

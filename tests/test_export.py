@@ -293,9 +293,11 @@ def insert_fixtures(script: Script) -> None:
         )
         db.execute(
             sql.text(
-                "INSERT INTO meta (id, track, artist, album, created) VALUES"
-                " (301, :quoted, NULL, NULL, :inside),"
-                " (302, 'Later', NULL, NULL, :after)"
+                "INSERT INTO meta (id, track, artist, album, created, gid) VALUES"
+                " (301, :quoted, NULL, NULL, :inside,"
+                "  '9d1a6b1e-5c1e-4f3a-8f2b-1e0f5a7c9e01'),"
+                " (302, 'Later', NULL, NULL, :after,"
+                "  '9d1a6b1e-5c1e-4f3a-8f2b-1e0f5a7c9e02')"
             ),
             {
                 "inside": inside,
