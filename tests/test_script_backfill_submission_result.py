@@ -10,12 +10,10 @@ from sqlalchemy import sql
 from acoustid import tables
 from acoustid.script import ScriptContext
 from acoustid.scripts.backfill_submission_result import (
-    GID_TABLE,
     PROGRESS_TABLE,
     Row,
     _batches,
     build_rows,
-    check_table_name,
     claim_range,
     compare_batch,
     finish_range,
@@ -30,25 +28,6 @@ from . import with_script_context
 
 MBID = uuid.UUID("97edb73c-4dac-11e0-9096-0025225356f3")
 PUID = uuid.UUID("d575d506-4da4-11e0-b951-0025225356f3")
-
-
-def create_gid_table(db: Any, table: str = GID_TABLE) -> None:
-    db.execute(
-        sql.text(
-            "CREATE TABLE {t} (id integer PRIMARY KEY, gid uuid NOT NULL)".format(
-                t=table
-            )
-        )
-    )
-
-
-def add_gid(db: Any, meta_id: int, gid: uuid.UUID, table: str = GID_TABLE) -> None:
-    db.execute(
-        sql.text(
-            "INSERT INTO {t} (id, gid) VALUES (:id, CAST(:gid AS uuid))".format(t=table)
-        ),
-        {"id": meta_id, "gid": str(gid)},
-    )
 
 
 def insert_track(db: Any, new_id: int | None = None) -> int:
@@ -83,9 +62,7 @@ def insert_fingerprint_source(
     )
 
 
-def insert_meta_row(
-    db: Any, values: dict[str, Any], gid: uuid.UUID | None = None
-) -> int:
+def insert_meta_row(db: Any, values: dict[str, Any], gid: uuid.UUID) -> int:
     stmt = tables.meta.insert().values(gid=gid, **values).returning(tables.meta.c.id)
     return db.execute(stmt).scalar_one()
 
@@ -137,13 +114,11 @@ def build(ctx: ScriptContext, ids: list[int]) -> tuple[list[Row], Any]:
 def test_reconstructs_a_metadata_submission(ctx: ScriptContext) -> None:
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     gid = uuid.uuid4()
     track_id = insert_track(fingerprint_db)
     fingerprint_id = insert_fingerprint(fingerprint_db, track_id)
-    meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"}, gid=uuid.UUID(int=0xA1))
-    add_gid(fingerprint_db, meta_id, gid)
+    meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"}, gid=gid)
     track_meta_id = link_meta(fingerprint_db, track_id, meta_id)
     insert_fingerprint_source(ingest_db, fingerprint_id, 5000)
     source_row(ingest_db, track_meta_id, 5000)
@@ -167,7 +142,6 @@ def test_reconstructs_an_mbid_submission_without_metadata(ctx: ScriptContext) ->
     """36% of the backlog is mbid or puid only; a null meta_gid is correct."""
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     track_id = insert_track(fingerprint_db)
     fingerprint_id = insert_fingerprint(fingerprint_db, track_id)
@@ -183,43 +157,10 @@ def test_reconstructs_an_mbid_submission_without_metadata(ctx: ScriptContext) ->
 
 
 @with_script_context
-def test_prefers_metas_own_gid_over_the_snapshot(ctx: ScriptContext) -> None:
-    fingerprint_db = ctx.db.get_fingerprint_db()
-    ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
-
-    real_gid = uuid.uuid4()
-    stale_gid = uuid.uuid4()
-    track_id = insert_track(fingerprint_db)
-    fingerprint_id = insert_fingerprint(fingerprint_db, track_id)
-    meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"}, gid=real_gid)
-    add_gid(fingerprint_db, meta_id, stale_gid)
-    track_meta_id = link_meta(fingerprint_db, track_id, meta_id)
-    insert_fingerprint_source(ingest_db, fingerprint_id, 5002)
-    source_row(ingest_db, track_meta_id, 5002)
-
-    rows, _ = build(ctx, [5002])
-
-    assert rows[0].meta_gid == real_gid
-
-
-@with_script_context
-def test_falls_back_to_the_snapshot_when_meta_has_no_gid(ctx: ScriptContext) -> None:
-    fingerprint_db = ctx.db.get_fingerprint_db()
-    create_gid_table(fingerprint_db)
-    meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"})
-    gid = uuid.uuid4()
-    add_gid(fingerprint_db, meta_id, gid)
-
-    assert lookup_meta_gids(fingerprint_db, [meta_id]) == {meta_id: gid}
-
-
-@with_script_context
 def test_lowest_fingerprint_id_wins(ctx: ScriptContext) -> None:
     """A submission with several fingerprint_source rows resolves to one row."""
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     track_a = insert_track(fingerprint_db)
     track_b = insert_track(fingerprint_db)
@@ -242,7 +183,6 @@ def test_submissions_without_a_fingerprint_source_row_are_excluded(
     """The ~9,920 orphans: metadata but no fingerprint, so not buildable."""
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     track_id = insert_track(fingerprint_db)
     meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"}, gid=uuid.UUID(int=0xA2))
@@ -259,7 +199,6 @@ def test_submissions_without_a_fingerprint_source_row_are_excluded(
 def test_insert_is_idempotent(ctx: ScriptContext) -> None:
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     track_id = insert_track(fingerprint_db)
     fingerprint_id = insert_fingerprint(fingerprint_db, track_id)
@@ -283,7 +222,6 @@ def test_insert_counts_only_rows_actually_written(ctx: ScriptContext) -> None:
     """rows_written in the queue is how anyone judges whether a run worked."""
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     track_id = insert_track(fingerprint_db)
     for submission_id in range(5010, 5015):
@@ -302,7 +240,6 @@ def test_insert_counts_only_rows_actually_written(ctx: ScriptContext) -> None:
 def test_validate_accepts_a_correct_reconstruction(ctx: ScriptContext) -> None:
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     track_id = insert_track(fingerprint_db)
     fingerprint_id = insert_fingerprint(fingerprint_db, track_id)
@@ -323,7 +260,6 @@ def test_validate_catches_a_wrong_mapping(ctx: ScriptContext) -> None:
     """The point of the whole exercise: a bad column must be reported."""
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     track_id = insert_track(fingerprint_db)
     other_track = insert_track(fingerprint_db)
@@ -354,7 +290,6 @@ def test_validate_separates_merged_tracks_from_real_errors(ctx: ScriptContext) -
     """A track merged after import reads back as a different id, legitimately."""
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     target = insert_track(fingerprint_db)
     merged = insert_track(fingerprint_db, new_id=target)
@@ -389,7 +324,6 @@ def test_validate_separates_musicbrainz_merges_from_real_errors(
     """
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     old_mbid = uuid.UUID("11111111-1111-1111-1111-111111111111")
     track_id = insert_track(fingerprint_db)
@@ -430,7 +364,6 @@ def test_validate_reports_an_unexplained_mbid_difference(ctx: ScriptContext) -> 
     """
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     unrelated = uuid.UUID("22222222-2222-2222-2222-222222222222")
     track_id = insert_track(fingerprint_db)
@@ -465,7 +398,6 @@ def test_validate_accounts_for_mbid_present_on_only_one_side(
     """
     fingerprint_db = ctx.db.get_fingerprint_db()
     ingest_db = ctx.db.get_ingest_db()
-    create_gid_table(fingerprint_db)
 
     track_id = insert_track(fingerprint_db)
     for submission_id in (5030, 5031):
@@ -548,14 +480,6 @@ def test_ranges_are_handed_out_lowest_first(ctx: ScriptContext) -> None:
         assert claimed == [(0, 100), (100, 200), (200, 300), (300, 400), (400, 500)]
     finally:
         ingest_db.execute(sql.text("DROP TABLE IF EXISTS {t}".format(t=PROGRESS_TABLE)))
-
-
-def test_rejects_a_table_name_that_is_not_an_identifier() -> None:
-    assert check_table_name("tmp_meta_gid") == "tmp_meta_gid"
-    with pytest.raises(ValueError):
-        check_table_name("meta; DROP TABLE meta")
-    with pytest.raises(ValueError):
-        check_table_name("")
 
 
 @with_script_context
