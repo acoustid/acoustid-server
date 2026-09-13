@@ -142,7 +142,7 @@ def test_reconstructs_a_metadata_submission(ctx: ScriptContext) -> None:
     gid = uuid.uuid4()
     track_id = insert_track(fingerprint_db)
     fingerprint_id = insert_fingerprint(fingerprint_db, track_id)
-    meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"})
+    meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"}, gid=uuid.UUID(int=0xA1))
     add_gid(fingerprint_db, meta_id, gid)
     track_meta_id = link_meta(fingerprint_db, track_id, meta_id)
     insert_fingerprint_source(ingest_db, fingerprint_id, 5000)
@@ -245,7 +245,7 @@ def test_submissions_without_a_fingerprint_source_row_are_excluded(
     create_gid_table(fingerprint_db)
 
     track_id = insert_track(fingerprint_db)
-    meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"})
+    meta_id = insert_meta_row(fingerprint_db, {"track": "Foo"}, gid=uuid.UUID(int=0xA2))
     track_meta_id = link_meta(fingerprint_db, track_id, meta_id)
     source_row(ingest_db, track_meta_id, 5004)
 

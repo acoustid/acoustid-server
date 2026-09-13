@@ -290,7 +290,7 @@ meta = Table(
         server_default=sql.func.current_timestamp(),
         nullable=False,
     ),
-    Column("gid", UUID(as_uuid=True)),
+    Column("gid", UUID(as_uuid=True), nullable=False),
     Index("meta_created_idx", "created"),
     Index("meta_idx_gid", "gid", unique=True),
     info={"bind_key": "fingerprint"},
