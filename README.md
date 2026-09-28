@@ -65,6 +65,22 @@ The layout is `{YYYY}/{YYYY-MM}/{YYYY-MM-DD}-{table}.jsonl.gz`, gzipped JSON
 Lines with null fields removed, seven files per day. Only complete days are
 exported, so the newest file is always for yesterday.
 
+Every directory also carries an `index.html` and an `index.json` listing its
+contents, which is the only way the archive can be browsed at all: whatever
+serves it may have no directory listing of its own, and a bucket certainly does
+not. Both are part of the published interface down to the bytes, so they are
+reproduced exactly -- 1024-based sizes with one decimal in the HTML, compact
+JSON with a `size` per file and a trailing slash per directory. `nginx`'s
+`autoindex` is not a substitute: it answers at the directory URI rather than at
+`index.json`, names its fields differently, drops the trailing slash and
+reports an mtime that changes every time a file is rewritten.
+
+The export brings those up to date for every directory it goes through, at the
+end of the run. Unlike a data file, an index that is already there is
+rewritten, because its directory's contents are the one thing that can have
+changed -- but only when the bytes actually differ, so an unchanged directory
+is left alone entirely.
+
 A day is exported an hour after it ends at the earliest, and only once no
 transaction that started before the day ended is still running. `created` and
 `updated` are transaction start time but a row only becomes visible at commit,
@@ -95,6 +111,25 @@ data.acoustid.org is a separate step. **That sync must be additive.** The
 export directory only ever holds the last `--max-days` of files, while the
 bucket holds every file back to 2011, so an `rsync --delete` out of it would
 delete the archive.
+
+**An index describes the directory it is written in**, which makes that same
+gap a second hazard: an index generated from a directory holding only the last
+30 days lists only those files, and syncing it over a complete month in the
+bucket replaces a full listing with a partial one -- no files lost, but they
+stop being findable. So either the local directory is the whole archive, or the
+index files are kept out of the sync and built where the whole archive is.
+Serving the directory directly, rather than syncing it anywhere, makes the
+question moot.
+
+Rebuilding every index in a tree, without exporting anything:
+
+    python manage.py data generate-indexes --directory /var/lib/acoustid/data-export
+
+That walks what is already on disk and reads the sizes from the files
+themselves, so it needs no database and does not care which process wrote the
+tree. It is how an archive exported before the index files existed gets its
+listings, and it is safe to re-run: an index whose bytes come out the same is
+not rewritten.
 
 Database migrations
 -------------------

@@ -6,7 +6,7 @@ import click
 from sqlalchemy import sql
 
 from acoustid.cron import run_cron
-from acoustid.export import run_export
+from acoustid.export import run_export, run_generate_indexes
 from acoustid.future.fpindex.feed import DEFAULT_PORT, run_feed_app
 from acoustid.script import Script
 from acoustid.scripts.backfill_submission_result import (
@@ -149,6 +149,11 @@ def data_export_cmd(
     Runs are idempotent -- a file that is already there is left alone -- so
     this is safe to run on a schedule, and re-running it with a larger
     --max-days is how a gap in the published files gets backfilled.
+
+    The index.html and index.json of every directory the run goes through are
+    brought up to date at the end of it. Those are rewritten rather than left
+    alone, since a directory's listing is exactly what changes when a file
+    lands in it.
     """
     script = Script(config)
     script.setup_console_logging()
@@ -166,6 +171,37 @@ def data_export_cmd(
 
     bind_key = script.config.databases.read_only_bind_key("fingerprint")
     run_export(script.db_engines[bind_key], directory, max_days=max_days)
+
+
+@data.command("generate-indexes")
+@click.option("-c", "--config", default="acoustid.conf", envvar="ACOUSTID_CONFIG")
+@click.option(
+    "-d",
+    "--directory",
+    help="Directory holding the export files.",
+)
+def data_generate_indexes_cmd(config: str, directory: Optional[str]) -> None:
+    """Rebuild the index.html and index.json files of an exported tree.
+
+    The export keeps these up to date for the directories it writes into, so
+    this is for a tree exported before the indexes existed: it walks what is
+    already on disk, reads the sizes from the files themselves and needs no
+    database, so an archive of any size gets its listings without a single day
+    being exported again.
+    """
+    script = Script(config)
+    script.setup_console_logging()
+    script.setup_sentry(component="export")
+
+    if directory is None:
+        directory = script.config.export.directory
+    if not directory:
+        raise click.UsageError(
+            "No export directory configured, use --directory or "
+            "ACOUSTID_EXPORT_DIRECTORY."
+        )
+
+    run_generate_indexes(directory)
 
 
 @cli.group("backfill-submission-result")
