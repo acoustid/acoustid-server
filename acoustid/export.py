@@ -17,15 +17,31 @@ which is not cosmetic.
 The layout, the file names and the SQL are a public interface -- real consumers
 download these files and parse them -- so they are kept exactly as published,
 including the quirk that ``track_fingerprint-update`` selects from
-``fingerprint``.
+``fingerprint``. The same goes for the index.html and index.json that every
+directory carries: they are the archive's only directory listing, and they are
+reproduced byte for byte.
 """
 
 import datetime
 import gzip
+import json
 import logging
 import os
 import random
-from typing import Any, Iterator, List, NamedTuple, Optional, Protocol, Union
+from html import escape
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    NamedTuple,
+    NoReturn,
+    Optional,
+    Protocol,
+    Set,
+    Union,
+)
+from urllib.parse import quote
 
 from sqlalchemy import sql
 from sqlalchemy.engine import Connection, Engine
@@ -253,6 +269,254 @@ def iter_days(
         end_date = start_date
 
 
+def temp_path_for(path: str) -> str:
+    """A hidden sibling of ``path``, in the same directory so a rename is atomic."""
+    directory, file_name = os.path.split(path)
+    return os.path.join(
+        directory, ".{}.{}.tmp".format(file_name, random.randrange(1 << 63))
+    )
+
+
+def remove_temp_file(path: str) -> None:
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        logger.exception("Failed to delete temporary file %s", path)
+
+
+def reraise(error: OSError) -> NoReturn:
+    raise error
+
+
+def read_file(path: str) -> Optional[bytes]:
+    """The contents of ``path``, or None if it is not there."""
+    try:
+        with open(path, "rb") as fileobj:
+            return fileobj.read()
+    except FileNotFoundError:
+        return None
+
+
+def delete_temp_files(directory: str, file_name: str) -> None:
+    """Remove temp files left behind by a run that was killed mid-write."""
+    try:
+        entries = os.listdir(directory)
+    except FileNotFoundError:
+        return
+    for entry in entries:
+        if entry.endswith(".tmp") and file_name in entry:
+            remove_temp_file(os.path.join(directory, entry))
+
+
+INDEX_HTML_NAME = "index.html"
+INDEX_JSON_NAME = "index.json"
+
+# index.html lists these two, in this order, after the directory's real
+# contents. index.json does not list them at all. That asymmetry is in the
+# published files and is not something to tidy up.
+INDEX_FILE_NAMES = (INDEX_HTML_NAME, INDEX_JSON_NAME)
+
+# 1024-based, with the unit names index.html uses. The biggest published file
+# is a 2.0 GB day from the original 2011 import, so GB is the highest unit that
+# has ever been needed; the rest are here so that a bigger file would still
+# render as something rather than as thousands of GB.
+SIZE_UNITS = ("B", "KB", "MB", "GB", "TB", "PB")
+
+
+def format_size(size: int) -> str:
+    """Render a byte count the way the published index.html does.
+
+    Always one decimal place, so a 23-byte file reads ``23.0 B``. Ties round to
+    an even last digit, which is what Go's float formatting did and what
+    Python's does: 2024-12-05-track_fingerprint-update.jsonl.gz is 130304
+    bytes, exactly 127.25 KB, and is published as ``127.2 KB``.
+    """
+    value = float(size)
+    for unit in SIZE_UNITS[:-1]:
+        if value < 1024.0:
+            return "{:.1f} {}".format(value, unit)
+        value /= 1024.0
+    return "{:.1f} {}".format(value, SIZE_UNITS[-1])
+
+
+class IndexEntry(NamedTuple):
+    """One line of a directory listing.
+
+    ``name`` carries a trailing slash for a directory, which is how index.json
+    tells a directory from a file, and ``size`` is None for one -- directories
+    are listed without a size in both formats.
+    """
+
+    name: str
+    size: Optional[int]
+
+
+def read_index_entries(directory: str) -> List[IndexEntry]:
+    """List a directory the way the index files present it, sorted by name.
+
+    The sizes are read off the filesystem rather than carried over from
+    whatever wrote the files, which is what lets the indexes be rebuilt over a
+    tree this process did not create.
+    """
+    entries = []
+    with os.scandir(directory) as scan:
+        for entry in scan:
+            if entry.name.endswith(".tmp"):
+                # A temp file is a half-written one. The rename in
+                # export_query is there so that nothing ever sees a partial
+                # .jsonl.gz, and an index that pointed at one would hand it
+                # over anyway.
+                continue
+            if entry.name in INDEX_FILE_NAMES:
+                # Left to render_index_html to append by name, so that a
+                # listing never depends on the size of a file that listing is
+                # about to change.
+                continue
+            if entry.is_dir():
+                entries.append(IndexEntry(entry.name + "/", None))
+            else:
+                entries.append(IndexEntry(entry.name, entry.stat().st_size))
+    entries.sort(key=lambda listed: listed.name)
+    return entries
+
+
+def index_title_path(root: str, directory: str) -> str:
+    """The path index.html shows, as an absolute path within the tree.
+
+    ``/`` at the top, then ``/2026`` and ``/2026/2026-07``: a leading slash and
+    no trailing one.
+    """
+    relative = os.path.relpath(directory, root)
+    if relative == os.curdir:
+        return "/"
+    return "/" + relative.replace(os.sep, "/")
+
+
+def render_index_json(entries: List[IndexEntry]) -> bytes:
+    """The machine-readable listing: compact, and with no trailing newline."""
+    rows: List[Dict[str, Union[str, int]]] = []
+    for entry in entries:
+        row: Dict[str, Union[str, int]] = {"name": entry.name}
+        if entry.size is not None:
+            row["size"] = entry.size
+        rows.append(row)
+    return json.dumps(rows, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def render_index_html(title_path: str, entries: List[IndexEntry]) -> bytes:
+    """The human-readable listing, byte for byte as it was published."""
+    lines = [
+        "<!DOCTYPE html>",
+        "<html>",
+        "<head><title>Index of {}</title></head>".format(escape(title_path)),
+        "<body>",
+        "<h1>Index of {}</h1>".format(escape(title_path)),
+        "<ul>",
+    ]
+    for entry in entries:
+        size = "" if entry.size is None else " ({})".format(format_size(entry.size))
+        # Every name the export writes is a date and a table name, so quote()
+        # leaves it exactly as it was and the output stays what was published.
+        # It is here for the names generate-indexes can be pointed at, where a
+        # '#' or a '?' would otherwise cut the link short. safe="/" keeps the
+        # trailing slash a directory is listed with.
+        lines.append(
+            '<li><a href="{}">{}</a>{}</li>'.format(
+                escape(quote(entry.name, safe="/")), escape(entry.name), size
+            )
+        )
+    lines.extend(["</ul>", "</body>", "</html>"])
+    return "\n".join(lines).encode("utf-8")
+
+
+class IndexWriter(object):
+    """Writes the index.html and index.json that make the tree navigable.
+
+    Every directory of the published archive carries both, and they are the
+    only listing mechanism there is: the tree may well be served from a bucket,
+    which has no directory listing of its own, so without these files the
+    archive can only be read by someone who already knows every file name.
+    They are a public interface like the data files, down to the bytes.
+
+    Unlike a data file, an index that is already there is rewritten rather than
+    left alone -- its directory's contents are the one thing that can have
+    changed since it was written. It is only replaced when the bytes differ,
+    though, so a pass over an unchanged tree leaves every mtime alone and a
+    sync of the tree has nothing to re-upload.
+    """
+
+    def __init__(self, root: str) -> None:
+        self.root = root
+
+    def write_tree(self) -> int:
+        """Rebuild every index under the root, reading only the filesystem.
+
+        This is how a tree that was exported before the indexes existed gets
+        them, without re-exporting a single data file.
+        """
+        if not os.path.isdir(self.root):
+            # os.walk over a path that is not there yields nothing at all, so
+            # without this a mistyped directory is a run that writes no index,
+            # reports the number it wrote and exits 0.
+            raise ExportError(
+                "{} is not a directory, so there is no tree to index.".format(self.root)
+            )
+        count = 0
+        # onerror, because os.walk otherwise skips a directory it cannot read
+        # and a rebuild that covered half the archive would look exactly like
+        # one that covered all of it.
+        for directory, dir_names, _ in os.walk(self.root, onerror=reraise):
+            # Only so that the log of a first run over a large archive reads in
+            # the order someone would look for.
+            dir_names.sort()
+            self.write(directory)
+            count += 1
+        return count
+
+    def write(self, directory: str) -> None:
+        try:
+            entries = read_index_entries(directory)
+        except FileNotFoundError:
+            # A directory the run passed over without ever writing into.
+            return
+        self._write_index(
+            os.path.join(directory, INDEX_JSON_NAME), render_index_json(entries)
+        )
+        self._write_index(
+            os.path.join(directory, INDEX_HTML_NAME),
+            render_index_html(
+                index_title_path(self.root, directory),
+                entries + [IndexEntry(name, None) for name in INDEX_FILE_NAMES],
+            ),
+        )
+
+    def _write_index(self, path: str, data: bytes) -> None:
+        directory, file_name = os.path.split(path)
+        # As for the data files, this assumes one writer per tree: a second one
+        # working on the same directory at the same time can have its temp file
+        # swept from under it and fail its rename. Nothing is corrupted or
+        # half-published when that happens -- the index is simply not updated,
+        # and the next run writes it -- so it is left as a precondition rather
+        # than paid for with a lock.
+        delete_temp_files(directory, file_name)
+        if read_file(path) == data:
+            logger.debug("Index %s is up to date", path)
+            return
+        logger.info("Writing %s", path)
+        temp_path = temp_path_for(path)
+        try:
+            with open(temp_path, "wb") as fileobj:
+                fileobj.write(data)
+                fileobj.flush()
+                os.fsync(fileobj.fileno())
+            os.rename(temp_path, path)
+        except BaseException:
+            remove_temp_file(temp_path)
+            raise
+
+
 class SupportsWrite(Protocol):
     """Anything the COPY output can be poured into, gzip.GzipFile in practice."""
 
@@ -289,6 +553,8 @@ class Exporter(object):
         self.directory = directory
         self.max_days = max_days
         self.tables = TABLES if tables is None else tables
+        self.index_writer = IndexWriter(directory)
+        self.visited_directories: Set[str] = set()
 
     def run(self, now: Optional[datetime.datetime] = None) -> None:
         if now is None:
@@ -307,6 +573,8 @@ class Exporter(object):
                 continue
             for table in self.tables:
                 self.export_delta_file(table, start, end)
+
+        self.write_indexes()
 
         if held_back:
             # One day held back is the normal state shortly after midnight.
@@ -337,6 +605,11 @@ class Exporter(object):
         file_name = file_name_for(day, table.name)
         path = os.path.join(directory, file_name)
 
+        # Recorded whether or not anything gets written here, so that a run
+        # also repairs an index that is missing or out of date -- which is the
+        # state every directory of an already-exported tree starts in.
+        self.visited_directories.add(directory)
+
         # Skipping files that are already there is what makes an hourly
         # schedule and backfilling the same operation: a run only fills holes.
         if os.path.exists(path):
@@ -346,7 +619,7 @@ class Exporter(object):
             os.makedirs(directory, exist_ok=True)
             self.export_query(path, table.query, start, end)
 
-        self.delete_temp_files(directory, file_name)
+        delete_temp_files(directory, file_name)
 
     def export_query(
         self,
@@ -381,7 +654,7 @@ class Exporter(object):
                 os.fsync(fileobj.fileno())
             os.rename(temp_path, path)
         except BaseException:
-            self._remove_temp_file(temp_path)
+            remove_temp_file(temp_path)
             raise
 
     def copy_query_to_file(
@@ -398,23 +671,29 @@ class Exporter(object):
             )
             cursor.copy_expert(statement, _BytesWriter(fileobj), size=BUFFER_SIZE)
 
-    def delete_temp_files(self, directory: str, file_name: str) -> None:
-        """Remove temp files left behind by a run that was killed mid-write."""
-        try:
-            entries = os.listdir(directory)
-        except FileNotFoundError:
-            return
-        for entry in entries:
-            if entry.endswith(".tmp") and file_name in entry:
-                self._remove_temp_file(os.path.join(directory, entry))
+    def write_indexes(self) -> None:
+        """Regenerate the listings for every directory this run went through.
 
-    def _remove_temp_file(self, path: str) -> None:
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
-        except OSError:
-            logger.exception("Failed to delete temporary file %s", path)
+        Collected during the run and written once at the end rather than after
+        each file: a month directory is written into seven times a day, so a
+        backfill of a few years would otherwise rewrite the same index
+        thousands of times over.
+
+        Every directory up to the root is included, because a new month changes
+        its year's listing and a new year changes the top one. Those two are
+        almost always unchanged, and an unchanged index is not rewritten.
+        """
+        directories = {self.directory}
+        for directory in self.visited_directories:
+            parts = [
+                part
+                for part in os.path.relpath(directory, self.directory).split(os.sep)
+                if part != os.curdir
+            ]
+            for depth in range(1, len(parts) + 1):
+                directories.add(os.path.join(self.directory, *parts[:depth]))
+        for directory in sorted(directories):
+            self.index_writer.write(directory)
 
 
 def check_stats_privilege(db: Connection) -> None:
@@ -444,3 +723,14 @@ def run_export(
         db.exec_driver_sql("SET client_encoding TO 'UTF8'")
         check_stats_privilege(db)
         Exporter(db, directory, max_days=max_days).run(now=now)
+
+
+def run_generate_indexes(directory: str) -> None:
+    """Rebuild every index in an exported tree. No database involved.
+
+    The export keeps the indexes of the directories it touches up to date, so
+    this is for a tree that was exported before the indexes existed, or one
+    that files have been moved into by hand.
+    """
+    count = IndexWriter(directory).write_tree()
+    logger.info("Wrote the indexes of %d directories under %s", count, directory)

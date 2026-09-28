@@ -14,18 +14,29 @@ from sqlalchemy import sql
 from acoustid import export as export_module
 from acoustid.config import DatabaseConfig, DatabasesConfig
 from acoustid.export import (
+    FILE_NAME_SUFFIX,
+    INDEX_HTML_NAME,
+    INDEX_JSON_NAME,
     SETTLE_DELAY,
     TABLES,
     Exporter,
     ExportError,
     ExportTable,
+    IndexEntry,
+    IndexWriter,
     SupportsWrite,
     build_copy_statement,
     check_stats_privilege,
     file_name_for,
+    format_size,
+    index_title_path,
     iter_days,
+    read_index_entries,
     relative_path_for,
+    render_index_html,
+    render_index_json,
     run_export,
+    run_generate_indexes,
 )
 from acoustid.script import Script
 
@@ -73,6 +84,13 @@ class FakeExporter(Exporter):
         fileobj.write(self.payload)
 
 
+def exported_files(directory: str) -> List[str]:
+    """The data files in a directory, leaving out the two index files."""
+    return sorted(
+        name for name in os.listdir(directory) if name.endswith(FILE_NAME_SUFFIX)
+    )
+
+
 def one_table() -> List[ExportTable]:
     return [ExportTable("track-update", "SELECT 1")]
 
@@ -114,7 +132,7 @@ def test_exports_every_table_into_the_day_directory() -> None:
     with tempfile.TemporaryDirectory() as directory:
         exporter = FakeExporter(directory, max_days=1)
         exporter.run(now=NOW)
-        written = sorted(os.listdir(os.path.join(directory, "2026", "2026-07")))
+        written = exported_files(day_directory(directory))
         assert written == sorted(file_name_for(DAY, table.name) for table in TABLES)
 
 
@@ -141,7 +159,7 @@ def test_backfills_only_the_missing_days() -> None:
         exporter.run(now=NOW)
 
         assert len(exporter.exported) == 3
-        days = sorted(os.listdir(os.path.join(directory, "2026", "2026-07")))
+        days = exported_files(day_directory(directory))
         assert days == [
             "2026-07-24-track-update.jsonl.gz",
             "2026-07-25-track-update.jsonl.gz",
@@ -190,7 +208,7 @@ def test_target_file_only_appears_once_it_is_complete() -> None:
         assert len(entries_seen[0]) == 1
         assert entries_seen[0][0].endswith(".tmp")
         assert entries_seen[0][0].startswith(".2026-07-27-track-update.jsonl.gz.")
-        assert os.listdir(os.path.dirname(path)) == [os.path.basename(path)]
+        assert exported_files(os.path.dirname(path)) == [os.path.basename(path)]
 
 
 def test_failed_export_leaves_nothing_behind() -> None:
@@ -201,7 +219,7 @@ def test_failed_export_leaves_nothing_behind() -> None:
         with pytest.raises(RuntimeError):
             exporter.run(now=NOW)
 
-        assert os.listdir(os.path.join(directory, "2026", "2026-07")) == []
+        assert os.listdir(day_directory(directory)) == []
 
 
 def test_sweeps_temp_files_left_by_a_killed_run() -> None:
@@ -342,7 +360,7 @@ def test_exports_all_seven_files_for_a_complete_day(script: Script) -> None:
     with tempfile.TemporaryDirectory() as directory:
         run_export(script.db_engines["fingerprint:ro"], directory, max_days=1, now=NOW)
 
-        written = sorted(os.listdir(os.path.join(directory, "2026", "2026-07")))
+        written = exported_files(day_directory(directory))
         assert written == sorted(file_name_for(DAY, t.name) for t in TABLES)
 
         assert sorted(row["id"] for row in read_export(directory, "track-update")) == [
@@ -515,7 +533,7 @@ def test_only_the_days_the_horizon_has_not_reached_are_held_back() -> None:
         exporter.horizon = in_day(4, DAY)
         exporter.run(now=NOW)
 
-        assert sorted(os.listdir(day_directory(directory))) == [
+        assert exported_files(day_directory(directory)) == [
             "2026-07-25-track-update.jsonl.gz",
             "2026-07-26-track-update.jsonl.gz",
         ]
@@ -670,6 +688,373 @@ def test_file_is_named_for_the_utc_day_not_the_local_one() -> None:
     with tempfile.TemporaryDirectory() as directory:
         exporter = FakeExporter(directory, max_days=1, tables=one_table())
         exporter.run(now=now)
-        assert os.listdir(day_directory(directory)) == [
+        assert exported_files(day_directory(directory)) == [
             "2026-07-26-track-update.jsonl.gz"
         ]
+
+
+# The bytes below are the ones data.acoustid.org actually serves. The listings
+# are a public interface with no versioning and no way to tell a consumer that
+# something moved, so these are here as literals rather than as something
+# recomputed from the code under test.
+PUBLISHED_ROOT_YEARS = [str(year) for year in range(2011, 2027)]
+
+PUBLISHED_ROOT_INDEX_JSON = (
+    b'[{"name":"2011/"},{"name":"2012/"},{"name":"2013/"},{"name":"2014/"},'
+    b'{"name":"2015/"},{"name":"2016/"},{"name":"2017/"},{"name":"2018/"},'
+    b'{"name":"2019/"},{"name":"2020/"},{"name":"2021/"},{"name":"2022/"},'
+    b'{"name":"2023/"},{"name":"2024/"},{"name":"2025/"},{"name":"2026/"}]'
+)
+
+PUBLISHED_ROOT_INDEX_HTML = (
+    b"<!DOCTYPE html>\n"
+    b"<html>\n"
+    b"<head><title>Index of /</title></head>\n"
+    b"<body>\n"
+    b"<h1>Index of /</h1>\n"
+    b"<ul>\n"
+    + b"".join(
+        '<li><a href="{0}/">{0}/</a></li>\n'.format(year).encode()
+        for year in PUBLISHED_ROOT_YEARS
+    )
+    + b'<li><a href="index.html">index.html</a></li>\n'
+    b'<li><a href="index.json">index.json</a></li>\n'
+    b"</ul>\n"
+    b"</body>\n"
+    b"</html>"
+)
+
+# Sizes taken from the published month listings, paired with the string the
+# published index.html shows for them.
+PUBLISHED_SIZES = [
+    (23, "23.0 B"),
+    (1288, "1.3 KB"),
+    (1755, "1.7 KB"),
+    (967262, "944.6 KB"),
+    (3379, "3.3 KB"),
+    (48655184, "46.4 MB"),
+    (65683687, "62.6 MB"),
+    (136926711, "130.6 MB"),
+    (1123371133, "1.0 GB"),
+    (2168696378, "2.0 GB"),
+]
+
+
+@pytest.mark.parametrize("size,expected", PUBLISHED_SIZES)
+def test_format_size_matches_the_published_listings(size: int, expected: str) -> None:
+    assert format_size(size) == expected
+
+
+def test_format_size_breaks_a_tie_towards_an_even_digit() -> None:
+    """130304 bytes is exactly 127.25 KB, and is published as 127.2 KB.
+
+    This is the one case in the whole archive where rounding half up and
+    rounding half to even disagree, so it is the only evidence there is for
+    which one the published files used.
+    """
+    assert format_size(130304) == "127.2 KB"
+
+
+def test_format_size_stays_in_bytes_below_a_kilobyte() -> None:
+    assert format_size(0) == "0.0 B"
+    assert format_size(1023) == "1023.0 B"
+    assert format_size(1024) == "1.0 KB"
+
+
+def test_index_title_path_is_absolute_with_no_trailing_slash() -> None:
+    root = os.path.join("/srv", "export")
+    assert index_title_path(root, root) == "/"
+    assert index_title_path(root, os.path.join(root, "2026")) == "/2026"
+    assert (
+        index_title_path(root, os.path.join(root, "2026", "2026-07")) == "/2026/2026-07"
+    )
+
+
+def make_file(directory: str, name: str, size: int) -> None:
+    path = os.path.join(directory, name)
+    with open(path, "wb") as fileobj:
+        fileobj.truncate(size)
+
+
+def read_index(directory: str, name: str) -> bytes:
+    with open(os.path.join(directory, name), "rb") as fileobj:
+        return fileobj.read()
+
+
+def test_root_index_files_match_the_published_bytes() -> None:
+    """The top of the tree, byte for byte as data.acoustid.org serves it."""
+    with tempfile.TemporaryDirectory() as directory:
+        for year in PUBLISHED_ROOT_YEARS:
+            os.makedirs(os.path.join(directory, year))
+
+        IndexWriter(directory).write(directory)
+
+        assert read_index(directory, INDEX_JSON_NAME) == PUBLISHED_ROOT_INDEX_JSON
+        assert read_index(directory, INDEX_HTML_NAME) == PUBLISHED_ROOT_INDEX_HTML
+
+
+def test_month_index_files_list_the_files_with_their_sizes() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        month = day_directory(directory)
+        os.makedirs(month)
+        # Written out of order, to show the listing does the sorting.
+        make_file(month, "2026-07-01-track-update.jsonl.gz", 23)
+        make_file(month, "2026-07-01-fingerprint-update.jsonl.gz", 130304)
+
+        IndexWriter(directory).write(month)
+
+        assert read_index(month, INDEX_JSON_NAME) == (
+            b'[{"name":"2026-07-01-fingerprint-update.jsonl.gz","size":130304},'
+            b'{"name":"2026-07-01-track-update.jsonl.gz","size":23}]'
+        )
+        assert read_index(month, INDEX_HTML_NAME) == (
+            b"<!DOCTYPE html>\n"
+            b"<html>\n"
+            b"<head><title>Index of /2026/2026-07</title></head>\n"
+            b"<body>\n"
+            b"<h1>Index of /2026/2026-07</h1>\n"
+            b"<ul>\n"
+            b'<li><a href="2026-07-01-fingerprint-update.jsonl.gz">'
+            b"2026-07-01-fingerprint-update.jsonl.gz</a> (127.2 KB)</li>\n"
+            b'<li><a href="2026-07-01-track-update.jsonl.gz">'
+            b"2026-07-01-track-update.jsonl.gz</a> (23.0 B)</li>\n"
+            b'<li><a href="index.html">index.html</a></li>\n'
+            b'<li><a href="index.json">index.json</a></li>\n'
+            b"</ul>\n"
+            b"</body>\n"
+            b"</html>"
+        )
+
+
+def test_index_json_does_not_list_the_index_files_but_index_html_does() -> None:
+    """An asymmetry that is in the published files, so it is kept."""
+    with tempfile.TemporaryDirectory() as directory:
+        make_file(directory, "2026-07-01-track-update.jsonl.gz", 23)
+        writer = IndexWriter(directory)
+        writer.write(directory)
+        # A second pass, now that both index files are on disk, must not start
+        # listing them in index.json or sizing them in index.html.
+        writer.write(directory)
+
+        listed = json.loads(read_index(directory, INDEX_JSON_NAME))
+        assert [entry["name"] for entry in listed] == [
+            "2026-07-01-track-update.jsonl.gz"
+        ]
+
+        html = read_index(directory, INDEX_HTML_NAME).decode()
+        assert html.endswith(
+            '<li><a href="index.html">index.html</a></li>\n'
+            '<li><a href="index.json">index.json</a></li>\n'
+            "</ul>\n</body>\n</html>"
+        )
+
+
+def test_index_leaves_out_temp_files() -> None:
+    """A temp file is a partial one, which is what the rename exists to hide."""
+    with tempfile.TemporaryDirectory() as directory:
+        make_file(directory, "2026-07-01-track-update.jsonl.gz", 23)
+        make_file(directory, ".2026-07-01-meta-update.jsonl.gz.7412.tmp", 99)
+
+        entries = read_index_entries(directory)
+
+        assert entries == [IndexEntry("2026-07-01-track-update.jsonl.gz", 23)]
+
+
+def test_index_sizes_come_from_the_filesystem() -> None:
+    """Which is what lets a tree this process did not write get its listings."""
+    with tempfile.TemporaryDirectory() as directory:
+        make_file(directory, "2026-07-01-track-update.jsonl.gz", 4096)
+        assert read_index_entries(directory) == [
+            IndexEntry("2026-07-01-track-update.jsonl.gz", 4096)
+        ]
+
+
+def test_directories_are_listed_with_a_slash_and_no_size() -> None:
+    entries = [IndexEntry("2026-07/", None), IndexEntry("file.jsonl.gz", 23)]
+    assert render_index_json(entries) == (
+        b'[{"name":"2026-07/"},{"name":"file.jsonl.gz","size":23}]'
+    )
+    html = render_index_html("/2026", entries).decode()
+    assert '<li><a href="2026-07/">2026-07/</a></li>' in html
+    assert '<li><a href="file.jsonl.gz">file.jsonl.gz</a> (23.0 B)</li>' in html
+
+
+def test_export_writes_an_index_at_every_level() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        FakeExporter(directory, max_days=1, tables=one_table()).run(now=NOW)
+
+        for level in (
+            directory,
+            os.path.join(directory, "2026"),
+            day_directory(directory),
+        ):
+            assert os.path.exists(os.path.join(level, INDEX_JSON_NAME)), level
+            assert os.path.exists(os.path.join(level, INDEX_HTML_NAME)), level
+
+        assert json.loads(read_index(directory, INDEX_JSON_NAME)) == [{"name": "2026/"}]
+        assert json.loads(
+            read_index(os.path.join(directory, "2026"), INDEX_JSON_NAME)
+        ) == [{"name": "2026-07/"}]
+
+
+def test_month_index_lists_every_table_for_every_exported_day() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        FakeExporter(directory, max_days=3).run(now=NOW)
+
+        listed = json.loads(read_index(day_directory(directory), INDEX_JSON_NAME))
+        assert [entry["name"] for entry in listed] == exported_files(
+            day_directory(directory)
+        )
+        assert len(listed) == 3 * len(TABLES)
+
+
+def test_export_rewrites_an_index_when_the_directory_gained_a_file() -> None:
+    """The one place the "leave what is already there alone" rule is inverted."""
+    with tempfile.TemporaryDirectory() as directory:
+        FakeExporter(directory, max_days=1, tables=one_table()).run(now=NOW)
+        FakeExporter(directory, max_days=2, tables=one_table()).run(now=NOW)
+
+        listed = json.loads(read_index(day_directory(directory), INDEX_JSON_NAME))
+        assert [entry["name"] for entry in listed] == [
+            "2026-07-26-track-update.jsonl.gz",
+            "2026-07-27-track-update.jsonl.gz",
+        ]
+
+
+def test_export_repairs_an_index_even_when_no_data_file_is_written() -> None:
+    """Which is how an already-exported tree gets its listings from a plain run."""
+    with tempfile.TemporaryDirectory() as directory:
+        exporter = FakeExporter(directory, max_days=1, tables=one_table())
+        exporter.run(now=NOW)
+        month = day_directory(directory)
+        os.remove(os.path.join(month, INDEX_JSON_NAME))
+        os.remove(os.path.join(month, INDEX_HTML_NAME))
+
+        second = FakeExporter(directory, max_days=1, tables=one_table())
+        second.run(now=NOW)
+
+        assert second.exported == []
+        assert os.path.exists(os.path.join(month, INDEX_JSON_NAME))
+        assert os.path.exists(os.path.join(month, INDEX_HTML_NAME))
+
+
+def test_an_unchanged_index_is_left_alone() -> None:
+    """Rewriting one would give a sync of the tree something to re-upload."""
+    with tempfile.TemporaryDirectory() as directory:
+        FakeExporter(directory, max_days=1, tables=one_table()).run(now=NOW)
+        path = os.path.join(day_directory(directory), INDEX_JSON_NAME)
+        before = os.stat(path)
+
+        FakeExporter(directory, max_days=1, tables=one_table()).run(now=NOW)
+
+        assert os.stat(path).st_mtime_ns == before.st_mtime_ns
+
+
+def test_index_is_published_with_a_rename_and_leaves_no_temp_file() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        make_file(directory, "2026-07-01-track-update.jsonl.gz", 23)
+        stale = os.path.join(directory, ".{}.55.tmp".format(INDEX_JSON_NAME))
+        make_file(directory, os.path.basename(stale), 4)
+
+        IndexWriter(directory).write(directory)
+
+        assert not os.path.exists(stale)
+        assert sorted(os.listdir(directory)) == [
+            "2026-07-01-track-update.jsonl.gz",
+            INDEX_HTML_NAME,
+            INDEX_JSON_NAME,
+        ]
+
+
+def build_tree_without_indexes(directory: str) -> None:
+    """A finished export whose indexes were never written."""
+    for day in (
+        datetime.date(2025, 12, 31),
+        datetime.date(2026, 1, 1),
+        datetime.date(2026, 7, 27),
+    ):
+        for table in TABLES:
+            path = os.path.join(directory, relative_path_for(day, table.name))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            make_file(os.path.dirname(path), os.path.basename(path), 23)
+
+
+def test_generate_indexes_covers_a_tree_it_did_not_export() -> None:
+    """~700 GB of files are not going to be exported twice for their listings."""
+    with tempfile.TemporaryDirectory() as directory:
+        build_tree_without_indexes(directory)
+
+        run_generate_indexes(directory)
+
+        assert json.loads(read_index(directory, INDEX_JSON_NAME)) == [
+            {"name": "2025/"},
+            {"name": "2026/"},
+        ]
+        assert json.loads(
+            read_index(os.path.join(directory, "2026"), INDEX_JSON_NAME)
+        ) == [{"name": "2026-01/"}, {"name": "2026-07/"}]
+        for month in ("2025/2025-12", "2026/2026-01", "2026/2026-07"):
+            path = os.path.join(directory, *month.split("/"))
+            listed = json.loads(read_index(path, INDEX_JSON_NAME))
+            assert [entry["name"] for entry in listed] == exported_files(path)
+            assert len(listed) == len(TABLES)
+
+
+def test_generate_indexes_changes_nothing_on_a_second_pass() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        build_tree_without_indexes(directory)
+        run_generate_indexes(directory)
+        month = day_directory(directory)
+        before = {
+            name: os.stat(os.path.join(month, name)).st_mtime_ns
+            for name in (INDEX_HTML_NAME, INDEX_JSON_NAME)
+        }
+
+        run_generate_indexes(directory)
+
+        assert {
+            name: os.stat(os.path.join(month, name)).st_mtime_ns for name in before
+        } == before
+
+
+def test_generate_indexes_picks_up_a_file_added_by_hand() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        build_tree_without_indexes(directory)
+        run_generate_indexes(directory)
+        month = day_directory(directory)
+        make_file(month, "2026-07-28-track-update.jsonl.gz", 512)
+
+        run_generate_indexes(directory)
+
+        listed = json.loads(read_index(month, INDEX_JSON_NAME))
+        assert {"name": "2026-07-28-track-update.jsonl.gz", "size": 512} in listed
+        assert "(512.0 B)" in read_index(month, INDEX_HTML_NAME).decode()
+
+
+def test_generate_indexes_refuses_a_directory_that_is_not_there() -> None:
+    """A mistyped --directory must not look like a run that had nothing to do."""
+    with tempfile.TemporaryDirectory() as directory:
+        with pytest.raises(ExportError):
+            run_generate_indexes(os.path.join(directory, "data-exprot"))
+
+
+def test_generate_indexes_refuses_a_path_that_is_a_file() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        make_file(directory, "not-a-tree", 1)
+        with pytest.raises(ExportError):
+            run_generate_indexes(os.path.join(directory, "not-a-tree"))
+
+
+def test_href_survives_a_name_with_url_syntax_in_it() -> None:
+    """Nothing the export writes looks like this, but generate-indexes can be
+    pointed at a tree files were moved into by hand."""
+    html = render_index_html("/", [IndexEntry("odd#name?.jsonl.gz", 23)]).decode()
+    assert '<a href="odd%23name%3F.jsonl.gz">odd#name?.jsonl.gz</a>' in html
+
+
+def test_href_is_untouched_for_the_names_the_export_writes() -> None:
+    html = render_index_html(
+        "/2026", [IndexEntry("2026-07/", None), IndexEntry(file_name_for(DAY, "x"), 23)]
+    ).decode()
+    assert '<a href="2026-07/">' in html
+    assert '<a href="2026-07-27-x.jsonl.gz">' in html
