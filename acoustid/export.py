@@ -35,11 +35,13 @@ from typing import (
     Iterator,
     List,
     NamedTuple,
+    NoReturn,
     Optional,
     Protocol,
     Set,
     Union,
 )
+from urllib.parse import quote
 
 from sqlalchemy import sql
 from sqlalchemy.engine import Connection, Engine
@@ -284,6 +286,10 @@ def remove_temp_file(path: str) -> None:
         logger.exception("Failed to delete temporary file %s", path)
 
 
+def reraise(error: OSError) -> NoReturn:
+    raise error
+
+
 def read_file(path: str) -> Optional[bytes]:
     """The contents of ``path``, or None if it is not there."""
     try:
@@ -411,8 +417,15 @@ def render_index_html(title_path: str, entries: List[IndexEntry]) -> bytes:
     ]
     for entry in entries:
         size = "" if entry.size is None else " ({})".format(format_size(entry.size))
+        # Every name the export writes is a date and a table name, so quote()
+        # leaves it exactly as it was and the output stays what was published.
+        # It is here for the names generate-indexes can be pointed at, where a
+        # '#' or a '?' would otherwise cut the link short. safe="/" keeps the
+        # trailing slash a directory is listed with.
         lines.append(
-            '<li><a href="{0}">{0}</a>{1}</li>'.format(escape(entry.name), size)
+            '<li><a href="{}">{}</a>{}</li>'.format(
+                escape(quote(entry.name, safe="/")), escape(entry.name), size
+            )
         )
     lines.extend(["</ul>", "</body>", "</html>"])
     return "\n".join(lines).encode("utf-8")
@@ -443,8 +456,18 @@ class IndexWriter(object):
         This is how a tree that was exported before the indexes existed gets
         them, without re-exporting a single data file.
         """
+        if not os.path.isdir(self.root):
+            # os.walk over a path that is not there yields nothing at all, so
+            # without this a mistyped directory is a run that writes no index,
+            # reports the number it wrote and exits 0.
+            raise ExportError(
+                "{} is not a directory, so there is no tree to index.".format(self.root)
+            )
         count = 0
-        for directory, dir_names, _ in os.walk(self.root):
+        # onerror, because os.walk otherwise skips a directory it cannot read
+        # and a rebuild that covered half the archive would look exactly like
+        # one that covered all of it.
+        for directory, dir_names, _ in os.walk(self.root, onerror=reraise):
             # Only so that the log of a first run over a large archive reads in
             # the order someone would look for.
             dir_names.sort()
@@ -471,6 +494,12 @@ class IndexWriter(object):
 
     def _write_index(self, path: str, data: bytes) -> None:
         directory, file_name = os.path.split(path)
+        # As for the data files, this assumes one writer per tree: a second one
+        # working on the same directory at the same time can have its temp file
+        # swept from under it and fail its rename. Nothing is corrupted or
+        # half-published when that happens -- the index is simply not updated,
+        # and the next run writes it -- so it is left as a precondition rather
+        # than paid for with a lock.
         delete_temp_files(directory, file_name)
         if read_file(path) == data:
             logger.debug("Index %s is up to date", path)

@@ -1029,3 +1029,32 @@ def test_generate_indexes_picks_up_a_file_added_by_hand() -> None:
         listed = json.loads(read_index(month, INDEX_JSON_NAME))
         assert {"name": "2026-07-28-track-update.jsonl.gz", "size": 512} in listed
         assert "(512.0 B)" in read_index(month, INDEX_HTML_NAME).decode()
+
+
+def test_generate_indexes_refuses_a_directory_that_is_not_there() -> None:
+    """A mistyped --directory must not look like a run that had nothing to do."""
+    with tempfile.TemporaryDirectory() as directory:
+        with pytest.raises(ExportError):
+            run_generate_indexes(os.path.join(directory, "data-exprot"))
+
+
+def test_generate_indexes_refuses_a_path_that_is_a_file() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        make_file(directory, "not-a-tree", 1)
+        with pytest.raises(ExportError):
+            run_generate_indexes(os.path.join(directory, "not-a-tree"))
+
+
+def test_href_survives_a_name_with_url_syntax_in_it() -> None:
+    """Nothing the export writes looks like this, but generate-indexes can be
+    pointed at a tree files were moved into by hand."""
+    html = render_index_html("/", [IndexEntry("odd#name?.jsonl.gz", 23)]).decode()
+    assert '<a href="odd%23name%3F.jsonl.gz">odd#name?.jsonl.gz</a>' in html
+
+
+def test_href_is_untouched_for_the_names_the_export_writes() -> None:
+    html = render_index_html(
+        "/2026", [IndexEntry("2026-07/", None), IndexEntry(file_name_for(DAY, "x"), 23)]
+    ).decode()
+    assert '<a href="2026-07/">' in html
+    assert '<a href="2026-07-27-x.jsonl.gz">' in html
