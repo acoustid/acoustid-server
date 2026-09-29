@@ -127,6 +127,29 @@ def disable_mbid(
         )
 
 
+def _merged_into_chain(
+    fingerprint_db: FingerprintDB, start_id: int, limit: int = 8
+) -> list[int]:
+    """The track_mbid rows ``start_id`` has been merged into, nearest first.
+
+    Bounded and duplicate-stopped so that an already-broken chain cannot spin
+    here rather than being reported.
+    """
+    chain: list[int] = []
+    current = start_id
+    for _ in range(limit):
+        merged_into = fingerprint_db.execute(
+            sql.select(schema.track_mbid.c.merged_into).where(
+                schema.track_mbid.c.id == current
+            )
+        ).scalar()
+        if merged_into is None or merged_into in chain:
+            break
+        chain.append(merged_into)
+        current = merged_into
+    return chain
+
+
 def merge_mbids(
     fingerprint_db: FingerprintDB,
     ingest_db: IngestDB,
@@ -178,6 +201,27 @@ def merge_mbids(
         else:
             # we already have a record with the target mbid, so we update it
             target_id = target.id
+        assert target_id is not None
+
+        if source.id in _merged_into_chain(fingerprint_db, target_id):
+            # The target is merged into the source, so re-pointing the source
+            # at it would close a loop: both rows end up disabled and pointing
+            # at each other, and the track drops the MBID from lookups
+            # entirely, silently. It takes MusicBrainz merging C into A and
+            # later A into C -- reverting a merge and redoing it the other way
+            # round -- which is rare but is something editors can do.
+            #
+            # The raise this replaced was what used to stop it, so not putting
+            # anything back would have traded a loud permanent failure for a
+            # quiet permanent one.
+            logger.warning(
+                "Not merging MBID %r into %r on track %d: the target is "
+                "already merged into the source",
+                source_mbid,
+                target_mbid,
+                track_id,
+            )
+            continue
 
         if source.merged_into is not None and source.merged_into != target_id:
             # This track's source mbid was already merged into a different row,

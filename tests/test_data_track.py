@@ -654,3 +654,42 @@ SELECT setval('track_mbid_id_seq', 100);
     assert rows[UUID(a)][2] is not None
     assert rows[UUID(a)][2] not in (2,)
     assert rows[UUID(b)] == (11, False, None)
+
+
+@with_script_context
+def test_merge_mbids_refuses_to_close_a_loop(ctx):
+    # type: (ScriptContext) -> None
+    """C was merged into A; MusicBrainz now says A merges into C.
+
+    Re-pointing A at C would leave the two rows merged into each other, both
+    disabled, and the track would drop the MBID from lookups with nothing said.
+    """
+    a = "97edb73c-4dac-11e0-9096-0025225356f3"
+    c = "b81f83ee-4da4-11e0-9ed8-002522535601"
+    prepare_database(
+        ctx.db.get_fingerprint_db(),
+        """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '{a}', 5);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (3, 1, '{c}', 2);
+UPDATE track_mbid SET merged_into = 1, disabled = true WHERE id = 3;
+""".format(
+            a=a, c=c
+        ),
+    )
+
+    merge_mbids(
+        ctx.db.get_fingerprint_db(),
+        ctx.db.get_ingest_db(),
+        UUID(a),
+        UUID(c),
+    )
+
+    rows = {
+        row.id: (row.submission_count, row.disabled, row.merged_into)
+        for row in ctx.db.get_fingerprint_db().execute(
+            text("SELECT id, submission_count, disabled, merged_into FROM track_mbid")
+        )
+    }
+    # left exactly as it was: A still live, C still merged into A
+    assert rows == {1: (5, False, None), 3: (2, True, 1)}
