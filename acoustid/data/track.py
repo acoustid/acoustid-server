@@ -180,7 +180,34 @@ def merge_mbids(
             target_id = target.id
 
         if source.merged_into is not None and source.merged_into != target_id:
-            raise ValueError("source mbid is already merged into another mbid")
+            # This track's source mbid was already merged into a different row,
+            # which is what a chain of MusicBrainz merges looks like from here:
+            # we recorded A -> B, MusicBrainz then merged B into C, and because
+            # gid_redirect always resolves to the current recording, the next
+            # lookup of A asks us for A -> C.
+            #
+            # The check that used to live here raised instead, to make sure
+            # merged_into was never overwritten silently. Raising turned a
+            # normal event into a permanent one: the state is not transient, so
+            # every later lookup of that mbid enqueued the task again and failed
+            # again, which is where the bulk of our error volume came from.
+            #
+            # Re-pointing at the current target is the right answer rather than
+            # merely the quiet one. MusicBrainz collapses its own redirects, so
+            # the requested target is the canonical row and the one we recorded
+            # earlier is a superseded step. The merge below moves whatever
+            # submissions have accrued on the source since -- a merged row still
+            # takes them, see _insert_gid -- so nothing is stranded by doing it.
+            # The row we merged into before keeps what it was given at the time,
+            # and gets merged onward itself when it is next looked up.
+            logger.info(
+                "Re-merging MBID %r on track %d: already merged into "
+                "track_mbid %d, now merging into %d",
+                source_mbid,
+                track_id,
+                source.merged_into,
+                target_id,
+            )
 
         # clear submission count and disable flag for source mbid
         fingerprint_db.execute(

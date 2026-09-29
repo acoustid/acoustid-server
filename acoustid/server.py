@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import gzip
 import os
+import zlib
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional, Tuple
 
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
@@ -135,6 +136,15 @@ class Server(Script):
         return response(environ, start_response)
 
 
+# What a malformed gzip body raises, which is not one exception type and not
+# all of them OSError. A body that stops early -- the common case for a client
+# that gave up mid-upload -- raises EOFError, and one whose header is fine but
+# whose payload is corrupt raises zlib.error. Neither inherits from OSError in
+# Python 3, so `except IOError` let both through as a 500 even though the code
+# around it is clearly trying to answer 400.
+BAD_GZIP_ERRORS = (OSError, EOFError, zlib.error)
+
+
 class GzipRequestMiddleware(object):
     """WSGI middleware to handle GZip-compressed HTTP requests bodies
 
@@ -161,7 +171,7 @@ class GzipRequestMiddleware(object):
                 return bad_request(environ, start_response)
             try:
                 body = gzip.GzipFile(fileobj=BytesIO(compressed_body)).read()
-            except IOError:
+            except BAD_GZIP_ERRORS:
                 bad_request = BadRequest()
                 return bad_request(environ, start_response)
             environ["wsgi.input"] = BytesIO(body)

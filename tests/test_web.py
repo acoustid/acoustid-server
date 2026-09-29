@@ -1,3 +1,5 @@
+import datetime
+import json
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
@@ -80,7 +82,7 @@ def test_chromaprint_page_without_a_release(app: Flask, latest_release) -> None:
     assert "Download" not in rv.text
 
 
-def test_latest_chromaprint_release_is_the_newest_one() -> None:
+def test_latest_chromaprint_release_is_the_newest_one(fake_redis) -> None:
     older = dict(FAKE_RELEASE, name="Chromaprint 1.6.0")
     with mock.patch.object(general.requests, "get") as get:
         get.return_value.json.return_value = [FAKE_RELEASE, older]
@@ -88,7 +90,7 @@ def test_latest_chromaprint_release_is_the_newest_one() -> None:
         assert general.get_latest_chromaprint_release() == FAKE_RELEASE
 
 
-def test_latest_chromaprint_release_when_there_are_none() -> None:
+def test_latest_chromaprint_release_when_there_are_none(fake_redis) -> None:
     with mock.patch.object(general.requests, "get") as get:
         get.return_value.json.return_value = []
 
@@ -469,3 +471,103 @@ def test_maintenance_banner_links_to_status_page(app: Flask) -> None:
         assert "https://status.acoustid.org/" in rv.text
     finally:
         website.maintenance = False
+
+
+class FakeRedis:
+    """A redis stand-in that can be told to fail, because the real one does."""
+
+    def __init__(self, fail=False):
+        self.store = {}
+        self.fail = fail
+        self.writes = 0
+
+    def get(self, key):
+        if self.fail:
+            raise Exception("upstream failure")
+        return self.store.get(key)
+
+    def setex(self, key, ttl, value):
+        self.writes += 1
+        if self.fail:
+            raise Exception("upstream failure")
+        self.store[key] = value
+
+
+@pytest.fixture()
+def fake_redis():
+    redis = FakeRedis()
+    with mock.patch.object(db, "get_redis", return_value=redis):
+        yield redis
+
+
+@pytest.fixture()
+def github():
+    with mock.patch.object(general, "_fetch_latest_chromaprint_release") as m:
+        m.return_value = FAKE_RELEASE
+        yield m
+
+
+def test_chromaprint_release_is_cached_in_redis(fake_redis, github) -> None:
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+    # the second call is served from redis rather than from GitHub, which is
+    # the whole point: the call is unauthenticated and rate limited per IP
+    assert github.call_count == 1
+
+
+def test_chromaprint_release_survives_github_being_down(fake_redis, github) -> None:
+    github.side_effect = RuntimeError("403 rate limited")
+    assert general.get_latest_chromaprint_release() is None
+
+
+def test_chromaprint_page_renders_when_github_is_down(
+    app: Flask, fake_redis, github
+) -> None:
+    """The version is an ornament; GitHub being unreachable must not 500."""
+    github.side_effect = RuntimeError("403 rate limited")
+    rv = app.test_client().get("/chromaprint")
+    assert rv.status_code == 200
+
+
+def test_chromaprint_serves_a_stale_release_when_github_is_down(
+    fake_redis, github
+) -> None:
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+
+    # age the cached entry past its freshness window
+    cached = json.loads(fake_redis.store[general.CHROMAPRINT_RELEASE_CACHE_KEY])
+    cached["fetched_at"] = (
+        datetime.datetime.now(datetime.timezone.utc)
+        - general.CHROMAPRINT_RELEASE_TTL
+        - datetime.timedelta(minutes=1)
+    ).isoformat()
+    fake_redis.store[general.CHROMAPRINT_RELEASE_CACHE_KEY] = json.dumps(cached)
+
+    github.side_effect = RuntimeError("403 rate limited")
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+    assert github.call_count == 2
+
+
+def test_chromaprint_page_renders_when_redis_is_down(app: Flask, github) -> None:
+    """Caching in redis must not swap a GitHub dependency for a redis one --
+    the shards sit behind a proxy that blips."""
+    redis = FakeRedis(fail=True)
+    with mock.patch.object(db, "get_redis", return_value=redis):
+        assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+        rv = app.test_client().get("/chromaprint")
+    assert rv.status_code == 200
+
+
+def test_chromaprint_survives_redis_and_github_both_being_down(app: Flask) -> None:
+    redis = FakeRedis(fail=True)
+    with mock.patch.object(db, "get_redis", return_value=redis):
+        with mock.patch.object(general, "_fetch_latest_chromaprint_release") as m:
+            m.side_effect = RuntimeError("403 rate limited")
+            assert general.get_latest_chromaprint_release() is None
+            rv = app.test_client().get("/chromaprint")
+    assert rv.status_code == 200
+
+
+def test_chromaprint_ignores_an_unreadable_cache_entry(fake_redis, github) -> None:
+    fake_redis.store[general.CHROMAPRINT_RELEASE_CACHE_KEY] = b"not json"
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE

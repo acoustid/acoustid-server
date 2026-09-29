@@ -1,8 +1,9 @@
 # Copyright (C) 2014 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
+from redis import Redis
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -20,12 +21,14 @@ from acoustid.script import Script
 class Database(object):
     def __init__(self):
         self.engines = {}  # type: Dict[str, Engine]
+        self.script = None  # type: Optional[Script]
         self.session_factory = sessionmaker(class_=Session)
         self.session = scoped_session(self.session_factory)
 
     def configure(self, script, scopefunc):
         # type: (Script, Callable[[], Any]) -> None
         self.engines = script.db_engines
+        self.script = script
         self.session_factory.configure(**get_session_args(script))
         self.session = scoped_session(self.session_factory, scopefunc)
 
@@ -52,6 +55,12 @@ class Database(object):
     def get_musicbrainz_db(self, read_only=True):
         # type: (bool) -> MusicBrainzDB
         return MusicBrainzDB(self.connection("musicbrainz", read_only))
+
+    def get_redis(self):
+        # type: () -> Redis
+        """The same client the rest of the process uses, not a second one."""
+        assert self.script is not None, "db.configure() has not been called"
+        return self.script.get_redis()
 
 
 db = Database()
