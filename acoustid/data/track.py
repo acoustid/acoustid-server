@@ -128,12 +128,15 @@ def disable_mbid(
 
 
 def _merged_into_chain(
-    fingerprint_db: FingerprintDB, start_id: int, limit: int = 8
+    fingerprint_db: FingerprintDB, start_id: int, limit: int = 64
 ) -> list[int]:
     """The track_mbid rows ``start_id`` has been merged into, nearest first.
 
-    Bounded and duplicate-stopped so that an already-broken chain cannot spin
-    here rather than being reported.
+    The walk stops on a repeat, so an already-broken chain terminates rather
+    than spinning here. The hop limit is only a backstop against a chain longer
+    than any merge history could plausibly produce, and is set well above it:
+    truncating a real chain would hide the far end of it, which is exactly the
+    part a caller is asking about.
     """
     chain: list[int] = []
     current = start_id
@@ -186,6 +189,35 @@ def merge_mbids(
             continue
 
         target = track_mbids.get(target_mbid)
+
+        if target is not None and source.id in _merged_into_chain(
+            fingerprint_db, target.id
+        ):
+            # The target is merged into the source, so re-pointing the source
+            # at it would close a loop: both rows end up disabled and pointing
+            # at each other, and the track drops the MBID from lookups
+            # entirely, silently. It takes MusicBrainz merging C into A and
+            # later A into C -- reverting a merge and redoing it the other way
+            # round -- which is rare but is something editors can do.
+            #
+            # The raise this replaced was what used to stop it, so not putting
+            # anything back would have traded a loud permanent failure for a
+            # quiet one.
+            #
+            # Checked before the insert below rather than after it. A row we
+            # just created has no merged_into and so can never be part of a
+            # loop, which means the order does not change what happens -- but
+            # this way skipping the track cannot leave a new row behind, rather
+            # than not leaving one because of a fact two branches away.
+            logger.warning(
+                "Not merging MBID %r into %r on track %d: the target is "
+                "already merged into the source",
+                source_mbid,
+                target_mbid,
+                track_id,
+            )
+            continue
+
         if target is None:
             # we have no record with the target mbid, so we create a new one
             target_id = fingerprint_db.execute(
@@ -202,26 +234,6 @@ def merge_mbids(
             # we already have a record with the target mbid, so we update it
             target_id = target.id
         assert target_id is not None
-
-        if source.id in _merged_into_chain(fingerprint_db, target_id):
-            # The target is merged into the source, so re-pointing the source
-            # at it would close a loop: both rows end up disabled and pointing
-            # at each other, and the track drops the MBID from lookups
-            # entirely, silently. It takes MusicBrainz merging C into A and
-            # later A into C -- reverting a merge and redoing it the other way
-            # round -- which is rare but is something editors can do.
-            #
-            # The raise this replaced was what used to stop it, so not putting
-            # anything back would have traded a loud permanent failure for a
-            # quiet permanent one.
-            logger.warning(
-                "Not merging MBID %r into %r on track %d: the target is "
-                "already merged into the source",
-                source_mbid,
-                target_mbid,
-                track_id,
-            )
-            continue
 
         if source.merged_into is not None and source.merged_into != target_id:
             # This track's source mbid was already merged into a different row,
