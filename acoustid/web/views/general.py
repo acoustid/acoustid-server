@@ -99,6 +99,17 @@ CHROMAPRINT_RELEASE_MAX_AGE = datetime.timedelta(days=30)
 # outbound call hold a worker for longer than a visitor would wait.
 CHROMAPRINT_RELEASE_TIMEOUT = 5.0
 
+CHROMAPRINT_RELEASE_BACKOFF_KEY = "chromaprint:latest_release:backoff"
+
+# How long to leave GitHub alone after a failed lookup. Without this, the cache
+# stops the 500s but not the calls: once the entry is stale, every page view
+# tries GitHub again, which during the rate-limiting this change exists to
+# survive is the same one-call-per-view we started with. It also keeps every
+# pod from refreshing at the same instant when an entry expires -- a stampede
+# against a 60/hour budget shared across our egress addresses is how the budget
+# goes in the first place.
+CHROMAPRINT_RELEASE_BACKOFF = datetime.timedelta(minutes=5)
+
 
 def _read_cached_release():
     # type: () -> Optional[Tuple[Optional[dict], bool]]
@@ -118,10 +129,14 @@ def _read_cached_release():
     try:
         cached = json.loads(raw)
         fetched_at = datetime.datetime.fromisoformat(cached["fetched_at"])
+        # Inside the guard rather than after it: fromisoformat accepts a naive
+        # timestamp perfectly happily, and subtracting one of those from an
+        # aware now() raises. Nothing here writes a naive one, but the whole
+        # point of this function is that a cache entry is never trusted.
+        age = datetime.datetime.now(datetime.timezone.utc) - fetched_at
     except Exception:
         logger.warning("Ignoring an unreadable chromaprint release cache entry")
         return None
-    age = datetime.datetime.now(datetime.timezone.utc) - fetched_at
     return cached.get("release"), age < CHROMAPRINT_RELEASE_TTL
 
 
@@ -141,6 +156,26 @@ def _write_cached_release(release):
         )
     except Exception:
         logger.warning("Failed to write the chromaprint release cache", exc_info=True)
+
+
+def _in_backoff():
+    # type: () -> bool
+    try:
+        return bool(db.get_redis().get(CHROMAPRINT_RELEASE_BACKOFF_KEY))
+    except Exception:
+        return False
+
+
+def _start_backoff():
+    # type: () -> None
+    try:
+        db.get_redis().setex(
+            CHROMAPRINT_RELEASE_BACKOFF_KEY,
+            int(CHROMAPRINT_RELEASE_BACKOFF.total_seconds()),
+            b"1",
+        )
+    except Exception:
+        logger.warning("Failed to record the chromaprint lookup backoff")
 
 
 def _fetch_latest_chromaprint_release():
@@ -170,9 +205,15 @@ def get_latest_chromaprint_release():
     else:
         release = None
 
+    if _in_backoff():
+        # A recent lookup already failed. Serve what we have, stale or nothing,
+        # rather than spending another call finding out it still fails.
+        return release
+
     try:
-        release = _fetch_latest_chromaprint_release()
+        fetched = _fetch_latest_chromaprint_release()
     except Exception:
+        _start_backoff()
         if cached is not None:
             logger.warning(
                 "Failed to refresh the chromaprint release, serving a stale one",
@@ -182,8 +223,19 @@ def get_latest_chromaprint_release():
         logger.warning("Failed to look up the chromaprint release", exc_info=True)
         return None
 
-    _write_cached_release(release)
-    return release
+    if fetched is None and release is not None:
+        # GitHub answered, and said there are no releases. Everywhere else here
+        # treats a bad answer as a reason to keep what we have, and a 200 with
+        # an empty list is more likely to be transient -- an unlisted release,
+        # something in the middle -- than it is to mean the downloads really
+        # went away. Keeping the release we have makes success no more
+        # destructive than failure.
+        logger.warning("GitHub reported no chromaprint releases, keeping the last one")
+        _start_backoff()
+        return release
+
+    _write_cached_release(fetched)
+    return fetched
 
 
 @general_page.route("/chromaprint")

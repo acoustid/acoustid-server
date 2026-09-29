@@ -605,3 +605,52 @@ UPDATE track_mbid SET merged_into = 2, disabled = true WHERE id = 1;
     }
     # the 3 that accrued on A since it was merged land on C, not stranded
     assert counts == {1: 0, 2: 11, 3: 7}
+
+
+@with_script_context
+def test_merge_mbids_already_merged_and_the_target_is_new_to_the_track(ctx):
+    # type: (ScriptContext) -> None
+    """The same chain, but the track has no row for the new target yet, so one
+    is created.
+
+    This is the state the self-healing argument rests on: the track is left
+    listing the superseded B alongside the new C, and B is what a later lookup
+    enqueues a merge for.
+    """
+    a = "97edb73c-4dac-11e0-9096-0025225356f3"
+    b = "d575d506-4da4-11e0-b951-0025225356f3"
+    c = "b81f83ee-4da4-11e0-9ed8-002522535601"
+    prepare_database(
+        ctx.db.get_fingerprint_db(),
+        """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '{a}', 2);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, '{b}', 11);
+UPDATE track_mbid SET merged_into = 2, disabled = true WHERE id = 1;
+SELECT setval('track_mbid_id_seq', 100);
+""".format(
+            a=a, b=b
+        ),
+    )
+
+    merge_mbids(
+        ctx.db.get_fingerprint_db(),
+        ctx.db.get_ingest_db(),
+        UUID(a),
+        UUID(c),
+    )
+
+    rows = {
+        row.mbid: (row.submission_count, row.disabled, row.merged_into)
+        for row in ctx.db.get_fingerprint_db().execute(
+            text("SELECT mbid, submission_count, disabled, merged_into FROM track_mbid")
+        )
+    }
+    created = rows[UUID(c)]
+    # the 2 that accrued on A after its first merge follow it to the new row
+    assert created[0] == 2
+    assert created[2] is None
+    # A points at the new row, and B is still live for a later lookup to merge
+    assert rows[UUID(a)][2] is not None
+    assert rows[UUID(a)][2] not in (2,)
+    assert rows[UUID(b)] == (11, False, None)

@@ -58,7 +58,14 @@ class Database(object):
 
     def get_redis(self):
         # type: () -> Redis
-        """The same client the rest of the process uses, not a second one."""
+        """The redis client this process is configured with.
+
+        Deliberately goes through the script rather than building a client of
+        its own. Note that under redis sentinel this is not one shared client:
+        Script.get_redis calls master_for(), which resolves the current master
+        on every call. That is what makes a failover survivable, so it is not
+        something to cache away.
+        """
         assert self.script is not None, "db.configure() has not been called"
         return self.script.get_redis()
 

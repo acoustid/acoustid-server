@@ -490,7 +490,9 @@ class FakeRedis:
         self.writes += 1
         if self.fail:
             raise Exception("upstream failure")
-        self.store[key] = value
+        # bytes, because that is what redis-py hands back and the code has to
+        # cope with it
+        self.store[key] = value.encode() if isinstance(value, str) else value
 
 
 @pytest.fixture()
@@ -571,3 +573,80 @@ def test_chromaprint_survives_redis_and_github_both_being_down(app: Flask) -> No
 def test_chromaprint_ignores_an_unreadable_cache_entry(fake_redis, github) -> None:
     fake_redis.store[general.CHROMAPRINT_RELEASE_CACHE_KEY] = b"not json"
     assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+
+
+def cached_entry(fake_redis):
+    return json.loads(fake_redis.store[general.CHROMAPRINT_RELEASE_CACHE_KEY])
+
+
+def age_out_cache(fake_redis, entry=None):
+    """Push the cached entry past its freshness window."""
+    entry = entry or cached_entry(fake_redis)
+    entry["fetched_at"] = (
+        datetime.datetime.now(datetime.timezone.utc)
+        - general.CHROMAPRINT_RELEASE_TTL
+        - datetime.timedelta(minutes=1)
+    ).isoformat()
+    fake_redis.store[general.CHROMAPRINT_RELEASE_CACHE_KEY] = json.dumps(entry).encode()
+
+
+def test_chromaprint_ignores_a_cache_entry_with_a_naive_timestamp(
+    fake_redis, github
+) -> None:
+    """fromisoformat takes a naive timestamp happily, and subtracting one from
+    an aware now() raises -- which on this page means the 500 this all exists
+    to prevent."""
+    fake_redis.store[general.CHROMAPRINT_RELEASE_CACHE_KEY] = json.dumps(
+        {"fetched_at": "2026-09-29T12:00:00", "release": FAKE_RELEASE}
+    ).encode()
+
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+
+
+def test_chromaprint_page_renders_with_a_naive_cache_timestamp(
+    app: Flask, fake_redis, github
+) -> None:
+    fake_redis.store[general.CHROMAPRINT_RELEASE_CACHE_KEY] = json.dumps(
+        {"fetched_at": "2026-09-29T12:00:00", "release": FAKE_RELEASE}
+    ).encode()
+
+    assert app.test_client().get("/chromaprint").status_code == 200
+
+
+def test_chromaprint_keeps_the_last_release_when_github_reports_none(
+    fake_redis, github
+) -> None:
+    """A 200 saying "no releases" must not be more destructive than an error.
+
+    Everywhere else a bad answer keeps what we have; an empty list is more
+    likely to be transient than to mean the downloads went away.
+    """
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+    age_out_cache(fake_redis)
+
+    github.return_value = None
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+    assert cached_entry(fake_redis)["release"] == FAKE_RELEASE
+
+
+def test_chromaprint_stops_calling_github_after_a_failure(fake_redis, github) -> None:
+    """Caching removed the 500s; the backoff is what removes the calls. Without
+    it, a rate-limited GitHub still means one request per page view."""
+    github.side_effect = RuntimeError("403 rate limited")
+
+    for _ in range(5):
+        assert general.get_latest_chromaprint_release() is None
+
+    assert github.call_count == 1
+
+
+def test_chromaprint_backoff_serves_the_stale_release(fake_redis, github) -> None:
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+    age_out_cache(fake_redis)
+    github.side_effect = RuntimeError("403 rate limited")
+
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+    assert general.get_latest_chromaprint_release() == FAKE_RELEASE
+    # one call to populate the cache and one that failed; the views after the
+    # failure are answered from the cache rather than from GitHub
+    assert github.call_count == 2

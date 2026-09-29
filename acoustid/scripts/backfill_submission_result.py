@@ -612,6 +612,13 @@ def _mbid_merge_targets(
     MusicBrainz lookup.  An MBID appears once per track it is attached to, and
     those rows can have been merged at different times, so the answer is a set
     rather than a single value.
+
+    What is recorded is the latest hop, not every hop.  merge_mbids re-points
+    merged_into when MusicBrainz merges the row it pointed at before, so a
+    chain A -> B -> C leaves A pointing straight at C and the middle step is
+    gone.  A submission that named A and was moved onto B by the first merge
+    therefore rebuilds to B while this reports only C, and the difference
+    counts as unexplained until B is itself merged onward.
     """
     targets: dict[uuid.UUID, set[uuid.UUID]] = {}
     frontier = {m for m in mbids if m is not None}
