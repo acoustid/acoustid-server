@@ -510,3 +510,186 @@ INSERT INTO fingerprint (fingerprint, length, track_id, submission_count)
         ctx.db.get_fingerprint_db(), 1, TEST_1B_FP_RAW, TEST_1B_LENGTH
     )
     assert res is True
+
+
+@with_script_context
+def test_merge_mbids_source_already_merged_elsewhere(ctx):
+    # type: (ScriptContext) -> None
+    """A chain of MusicBrainz merges: we recorded A -> B, then MusicBrainz
+    merged B into C, so the next lookup of A asks us for A -> C.
+
+    This used to raise, and because the state is permanent every later lookup
+    of that MBID raised again. The merge is re-pointed at the current target
+    instead.
+    """
+    a = "97edb73c-4dac-11e0-9096-0025225356f3"
+    b = "d575d506-4da4-11e0-b951-0025225356f3"
+    c = "b81f83ee-4da4-11e0-9ed8-002522535601"
+    prepare_database(
+        ctx.db.get_fingerprint_db(),
+        """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '{a}', 0);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, '{b}', 11);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (3, 1, '{c}', 4);
+-- A was merged into B earlier; merged_into is set afterwards because it is a
+-- foreign key onto the row it points at.
+UPDATE track_mbid SET merged_into = 2, disabled = true WHERE id = 1;
+""".format(
+            a=a, b=b, c=c
+        ),
+    )
+
+    merge_mbids(
+        ctx.db.get_fingerprint_db(),
+        ctx.db.get_ingest_db(),
+        UUID(a),
+        UUID(c),
+    )
+
+    rows = (
+        ctx.db.get_fingerprint_db()
+        .execute(
+            text(
+                "SELECT id, submission_count, disabled, merged_into"
+                "  FROM track_mbid ORDER BY id"
+            )
+        )
+        .fetchall()
+    )
+    assert rows == [
+        # A now points at C rather than at the superseded B
+        (1, 0, True, 3),
+        # B keeps what it was given when A was merged into it, and is merged
+        # onward itself the next time it is looked up
+        (2, 11, False, None),
+        (3, 4, False, None),
+    ]
+
+
+@with_script_context
+def test_merge_mbids_carries_submissions_accrued_after_an_earlier_merge(ctx):
+    # type: (ScriptContext) -> None
+    """A merged row still takes new submissions -- _insert_gid increments the
+    count without looking at merged_into -- so re-merging must move them."""
+    a = "97edb73c-4dac-11e0-9096-0025225356f3"
+    b = "d575d506-4da4-11e0-b951-0025225356f3"
+    c = "b81f83ee-4da4-11e0-9ed8-002522535601"
+    prepare_database(
+        ctx.db.get_fingerprint_db(),
+        """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '{a}', 3);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, '{b}', 11);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (3, 1, '{c}', 4);
+-- A was merged into B earlier; merged_into is set afterwards because it is a
+-- foreign key onto the row it points at.
+UPDATE track_mbid SET merged_into = 2, disabled = true WHERE id = 1;
+""".format(
+            a=a, b=b, c=c
+        ),
+    )
+
+    merge_mbids(
+        ctx.db.get_fingerprint_db(),
+        ctx.db.get_ingest_db(),
+        UUID(a),
+        UUID(c),
+    )
+
+    counts = {
+        row.id: row.submission_count
+        for row in ctx.db.get_fingerprint_db().execute(
+            text("SELECT id, submission_count FROM track_mbid ORDER BY id")
+        )
+    }
+    # the 3 that accrued on A since it was merged land on C, not stranded
+    assert counts == {1: 0, 2: 11, 3: 7}
+
+
+@with_script_context
+def test_merge_mbids_already_merged_and_the_target_is_new_to_the_track(ctx):
+    # type: (ScriptContext) -> None
+    """The same chain, but the track has no row for the new target yet, so one
+    is created.
+
+    This is the state the self-healing argument rests on: the track is left
+    listing the superseded B alongside the new C, and B is what a later lookup
+    enqueues a merge for.
+    """
+    a = "97edb73c-4dac-11e0-9096-0025225356f3"
+    b = "d575d506-4da4-11e0-b951-0025225356f3"
+    c = "b81f83ee-4da4-11e0-9ed8-002522535601"
+    prepare_database(
+        ctx.db.get_fingerprint_db(),
+        """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '{a}', 2);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (2, 1, '{b}', 11);
+UPDATE track_mbid SET merged_into = 2, disabled = true WHERE id = 1;
+SELECT setval('track_mbid_id_seq', 100);
+""".format(
+            a=a, b=b
+        ),
+    )
+
+    merge_mbids(
+        ctx.db.get_fingerprint_db(),
+        ctx.db.get_ingest_db(),
+        UUID(a),
+        UUID(c),
+    )
+
+    rows = {
+        row.mbid: (row.submission_count, row.disabled, row.merged_into)
+        for row in ctx.db.get_fingerprint_db().execute(
+            text("SELECT mbid, submission_count, disabled, merged_into FROM track_mbid")
+        )
+    }
+    created = rows[UUID(c)]
+    # the 2 that accrued on A after its first merge follow it to the new row
+    assert created[0] == 2
+    assert created[2] is None
+    # A points at the new row, and B is still live for a later lookup to merge
+    assert rows[UUID(a)][2] is not None
+    assert rows[UUID(a)][2] not in (2,)
+    assert rows[UUID(b)] == (11, False, None)
+
+
+@with_script_context
+def test_merge_mbids_refuses_to_close_a_loop(ctx):
+    # type: (ScriptContext) -> None
+    """C was merged into A; MusicBrainz now says A merges into C.
+
+    Re-pointing A at C would leave the two rows merged into each other, both
+    disabled, and the track would drop the MBID from lookups with nothing said.
+    """
+    a = "97edb73c-4dac-11e0-9096-0025225356f3"
+    c = "b81f83ee-4da4-11e0-9ed8-002522535601"
+    prepare_database(
+        ctx.db.get_fingerprint_db(),
+        """
+TRUNCATE track_mbid CASCADE;
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (1, 1, '{a}', 5);
+INSERT INTO track_mbid (id, track_id, mbid, submission_count) VALUES (3, 1, '{c}', 2);
+UPDATE track_mbid SET merged_into = 1, disabled = true WHERE id = 3;
+""".format(
+            a=a, c=c
+        ),
+    )
+
+    merge_mbids(
+        ctx.db.get_fingerprint_db(),
+        ctx.db.get_ingest_db(),
+        UUID(a),
+        UUID(c),
+    )
+
+    rows = {
+        row.id: (row.submission_count, row.disabled, row.merged_into)
+        for row in ctx.db.get_fingerprint_db().execute(
+            text("SELECT id, submission_count, disabled, merged_into FROM track_mbid")
+        )
+    }
+    # left exactly as it was: A still live, C still merged into A
+    assert rows == {1: (5, False, None), 3: (2, True, 1)}

@@ -127,6 +127,32 @@ def disable_mbid(
         )
 
 
+def _merged_into_chain(
+    fingerprint_db: FingerprintDB, start_id: int, limit: int = 64
+) -> list[int]:
+    """The track_mbid rows ``start_id`` has been merged into, nearest first.
+
+    The walk stops on a repeat, so an already-broken chain terminates rather
+    than spinning here. The hop limit is only a backstop against a chain longer
+    than any merge history could plausibly produce, and is set well above it:
+    truncating a real chain would hide the far end of it, which is exactly the
+    part a caller is asking about.
+    """
+    chain: list[int] = []
+    current = start_id
+    for _ in range(limit):
+        merged_into = fingerprint_db.execute(
+            sql.select(schema.track_mbid.c.merged_into).where(
+                schema.track_mbid.c.id == current
+            )
+        ).scalar()
+        if merged_into is None or merged_into in chain:
+            break
+        chain.append(merged_into)
+        current = merged_into
+    return chain
+
+
 def merge_mbids(
     fingerprint_db: FingerprintDB,
     ingest_db: IngestDB,
@@ -163,6 +189,35 @@ def merge_mbids(
             continue
 
         target = track_mbids.get(target_mbid)
+
+        if target is not None and source.id in _merged_into_chain(
+            fingerprint_db, target.id
+        ):
+            # The target is merged into the source, so re-pointing the source
+            # at it would close a loop: both rows end up disabled and pointing
+            # at each other, and the track drops the MBID from lookups
+            # entirely, silently. It takes MusicBrainz merging C into A and
+            # later A into C -- reverting a merge and redoing it the other way
+            # round -- which is rare but is something editors can do.
+            #
+            # The raise this replaced was what used to stop it, so not putting
+            # anything back would have traded a loud permanent failure for a
+            # quiet one.
+            #
+            # Checked before the insert below rather than after it. A row we
+            # just created has no merged_into and so can never be part of a
+            # loop, which means the order does not change what happens -- but
+            # this way skipping the track cannot leave a new row behind, rather
+            # than not leaving one because of a fact two branches away.
+            logger.warning(
+                "Not merging MBID %r into %r on track %d: the target is "
+                "already merged into the source",
+                source_mbid,
+                target_mbid,
+                track_id,
+            )
+            continue
+
         if target is None:
             # we have no record with the target mbid, so we create a new one
             target_id = fingerprint_db.execute(
@@ -178,9 +233,37 @@ def merge_mbids(
         else:
             # we already have a record with the target mbid, so we update it
             target_id = target.id
+        assert target_id is not None
 
         if source.merged_into is not None and source.merged_into != target_id:
-            raise ValueError("source mbid is already merged into another mbid")
+            # This track's source mbid was already merged into a different row,
+            # which is what a chain of MusicBrainz merges looks like from here:
+            # we recorded A -> B, MusicBrainz then merged B into C, and because
+            # gid_redirect always resolves to the current recording, the next
+            # lookup of A asks us for A -> C.
+            #
+            # The check that used to live here raised instead, to make sure
+            # merged_into was never overwritten silently. Raising turned a
+            # normal event into a permanent one: the state is not transient, so
+            # every later lookup of that mbid enqueued the task again and failed
+            # again, which is where the bulk of our error volume came from.
+            #
+            # Re-pointing at the current target is the right answer rather than
+            # merely the quiet one. MusicBrainz collapses its own redirects, so
+            # the requested target is the canonical row and the one we recorded
+            # earlier is a superseded step. The merge below moves whatever
+            # submissions have accrued on the source since -- a merged row still
+            # takes them, see _insert_gid -- so nothing is stranded by doing it.
+            # The row we merged into before keeps what it was given at the time,
+            # and gets merged onward itself when it is next looked up.
+            logger.info(
+                "Re-merging MBID %r on track %d: already merged into "
+                "track_mbid %d, now merging into %d",
+                source_mbid,
+                track_id,
+                source.merged_into,
+                target_id,
+            )
 
         # clear submission count and disable flag for source mbid
         fingerprint_db.execute(
