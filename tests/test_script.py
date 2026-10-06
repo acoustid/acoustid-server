@@ -61,6 +61,12 @@ def recording_sentry(*, auto_session_tracking: bool) -> Iterator[RecordingTransp
             dsn="https://key@sentry.invalid/1",
             transport=transport,
             auto_session_tracking=auto_session_tracking,
+            # Explicit, because a session with no release is discarded before
+            # it reaches the transport -- client.py: "Discarded session update
+            # because of missing release". The SDK would otherwise infer one
+            # from git, and the test would quietly start measuring whether it
+            # is running inside a checkout instead of what the flag does.
+            release="tests",
         )
         yield transport
     finally:
