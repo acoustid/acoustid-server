@@ -131,6 +131,18 @@ class Script(object):
             dsn=self.config.sentry.dsn,
             release=GIT_RELEASE,
             send_default_pii=True,
+            # Bugsink, which replaced Sentry on 2026-10-04, has no support for
+            # the sessions envelope item: it answers 200 and drops it. That was
+            # 12,416 envelopes in fourteen hours, all discarded, and because
+            # they were the only traffic in its request log they made it
+            # genuinely hard to tell whether a real error had ever arrived.
+            #
+            # Only release-health data is lost, which nothing reads. Errors are
+            # unaffected -- they travel as event envelopes, and this init sets
+            # neither sample_rate nor before_send, so they keep the default
+            # sample rate of 1.0. Flip this back if the backend ever supports
+            # sessions again.
+            auto_session_tracking=False,
         )
         sentry_sdk.set_tag("component", component)
 
