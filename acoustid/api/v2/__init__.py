@@ -884,6 +884,7 @@ class LookupHandler(APIHandler):
                     index_pool=self.ctx.index,
                     fpstore=self.ctx.fpstore,
                     timeout=self.ctx.config.website.search_timeout,
+                    statsd=self.ctx.statsd,
                 )
                 searcher.max_length_diff = params.max_duration_diff
                 matches = searcher.search(
@@ -895,6 +896,16 @@ class LookupHandler(APIHandler):
                 if statsd is not None:
                     statsd.incr("api.lookup.searches.total")
                     statsd.incr("api.lookup.matches.total", len(matches))
+                    # Alongside the two above rather than instead of them:
+                    # matches.total counts matches, so matches.total over
+                    # searches.total is matches per lookup and not the share
+                    # of lookups that matched. A match rate needs one tagged
+                    # counter, which carries its own denominator.
+                    statsd.incr(
+                        "api.lookup_results_total,matched={}".format(
+                            "true" if matches else "false"
+                        )
+                    )
             all_matches.append(matches)
 
         self.ctx.db.session.close()
