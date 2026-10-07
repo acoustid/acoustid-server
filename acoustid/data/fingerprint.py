@@ -8,6 +8,7 @@ from acoustid_ext.fingerprint import FingerprintError, decode_legacy_fingerprint
 from sqlalchemy import func, literal_column, select, sql, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.elements import BooleanClauseList, ColumnElement
+from statsd import StatsClient
 
 from acoustid import const
 from acoustid import tables as schema
@@ -58,15 +59,23 @@ class FingerprintSearcher(object):
         fpstore: Optional[FpstoreClient] = None,
         fast: bool = True,
         timeout: Optional[float] = None,
+        statsd: Optional[StatsClient] = None,
     ) -> None:
         self.db = db
         self.index_pool = index_pool
         self.fpstore = fpstore
+        self.statsd = statsd
         self.min_score = const.TRACK_GROUP_MERGE_THRESHOLD
         self.max_length_diff = const.FINGERPRINT_MAX_LENGTH_DIFF
         self.max_offset = const.TRACK_MAX_OFFSET
         self.fast = fast
         self.timeout = timeout
+
+    def _count_masked_error(self, exc: BaseException) -> None:
+        if self.statsd is None:
+            return
+        # By exception class, which is bounded; never by message.
+        self.statsd.incr(f"api.fpstore_masked_errors_total,cause={type(exc).__name__}")
 
     def _create_search_query(
         self,
@@ -171,8 +180,15 @@ class FingerprintSearcher(object):
                 min_score=self.min_score,
                 timeout=self.timeout,
             )
-        except TimeoutError:
+        except TimeoutError as exc:
             if self.fast:
+                # Counted because this is the one failure the operator cannot
+                # otherwise see. A fpstore timeout here is answered with "no
+                # match" rather than an error, so it shows up as a dip in match
+                # rate and in no error metric at all -- and since v26.10.0
+                # retries lost database connections, a failover is more likely
+                # to arrive as a timeout than as a 5xx.
+                self._count_masked_error(exc)
                 return []
             raise
 
