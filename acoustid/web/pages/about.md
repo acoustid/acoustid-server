@@ -41,7 +41,7 @@ to commercial users and funds the development of the open source project.
 <li><time>Jan 2012</time><span><a href="https://blog.acoustid.org/posts/musicbrainz-acoustid-integration/">MusicBrainz shows AcoustIDs</a> on its recording pages.</span></li>
 <li><time>Sep 2014</time><span>25 million fingerprints.</span></li>
 <li><time>Oct 2015</time><span><a href="https://blog.acoustid.org/posts/2015-10-08-five-years-of-acoustid/">Five years of AcoustID</a>: 8.3 million MusicBrainz recordings can be identified, and over 100 applications use the service every month.</span></li>
-<li><time>2016</time><span>AcoustID OÜ is founded.</span></li>
+<li><time>2016</time><span><a href="https://acoustid.biz/">AcoustID OÜ</a> is founded. It offers the service to commercial users, and the income pays for running the service and developing the open source project.</span></li>
 <li><time>Feb 2018</time><span>50 million fingerprints.</span></li>
 <li><time>Oct 2019</time><span>AcoustID moves to Kubernetes.</span></li>
 <li><time>Jan 2021</time><span>75 million fingerprints.</span></li>
@@ -51,7 +51,7 @@ to commercial users and funds the development of the open source project.
 <li><time>Feb 2025</time><span><a href="https://blog.acoustid.org/posts/2024-12-15-acoustid-will-stop-accepting-fingerprints-without-metadata/">Submissions without metadata are no longer accepted</a>.</span></li>
 <li><time>Jan 2026</time><span>90 million fingerprints.</span></li>
 <li><time>Jun 2026</time><span>75 million AcoustIDs.</span></li>
-<li><time>2026</time><span>A new, much faster generation of acoustid-index, written from scratch and keeping the whole index in memory. The service moves to a new Kubernetes cluster.</span></li>
+<li><time>Aug 2026</time><span>The service moves to a new Kubernetes cluster, and searches switch to a new, much faster generation of acoustid-index, written from scratch in Zig and keeping the whole index in memory.</span></li>
 </ol>
 
 ### Get involved
