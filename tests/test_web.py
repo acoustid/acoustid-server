@@ -127,6 +127,8 @@ def test_login_page(app: Flask) -> None:
 
     rv = client.get("/login")
     assert rv.status_code == 200
+    assert 'name="login" value="musicbrainz"' in rv.text
+    assert 'name="login" value="google"' in rv.text
 
 
 def test_contact_page(app: Flask) -> None:
