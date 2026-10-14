@@ -18,17 +18,14 @@ current numbers.
 
 ### History
 
-The project was started in 2010 by [Lukáš Lalinský][lukas] with the goal of
-creating a completely open source platform for audio identification. The
-primary use case was music file tagging in [MusicBrainz Picard][picard], which
-until then relied on the proprietary MusicDNS service, but AcoustID is now used
-by many other applications too, such as [beets][beets], MusicBee, FileBot and
-VLC. Besides being the first open source technology for audio identification,
-AcoustID was also the first to make a large database of audio fingerprints
-freely available.
-
-In 2016, Lukáš started [AcoustID OÜ][biz], a company that provides the service
-to commercial users and funds the development of the open source project.
+The project was started in 2010 by [Lukáš Lalinský][lukas] as a completely
+open source alternative to the proprietary MusicDNS service, which
+[MusicBrainz Picard][picard] then used for identifying music files. It was the
+first open source audio identification technology and the first large database
+of audio fingerprints to be freely available, and today it is used by many
+other applications too, such as [beets][beets], MusicBee, FileBot and VLC.
+Since 2016, it has been funded by [AcoustID OÜ][biz], which provides the
+service to commercial users.
 
 <ol class="timeline">
 <li><time>Jul 2010</time><span><a href="https://blog.acoustid.org/posts/introducing-chromaprint/">Chromaprint is introduced</a>, a library for extracting audio fingerprints.</span></li>

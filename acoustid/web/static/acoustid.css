@@ -468,8 +468,9 @@ tr.mbid-disabled td:first-child a { text-decoration: line-through; }
   margin: 0; padding: 6px 0 6px 18px;
 }
 .prose .timeline li::before {
-  content: ""; position: absolute; left: -6px; top: 14px;
-  width: 10px; height: 10px; border-radius: 50%;
+  /* 12px wide and centered on the list's 2px border. */
+  content: ""; position: absolute; left: -7px; top: 13px; box-sizing: border-box;
+  width: 12px; height: 12px; border-radius: 50%;
   background: var(--bg); border: 2px solid var(--link);
 }
 .prose .timeline time { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
