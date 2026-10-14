@@ -47,10 +47,9 @@ to commercial users and funds the development of the open source project.
 <li><time>Jan 2021</time><span>75 million fingerprints.</span></li>
 <li><time>Mar 2021</time><span>The <a href="https://blog.acoustid.org/posts/2021-03-05-postmortem-of-the-march-2-2021-outage/">worst outage</a> in the project's history: all services are down for three days.</span></li>
 <li><time>Jun 2022</time><span>A record 34.9 million lookups in a single day.</span></li>
-<li><time>Dec 2024</time><span>acoustid-index is rewritten in Zig, with support for updating and deleting fingerprints.</span></li>
 <li><time>Feb 2025</time><span><a href="https://blog.acoustid.org/posts/2024-12-15-acoustid-will-stop-accepting-fingerprints-without-metadata/">Submissions without metadata are no longer accepted</a>.</span></li>
 <li><time>Jan 2026</time><span>90 million fingerprints.</span></li>
-<li><time>Aug 2026</time><span>The service moves to a new Kubernetes cluster, and searches switch to a new, much faster generation of acoustid-index, written from scratch in Zig and keeping the whole index in memory.</span></li>
+<li><time>Aug 2026</time><span>The service moves to a new Kubernetes cluster, and searches switch to a new, much faster generation of acoustid-index, written from scratch in Zig.</span></li>
 </ol>
 
 ### Get involved
