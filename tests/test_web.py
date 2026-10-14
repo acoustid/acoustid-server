@@ -845,3 +845,24 @@ def test_toggle_track_mbid(app: Flask, moderator: int) -> None:
 
     rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
     assert "Show 2 disabled recordings" in rv.text
+
+
+def test_account_page(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.get("/api-key")
+    assert rv.status_code == 200
+    assert "user1key" in rv.text
+    assert "Replace my API key" in rv.text
+    assert 'href="/my-applications"' in rv.text
+
+
+def test_account_link_in_header(app: Flask) -> None:
+    client = app.test_client()
+    assert "Your account" not in client.get("/").text
+
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+    assert "Your account" in client.get("/").text

@@ -447,3 +447,14 @@ tr.mbid-disabled td:first-child a { text-decoration: line-through; }
 .btn.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 .btn.danger:hover { filter: brightness(1.15); color: #fff; }
 .links { display: flex; gap: 20px; font-weight: 600; }
+
+/* Account */
+
+.account { max-width: 680px; }
+.account section { margin-top: 36px; }
+.danger-zone { margin-top: 16px; font-size: 15px; }
+.danger-zone summary { cursor: pointer; color: var(--muted); }
+.danger-zone summary:hover { color: var(--ink); }
+.danger-zone p { margin: 10px 0 12px; color: var(--ink-2); }
+.form-group .small { margin: 4px 0 0; }
+.intro { max-width: 640px; color: var(--ink-2); }

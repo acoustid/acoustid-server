@@ -498,7 +498,9 @@ def logout():
 @user_page.route("/api-key")
 def api_key():
     user = require_user()
-    return render_template("apikey.html", title="Your API Key", apikey=user.apikey)
+    return render_template(
+        "apikey.html", title="Your account", user=user, apikey=user.apikey
+    )
 
 
 @user_page.route("/new-api-key")
