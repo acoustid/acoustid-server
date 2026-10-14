@@ -48,7 +48,9 @@ body {
   display: flex;
   flex-direction: column;
 }
-body > main { flex: 1 0 auto; }
+/* Full width up to .wrap's max, rather than shrinking to fit and centering,
+   which is what auto margins do to a flex item. */
+body > main { flex: 1 0 auto; width: 100%; }
 .site-footer { margin-top: auto; }
 
 a { color: var(--link); text-decoration: none; }
