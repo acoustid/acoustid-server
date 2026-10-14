@@ -45,7 +45,8 @@ service to commercial users.
 <li><time>Oct 2015</time><span><a href="https://blog.acoustid.org/posts/2015-10-08-five-years-of-acoustid/">Five years of AcoustID</a>: 8.3 million MusicBrainz recordings can be identified, and over 100 applications use the service every month.</span></li>
 <li><time>Mar 2016</time><span><a href="https://acoustid.biz/">AcoustID OÜ</a> is founded. It offers the service to commercial users, and the income pays for running the service and developing the open source project.</span></li>
 <li><time>Feb 2018</time><span>50 million fingerprints.</span></li>
-<li><time>Oct 2019</time><span>AcoustID moves to Kubernetes.</span></li>
+<li><time>2019</time><span>The service is containerized with Docker and runs on Docker Swarm.</span></li>
+<li><time>Oct 2019</time><span>AcoustID moves from Docker Swarm to Kubernetes.</span></li>
 <li><time>Jan 2021</time><span>75 million fingerprints.</span></li>
 <li><time>Mar 2021</time><span>The <a href="https://blog.acoustid.org/posts/2021-03-05-postmortem-of-the-march-2-2021-outage/">worst outage</a> in the project's history: all services are down for three days.</span></li>
 <li><time>Jun 2022</time><span>A record 34.9 million lookups in a single day.</span></li>
