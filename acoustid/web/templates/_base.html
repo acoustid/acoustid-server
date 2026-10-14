@@ -34,10 +34,10 @@
       <small>open source audio identification</small>
     </a>
     <nav class="nav">
+      <a href="{{ url_for('general.about') }}"{% if nav == 'about' %} class="active"{% endif %}>About</a>
       <a href="{{ url_for('general.docs') }}"{% if nav == 'docs' %} class="active"{% endif %}>Documentation</a>
       <a href="{{ url_for('general.webservice') }}"{% if nav == 'webservice' %} class="active"{% endif %}>Web service</a>
       <a href="{{ url_for('stats.stats') }}"{% if nav == 'stats' %} class="active"{% endif %}>Statistics</a>
-      <a href="{{ url_for('general.about') }}"{% if nav == 'about' %} class="active"{% endif %}>About</a>
       {% if account_id %}
       <a href="{{ url_for('user.api_key') }}"{% if nav == 'account' %} class="active"{% endif %}>Your account</a>
       <a href="{{ url_for('user.logout') }}">Sign out</a>
