@@ -10,11 +10,16 @@ fingerprints from audio files, a large crowd-sourced
 and a [web service](/webservice) that enables applications to quickly search
 in the fingerprint database.
 
-Today the database holds over 94 million fingerprints, grouped into more than
-76 million AcoustIDs, submitted by over a million contributors. Close to
-30 thousand applications are registered to use the web service, which answers
-tens of millions of lookups every day. See the [statistics](/stats) for the
-current numbers.
+{% if stats.fingerprints >= 1000000 %}
+Today the database holds over {{ (stats.fingerprints // 1000000) }} million
+fingerprints, grouped into more than {{ (stats.tracks // 1000000) }} million
+AcoustIDs{% if stats.contributors >= 1000000 %}, submitted by over
+{{ (stats.contributors // 1000000) }} million contributors{% endif %}.
+{% if stats.applications >= 1000 %}Over {{ (stats.applications // 1000) }} thousand
+applications are registered to use the web service{% if stats.lookups >= 1000000 %},
+which answers around {{ (stats.lookups / 1000000)|round|int }} million lookups
+a day{% endif %}. {% endif %}See the [statistics](/stats) for the exact numbers.
+{% endif %}
 
 ### History
 

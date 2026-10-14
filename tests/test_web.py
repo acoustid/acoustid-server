@@ -866,3 +866,14 @@ def test_account_link_in_header(app: Flask) -> None:
     with client.session_transaction() as flask_session:
         flask_session["id"] = 1
     assert "Your account" in client.get("/").text
+
+
+def test_about_page(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/about")
+    assert rv.status_code == 200
+    assert "History" in rv.text
+    assert 'class="timeline"' in rv.text
+    # The test database has no stats, so the current numbers are left out.
+    assert "Today the database holds" not in rv.text

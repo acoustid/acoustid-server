@@ -68,7 +68,27 @@ add_page_route("docs", nav="docs")
 add_page_route("faq", nav="docs")
 add_page_route("license")
 add_page_route("server", nav="docs")
-add_page_route("about")
+
+
+@general_page.route("/about")
+def about():
+    app_db = db.get_app_db()
+    stats = find_current_stats(app_db)
+    lookups = find_lookup_stats(app_db)
+    return render_page(
+        "about.md",
+        stats={
+            "fingerprints": stats.get("fingerprint.all", 0),
+            "tracks": stats.get("track.all", 0),
+            "contributors": stats.get("account.active", 0),
+            "applications": stats.get("application.all", 0),
+            "lookups": (
+                sum(int(d["count"] or 0) for d in lookups) / len(lookups)
+                if lookups
+                else 0
+            ),
+        },
+    )
 
 
 @functools.cache
