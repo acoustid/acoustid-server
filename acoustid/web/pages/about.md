@@ -32,7 +32,7 @@ service to commercial users.
 <li><time>Aug 2010</time><span><a href="https://blog.acoustid.org/posts/acoustid/">AcoustID is announced</a>. Lookups run on PostgreSQL, using GIN indexes.</span></li>
 <li><time>Oct 2010</time><span>The first fingerprint is added to the database, on October 8.</span></li>
 <li><time>Dec 2010</time><span>1.1 million submissions so far. The service <a href="https://blog.acoustid.org/posts/acoustid-moved-to-a-new-server/">moves to its own server</a>, and the data becomes available for download.</span></li>
-<li><time>Apr 2011</time><span>The server is <a href="https://blog.acoustid.org/posts/new-acoustid-web-service/">rewritten in Python</a>, with a new web service that returns MusicBrainz metadata directly.</span></li>
+<li><time>Apr 2011</time><span>The server is <a href="https://blog.acoustid.org/posts/new-acoustid-web-service/">rewritten from Java to Python</a>, with a new web service that returns MusicBrainz metadata directly.</span></li>
 <li><time>Sep 2011</time><span>Searches move to a dedicated fingerprint index server, <a href="https://github.com/acoustid/acoustid-index">acoustid-index</a>, written in C++.</span></li>
 <li><time>Nov 2011</time><span>10 million fingerprints. The service handles over half a million lookups a day.</span></li>
 <li><time>Jan 2012</time><span><a href="https://blog.acoustid.org/posts/musicbrainz-acoustid-integration/">MusicBrainz shows AcoustIDs</a> on its recording pages.</span></li>
