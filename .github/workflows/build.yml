@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+      # Temporary, for deploying the redesign as a second version. Remove
+      # before merging into master.
+      - redesign
     tags:
       - v*
   pull_request:
