@@ -7,6 +7,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from acoustid.script import Script
 from acoustid.web import db
+from acoustid.web.filters import register_filters
 from acoustid.web.views.admin import admin_page
 from acoustid.web.views.apps import apps_page
 from acoustid.web.views.general import general_page
@@ -50,11 +51,9 @@ def make_application(config_filename=None, tests=False):
         return dict(
             account_id=session.get("id"),
             show_maintenace_banner=config.website.maintenance,
-            morris_js_version="0.5.1",
-            raphael_js_version="2.1.4",
-            bootstrap_version="3.3.6",
-            jquery_version="1.12.0",
         )
+
+    register_filters(app)
 
     def get_flask_request_scope():
         try:

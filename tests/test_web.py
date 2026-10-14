@@ -26,7 +26,7 @@ def test_home_page(app: Flask) -> None:
 
     rv = client.get("/")
     assert rv.status_code == 200
-    assert "Welcome to AcoustID" in rv.text
+    assert "Open source audio identification" in rv.text
 
 
 def test_docs_page(app: Flask) -> None:
@@ -118,8 +118,8 @@ def test_stats_page(app: Flask) -> None:
 
     rv = client.get("/stats")
     assert rv.status_code == 200
-    assert "Basic statistics" in rv.text
     assert "Daily additions" in rv.text
+    assert "Searches per day" in rv.text
 
 
 def test_login_page(app: Flask) -> None:
@@ -143,9 +143,14 @@ def test_track_page(app: Flask) -> None:
     rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
     assert rv.status_code == 200
     assert "b81f83ee-4da4-11e0-9ed8-0025225356f3" in rv.text
+    assert "Custom Track 1" in rv.text
+    assert "Custom Track 2" in rv.text
+    assert not db.session.registry.has()
+
+    rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291?metadata=raw")
+    assert rv.status_code == 200
     assert rv.data.count(b"Custom Track") == 2
     assert rv.data.count(b"Custom Artist") == 2
-    assert not db.session.registry.has()
 
 
 def test_track_page_show_disabled(app: Flask) -> None:
@@ -650,3 +655,102 @@ def test_chromaprint_backoff_serves_the_stale_release(fake_redis, github) -> Non
     # one call to populate the cache and one that failed; the views after the
     # failure are answered from the cache rather than from GitHub
     assert github.call_count == 2
+
+
+@pytest.fixture()
+def track_fingerprints(app: Flask):
+    """Three fingerprints on track 1: two of the same audio and one unrelated."""
+    from acoustid import tables as schema
+    from acoustid.data.fingerprint import insert_fingerprint
+    from tests import TEST_1A_FP_RAW, TEST_1B_FP_RAW, TEST_2_FP_RAW
+
+    script = app.acoustid_script  # type: ignore
+    ids = []
+    with script.context() as ctx:
+        for fp, length in (
+            (TEST_1A_FP_RAW, 260),
+            (TEST_1B_FP_RAW, 261),
+            (TEST_2_FP_RAW, 320),
+        ):
+            ids.append(
+                insert_fingerprint(
+                    ctx.db.get_fingerprint_db(),
+                    ctx.db.get_ingest_db(),
+                    {"fingerprint": fp, "length": length, "track_id": 1},
+                )
+            )
+        ctx.db.session.commit()
+    yield ids
+    with script.context() as ctx:
+        ctx.db.get_fingerprint_db().execute(
+            schema.fingerprint.delete().where(schema.fingerprint.c.id.in_(ids))
+        )
+        ctx.db.session.commit()
+
+
+def test_track_page_fingerprints(app: Flask, track_fingerprints) -> None:
+    client = app.test_client()
+
+    rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
+    assert rv.status_code == 200
+    a, b, c = track_fingerprints
+    assert 'class="fp fp-thumb"' in rv.text
+    assert "How similar are they?" in rv.text
+    assert "/fingerprint/%d/compare/%d" % (a, b) in rv.text
+
+
+def test_fingerprint_page(app: Flask, track_fingerprints) -> None:
+    client = app.test_client()
+    a, b, c = track_fingerprints
+
+    rv = client.get("/fingerprint/%d" % a)
+    assert rv.status_code == 200
+    assert "#%d" % a in rv.text
+    # The other fingerprint of the same audio ranks first.
+    assert rv.text.index("#%d" % b) < rv.text.index("#%d" % c)
+    assert "Same recording" in rv.text
+
+
+def test_compare_fingerprints_page(app: Flask, track_fingerprints) -> None:
+    client = app.test_client()
+    a, b, c = track_fingerprints
+
+    rv = client.get("/fingerprint/%d/compare/%d" % (a, b))
+    assert rv.status_code == 200
+    assert "#%d vs #%d" % (a, b) in rv.text
+    assert "matcher score" in rv.text
+
+    rv = client.get("/fingerprint/%d/compare/999999" % a)
+    assert rv.status_code == 404
+
+
+def test_search(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/search?q=%23123")
+    assert rv.status_code == 302
+    assert rv.headers["Location"].endswith("/fingerprint/123")
+
+    rv = client.get("/search?q=EB31D1C3-950E-468B-9E36-E46FA75B1291")
+    assert rv.headers["Location"].endswith(
+        "/track/eb31d1c3-950e-468b-9e36-e46fa75b1291"
+    )
+
+    rv = client.get("/search?q=b81f83ee-4da4-11e0-9ed8-0025225356f3")
+    assert rv.headers["Location"].endswith("/mbid/b81f83ee-4da4-11e0-9ed8-0025225356f3")
+
+    rv = client.get("/search?q=")
+    assert rv.headers["Location"].endswith("/")
+
+
+def test_fingerprint_page_large_track(app: Flask, track_fingerprints) -> None:
+    from acoustid.web.views import metadata
+
+    client = app.test_client()
+    a, b, c = track_fingerprints
+
+    with mock.patch.object(metadata, "MAX_RANKED_FINGERPRINTS", 2):
+        rv = client.get("/fingerprint/%d" % a)
+    assert rv.status_code == 200
+    assert "most submitted of 3 fingerprints" in rv.text
+    assert "Same recording" not in rv.text

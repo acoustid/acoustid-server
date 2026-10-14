@@ -1,4 +1,5 @@
 import datetime
+import functools
 import json
 import logging
 import os
@@ -16,6 +17,7 @@ from flask import (
 )
 from markdown import Markdown
 
+from acoustid.data.stats import find_current_stats, find_lookup_stats
 from acoustid.utils import generate_demo_client_api_key
 from acoustid.web import db
 
@@ -42,7 +44,7 @@ class MarkdownFlaskUrlProcessor(markdown.util.Processor):
                 stack.append(child)
 
 
-def render_page(name, **context):
+def render_page(name, nav=None, **context):
     path = os.path.join("pages", name)
     with current_app.open_resource(path, mode="rt") as file:
         text = file.read()
@@ -51,29 +53,57 @@ def render_page(name, **context):
         md.treeprocessors.register(MarkdownFlaskUrlProcessor(md), "flask_links", 50)
         html = md.convert(text)
         title = " ".join(md.Meta.get("title", []))
-        return render_template("page.html", content=html, title=title)
+        return render_template("page.html", content=html, title=title, nav=nav)
 
 
-def add_page_route(name, path=None):
+def add_page_route(name, path=None, nav=None):
     if path is None:
         path = "/" + name
-    general_page.add_url_rule(path, name, lambda: render_page(name + ".md"))
+    general_page.add_url_rule(path, name, lambda: render_page(name + ".md", nav=nav))
 
 
-add_page_route("index", "/")
 add_page_route("contact")
-add_page_route("database")
-add_page_route("docs")
-add_page_route("faq")
+add_page_route("database", nav="docs")
+add_page_route("docs", nav="docs")
+add_page_route("faq", nav="docs")
 add_page_route("license")
-add_page_route("server")
+add_page_route("server", nav="docs")
 add_page_route("about")
+
+
+@functools.cache
+def load_home_fingerprint():
+    """A fingerprint drawn on the home page, from a track that is linked from there."""
+    with current_app.open_resource("static/home-fingerprint.json", mode="rt") as file:
+        return json.load(file)
+
+
+@general_page.route("/")
+def index():
+    app_db = db.get_app_db()
+    stats = find_current_stats(app_db)
+    lookups = find_lookup_stats(app_db)
+    avg_lookups = sum(d["count"] for d in lookups) / len(lookups) if lookups else 0
+    return render_template(
+        "index.html",
+        nav="home",
+        stats={
+            "tracks": stats.get("track.all", 0),
+            "fingerprints": stats.get("fingerprint.all", 0),
+            "mbids": stats.get("mbid.all", 0),
+            "contributors": stats.get("account.active", 0),
+        },
+        avg_lookups=avg_lookups,
+        last_lookups=lookups[-1]["count"] if lookups else None,
+        sample=load_home_fingerprint(),
+    )
 
 
 @general_page.route("/webservice")
 def webservice():
     return render_page(
         "webservice.md",
+        nav="webservice",
         client_api_key=generate_demo_client_api_key(current_app.config["SECRET_KEY"]),
     )
 
@@ -241,4 +271,4 @@ def get_latest_chromaprint_release():
 @general_page.route("/chromaprint")
 def chromaprint():
     release = get_latest_chromaprint_release()
-    return render_page("chromaprint.md", release=release)
+    return render_page("chromaprint.md", nav="docs", release=release)

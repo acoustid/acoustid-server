@@ -1,7 +1,9 @@
 {% extends "_base.html" %}
 {% block content %}
 
-<h2>{{ title }}</h2>
+<div class="page-head">
+  <h1>{{ title }}</h1>
+</div>
 
 <p>
   Your API key is a token that can be used in an application for submitting
@@ -13,11 +15,11 @@
 </p>
 
 <p>
-	<code style="padding: 0.4em; border: solid 1px #b2b2b2; font-size: 140%;">{{ apikey }}</code>
+	<span class="id-chip apikey"><span>{{ apikey }}</span><button type="button" data-copy="{{ apikey }}">Copy</button></span>
 </p>
 
 <p>
-	<a class="btn btn-default" href="{{ url_for('user.new_api_key') }}">Generate a new API key</a>
+	<a class="btn" href="{{ url_for('user.new_api_key') }}">Generate a new API key</a>
 </p>
 
 {% endblock %}

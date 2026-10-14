@@ -1,7 +1,10 @@
 {% extends "_base.html" %}
+{% set title = "Sign in" %}
 {% block content %}
 
-<h2>Sign in</h2> 
+<div class="page-head">
+  <h1>Sign in</h1>
+</div>
 
 {% if errors %}
 <p class="errors">{% for error in errors %}{{ error }}<br />{% endfor %}</p>
@@ -9,12 +12,12 @@
 
 <p>Please sign in with an account from one of these providers:</p>
 
-<form action="{{ url_for('.login') }}" method="POST"  class="form-inline"> 
+<form action="{{ url_for('.login') }}" method="POST" id="login-form">
 
-<p>
-    <a class="login-block login-musicbrainz" href="#"><span>Log in with MusicBrainz</span></a>
-    <a class="login-block login-google" href="#"><span>Log in with Google</span></a>
-    <a class="login-block login-openid" href="#"><span>Log in with OpenID</span></a>
+<p class="login-options">
+    <a class="login-block login-musicbrainz" href="#" data-login="musicbrainz"><span>Log in with MusicBrainz</span></a>
+    <a class="login-block login-google" href="#" data-login="google"><span>Log in with Google</span></a>
+    <a class="login-block login-openid" href="#" data-login="openid"><span>Log in with OpenID</span></a>
 </p>
 
 <p class="openid-form" style="display:none">
@@ -22,7 +25,7 @@
     <input name="openid_identifier" id="openid_identifier" type="url"
            placeholder="https://example.com/openid"
            class="openid form-control" />
-    <input type="submit" value="Sign in" class="btn btn-default" />
+    <input type="submit" value="Sign in" class="btn primary" />
 </p>
 
 <input type="hidden" name="return_url" value="{{ return_url }}" />
@@ -32,35 +35,28 @@
    identifier. #}
 <input type="hidden" name="login" value="" />
 
-</form> 
+</form>
 
 {% endblock %}
 
 {% block extra_js %}
-
-<script type="text/javascript"> 
-$(document).ready(function () {
-    $('.login-musicbrainz').click(function () {
-        var $form = $(this).closest('form');
-        $form.find('input[name=login]').val('musicbrainz');
-        $form.submit();
-        return false;
-    });
-    $('.login-google').click(function () {
-        var $form = $(this).closest('form');
-        $form.find('input[name=login]').val('google');
-        $form.submit();
-        return false;
-    });
-    $('.login-openid').click(function () {
-        var $this = $(this), $form = $this.closest('form');
-        $this.addClass('active');
-        $form.find('input[name=login]').val('openid');
-        $form.find('.openid-form').show();
-        $form.find('.openid-form input.openid').focus();
-        return false;
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var form = document.getElementById("login-form");
+    form.querySelectorAll("[data-login]").forEach(function (link) {
+        link.addEventListener("click", function (e) {
+            e.preventDefault();
+            form.elements.login.value = link.dataset.login;
+            if (link.dataset.login !== "openid") {
+                form.submit();
+                return;
+            }
+            link.classList.add("active");
+            var openid = form.querySelector(".openid-form");
+            openid.style.display = "";
+            openid.querySelector("input.openid").focus();
+        });
     });
 });
-</script> 
-
+</script>
 {% endblock %}

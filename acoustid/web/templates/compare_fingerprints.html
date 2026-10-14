@@ -1,49 +1,99 @@
 {% extends "_base.html" %}
-{% block content %}
 
-<h2>{{ title }}</h2>
-
-<p>
-  <button class="btn btn-default" id="move-up">Move Up</button>
-  <button class="btn btn-default" id="move-down">Move Down</button>
-  Offset: <span id="offset">0</span>
-</p>
-
-<p><canvas style="border: solid 2px #C5C5C5;" id="fp-img" width="32" height="0"></canvas></p>
-
-<p>
-  Back to <a href="{{ url_for('.fingerprint', fingerprint_id=fingerprint_1.id) }}">fingerprint #{{ fingerprint_1.id }}</a>
-  or <a href="{{ url_for('.fingerprint', fingerprint_id=fingerprint_2.id) }}">fingerprint #{{ fingerprint_2.id }}</a>
-</p>
-
-{% endblock %}
+{% macro choice(c, selected) %}
+<option value="{{ c.id }}"{% if selected %} selected{% endif %}>#{{ c.id }} · {{ c.length|duration }}{% if not c.same_track %} · other track{% endif %}</option>
+{% endmacro %}
 
 {% block extra_js %}
-<script type="text/javascript" src="{{ url_for('static', filename='fputils.js') }}"></script>
-<script type="text/javascript">
-$(document).ready(function () {
-   var fp1 = {{ fingerprint_1.fingerprint }};
-   var fp2 = {{ fingerprint_2.fingerprint }};
-   var canvas = document.getElementById('fp-img');
-   var offset = 0;
+<script defer src="{{ url_for('static', filename='compare.js') }}"></script>
+{% endblock %}
 
-   function repaint() {
-       paintFingerprintDiff(canvas, fp1, fp2, offset);
-       $("#offset").text(offset);
-   }
+{% block content %}
+{% set a = fingerprint_1 %}
+{% set b = fingerprint_2 %}
+<div id="compare" data-a="{{ a.fingerprint|tojson }}" data-b="{{ b.fingerprint|tojson }}">
+  <div class="page-head">
+    <div class="eyebrow">Fingerprint comparison</div>
+    <h1>#{{ a.id }} vs #{{ b.id }}</h1>
+    <div class="pickers">
+      <select id="pick-a" aria-label="First fingerprint">
+        {% for c in choices %}{{ choice(c, c.id == a.id) }}{% endfor %}
+      </select>
+      <a class="btn" href="{{ url_for('.compare_fingerprints', fingerprint_id_1=b.id, fingerprint_id_2=a.id) }}" title="Swap">⇄</a>
+      <select id="pick-b" aria-label="Second fingerprint">
+        {% for c in choices %}{{ choice(c, c.id == b.id) }}{% endfor %}
+      </select>
+    </div>
+  </div>
 
-   repaint();
+  <div class="facts">
+    <div class="fact">
+      <div class="label">Similarity at this offset</div>
+      <div class="value"><span id="f-score">–</span> <span id="f-verdict"></span></div>
+      <div class="note">
+        {% if matcher_score is not none %}matcher score: {{ '%.2f'|format(matcher_score) }}{% else %}bit agreement{% endif %}
+      </div>
+    </div>
+    <div class="fact">
+      <div class="label">Bit error rate</div>
+      <div class="value" id="f-ber">–</div>
+      <div class="note">~50 % for unrelated audio</div>
+    </div>
+    <div class="fact">
+      <div class="label">Overlap</div>
+      <div class="value" id="f-overlap">–</div>
+      <div class="note"><span id="f-frames">–</span> frames compared</div>
+    </div>
+    <div class="fact">
+      <div class="label">Files</div>
+      <div class="value">{{ a.length|duration }} · {{ b.length|duration }}</div>
+      <div class="note">{{ a.submission_count|thousands }} and {{ b.submission_count|thousands }} submissions</div>
+    </div>
+  </div>
 
-   $('#move-up').click(function () {
-       offset -= 1;
-       repaint();
-   });
+  <section>
+    <div class="section-head">
+      <h2>Aligned fingerprints</h2>
+      <span class="meta">Time runs left to right, each row of pixels is one of the 32 bits</span>
+    </div>
+    <div class="controls">
+      <label>
+        Offset
+        <input type="range" id="offset" min="-80" max="80" step="1" value="0">
+        <output id="offset-out"></output>
+      </label>
+      <button class="btn" id="auto" type="button">Best alignment</button>
+      <span>
+        Zoom
+        <span class="seg" data-zoom>
+          <button type="button" data-z="1" aria-pressed="false">1×</button>
+          <button type="button" data-z="2" aria-pressed="true">2×</button>
+          <button type="button" data-z="4" aria-pressed="false">4×</button>
+        </span>
+      </span>
+    </div>
+    <div class="fp-scroll">
+      <div class="fp-row"><div class="lbl">Fingerprint<b>A #{{ a.id }}</b></div><canvas class="fp strip" id="cv-a"></canvas></div>
+      <div class="fp-row"><div class="lbl">Fingerprint<b>B #{{ b.id }}</b></div><canvas class="fp strip" id="cv-b"></canvas></div>
+      <div class="fp-row"><div class="lbl">Difference<b>A xor B</b></div><canvas class="fp strip" id="cv-d"></canvas></div>
+      <div class="fp-row"><div class="lbl">Bit errors<b>over time</b></div><canvas class="fp errline" id="cv-e"></canvas></div>
+      <div class="fp-row"><div class="lbl"></div><div class="time-axis" id="axis"></div></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--fp-on)"></i>bit set</span>
+      <span><i style="background:var(--fp-off)"></i>bit clear</span>
+      <span><i style="background:var(--fp-diff)"></i>bits differ</span>
+      <span><i style="background:var(--fp-same)"></i>bits match</span>
+      <span><i style="background:var(--bg-sunk)"></i>no overlap</span>
+    </div>
+  </section>
 
-   $('#move-down').click(function () {
-       offset += 1;
-       repaint();
-   });
-
-});
-</script>
+  <section>
+    <div class="section-head">
+      <h2>Score by offset</h2>
+      <span class="meta">A clear single peak means the two files contain the same audio, shifted in time</span>
+    </div>
+    <div id="scan"></div>
+  </section>
+</div>
 {% endblock %}

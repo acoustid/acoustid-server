@@ -6,18 +6,32 @@ from sqlalchemy import sql
 from sqlalchemy.orm import load_only
 from werkzeug.wrappers.response import Response
 
+from acoustid import const
 from acoustid import tables as schema
 from acoustid.data.account import is_moderator
 from acoustid.data.musicbrainz import lookup_recording_metadata
-from acoustid.data.track import resolve_track_gid
+from acoustid.data.track import (
+    calculate_fingerprint_similarity_matrix,
+    resolve_track_gid,
+)
 from acoustid.models import Account, Meta, TrackMBID, TrackMBIDChange, TrackMeta
 from acoustid.utils import is_uuid
 from acoustid.web import db
+from acoustid.web.grouping import MetaRow, group_metadata
 from acoustid.web.utils import require_user
 
 logger = logging.getLogger(__name__)
 
 metadata_page = Blueprint("metadata", __name__)
+
+# Fingerprint drawings on the track page load the raw fingerprints, and the
+# similarity grid compares every pair, so both are left out for tracks with
+# many fingerprints.
+MAX_FINGERPRINT_THUMBNAILS = 30
+MAX_SIMILARITY_MATRIX = 12
+# The fingerprint page scores every other fingerprint of the track to rank
+# them, which is only done for tracks up to this size.
+MAX_RANKED_FINGERPRINTS = 200
 
 
 @metadata_page.route("/track/<track_id_or_gid>")
@@ -61,6 +75,19 @@ def track(track_id_or_gid: str) -> str:
     )
     fingerprints = fingerprint_db.execute(query).fetchall()
 
+    fingerprint_data: dict[int, list[int]] = {}
+    if 0 < len(fingerprints) <= MAX_FINGERPRINT_THUMBNAILS:
+        query = sql.select(
+            schema.fingerprint.c.id,
+            schema.fingerprint.c.fingerprint,
+        ).where(schema.fingerprint.c.track_id == track_id)
+        for row in fingerprint_db.execute(query):
+            fingerprint_data[row.id] = row.fingerprint
+
+    similarity: dict[int, dict[int, float]] = {}
+    if 2 <= len(fingerprints) <= MAX_SIMILARITY_MATRIX:
+        similarity = calculate_fingerprint_similarity_matrix(fingerprint_db, [track_id])
+
     query = sql.select(
         schema.track_mbid.c.id,
         schema.track_mbid.c.mbid,
@@ -88,6 +115,13 @@ def track(track_id_or_gid: str) -> str:
             num_enabled += 1
         recordings.append(recording)
     recordings.sort(key=lambda r: r.get("name", r.get("mbid", "")))
+    main_recording = max(
+        (r for r in recordings if not r["disabled"] and r.get("name")),
+        key=lambda r: r["submission_count"],
+        default=None,
+    )
+    if main_recording is not None:
+        title = main_recording["name"]
 
     user_metadata = (
         db.session.query(
@@ -103,6 +137,12 @@ def track(track_id_or_gid: str) -> str:
         .order_by(sql.func.min(TrackMeta.created))
         .all()
     )
+    metadata_mode = "raw" if request.args.get("metadata") == "raw" else "grouped"
+    metadata_rows = [
+        MetaRow(title or "", artist or "", album or "", int(count or 0))
+        for title, artist, album, count in user_metadata
+    ]
+    metadata_groups = group_metadata(metadata_rows)
 
     edits = (
         db.session.query(TrackMBIDChange)
@@ -157,7 +197,45 @@ def track(track_id_or_gid: str) -> str:
         show_disabled=show_disabled,
         num_disabled=num_disabled,
         num_enabled=num_enabled,
+        main_recording=main_recording,
+        fingerprint_data=fingerprint_data,
+        similarity=similarity,
+        metadata_mode=metadata_mode,
+        metadata_rows=metadata_rows,
+        metadata_groups=metadata_groups,
     )
+
+
+def find_track_fingerprints(
+    fingerprint_db,
+    track_id: int,
+    compare_with=None,
+    order_by_sources: bool = False,
+    limit: int = 50,
+):
+    """Fingerprints of a track, scored against `compare_with` when given, best first.
+
+    Without `compare_with`, they are ordered by length, or by the number of
+    submissions with `order_by_sources`.
+    """
+    columns = [
+        schema.fingerprint.c.id,
+        schema.fingerprint.c.length,
+        schema.fingerprint.c.submission_count,
+    ]
+    if compare_with is not None:
+        score = sql.func.acoustid_compare2(
+            schema.fingerprint.c.fingerprint, compare_with, const.TRACK_MAX_OFFSET
+        ).label("score")
+        query = sql.select(*columns, score).order_by(score.desc())
+    elif order_by_sources:
+        query = sql.select(*columns).order_by(
+            schema.fingerprint.c.submission_count.desc()
+        )
+    else:
+        query = sql.select(*columns).order_by(schema.fingerprint.c.length)
+    query = query.where(schema.fingerprint.c.track_id == track_id).limit(limit)
+    return [dict(row._mapping) for row in fingerprint_db.execute(query)]
 
 
 @metadata_page.route("/fingerprint/<int:fingerprint_id>")
@@ -186,8 +264,31 @@ def fingerprint(fingerprint_id: int) -> str:
     if track_gid is None:
         abort(404)
 
+    track_size = fingerprint_db.execute(
+        sql.select(sql.func.count()).where(
+            schema.fingerprint.c.track_id == fingerprint["track_id"]
+        )
+    ).scalar_one()
+    ranked = track_size <= MAX_RANKED_FINGERPRINTS
+    siblings = [
+        fp
+        for fp in find_track_fingerprints(
+            fingerprint_db,
+            fingerprint["track_id"],
+            compare_with=fingerprint["fingerprint"] if ranked else None,
+            order_by_sources=not ranked,
+        )
+        if fp["id"] != fingerprint_id
+    ]
+
     return render_template(
-        "fingerprint.html", title=title, fingerprint=fingerprint, track_gid=track_gid
+        "fingerprint.html",
+        title=title,
+        fingerprint=fingerprint,
+        track_gid=track_gid,
+        siblings=siblings,
+        ranked=ranked,
+        track_size=track_size,
     )
 
 
@@ -195,8 +296,8 @@ def fingerprint(fingerprint_id: int) -> str:
     "/fingerprint/<int:fingerprint_id_1>/compare/<int:fingerprint_id_2>"
 )
 def compare_fingerprints(fingerprint_id_1: int, fingerprint_id_2: int) -> str:
-    finerprint_db = db.get_fingerprint_db()
-    title = "Compare fingerprints #%s and #%s" % (fingerprint_id_1, fingerprint_id_2)
+    fingerprint_db = db.get_fingerprint_db()
+    title = "Compare #%s and #%s" % (fingerprint_id_1, fingerprint_id_2)
     query = sql.select(
         schema.fingerprint.c.id,
         schema.fingerprint.c.length,
@@ -208,18 +309,48 @@ def compare_fingerprints(fingerprint_id_1: int, fingerprint_id_2: int) -> str:
     )
     fingerprint_1: dict[str, Any] | None = None
     fingerprint_2: dict[str, Any] | None = None
-    for fingerprint in finerprint_db.execute(query):
+    for fingerprint in fingerprint_db.execute(query):
         if fingerprint.id == fingerprint_id_1:
             fingerprint_1 = dict(fingerprint._mapping)
-        elif fingerprint.id == fingerprint_id_2:
+        if fingerprint.id == fingerprint_id_2:
             fingerprint_2 = dict(fingerprint._mapping)
     if not fingerprint_1 or not fingerprint_2:
         abort(404)
+
+    # The score from the matcher the service uses, next to the bit error
+    # rate the page computes itself.
+    matcher_score = fingerprint_db.execute(
+        sql.select(
+            sql.func.acoustid_compare2(
+                fingerprint_1["fingerprint"],
+                fingerprint_2["fingerprint"],
+                const.TRACK_MAX_OFFSET,
+            )
+        )
+    ).scalar()
+
+    # Offer the other fingerprints of both tracks in the pickers.
+    choices: dict[int, dict[str, Any]] = {}
+    for fp in (fingerprint_1, fingerprint_2):
+        for choice in find_track_fingerprints(fingerprint_db, fp["track_id"]):
+            choice["same_track"] = fp["track_id"] == fingerprint_1["track_id"]
+            choices.setdefault(choice["id"], choice)
+        choices.setdefault(
+            fp["id"],
+            {
+                "id": fp["id"],
+                "length": fp["length"],
+                "same_track": fp["track_id"] == fingerprint_1["track_id"],
+            },
+        )
+
     return render_template(
         "compare_fingerprints.html",
         title=title,
         fingerprint_1=fingerprint_1,
         fingerprint_2=fingerprint_2,
+        matcher_score=matcher_score,
+        choices=sorted(choices.values(), key=lambda c: (not c["same_track"], c["id"])),
     )
 
 
@@ -228,13 +359,19 @@ def mbid(mbid: str) -> str:
     from acoustid.data.musicbrainz import lookup_recording_metadata
     from acoustid.data.track import lookup_tracks
 
-    metadata = lookup_recording_metadata(db.get_musicbrainz_db(), [mbid])
+    # The lookups key their results by UUID objects, not strings.
+    metadata = {
+        str(k): v
+        for k, v in lookup_recording_metadata(db.get_musicbrainz_db(), [mbid]).items()
+    }
     if mbid not in metadata:
         title = "Incorrect Recording"
         return render_template("mbid-not-found.html", title=title, mbid=mbid)
     metadata = metadata[mbid]
     title = 'Recording "%s" by %s' % (metadata["name"], metadata["artist_name"])
-    tracks = lookup_tracks(db.get_fingerprint_db(), [mbid]).get(mbid, [])
+    tracks = {
+        str(k): v for k, v in lookup_tracks(db.get_fingerprint_db(), [mbid]).items()
+    }.get(mbid, [])
     return render_template("mbid.html", title=title, tracks=tracks, mbid=mbid)
 
 
@@ -297,3 +434,18 @@ def toggle_track_mbid() -> str | Response:
         state=state,
         track_id=track_id,
     )
+
+
+@metadata_page.route("/search")
+def search() -> Response:
+    """The lookup box in the header: a fingerprint ID, an AcoustID or an MBID."""
+    query = request.args.get("q", "").strip().lstrip("#")
+    if not query:
+        return redirect(url_for("general.index"))
+    if query.isdigit():
+        return redirect(url_for(".fingerprint", fingerprint_id=int(query)))
+    if is_uuid(query):
+        query = query.lower()
+        if resolve_track_gid(db.get_fingerprint_db(), query) is None:
+            return redirect(url_for(".mbid", mbid=query))
+    return redirect(url_for(".track", track_id_or_gid=query))

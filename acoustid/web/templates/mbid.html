@@ -1,24 +1,30 @@
 {% extends "_base.html" %}
 {% block content %}
 
-<h2>{{ title }}</h2>
+<div class="page-head">
+  <h1>{{ title }}</h1>
+</div>
 
 <p>
     See more information about this recording on
-    <a href="//musicbrainz.org/recording/{{ mbid }}">MusicBrainz</a>.
+    <a href="https://musicbrainz.org/recording/{{ mbid }}">MusicBrainz</a>.
 </p>
 
-{% if tracks %}
-
-<p>Linked tracks:</p>
-
-<ul>
-{% for tr in tracks %}
-    <li><a href="{{ url_for('.track', track_id_or_gid=tr.id) }}">{{ tr.gid }}</a></li>
-{% endfor %}
-</ul>
-
-{% endif %}
+<section>
+  <div class="section-head">
+    <h2>AcoustIDs</h2>
+    <span class="meta">{{ tracks|length }} linked</span>
+  </div>
+  {% if tracks %}
+  <ul class="list-unstyled mono">
+  {% for tr in tracks %}
+    <li><a href="{{ url_for('.track', track_id_or_gid=tr.gid) }}">{{ tr.gid }}</a></li>
+  {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No AcoustIDs are linked to this recording.</p>
+  {% endif %}
+</section>
 
 {% endblock %}
 
