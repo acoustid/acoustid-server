@@ -43,9 +43,6 @@
       {% else %}
       <a href="{{ url_for('user.login') }}">Sign in</a>
       {% endif %}
-      <form class="lookup" role="search" action="{{ url_for('metadata.search') }}">
-        <input name="q" placeholder="AcoustID, MBID or fingerprint #" aria-label="Look up an AcoustID, MusicBrainz ID or fingerprint ID">
-      </form>
     </nav>
   </div>
 </header>

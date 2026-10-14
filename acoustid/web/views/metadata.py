@@ -454,18 +454,3 @@ def toggle_track_mbid() -> str | Response:
         state=state,
         track_id=track_id,
     )
-
-
-@metadata_page.route("/search")
-def search() -> Response:
-    """The lookup box in the header: a fingerprint ID, an AcoustID or an MBID."""
-    query = request.args.get("q", "").strip().lstrip("#")
-    if not query:
-        return redirect(url_for("general.index"))
-    if query.isdigit():
-        return redirect(url_for(".fingerprint", fingerprint_id=int(query)))
-    if is_uuid(query):
-        query = query.lower()
-        if resolve_track_gid(db.get_fingerprint_db(), query) is None:
-            return redirect(url_for(".mbid", mbid=query))
-    return redirect(url_for(".track", track_id_or_gid=query))

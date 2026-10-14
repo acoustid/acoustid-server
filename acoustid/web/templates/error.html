@@ -7,12 +7,7 @@
   </div>
   <p>{{ message }}</p>
   {% if code == 404 %}
-  <p>If you followed a link to a track or a fingerprint, it may have been merged into another one.
-     You can look it up again, or search by its ID:</p>
-  <form class="lookup lookup-large" role="search" action="{{ url_for('metadata.search') }}">
-    <input name="q" placeholder="AcoustID, MBID or fingerprint #" aria-label="Look up an AcoustID, MusicBrainz ID or fingerprint ID">
-    <button class="btn" type="submit">Look up</button>
-  </form>
+  <p>If you followed a link to a track or a fingerprint, it may have been merged into another one.</p>
   {% endif %}
   <p class="links">
     <a href="{{ url_for('general.index') }}">Home page</a>

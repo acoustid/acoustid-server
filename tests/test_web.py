@@ -726,25 +726,6 @@ def test_compare_fingerprints_page(app: Flask, track_fingerprints) -> None:
     assert rv.status_code == 404
 
 
-def test_search(app: Flask) -> None:
-    client = app.test_client()
-
-    rv = client.get("/search?q=%23123")
-    assert rv.status_code == 302
-    assert rv.headers["Location"].endswith("/fingerprint/123")
-
-    rv = client.get("/search?q=EB31D1C3-950E-468B-9E36-E46FA75B1291")
-    assert rv.headers["Location"].endswith(
-        "/track/eb31d1c3-950e-468b-9e36-e46fa75b1291"
-    )
-
-    rv = client.get("/search?q=b81f83ee-4da4-11e0-9ed8-0025225356f3")
-    assert rv.headers["Location"].endswith("/mbid/b81f83ee-4da4-11e0-9ed8-0025225356f3")
-
-    rv = client.get("/search?q=")
-    assert rv.headers["Location"].endswith("/")
-
-
 def test_fingerprint_page_large_track(app: Flask, track_fingerprints) -> None:
     from acoustid.web.views import metadata
 
