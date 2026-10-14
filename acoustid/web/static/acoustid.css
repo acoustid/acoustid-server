@@ -71,7 +71,7 @@ code, .mono { font-family: var(--mono); font-size: 0.88em; }
 
 /* Header */
 
-.site-header { border-top: 4px solid var(--brand-red); border-bottom: 1px solid var(--line); background: var(--bg); }
+.site-header { border-bottom: 1px solid var(--line); background: var(--bg); }
 .site-header .wrap {
   display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
   min-height: 68px; padding-block: 10px;
