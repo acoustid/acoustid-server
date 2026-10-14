@@ -80,6 +80,7 @@ def about():
     stats = get_current_stats()
     return render_page(
         "about.md",
+        nav="about",
         stats={
             "fingerprints": stats.get("fingerprint.all", 0),
             "tracks": stats.get("track.all", 0),
