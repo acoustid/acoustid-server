@@ -756,3 +756,23 @@ def test_fingerprint_page_large_track(app: Flask, track_fingerprints) -> None:
     assert rv.status_code == 200
     assert "most submitted of 3 fingerprints" in rv.text
     assert "Same recording" not in rv.text
+
+
+def test_not_found_pages(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/no-such-page")
+    assert rv.status_code == 404
+    assert "There is no page at this address." in rv.text
+
+    rv = client.get("/track/00000000-0000-0000-0000-000000000000")
+    assert rv.status_code == 404
+    assert "There is no track with ID 00000000-0000-0000-0000-000000000000" in rv.text
+
+    rv = client.get("/fingerprint/999999")
+    assert rv.status_code == 404
+    assert "There is no fingerprint #999999" in rv.text
+
+    rv = client.get("/mbid/00000000-0000-0000-0000-000000000000")
+    assert rv.status_code == 404
+    assert "There is no MusicBrainz recording" in rv.text

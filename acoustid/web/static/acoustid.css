@@ -430,3 +430,11 @@ tr.mbid-disabled td:first-child a { text-decoration: line-through; }
 .history { list-style: none; padding: 0; font-size: 14px; }
 .history li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .btn.small { padding: 1px 8px; font-size: 13px; }
+
+/* Error pages */
+
+.error-page { max-width: 640px; }
+.error-page .links { display: flex; gap: 20px; margin-top: 28px; font-weight: 600; }
+.lookup-large { max-width: 520px; margin: 8px 0 16px; }
+.lookup-large input { flex: 1; width: auto; font-size: 15px; padding: 9px 12px; }
+.lookup-large .btn { border: 0; border-left: 1px solid var(--line-strong); border-radius: 0; }

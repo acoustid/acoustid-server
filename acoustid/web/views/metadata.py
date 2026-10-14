@@ -57,7 +57,11 @@ def track(track_id_or_gid: str) -> str:
             track_gid = fingerprint_db.execute(query).scalar_one_or_none()
 
     if track_id is None or track_gid is None:
-        abort(404)
+        abort(
+            404,
+            description="There is no track with ID %s in the AcoustID database."
+            % (track_id_or_gid,),
+        )
 
     title = 'Track "%s"' % (track_gid,)
     track = {"id": track_id, "gid": track_gid}
@@ -254,7 +258,11 @@ def fingerprint(fingerprint_id: int) -> str:
     )
     fingerprint_row = fingerprint_db.execute(query).one_or_none()
     if fingerprint_row is None:
-        abort(404)
+        abort(
+            404,
+            description="There is no fingerprint #%d in the AcoustID database."
+            % (fingerprint_id,),
+        )
     fingerprint = dict(fingerprint_row._mapping)
 
     query = sql.select(schema.track.c.gid).where(
@@ -315,7 +323,12 @@ def compare_fingerprints(fingerprint_id_1: int, fingerprint_id_2: int) -> str:
         if fingerprint.id == fingerprint_id_2:
             fingerprint_2 = dict(fingerprint._mapping)
     if not fingerprint_1 or not fingerprint_2:
-        abort(404)
+        missing = fingerprint_id_2 if fingerprint_1 else fingerprint_id_1
+        abort(
+            404,
+            description="There is no fingerprint #%d in the AcoustID database."
+            % (missing,),
+        )
 
     # The score from the matcher the service uses, next to the bit error
     # rate the page computes itself.
@@ -365,8 +378,10 @@ def mbid(mbid: str) -> str:
         for k, v in lookup_recording_metadata(db.get_musicbrainz_db(), [mbid]).items()
     }
     if mbid not in metadata:
-        title = "Incorrect Recording"
-        return render_template("mbid-not-found.html", title=title, mbid=mbid)
+        abort(
+            404,
+            description="There is no MusicBrainz recording with ID %s." % (mbid,),
+        )
     metadata = metadata[mbid]
     title = 'Recording "%s" by %s' % (metadata["name"], metadata["artist_name"])
     tracks = {

@@ -1,8 +1,9 @@
 import os
 import pickle
 
-from flask import Flask, request, session
+from flask import Flask, render_template, request, session
 from flask.sessions import SecureCookieSessionInterface
+from werkzeug.exceptions import HTTPException, NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from acoustid.script import Script
@@ -54,6 +55,17 @@ def make_application(config_filename=None, tests=False):
         )
 
     register_filters(app)
+
+    @app.errorhandler(404)
+    def page_not_found(error: HTTPException):
+        # A view can explain what is missing with abort(404, description=...).
+        message = error.description
+        if message == NotFound.description:
+            message = "There is no page at this address."
+        return (
+            render_template("error.html", title="Not found", code=404, message=message),
+            404,
+        )
 
     def get_flask_request_scope():
         try:
