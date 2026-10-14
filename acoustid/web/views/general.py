@@ -17,9 +17,13 @@ from flask import (
 )
 from markdown import Markdown
 
-from acoustid.data.stats import find_current_stats, find_lookup_stats
 from acoustid.utils import generate_demo_client_api_key
 from acoustid.web import db
+from acoustid.web.stats_cache import (
+    average_lookups,
+    get_current_stats,
+    get_lookup_stats,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +76,7 @@ add_page_route("server", nav="docs")
 
 @general_page.route("/about")
 def about():
-    app_db = db.get_app_db()
-    stats = find_current_stats(app_db)
-    lookups = find_lookup_stats(app_db)
+    stats = get_current_stats()
     return render_page(
         "about.md",
         stats={
@@ -82,11 +84,7 @@ def about():
             "tracks": stats.get("track.all", 0),
             "contributors": stats.get("account.active", 0),
             "applications": stats.get("application.all", 0),
-            "lookups": (
-                sum(int(d["count"] or 0) for d in lookups) / len(lookups)
-                if lookups
-                else 0
-            ),
+            "lookups": average_lookups(get_lookup_stats()),
         },
     )
 
@@ -100,10 +98,8 @@ def load_home_fingerprint():
 
 @general_page.route("/")
 def index():
-    app_db = db.get_app_db()
-    stats = find_current_stats(app_db)
-    lookups = find_lookup_stats(app_db)
-    avg_lookups = sum(d["count"] for d in lookups) / len(lookups) if lookups else 0
+    stats = get_current_stats()
+    lookups = get_lookup_stats()
     return render_template(
         "index.html",
         nav="home",
@@ -113,7 +109,7 @@ def index():
             "mbids": stats.get("mbid.all", 0),
             "contributors": stats.get("account.active", 0),
         },
-        avg_lookups=avg_lookups,
+        avg_lookups=average_lookups(lookups),
         last_lookups=lookups[-1]["count"] if lookups else None,
         sample=load_home_fingerprint(),
     )

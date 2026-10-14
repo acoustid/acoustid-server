@@ -1,12 +1,16 @@
 # Copyright (C) 2011, 2015 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import datetime
 import logging
 
 from flask import Blueprint, render_template
 
-from acoustid.data.stats import find_current_stats, find_daily_stats, find_lookup_stats
-from acoustid.web import db
+from acoustid.web.stats_cache import (
+    get_current_stats,
+    get_daily_additions,
+    get_lookup_stats,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +49,10 @@ def prepare_pie_chart_data(stats, pattern):
 def line_chart(stats, series, tip=None, area=False):
     """Data for charts.js. Each series is (key, name, color, extra options)."""
     return {
-        "labels": [item["date"].strftime("%Y-%m-%d") for item in stats],
+        "labels": [
+            item["date"] if isinstance(item["date"], str) else item["date"].isoformat()
+            for item in stats
+        ],
         "series": [
             dict(
                 name=name,
@@ -63,8 +70,7 @@ def line_chart(stats, series, tip=None, area=False):
 @stats_page.route("/stats")
 def stats():
     title = "Statistics"
-    app_db = db.get_app_db()
-    stats = find_current_stats(app_db)
+    stats = get_current_stats()
     basic = {
         "submissions": stats.get("submission.all", 0),
         "fingerprints": stats.get("fingerprint.all", 0),
@@ -76,8 +82,8 @@ def stats():
     mbid_track = prepare_pie_chart_data(stats, "mbid.%dtracks")
     basic["tracks_with_mbid"] = basic["tracks"] - stats.get("track.0mbids", 0)
     coverage = basic["tracks_with_mbid"] / basic["tracks"] if basic["tracks"] else 0.0
-    additions = find_daily_stats(app_db, ["track.all", "mbid.all"])
-    lookups = find_lookup_stats(app_db)
+    additions = get_daily_additions()
+    lookups = get_lookup_stats()
     total_lookups = sum(int(d["count"] or 0) for d in lookups)
     total_hits = sum(int(d["count_hits"] or 0) for d in lookups)
     return render_template(
@@ -90,7 +96,9 @@ def stats():
         track_mbid_max=max((t["count"] for t in track_mbid), default=0),
         mbid_track=mbid_track,
         mbid_track_max=max((t["count"] for t in mbid_track), default=0),
-        last_date=additions[-1]["date"] if additions else None,
+        last_date=(
+            datetime.date.fromisoformat(additions[-1]["date"]) if additions else None
+        ),
         added_tracks=sum(int(d.get("track.all") or 0) for d in additions),
         added_mbids=sum(int(d.get("mbid.all") or 0) for d in additions),
         additions_days=len(additions),

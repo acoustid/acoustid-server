@@ -858,3 +858,44 @@ def test_about_page(app: Flask) -> None:
     assert 'class="timeline"' in rv.text
     # The test database has no stats, so the current numbers are left out.
     assert "Today the database holds" not in rv.text
+
+
+@pytest.fixture(autouse=True)
+def isolated_stats_cache():
+    """Every test gets its own cache, so cached numbers never leak between them."""
+    from acoustid.web import stats_cache
+
+    with mock.patch.object(stats_cache.db, "get_redis", return_value=FakeRedis()):
+        yield
+
+
+def test_stats_are_cached(app: Flask) -> None:
+    from acoustid.web import stats_cache
+
+    with app.test_request_context():
+        with mock.patch.object(
+            stats_cache, "find_current_stats", return_value={"fingerprint.all": 5}
+        ) as find:
+            assert stats_cache.get_current_stats() == {"fingerprint.all": 5}
+            assert stats_cache.get_current_stats() == {"fingerprint.all": 5}
+        assert find.call_count == 1
+
+
+def test_stats_work_without_redis(app: Flask) -> None:
+    from acoustid.web import stats_cache
+
+    with app.test_request_context():
+        with (
+            mock.patch.object(
+                stats_cache.db, "get_redis", return_value=FakeRedis(fail=True)
+            ),
+            mock.patch.object(
+                stats_cache, "find_current_stats", return_value={"fingerprint.all": 5}
+            ) as find,
+        ):
+            assert stats_cache.get_current_stats() == {"fingerprint.all": 5}
+            assert stats_cache.get_current_stats() == {"fingerprint.all": 5}
+        assert find.call_count == 2
+
+    rv = app.test_client().get("/")
+    assert rv.status_code == 200
