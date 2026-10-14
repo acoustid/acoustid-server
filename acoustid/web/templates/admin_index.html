@@ -1,17 +1,17 @@
 {% extends "_base.html" %}
+{% set title = "Administration" %}
 {% block content %}
 
 <div class="page-head">
+  <div class="eyebrow">Admin</div>
   <h1>Administration</h1>
 </div>
 
-<ul>
-  <li>
-    Statistics
-    <ul>
-      <li><a href="{{ url_for("admin.stats_apps") }}">Applications</a></li>
-    </ul>
-  </li>
-</ul>
+<section>
+  <div class="section-head"><h2>Statistics</h2></div>
+  <p class="links">
+    <a href="{{ url_for("admin.stats_apps") }}">Searches by application</a>
+  </p>
+</section>
 
 {% endblock %}

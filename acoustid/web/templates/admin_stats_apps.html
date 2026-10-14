@@ -1,8 +1,10 @@
 {% extends "_base.html" %}
+{% set title = "Searches by application" %}
 {% block content %}
 
 <div class="page-head">
-  <h1>Application statistics</h1>
+  <div class="eyebrow"><a href="{{ url_for('admin.index') }}">Admin</a></div>
+  <h1>Searches by application</h1>
 </div>
 
 <p>

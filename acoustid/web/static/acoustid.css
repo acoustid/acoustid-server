@@ -458,3 +458,4 @@ tr.mbid-disabled td:first-child a { text-decoration: line-through; }
 .danger-zone p { margin: 10px 0 12px; color: var(--ink-2); }
 .form-group .small { margin: 4px 0 0; }
 .intro { max-width: 640px; color: var(--ink-2); }
+.eyebrow a { color: inherit; }
