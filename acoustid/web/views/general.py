@@ -19,6 +19,7 @@ from markdown import Markdown
 
 from acoustid.utils import generate_demo_client_api_key
 from acoustid.web import db
+from acoustid.web.featured_song import get_featured_song
 from acoustid.web.stats_cache import (
     average_lookups,
     get_current_stats,
@@ -91,7 +92,7 @@ def about():
 
 @functools.cache
 def load_home_fingerprint():
-    """A fingerprint drawn on the home page, from a track that is linked from there."""
+    """The fingerprint of the song the home page falls back to."""
     with current_app.open_resource("static/home-fingerprint.json", mode="rt") as file:
         return json.load(file)
 
@@ -111,7 +112,7 @@ def index():
         },
         avg_lookups=average_lookups(lookups),
         last_lookups=lookups[-1]["count"] if lookups else None,
-        sample=load_home_fingerprint(),
+        sample=get_featured_song(load_home_fingerprint()["fingerprint"]),
     )
 
 

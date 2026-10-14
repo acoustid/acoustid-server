@@ -63,7 +63,7 @@
         <canvas class="fp inline-fp" data-fp="{{ sample.fingerprint|tojson }}"></canvas>
         <p class="small muted">
           The first two minutes of
-          <a href="{{ url_for('metadata.track', track_id_or_gid=sample.track) }}">“Lower Your Eyelids to Die With the Sun”</a> by M83.
+          <a href="{{ url_for('metadata.track', track_id_or_gid=sample.track) }}">“{{ sample.name }}”</a> by {{ sample.artist }}.
           Time runs left to right, each row of pixels is one bit.
         </p>
       </div>

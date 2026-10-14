@@ -25,7 +25,9 @@ LOOKUP_STATS_KEY = "web:stats:lookups"
 DAILY_ADDITIONS_KEY = "web:stats:additions"
 
 
-def _cached(key: str, compute: Callable[[], Any]) -> Any:
+def cached_json(
+    key: str, compute: Callable[[], Any], ttl: datetime.timedelta = STATS_CACHE_TTL
+) -> Any:
     """The cached value of `compute()`, which has to return JSON-able data.
 
     Redis failing must not break the page, so any problem with the cache is
@@ -44,9 +46,7 @@ def _cached(key: str, compute: Callable[[], Any]) -> Any:
 
     value = compute()
     try:
-        db.get_redis().setex(
-            key, int(STATS_CACHE_TTL.total_seconds()), json.dumps(value)
-        )
+        db.get_redis().setex(key, int(ttl.total_seconds()), json.dumps(value))
     except Exception:
         logger.warning("Failed to write %s to the cache", key, exc_info=True)
     return value
@@ -59,7 +59,7 @@ def get_current_stats() -> dict[str, int]:
         stats = find_current_stats(db.get_app_db())
         return {name: int(value or 0) for name, value in stats.items()}
 
-    return _cached(CURRENT_STATS_KEY, compute)
+    return cached_json(CURRENT_STATS_KEY, compute)
 
 
 def get_lookup_stats() -> list[dict[str, Any]]:
@@ -76,7 +76,7 @@ def get_lookup_stats() -> list[dict[str, Any]]:
             for row in find_lookup_stats(db.get_app_db())
         ]
 
-    return _cached(LOOKUP_STATS_KEY, compute)
+    return cached_json(LOOKUP_STATS_KEY, compute)
 
 
 def get_daily_additions() -> list[dict[str, Any]]:
@@ -93,7 +93,7 @@ def get_daily_additions() -> list[dict[str, Any]]:
             for row in rows
         ]
 
-    return _cached(DAILY_ADDITIONS_KEY, compute)
+    return cached_json(DAILY_ADDITIONS_KEY, compute)
 
 
 def average_lookups(lookups: list[dict[str, Any]]) -> float:

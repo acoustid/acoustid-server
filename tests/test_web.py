@@ -899,3 +899,28 @@ def test_stats_work_without_redis(app: Flask) -> None:
 
     rv = app.test_client().get("/")
     assert rv.status_code == 200
+
+
+def test_home_page_falls_back_to_a_known_song(app: Flask) -> None:
+    # The test database has no fingerprint linked to a recording.
+    rv = app.test_client().get("/")
+    assert rv.status_code == 200
+    assert "Lower Your Eyelids to Die With the Sun" in rv.text
+
+
+def test_home_page_song_is_picked_once_per_hour(app: Flask) -> None:
+    from acoustid.web import featured_song
+
+    song = {
+        "track": "eb31d1c3-950e-468b-9e36-e46fa75b1291",
+        "name": "Random Song",
+        "artist": "Random Artist",
+        "fingerprint": [1, 2, 3],
+    }
+    client = app.test_client()
+    with mock.patch.object(
+        featured_song, "pick_random_song", return_value=song
+    ) as pick:
+        assert "Random Song" in client.get("/").text
+        assert "Random Song" in client.get("/").text
+    assert pick.call_count == 1
