@@ -50,7 +50,6 @@ to commercial users and funds the development of the open source project.
 <li><time>Dec 2024</time><span>acoustid-index is rewritten in Zig, with support for updating and deleting fingerprints.</span></li>
 <li><time>Feb 2025</time><span><a href="https://blog.acoustid.org/posts/2024-12-15-acoustid-will-stop-accepting-fingerprints-without-metadata/">Submissions without metadata are no longer accepted</a>.</span></li>
 <li><time>Jan 2026</time><span>90 million fingerprints.</span></li>
-<li><time>Jun 2026</time><span>75 million AcoustIDs.</span></li>
 <li><time>Aug 2026</time><span>The service moves to a new Kubernetes cluster, and searches switch to a new, much faster generation of acoustid-index, written from scratch in Zig and keeping the whole index in memory.</span></li>
 </ol>
 
