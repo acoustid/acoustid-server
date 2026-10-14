@@ -438,3 +438,12 @@ tr.mbid-disabled td:first-child a { text-decoration: line-through; }
 .lookup-large { max-width: 520px; margin: 8px 0 16px; }
 .lookup-large input { flex: 1; width: auto; font-size: 15px; padding: 9px 12px; }
 .lookup-large .btn { border: 0; border-left: 1px solid var(--line-strong); border-radius: 0; }
+
+/* Confirmation pages */
+
+.confirm { max-width: 640px; }
+.confirm .details { margin-bottom: 20px; }
+.form-actions { display: flex; gap: 8px; align-items: center; }
+.btn.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+.btn.danger:hover { filter: brightness(1.15); color: #fff; }
+.links { display: flex; gap: 20px; font-weight: 600; }

@@ -776,3 +776,72 @@ def test_not_found_pages(app: Flask) -> None:
     rv = client.get("/mbid/00000000-0000-0000-0000-000000000000")
     assert rv.status_code == 404
     assert "There is no MusicBrainz recording" in rv.text
+
+
+@pytest.fixture()
+def moderator(app: Flask):
+    """Account 1, signed in with MusicBrainz, which makes it a moderator."""
+    from acoustid import tables as schema
+
+    script = app.acoustid_script  # type: ignore
+    with script.context() as ctx:
+        ctx.db.get_app_db().execute(
+            schema.account.update()
+            .where(schema.account.c.id == 1)
+            .values(mbuser="moderator")
+        )
+        ctx.db.session.commit()
+    yield 1
+    with script.context() as ctx:
+        ctx.db.get_app_db().execute(
+            schema.account.update().where(schema.account.c.id == 1).values(mbuser=None)
+        )
+        ctx.db.get_fingerprint_db().execute(
+            schema.track_mbid.update()
+            .where(schema.track_mbid.c.mbid == "b81f83ee-4da4-11e0-9ed8-0025225356f3")
+            .values(disabled=False)
+        )
+        ctx.db.get_ingest_db().execute(schema.track_mbid_change.delete())
+        ctx.db.session.commit()
+
+
+TOGGLE_URL = (
+    "/edit/toggle-track-mbid?track_gid=eb31d1c3-950e-468b-9e36-e46fa75b1291"
+    "&mbid=b81f83ee-4da4-11e0-9ed8-0025225356f3&state=1"
+)
+
+
+def test_toggle_track_mbid_requires_musicbrainz_account(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.get(TOGGLE_URL)
+    assert rv.status_code == 200
+    assert "MusicBrainz account required" in rv.text
+
+
+def test_toggle_track_mbid(app: Flask, moderator: int) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = moderator
+
+    rv = client.get(TOGGLE_URL)
+    assert rv.status_code == 200
+    assert "Unlink this recording?" in rv.text
+    assert "b81f83ee-4da4-11e0-9ed8-0025225356f3" in rv.text
+
+    rv = client.post(
+        "/edit/toggle-track-mbid",
+        data={
+            "track_id": "1",
+            "mbid": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
+            "state": "1",
+            "note": "wrong version",
+            "submit": "1",
+        },
+    )
+    assert rv.status_code == 302
+
+    rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
+    assert "Show 2 disabled recordings" in rv.text

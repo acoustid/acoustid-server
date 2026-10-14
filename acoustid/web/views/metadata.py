@@ -438,14 +438,19 @@ def toggle_track_mbid() -> str | Response:
         db.session.commit()
         return redirect(url_for(".track", track_id_or_gid=track_id))
     if state:
-        title = "Unlink MBID"
+        title = "Unlink recording"
     else:
-        title = "Link MBID"
+        title = "Link recording"
+    recording = {
+        str(k): v
+        for k, v in lookup_recording_metadata(db.get_musicbrainz_db(), [mbid]).items()
+    }.get(mbid)
     return render_template(
         "toggle_track_mbid.html",
         title=title,
         track_gid=track_gid,
         mbid=mbid,
+        recording=recording,
         state=state,
         track_id=track_id,
     )
