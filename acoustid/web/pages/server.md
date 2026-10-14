@@ -1,18 +1,16 @@
 Title: Server
 
-AcoustID server is a web application written in Python. It consists of this
-website and handlers for the [web service](/webservice), which allow users
-to look up and submit fingerprints.
+The AcoustID server is a set of applications written in Python: this website,
+the [web service](/webservice) that applications use to look up and submit
+fingerprints, and background workers that import submissions and keep the
+statistics up to date. The data is stored in PostgreSQL.
 
-Fingerprint lookups are currently implemented using [PostgreSQL GIN indexes][gin],
-but there are plans to implement a custom special-purpose index server for
-more efficient searches.
+Fingerprint searches go to [acoustid-index][index], a custom index server
+designed specifically for searching audio fingerprints.
 
-The source code is licensed under the [MIT License][mit]. You can dowload it
-from from [GitHub][gh].
+The source code is licensed under the [MIT License][mit]. You can download it
+from [GitHub][gh].
 
-[mit]: http://creativecommons.org/licenses/MIT/
+[mit]: https://opensource.org/licenses/MIT
 [gh]: https://github.com/acoustid/acoustid-server
-[gin]: http://developer.postgresql.org/pgdocs/postgres/gin.html
-[bb-index]: https://github.com/acoustid/acoustid-index
-
+[index]: https://github.com/acoustid/acoustid-index
