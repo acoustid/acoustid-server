@@ -26,8 +26,9 @@ metadata_page = Blueprint("metadata", __name__)
 
 # Fingerprint drawings on the track page load the raw fingerprints, and the
 # similarity grid compares every pair, so both are left out for tracks with
-# many fingerprints.
+# many fingerprints. The drawings only show the first two minutes.
 MAX_FINGERPRINT_THUMBNAILS = 30
+THUMBNAIL_FRAMES = 948
 MAX_SIMILARITY_MATRIX = 12
 # The fingerprint page scores every other fingerprint of the track to rank
 # them, which is only done for tracks up to this size.
@@ -83,7 +84,7 @@ def track(track_id_or_gid: str) -> str:
     if 0 < len(fingerprints) <= MAX_FINGERPRINT_THUMBNAILS:
         query = sql.select(
             schema.fingerprint.c.id,
-            schema.fingerprint.c.fingerprint,
+            schema.fingerprint.c.fingerprint[1:THUMBNAIL_FRAMES].label("fingerprint"),
         ).where(schema.fingerprint.c.track_id == track_id)
         for row in fingerprint_db.execute(query):
             fingerprint_data[row.id] = row.fingerprint

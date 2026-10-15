@@ -25,16 +25,32 @@ LOOKUP_STATS_KEY = "web:stats:lookups"
 DAILY_ADDITIONS_KEY = "web:stats:additions"
 
 
+# How long a request may hold the right to recompute a value, so a crashed
+# request doesn't block the others for long.
+LOCK_TTL = datetime.timedelta(seconds=60)
+
+
 def cached_json(
-    key: str, compute: Callable[[], Any], ttl: datetime.timedelta = STATS_CACHE_TTL
+    key: str,
+    compute: Callable[[], Any],
+    default: Any,
+    ttl: datetime.timedelta = STATS_CACHE_TTL,
+    single_flight: bool = False,
 ) -> Any:
     """The cached value of `compute()`, which has to return JSON-able data.
 
-    Redis failing must not break the page, so any problem with the cache is
-    treated as a miss and the value is computed from the database.
+    Neither Redis nor the database failing may break the page: a problem with
+    the cache is treated as a miss, and a failing `compute()` returns
+    `default`, which is not cached, so the next request tries again.
+
+    With `single_flight`, only one request at a time recomputes a missing
+    value, and the others get `default` meanwhile. Use it when computing is
+    expensive and `default` is a reasonable thing to show.
     """
+    redis = None
     try:
-        raw = db.get_redis().get(key)
+        redis = db.get_redis()
+        raw = redis.get(key)
     except Exception:
         logger.warning("Failed to read %s from the cache", key, exc_info=True)
         raw = None
@@ -44,7 +60,29 @@ def cached_json(
         except Exception:
             logger.warning("Ignoring an unreadable cache entry for %s", key)
 
-    value = compute()
+    lock_key = key + ":lock"
+    if single_flight and redis is not None:
+        try:
+            locked = redis.set(
+                lock_key, b"1", nx=True, ex=int(LOCK_TTL.total_seconds())
+            )
+        except Exception:
+            locked = True
+        if not locked:
+            return default
+
+    try:
+        value = compute()
+    except Exception:
+        logger.warning("Failed to compute %s", key, exc_info=True)
+        return default
+    finally:
+        if single_flight and redis is not None:
+            try:
+                redis.delete(lock_key)
+            except Exception:
+                pass
+
     try:
         db.get_redis().setex(key, int(ttl.total_seconds()), json.dumps(value))
     except Exception:
@@ -59,7 +97,7 @@ def get_current_stats() -> dict[str, int]:
         stats = find_current_stats(db.get_app_db())
         return {name: int(value or 0) for name, value in stats.items()}
 
-    return cached_json(CURRENT_STATS_KEY, compute)
+    return cached_json(CURRENT_STATS_KEY, compute, default={})
 
 
 def get_lookup_stats() -> list[dict[str, Any]]:
@@ -76,7 +114,7 @@ def get_lookup_stats() -> list[dict[str, Any]]:
             for row in find_lookup_stats(db.get_app_db())
         ]
 
-    return cached_json(LOOKUP_STATS_KEY, compute)
+    return cached_json(LOOKUP_STATS_KEY, compute, default=[])
 
 
 def get_daily_additions() -> list[dict[str, Any]]:
@@ -93,7 +131,7 @@ def get_daily_additions() -> list[dict[str, Any]]:
             for row in rows
         ]
 
-    return cached_json(DAILY_ADDITIONS_KEY, compute)
+    return cached_json(DAILY_ADDITIONS_KEY, compute, default=[])
 
 
 def average_lookups(lookups: list[dict[str, Any]]) -> float:

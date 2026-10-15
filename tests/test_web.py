@@ -501,6 +501,19 @@ class FakeRedis:
         # cope with it
         self.store[key] = value.encode() if isinstance(value, str) else value
 
+    def set(self, key, value, nx=False, ex=None):
+        if self.fail:
+            raise Exception("upstream failure")
+        if nx and key in self.store:
+            return None
+        self.store[key] = value.encode() if isinstance(value, str) else value
+        return True
+
+    def delete(self, key):
+        if self.fail:
+            raise Exception("upstream failure")
+        self.store.pop(key, None)
+
 
 @pytest.fixture()
 def fake_redis():
@@ -924,3 +937,105 @@ def test_home_page_song_is_picked_once_per_hour(app: Flask) -> None:
         assert "Random Song" in client.get("/").text
         assert "Random Song" in client.get("/").text
     assert pick.call_count == 1
+
+
+def test_home_page_renders_without_the_database(app: Flask) -> None:
+    from acoustid.web import featured_song, stats_cache
+
+    with (
+        mock.patch.object(
+            stats_cache, "find_current_stats", side_effect=RuntimeError("db down")
+        ),
+        mock.patch.object(
+            stats_cache, "find_lookup_stats", side_effect=RuntimeError("db down")
+        ),
+        mock.patch.object(
+            featured_song, "pick_random_song", side_effect=RuntimeError("db down")
+        ),
+    ):
+        rv = app.test_client().get("/")
+        assert rv.status_code == 200
+        assert "Lower Your Eyelids to Die With the Sun" in rv.text
+        assert "The database today" not in rv.text
+
+        assert app.test_client().get("/about").status_code == 200
+
+
+def test_featured_song_is_computed_by_one_request_at_a_time(app: Flask) -> None:
+    from acoustid.web import featured_song, stats_cache
+
+    redis = FakeRedis()
+    redis.store[featured_song.FEATURED_SONG_KEY + ":lock"] = b"1"
+    with (
+        app.test_request_context(),
+        mock.patch.object(stats_cache.db, "get_redis", return_value=redis),
+        mock.patch.object(featured_song, "pick_random_song") as pick,
+    ):
+        song = featured_song.get_featured_song([1, 2, 3])
+    assert song["name"] == "Lower Your Eyelids to Die With the Sun"
+    assert pick.call_count == 0
+
+
+def test_pick_random_song(app: Flask) -> None:
+    from acoustid import tables as schema
+    from acoustid.data.fingerprint import insert_fingerprint
+    from acoustid.web.featured_song import pick_random_song
+    from tests import TEST_1A_FP_RAW
+    from tests.test_data_musicbrainz import insert_artist_credit, insert_recording
+
+    script = app.acoustid_script  # type: ignore
+    with script.context() as ctx:
+        mb_db = ctx.db.get_musicbrainz_db()
+        artist_credit = insert_artist_credit(mb_db, "Picked Artist")
+        recording = insert_recording(
+            mb_db, "b81f83ee-4da4-11e0-9ed8-0025225356f3", "Picked Song", artist_credit
+        )
+        fp_db = ctx.db.get_fingerprint_db()
+        fingerprint_id = insert_fingerprint(
+            fp_db,
+            ctx.db.get_ingest_db(),
+            {"fingerprint": TEST_1A_FP_RAW * 3, "length": 300, "track_id": 1},
+        )
+        fp_db.execute(
+            schema.fingerprint.update()
+            .where(schema.fingerprint.c.id == fingerprint_id)
+            .values(submission_count=5)
+        )
+        ctx.db.session.commit()
+    try:
+        with app.test_request_context():
+            song = pick_random_song()
+        assert song is not None
+        assert song["name"] == "Picked Song"
+        assert song["artist"] == "Picked Artist"
+        assert song["track"] == "eb31d1c3-950e-468b-9e36-e46fa75b1291"
+        assert len(song["fingerprint"]) == 948
+    finally:
+        with script.context() as ctx:
+            ctx.db.get_fingerprint_db().execute(
+                schema.fingerprint.delete().where(
+                    schema.fingerprint.c.id == fingerprint_id
+                )
+            )
+            mb_db = ctx.db.get_musicbrainz_db()
+            mb_db.execute(
+                schema.mb_recording.delete().where(
+                    schema.mb_recording.c.id == recording
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist_credit_name.delete().where(
+                    schema.mb_artist_credit_name.c.artist_credit == artist_credit
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist_credit.delete().where(
+                    schema.mb_artist_credit.c.id == artist_credit
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist.delete().where(
+                    schema.mb_artist.c.name == "Picked Artist"
+                )
+            )
+            ctx.db.session.commit()
