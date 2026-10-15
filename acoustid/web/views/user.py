@@ -186,18 +186,63 @@ def handle_musicbrainz_oauth2_login():
 
     check_login_token("mb_login_token", state.get("token"))
 
-    auth_session = musicbrainz.get_auth_session(
+    token_response = musicbrainz.get_raw_access_token(
         data={
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": url_for(".musicbrainz_login", _external=True),
         },
-        decoder=json.loads,
     )
+    try:
+        token = json.loads(token_response.content)
+    except ValueError:
+        raise LoginError(
+            "MusicBrainz sign-in failed. Please try again.",
+            "MusicBrainz token endpoint returned a non-JSON body (status=%r)"
+            % (token_response.status_code,),
+        )
 
-    response = auth_session.get("oauth2/userinfo").json()
+    if "access_token" not in token:
+        # MusicBrainz returns {"error": "invalid_grant"} for an authorization
+        # code that was already used or has expired -- someone sitting on the
+        # consent screen, going back, or reloading the callback. Asking rauth
+        # for the token first turned that into a KeyError whose message was the
+        # whole response body.
+        #
+        # The error and the keys only, never the body: a response without an
+        # access_token can still carry one, and it must not reach the logs.
+        raise LoginError(
+            "Your MusicBrainz sign-in link has expired. Please try again.",
+            "MusicBrainz token endpoint returned no access_token (error=%r, "
+            "error_description=%r, keys=%r)"
+            % (
+                token.get("error"),
+                token.get("error_description"),
+                sorted(token),
+            ),
+        )
 
-    user = find_or_create_musicbrainz_user(response["sub"])
+    auth_session = musicbrainz.get_session(token["access_token"])
+
+    userinfo_response = auth_session.get("oauth2/userinfo")
+    try:
+        userinfo = userinfo_response.json()
+    except ValueError:
+        # An HTML error page, an empty body, or anything else that is not JSON.
+        raise LoginError(
+            "MusicBrainz sign-in failed. Please try again.",
+            "MusicBrainz userinfo endpoint returned a non-JSON body (status=%r)"
+            % (userinfo_response.status_code,),
+        )
+
+    if not userinfo.get("sub"):
+        raise LoginError(
+            "MusicBrainz sign-in failed. Please try again.",
+            "MusicBrainz userinfo response carries no sub (keys=%r)"
+            % (sorted(userinfo),),
+        )
+
+    user = find_or_create_musicbrainz_user(userinfo["sub"])
     logger.info('MusicBrainz user %s "%s" logged in', user.id, user.name)
 
     return login_user_and_redirect(user.id, return_url=state.get("return_url"))
