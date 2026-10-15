@@ -271,7 +271,11 @@ def fingerprint(fingerprint_id: int) -> str:
     )
     track_gid = fingerprint_db.execute(query).scalar_one_or_none()
     if track_gid is None:
-        abort(404)
+        abort(
+            404,
+            description="Fingerprint #%d doesn't belong to any track."
+            % (fingerprint_id,),
+        )
 
     track_size = fingerprint_db.execute(
         sql.select(sql.func.count()).where(
@@ -372,6 +376,10 @@ def compare_fingerprints(fingerprint_id_1: int, fingerprint_id_2: int) -> str:
 def mbid(mbid: str) -> str:
     from acoustid.data.musicbrainz import lookup_recording_metadata
     from acoustid.data.track import lookup_tracks
+
+    if not is_uuid(mbid):
+        abort(404, description="%s is not a MusicBrainz recording ID." % (mbid,))
+    mbid = mbid.lower()
 
     # The lookups key their results by UUID objects, not strings.
     metadata = {

@@ -1039,3 +1039,9 @@ def test_pick_random_song(app: Flask) -> None:
                 )
             )
             ctx.db.session.commit()
+
+
+def test_mbid_page_rejects_invalid_ids(app: Flask) -> None:
+    rv = app.test_client().get("/mbid/not-a-uuid")
+    assert rv.status_code == 404
+    assert "is not a MusicBrainz recording ID" in rv.text
