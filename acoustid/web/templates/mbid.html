@@ -1,30 +1,125 @@
 {% extends "_base.html" %}
+
+{% macro bar(value, maximum) %}
+<div class="bar-cell">
+  <div class="bar"><i style="width:{{ value|bar_width(maximum) }}%"></i></div>
+  <span>{{ value|thousands }}</span>
+</div>
+{% endmacro %}
+
+{% macro lengths(min_length, max_length) -%}
+{%- if min_length is none -%}–
+{%- elif min_length == max_length -%}{{ min_length|duration }}
+{%- else -%}{{ min_length|duration }}–{{ max_length|duration }}
+{%- endif -%}
+{%- endmacro %}
+
 {% block content %}
+{% set max_sources = tracks|map(attribute='submission_count')|max|default(0) %}
+{% set all_min = tracks|selectattr('min_length')|map(attribute='min_length')|min|default(none) %}
+{% set all_max = tracks|selectattr('max_length')|map(attribute='max_length')|max|default(none) %}
 
 <div class="page-head">
-  <h1>{{ title }}</h1>
+  <div class="eyebrow">MusicBrainz recording</div>
+  <h1>{{ recording.name }}</h1>
+  <div class="sub">
+    <span>{{ recording.artist_name }}</span>
+    {% if recording.length %}<span>{{ recording.length|duration }}</span>{% endif %}
+    {% if recording.comment %}<span>{{ recording.comment }}</span>{% endif %}
+  </div>
+  <div class="id-row">
+    <span class="id-chip"><span>{{ mbid }}</span><button type="button" data-copy="{{ mbid }}">Copy</button></span>
+    <a class="small" href="https://musicbrainz.org/recording/{{ mbid }}">View on MusicBrainz →</a>
+  </div>
 </div>
 
-<p>
-    See more information about this recording on
-    <a href="https://musicbrainz.org/recording/{{ mbid }}">MusicBrainz</a>.
-</p>
+<div class="facts">
+  <div class="fact"><div class="label">AcoustIDs</div><div class="value">{{ tracks|length }}</div><div class="note">linked to this recording</div></div>
+  <div class="fact"><div class="label">Submissions</div><div class="value">{{ tracks|sum(attribute='submission_count')|thousands }}</div><div class="note">linking them to it</div></div>
+  <div class="fact"><div class="label">Fingerprints</div><div class="value">{{ tracks|selectattr('fingerprints')|sum(attribute='fingerprints')|thousands }}</div><div class="note">distinct audio files</div></div>
+  {% if all_min is not none %}
+  <div class="fact"><div class="label">Duration</div><div class="value">{{ lengths(all_min, all_max) }}</div><div class="note">range of submitted files</div></div>
+  {% endif %}
+</div>
 
 <section>
   <div class="section-head">
     <h2>AcoustIDs</h2>
-    <span class="meta">{{ tracks|length }} linked</span>
+    <span class="meta">Most submitted first{% if num_disabled %}, {{ num_disabled }} disabled{% endif %}</span>
+    {% if num_disabled and not show_disabled %}
+    <div class="actions"><a class="small" href="{{ url_for('.mbid', mbid=mbid, disabled='1') }}">Show {{ num_disabled }} disabled link{{ 's' if num_disabled != 1 }}</a></div>
+    {% endif %}
   </div>
   {% if tracks %}
-  <ul class="list-unstyled mono">
-  {% for tr in tracks %}
-    <li><a href="{{ url_for('.track', track_id_or_gid=tr.gid) }}">{{ tr.gid }}</a></li>
-  {% endfor %}
-  </ul>
+  <div class="table-scroll">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>AcoustID</th>
+          {% if representative %}<th>Most common fingerprint</th>{% endif %}
+          <th class="num">Fingerprints</th>
+          <th class="num">Length</th>
+          <th>Sources</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tracks %}
+        <tr{% if t.disabled %} class="mbid-disabled"{% endif %}>
+          <td>
+            <a class="mono" href="{{ url_for('.track', track_id_or_gid=t.gid) }}">{{ t.gid }}</a>
+            {% if t.other_recordings %}
+            <div class="small muted">
+              Also linked to
+              {% for r in t.other_recordings[:2] %}<a href="{{ url_for('.mbid', mbid=r.mbid) }}">{{ r.name or r.mbid }}</a>{% if r.artist_name %} by {{ r.artist_name }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+              {%- if t.other_recordings|length > 2 %} and {{ t.other_recordings|length - 2 }} more{% endif %}
+            </div>
+            {% endif %}
+          </td>
+          {% if representative %}
+          <td>{% if t.id in representative %}<a href="{{ url_for('.fingerprint', fingerprint_id=representative[t.id].id) }}"><canvas class="fp fp-thumb" data-fp="{{ representative[t.id].fingerprint|tojson }}" data-frames="948"></canvas></a>{% endif %}</td>
+          {% endif %}
+          <td class="num">{{ (t.fingerprints or 0)|thousands }}</td>
+          <td class="num">{{ lengths(t.min_length, t.max_length) }}</td>
+          <td>{{ bar(t.submission_count, max_sources) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if similarity %}
+  <h3 class="matrix-title">Are they the same audio?</h3>
+  <p class="muted small narrow">
+    Each cell compares the most common fingerprints of two of these AcoustIDs.
+    High scores mean the same audio was split into separate AcoustIDs, while low
+    scores are expected for different versions, edits or masterings of the recording.
+  </p>
+  <div class="table-scroll">
+    <table class="matrix">
+      <tr>
+        <th></th>
+        {% for t in tracks if t.id in representative %}<th>{{ t.gid[:8] }}</th>{% endfor %}
+      </tr>
+      {% for a in tracks if a.id in representative %}
+      <tr>
+        <th class="row">{{ a.gid[:8] }}</th>
+        {% for b in tracks if b.id in representative %}
+        {% if a.id == b.id %}
+        <td class="self">—</td>
+        {% else %}
+        {% set score = similarity.get(a.id, {}).get(b.id, 0) %}
+        <td style="{{ score|score_style }}" title="{{ a.gid }} vs {{ b.gid }}: score {{ '%.2f'|format(score) }}">
+          <a href="{{ url_for('.compare_fingerprints', fingerprint_id_1=representative[a.id].id, fingerprint_id_2=representative[b.id].id) }}">{{ '%.2f'|format(score) }}</a>
+        </td>
+        {% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
   {% else %}
   <p class="muted">No AcoustIDs are linked to this recording.</p>
   {% endif %}
 </section>
-
 {% endblock %}
-
