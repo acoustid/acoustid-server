@@ -45,8 +45,8 @@ BARCODE_BASIS` markers in `fp.js` come from `fit.py`.
    two can be compared on the same held-out recordings. `--window` and
    `--step` (in frames, 8 per second) change the band length.
 
-Fitting with the numbers above takes some minutes, most of it in finding
-where same-audio fingerprints overlap.
+Fitting with the numbers above takes about an hour and a half on one
+core, most of it in finding where same-audio fingerprints overlap.
 
 ## Reading the report
 
@@ -70,11 +70,15 @@ constants.
   varies across songs compared with across copies of the same audio. A low
   one means that color reacts to mastering.
 
-On 500 random fingerprints and 103 recordings scraped from the public
-pages (the data the current constants come from), same-audio bands
-differed by 7.0 and unrelated ones by 23.0. Same audio looked closer
-94.6% of the time. Swatches of a cut copy differed by 4.5 when aligned on
-the page, against 6.0 when each covered its whole fingerprint.
+The current constants come from 20,000 random fingerprints and 5,000
+recordings, extracted from a streaming replica with the command above.
+Fitted on half of the recordings and scored on the other half, same-audio
+bands differed by 6.7 and unrelated ones by 22.9, and same audio looked
+closer 96.9% of the time. Swatches of a cut copy differed by 4.0 when
+aligned on the page, against 5.4 when each covered its whole fingerprint.
+Disabled links looked farther from the top AcoustID than enabled ones only
+58.9% of the time, probably because many are disabled for reasons the
+audio can't show, such as the same audio linked to a duplicate recording.
 
 ## Keeping Python and JavaScript in sync
 
