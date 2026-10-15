@@ -128,7 +128,7 @@
           <td class="shrink"><span class="letter">{{ letters[fp.id] }}</span></td>
           <td class="mono"><a href="{{ url_for('.fingerprint', fingerprint_id=fp.id) }}">{{ fp.id }}</a></td>
           {% if fingerprint_data %}
-          <td>{% if fp.id in fingerprint_data %}<canvas class="fp fp-thumb" data-fp="{{ fingerprint_data[fp.id]|tojson }}" data-frames="948"></canvas>{% endif %}</td>
+          <td>{% if fp.id in fingerprint_data %}<canvas class="fp fp-thumb" data-fp="{{ fingerprint_data[fp.id]|tojson }}" data-frames="{{ thumbnail_frames }}"></canvas>{% endif %}</td>
           {% endif %}
           <td class="num">{{ fp.length|duration }}</td>
           <td>{{ bar(fp.submission_count, max_fp_sources) }}</td>

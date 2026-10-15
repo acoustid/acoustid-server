@@ -208,6 +208,7 @@ def track(track_id_or_gid: str) -> str:
         metadata_mode=metadata_mode,
         metadata_rows=metadata_rows,
         metadata_groups=metadata_groups,
+        thumbnail_frames=THUMBNAIL_FRAMES,
     )
 
 
@@ -510,6 +511,7 @@ def mbid(mbid: str) -> str:
         show_disabled=show_disabled,
         representative=representative,
         similarity=similarity,
+        thumbnail_frames=THUMBNAIL_FRAMES,
     )
 
 
