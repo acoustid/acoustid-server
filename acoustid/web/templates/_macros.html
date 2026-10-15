@@ -2,6 +2,10 @@
 {% macro fp_mode_switch() %}
 <span class="seg" data-fp-mode>
   <button type="button" data-mode="bits" aria-pressed="true" title="The fingerprint's raw bits">Bits</button>
-  <button type="button" data-mode="colors" aria-pressed="false" title="About 3 seconds of audio per band, similar audio gets similar colors. Colors only compare within this page.">Colors</button>
+  <button type="button" data-mode="colors" aria-pressed="false" title="About 10 seconds of audio per band, and the color of the whole song first. The same song gets the same colors on every page.">Colors</button>
+</span>
+<span class="seg" data-fp-order hidden>
+  <button type="button" data-order="sources" aria-pressed="true" title="Most submitted first">By sources</button>
+  <button type="button" data-order="color" aria-pressed="false" title="The first one, then always the one closest in color to those before it, so similar songs end up together and odd ones last">By color</button>
 </span>
 {% endmacro %}

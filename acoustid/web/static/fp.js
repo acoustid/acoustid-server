@@ -128,18 +128,46 @@ function timeAxis(el, frames, startFrame, pxPerFrame) {
 // Color barcodes.
 //
 // Each frame packs 16 filter outputs, each quantized to 4 levels and stored
-// as 2 Gray-coded bits. Averaging the decoded levels over windows of a few
-// seconds gives one 16-value summary per window, which barely changes with
-// bit errors or small offsets but does change with the music. The summaries
-// of all fingerprints on a page are projected onto their 3 main directions
-// (PCA) and those are drawn as colors, so similar audio gets similar colors.
-// The projection is fitted per page, so colors only compare within a page.
+// as 2 Gray-coded bits. Averaging the decoded levels over windows of about
+// 10 seconds gives one 16-value summary per window, which barely changes
+// with bit errors, small offsets or remastering, but does change with the
+// music. The summaries are projected onto 3 fixed directions, which become a
+// color, so the same song gets the same colors on every page, and a song
+// linked to the wrong recording stands out. A swatch at the start of each
+// barcode is the color of the whole song.
+//
+// The constants are fitted by scripts/barcode/fit.py, which also mirrors
+// the code below to score it; keep the two in sync.
 
-const BARCODE_WINDOW = 24; // frames, ~3 s
-const BARCODE_STEP = 8; // frames, ~1 s
+// BEGIN BARCODE_BASIS (written by scripts/barcode/fit.py)
+const BARCODE_BASIS = {
+  window: 80,
+  step: 40,
+  mean: [1.45249, 1.47820, 1.33808, 1.42064, 1.38322, 1.54985, 1.59962, 1.44106, 1.52650, 1.59431, 1.36587, 1.40155, 1.32332, 1.56010, 1.57039, 1.67342],
+  std: [0.77579, 0.76463, 0.76067, 0.15713, 0.12583, 0.71967, 0.73410, 0.10596, 0.17159, 0.10299, 0.43195, 0.14014, 0.15436, 0.11289, 0.75149, 0.17131],
+  axes: [
+    [-0.12790, 0.97715, -0.04887, 0.00408, -0.00214, 0.00854, -0.01250, -0.00025, -0.00837, -0.00605, 0.13743, 0.02502, 0.01756, 0.00734, 0.07878, -0.00135],
+    [-0.12767, 0.09924, 0.91401, 0.00100, -0.00080, 0.28279, -0.01397, -0.00148, 0.00102, 0.00622, -0.23652, 0.00568, 0.01176, 0.00418, -0.04153, -0.01943],
+    [0.96013, 0.09248, 0.07818, -0.02276, -0.01578, -0.16098, -0.12212, 0.00493, 0.01678, -0.02319, -0.13909, -0.00420, -0.02300, 0.01881, -0.02700, -0.00856],
+  ],
+  quantiles: [
+    [-2.5118, -1.8518, -1.6110, -1.4049, -1.2272, -1.0761, -0.9461, -0.8339, -0.7311, -0.6338, -0.5401, -0.4508, -0.3637, -0.2767, -0.1905, -0.1051, -0.0201, 0.0647, 0.1497, 0.2367, 0.3250, 0.4135, 0.5059, 0.6026, 0.7083, 0.8242, 0.9512, 1.0942, 1.2580, 1.4487, 1.6703, 1.9196, 2.8324],
+    [-3.5672, -1.7729, -1.4608, -1.2523, -1.0916, -0.9578, -0.8392, -0.7318, -0.6319, -0.5375, -0.4512, -0.3698, -0.2923, -0.2144, -0.1389, -0.0627, 0.0121, 0.0874, 0.1615, 0.2376, 0.3149, 0.3941, 0.4754, 0.5609, 0.6508, 0.7455, 0.8498, 0.9669, 1.0985, 1.2536, 1.4369, 1.6832, 3.6397],
+    [-3.1633, -1.8005, -1.5554, -1.3740, -1.2177, -1.0758, -0.9492, -0.8295, -0.7202, -0.6160, -0.5164, -0.4212, -0.3305, -0.2440, -0.1586, -0.0743, 0.0103, 0.0948, 0.1801, 0.2669, 0.3549, 0.4456, 0.5403, 0.6342, 0.7275, 0.8321, 0.9404, 1.0569, 1.1868, 1.3389, 1.5276, 1.7832, 2.7842],
+  ],
+};
+// END BARCODE_BASIS
+
 const GRAY_LEVEL = [0, 1, 3, 2];
+// A thumbnail that matches the page's reference at least this well
+// ("possibly related") shares its swatch range.
+const SWATCH_MIN_SCORE = 0.35;
+// Shared audio needed to average every matching swatch over the same range.
+const SWATCH_MIN_COMMON = 240; // frames, ~30 s
 
+// One 16-value summary per window, a window every `step` frames.
 function barcodeWindows(data, { length = null } = {}) {
+  const { window: size, step } = BARCODE_BASIS;
   const n = Math.min(data.length, length ?? data.length);
   const levels = Array.from({ length: 16 }, () => new Float32Array(n + 1));
   for (let i = 0; i < n; i++) {
@@ -149,94 +177,172 @@ function barcodeWindows(data, { length = null } = {}) {
     }
   }
   const windows = [];
-  for (let s = 0; s + BARCODE_WINDOW <= n; s += BARCODE_STEP) {
-    windows.push(Float64Array.from(levels, (sums) => (sums[s + BARCODE_WINDOW] - sums[s]) / BARCODE_WINDOW));
+  for (let s = 0; s + size <= n; s += step) {
+    windows.push(Float64Array.from(levels, (sums) => (sums[s + size] - sums[s]) / size));
   }
   return windows;
 }
 
-// Mean, standard deviation and the top 3 principal axes of all windows,
-// plus the range of each projection for scaling it to a color.
-function fitBarcodeBasis(windowLists) {
-  const all = windowLists.flat();
-  if (all.length < 2) return null;
-  const mean = new Float64Array(16), std = new Float64Array(16);
-  for (const w of all) for (let k = 0; k < 16; k++) mean[k] += w[k] / all.length;
-  for (const w of all) for (let k = 0; k < 16; k++) std[k] += (w[k] - mean[k]) ** 2 / all.length;
-  for (let k = 0; k < 16; k++) std[k] = Math.sqrt(std[k]) || 1;
-  const z = all.map((w) => w.map((v, k) => (v - mean[k]) / std[k]));
-  const cov = Array.from({ length: 16 }, () => new Float64Array(16));
-  for (const v of z) for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) cov[i][j] += v[i] * v[j];
-  const axes = [];
-  for (let c = 0; c < 3; c++) {
-    let v = new Float64Array(16).map((_, i) => 1 + i * 0.01);
-    let lambda = 0;
-    for (let iter = 0; iter < 100; iter++) {
-      const next = cov.map((row) => row.reduce((s, x, j) => s + x * v[j], 0));
-      lambda = Math.hypot(...next);
-      if (!lambda) break;
-      v = next.map((x) => x / lambda);
-    }
-    // An eigenvector's sign is arbitrary; fix it so the colors are stable.
-    const big = v.reduce((m, x, i) => (Math.abs(x) > Math.abs(v[m]) ? i : m), 0);
-    if (v[big] < 0) v = v.map((x) => -x);
-    axes.push(v);
-    // Remove this axis so the next iteration finds the next one.
-    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) cov[i][j] -= lambda * v[i] * v[j];
-  }
-  const basis = { mean, std, axes };
-  const proj = all.map((w) => projectWindow(basis, w));
-  const pct = (c, p) => {
-    const sorted = proj.map((x) => x[c]).sort((a, b) => a - b);
-    return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
-  };
-  basis.lo = [0, 1, 2].map((c) => pct(c, 0.02));
-  basis.hi = [0, 1, 2].map((c) => pct(c, 0.98));
-  return basis;
+// The mean of the windows that lie within frames [start, end), or of the
+// ones that touch it if none fits, or of all of them.
+function barcodeSwatch(windows, start = 0, end = Infinity) {
+  const { window: size, step } = BARCODE_BASIS;
+  if (!windows.length) return null;
+  let picked = windows.filter((_, i) => i * step >= start && i * step + size <= end);
+  if (!picked.length) picked = windows.filter((_, i) => i * step < end && i * step + size > start);
+  if (!picked.length) picked = windows;
+  const mean = new Float64Array(16);
+  for (const w of picked) for (let k = 0; k < 16; k++) mean[k] += w[k] / picked.length;
+  return mean;
 }
 
-function projectWindow({ mean, std, axes }, w) {
+// Where b lines up with a (b[i] with a[i + offset]) at any offset, overlapping
+// by at least min(minOverlap, half the shorter one). Every 4th frame first,
+// then every frame near the best offset. Null if they never overlap that much.
+function findOffset(a, b, minOverlap) {
+  minOverlap = Math.max(minOverlap, Math.min(a.length, b.length) * 0.5);
+  const at = (off, every) => {
+    const s = Math.max(0, off), e = Math.min(a.length, b.length + off);
+    if (e - s < minOverlap) return null;
+    let errors = 0, n = 0;
+    for (let i = s; i < e; i += every, n++) errors += popcount(a[i] ^ b[i - off]);
+    return errors / (32 * n);
+  };
+  let best = null;
+  for (let off = -b.length; off <= a.length; off++) {
+    const ber = at(off, 4);
+    if (ber !== null && (!best || ber < best.ber)) best = { ber, offset: off };
+  }
+  if (!best) return null;
+  let fine = null;
+  for (let off = best.offset - 3; off <= best.offset + 3; off++) {
+    const ber = at(off, 1);
+    if (ber !== null && (!fine || ber < fine.ber)) fine = { ber, offset: off };
+  }
+  return fine;
+}
+
+// Swatches for the thumbnails of one page. Each is aligned with a reference
+// (the first long enough one; on a recording page the most submitted
+// AcoustID), and the ones that match are averaged over the audio they all
+// share, so a cut or shifted copy of a song gets the same swatch as the
+// rest. One that doesn't match keeps the swatch of all of it.
+// `items` is [{data, windows}], the result is one swatch (or null) each.
+function barcodeSwatches(items) {
+  if (!items.length) return [];
+  let ref = items.findIndex((t) => t.data.length >= SWATCH_MIN_COMMON);
+  if (ref < 0) ref = 0;
+  const spans = items.map((t, i) => {
+    if (i === ref) return { offset: 0, start: 0, end: t.data.length };
+    const r = findOffset(items[ref].data, t.data, BARCODE_BASIS.window);
+    if (!r || 1 - 2 * r.ber < SWATCH_MIN_SCORE) return null;
+    return {
+      offset: r.offset,
+      start: Math.max(0, r.offset),
+      end: Math.min(items[ref].data.length, t.data.length + r.offset),
+    };
+  });
+  const long = spans.filter((s) => s && s.end - s.start >= SWATCH_MIN_COMMON);
+  let common = null;
+  if (long.length) {
+    const start = Math.max(...long.map((s) => s.start));
+    const end = Math.min(...long.map((s) => s.end));
+    if (end - start >= SWATCH_MIN_COMMON) common = { start, end };
+  }
+  return items.map((t, i) => {
+    const s = spans[i];
+    if (!t.windows.length) return null;
+    if (!s) return barcodeSwatch(t.windows);
+    let { start, end } = s;
+    if (common && end - start >= SWATCH_MIN_COMMON) ({ start, end } = common);
+    return barcodeSwatch(t.windows, start - s.offset, end - s.offset);
+  });
+}
+
+function projectWindow(w, { mean, std, axes } = BARCODE_BASIS) {
   return axes.map((axis) => axis.reduce((s, a, k) => s + a * (w[k] - mean[k]) / std[k], 0));
 }
 
-// The first component sets the lightness, the other two the red-green and
-// blue-yellow axes of CIELAB, where equal steps look about equally different.
-function barcodeColor(basis, w) {
-  const t = projectWindow(basis, w).map((x, c) => {
-    const range = basis.hi[c] - basis.lo[c];
-    return range > 0 ? Math.max(0, Math.min(1, (x - basis.lo[c]) / range)) : 0.5;
-  });
-  return labToRgb(32 + 58 * t[0], (t[1] - 0.5) * 96, (t[2] - 0.5) * 96);
+// Where x falls in a sorted table of quantiles, from 0 to 1.
+function quantileRank(x, q) {
+  if (x <= q[0]) return 0;
+  if (x >= q[q.length - 1]) return 1;
+  let i = 1;
+  while (q[i] < x) i++;
+  return (i - 1 + (x - q[i - 1]) / (q[i] - q[i - 1])) / (q.length - 1);
 }
 
-function labToRgb(L, a, b) {
-  const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200;
-  const f = (t) => (t ** 3 > 0.008856 ? t ** 3 : (t - 16 / 116) / 7.787);
-  const x = 0.95047 * f(fx), y = f(fy), z = 1.08883 * f(fz);
-  const lin = [
-    3.2406 * x - 1.5372 * y - 0.4986 * z,
-    -0.9689 * x + 1.8758 * y + 0.0415 * z,
-    0.0557 * x - 0.204 * y + 1.057 * z,
+function oklabToLinear(L, a, b) {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
   ];
-  return lin.map((c) => {
-    const s = c > 0.0031308 ? 1.055 * c ** (1 / 2.4) - 0.055 : 12.92 * c;
-    return Math.round(255 * Math.max(0, Math.min(1, s)));
+}
+
+// The largest OKLab chroma that sRGB can show at this lightness and hue.
+function maxChroma(L, hue) {
+  let lo = 0, hi = 0.4;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    const c = oklabToLinear(L, mid * Math.cos(hue), mid * Math.sin(hue));
+    if (c.every((v) => v >= -1e-6 && v <= 1 + 1e-6)) lo = mid; else hi = mid;
+  }
+  return lo;
+}
+
+// Where a window summary falls on the color axes: its rank on each, the
+// point (u, v) in the square the last two make, and the hue of that point.
+function barcodePoint(w, { quantiles } = BARCODE_BASIS) {
+  const t = projectWindow(w).map((x, c) => quantileRank(x, quantiles[c]));
+  const u = 2 * t[1] - 1, v = 2 * t[2] - 1;
+  return { t, u, v, hue: Math.atan2(v, u) };
+}
+
+// The first direction sets the OKLab lightness, the other two a point in a
+// square that becomes hue and chroma, with chroma scaled to what the screen
+// can show there, so no color gets clipped into another.
+function barcodeColor(w) {
+  const { t, u, v, hue } = barcodePoint(w);
+  const L = 0.45 + 0.43 * t[0];
+  const C = maxChroma(L, hue) * (0.25 + 0.75 * Math.min(1, Math.max(Math.abs(u), Math.abs(v))));
+  return oklabToLinear(L, C * Math.cos(hue), C * Math.sin(hue)).map((c) => {
+    c = Math.max(0, Math.min(1, c));
+    return Math.round(255 * (c > 0.0031308 ? 1.055 * c ** (1 / 2.4) - 0.055 : 12.92 * c));
   });
 }
 
-// One column per window, on the same time scale as drawFingerprint() with
-// the same `length`, so shorter fingerprints leave the same blank space.
-function drawBarcode(canvas, windows, basis, { length = null } = {}) {
-  const frames = length ?? (windows.length - 1) * BARCODE_STEP + BARCODE_WINDOW;
-  const width = Math.max(1, Math.floor((frames - BARCODE_WINDOW) / BARCODE_STEP) + 1);
-  const bg = hexToRgb(cssVar("--bg-sunk"));
+// Drawn at the screen's resolution, so bands keep even widths at any size.
+// The swatch comes first, then one band per window, centered on its window,
+// on the same time scale as drawFingerprint() with the same `length`, so
+// shorter fingerprints leave the same blank space.
+function drawBarcode(canvas, windows, { length = null, swatch = null } = {}) {
+  const { window: size, step } = BARCODE_BASIS;
+  const ratio = window.devicePixelRatio || 1;
+  const width = Math.max(1, Math.round((canvas.clientWidth || 200) * ratio));
+  const height = Math.max(1, Math.round((canvas.clientHeight || 22) * ratio));
   canvas.width = width;
-  canvas.height = 1;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
-  const img = ctx.createImageData(width, 1);
-  for (let x = 0; x < width; x++) {
-    const c = basis && x < windows.length ? barcodeColor(basis, windows[x]) : bg;
-    img.data.set([c[0], c[1], c[2], 255], x * 4);
+  ctx.fillStyle = cssVar("--bg-sunk");
+  ctx.fillRect(0, 0, width, height);
+  let x0 = 0;
+  if (swatch) {
+    const w = Math.round(height * 1.5);
+    ctx.fillStyle = `rgb(${barcodeColor(swatch)})`;
+    ctx.fillRect(0, 0, w, height);
+    x0 = w + Math.max(1, Math.round(2 * ratio));
   }
-  ctx.putImageData(img, 0, 0);
+  if (!windows.length) return;
+  const frames = (windows.length - 1) * step + size;
+  const scale = (width - x0) / (length ?? frames);
+  const edge = (i) => (i <= 0 ? 0 : i >= windows.length ? frames : i * step + (size - step) / 2);
+  windows.forEach((w, i) => {
+    const a = Math.round(x0 + edge(i) * scale), b = Math.round(x0 + edge(i + 1) * scale);
+    ctx.fillStyle = `rgb(${barcodeColor(w)})`;
+    ctx.fillRect(a, 0, Math.max(1, b - a), height);
+  });
 }
