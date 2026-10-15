@@ -68,24 +68,21 @@ def track(track_id_or_gid: str) -> str:
     title = 'Track "%s"' % (track_gid,)
     track = {"id": track_id, "gid": track_gid}
 
+    # Most submitted first, so A is the most common one, as on the recording
+    # page.
     query = (
         sql.select(
             schema.fingerprint.c.id,
             schema.fingerprint.c.length,
             schema.fingerprint.c.submission_count,
         )
-        .where(
-            schema.fingerprint.c.track_id == track_id,
-        )
-        .order_by(schema.fingerprint.c.length)
+        .where(schema.fingerprint.c.track_id == track_id)
+        .order_by(schema.fingerprint.c.submission_count.desc(), schema.fingerprint.c.id)
     )
     fingerprints = fingerprint_db.execute(query).fetchall()
 
     fingerprint_data: dict[int, list[int]] = {}
-    thumbnail_ids = [
-        fp.id
-        for fp in sorted(fingerprints, key=lambda fp: (-fp.submission_count, fp.id))
-    ][:MAX_FINGERPRINT_THUMBNAILS]
+    thumbnail_ids = [fp.id for fp in fingerprints[:MAX_FINGERPRINT_THUMBNAILS]]
     if thumbnail_ids:
         query = sql.select(
             schema.fingerprint.c.id,
