@@ -81,11 +81,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const cell = e.target.closest("td[data-a]");
       clear();
       if (!cell) return;
-      for (const letter of [cell.dataset.a, cell.dataset.b]) {
-        const selector = `[data-letter="${CSS.escape(letter)}"]`;
-        table.querySelector(`tr${selector}`)?.classList.add("is-highlighted");
-        for (const th of matrix.querySelectorAll(`th${selector}`)) th.classList.add("is-highlighted");
+      const letter = (l) => `[data-letter="${CSS.escape(l)}"]`;
+      // Both rows in the table, but in the grid only the cell's own row
+      // label and column header.
+      for (const l of [cell.dataset.a, cell.dataset.b]) {
+        table.querySelector(`tr${letter(l)}`)?.classList.add("is-highlighted");
       }
+      matrix.querySelector(`th.row${letter(cell.dataset.a)}`)?.classList.add("is-highlighted");
+      matrix.querySelector(`th:not(.row)${letter(cell.dataset.b)}`)?.classList.add("is-highlighted");
     });
     matrix.addEventListener("mouseleave", clear);
   }
