@@ -469,3 +469,5 @@ tr.mbid-disabled td:first-child a { text-decoration: line-through; }
   background: var(--bg-sunk); border-radius: 3px;
 }
 .matrix th .letter { font-size: 12px; }
+tr.is-highlighted td { background: #e3ebf7; }
+th.is-highlighted .letter, tr.is-highlighted .letter { background: var(--link); color: #fff; }

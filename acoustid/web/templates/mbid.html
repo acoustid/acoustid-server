@@ -66,9 +66,9 @@
           <th>Sources</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="acoustids">
         {% for t in tracks %}
-        <tr{% if t.disabled %} class="mbid-disabled"{% endif %}>
+        <tr data-letter="{{ letters[t.id] }}"{% if t.disabled %} class="mbid-disabled"{% endif %}>
           <td class="shrink"><span class="letter">{{ letters[t.id] }}</span></td>
           <td>
             <a class="mono" href="{{ url_for('.track', track_id_or_gid=t.gid) }}">{{ t.gid }}</a>
@@ -100,20 +100,20 @@
     scores are expected for different versions, edits or masterings of the recording.
   </p>
   <div class="table-scroll">
-    <table class="matrix">
+    <table class="matrix" data-highlights="acoustids">
       <tr>
         <th></th>
-        {% for t in tracks if t.id in representative %}<th title="{{ t.gid }}"><span class="letter">{{ letters[t.id] }}</span></th>{% endfor %}
+        {% for t in tracks if t.id in representative %}<th title="{{ t.gid }}" data-letter="{{ letters[t.id] }}"><span class="letter">{{ letters[t.id] }}</span></th>{% endfor %}
       </tr>
       {% for a in tracks if a.id in representative %}
       <tr>
-        <th class="row" title="{{ a.gid }}"><span class="letter">{{ letters[a.id] }}</span></th>
+        <th class="row" title="{{ a.gid }}" data-letter="{{ letters[a.id] }}"><span class="letter">{{ letters[a.id] }}</span></th>
         {% for b in tracks if b.id in representative %}
         {% if a.id == b.id %}
         <td class="self">—</td>
         {% else %}
         {% set score = similarity.get(a.id, {}).get(b.id, 0) %}
-        <td style="{{ score|score_style }}" title="{{ letters[a.id] }} ({{ a.gid }}) vs {{ letters[b.id] }} ({{ b.gid }}): score {{ '%.2f'|format(score) }}">
+        <td style="{{ score|score_style }}" data-a="{{ letters[a.id] }}" data-b="{{ letters[b.id] }}" title="{{ letters[a.id] }} ({{ a.gid }}) vs {{ letters[b.id] }} ({{ b.gid }}): score {{ '%.2f'|format(score) }}">
           <a href="{{ url_for('.compare_fingerprints', fingerprint_id_1=representative[a.id].id, fingerprint_id_2=representative[b.id].id) }}">{{ '%.2f'|format(score) }}</a>
         </td>
         {% endif %}

@@ -123,7 +123,7 @@
       </thead>
       <tbody id="fingerprints">
         {% for fp in fingerprints %}
-        <tr>
+        <tr data-letter="{{ letters[fp.id] }}">
           <td class="shrink"><input type="checkbox" value="{{ fp.id }}" aria-label="Select fingerprint {{ fp.id }}"></td>
           <td class="shrink"><span class="letter">{{ letters[fp.id] }}</span></td>
           <td class="mono"><a href="{{ url_for('.fingerprint', fingerprint_id=fp.id) }}">{{ fp.id }}</a></td>
@@ -146,20 +146,20 @@
     Click a cell to see the comparison.
   </p>
   <div class="table-scroll">
-    <table class="matrix">
+    <table class="matrix" data-highlights="fingerprints">
       <tr>
         <th></th>
-        {% for fp in fingerprints %}<th title="Fingerprint #{{ fp.id }}"><span class="letter">{{ letters[fp.id] }}</span></th>{% endfor %}
+        {% for fp in fingerprints %}<th title="Fingerprint #{{ fp.id }}" data-letter="{{ letters[fp.id] }}"><span class="letter">{{ letters[fp.id] }}</span></th>{% endfor %}
       </tr>
       {% for a in fingerprints %}
       <tr>
-        <th class="row" title="Fingerprint #{{ a.id }}"><span class="letter">{{ letters[a.id] }}</span></th>
+        <th class="row" title="Fingerprint #{{ a.id }}" data-letter="{{ letters[a.id] }}"><span class="letter">{{ letters[a.id] }}</span></th>
         {% for b in fingerprints %}
         {% if a.id == b.id %}
         <td class="self">—</td>
         {% else %}
         {% set score = similarity.get(a.id, {}).get(b.id, 0) %}
-        <td style="{{ score|score_style }}" title="{{ letters[a.id] }} (#{{ a.id }}) vs {{ letters[b.id] }} (#{{ b.id }}): score {{ '%.2f'|format(score) }}">
+        <td style="{{ score|score_style }}" data-a="{{ letters[a.id] }}" data-b="{{ letters[b.id] }}" title="{{ letters[a.id] }} (#{{ a.id }}) vs {{ letters[b.id] }} (#{{ b.id }}): score {{ '%.2f'|format(score) }}">
           <a href="{{ url_for('.compare_fingerprints', fingerprint_id_1=a.id, fingerprint_id_2=b.id) }}">{{ '%.2f'|format(score) }}</a>
         </td>
         {% endif %}

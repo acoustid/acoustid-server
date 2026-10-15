@@ -69,6 +69,27 @@ document.addEventListener("DOMContentLoaded", () => {
     draw(1);
   }
 
+  // Hovering a similarity grid cell highlights the two fingerprints or
+  // AcoustIDs it compares, in the table above and in the grid's labels.
+  for (const matrix of document.querySelectorAll("table.matrix[data-highlights]")) {
+    const table = document.getElementById(matrix.dataset.highlights);
+    if (!table) continue;
+    const clear = () => {
+      for (const el of document.querySelectorAll(".is-highlighted")) el.classList.remove("is-highlighted");
+    };
+    matrix.addEventListener("mouseover", (e) => {
+      const cell = e.target.closest("td[data-a]");
+      clear();
+      if (!cell) return;
+      for (const letter of [cell.dataset.a, cell.dataset.b]) {
+        const selector = `[data-letter="${CSS.escape(letter)}"]`;
+        table.querySelector(`tr${selector}`)?.classList.add("is-highlighted");
+        for (const th of matrix.querySelectorAll(`th${selector}`)) th.classList.add("is-highlighted");
+      }
+    });
+    matrix.addEventListener("mouseleave", clear);
+  }
+
   // Copy buttons.
   for (const btn of document.querySelectorAll("button[data-copy]")) {
     btn.addEventListener("click", async () => {
