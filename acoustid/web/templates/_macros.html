@@ -1,0 +1,7 @@
+{# Switches the fingerprint thumbnails on a page between raw bits and color barcodes, see site.js. #}
+{% macro fp_mode_switch() %}
+<span class="seg" data-fp-mode>
+  <button type="button" data-mode="bits" aria-pressed="true" title="The fingerprint's raw bits">Bits</button>
+  <button type="button" data-mode="colors" aria-pressed="false" title="About 3 seconds of audio per band, similar audio gets similar colors. Colors only compare within this page.">Colors</button>
+</span>
+{% endmacro %}

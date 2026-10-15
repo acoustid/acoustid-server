@@ -29,6 +29,41 @@ document.addEventListener("DOMContentLoaded", () => {
     drawFingerprint(canvas, JSON.parse(canvas.dataset.fp), { length: frames });
   }
 
+  // Switching the thumbnails between raw bits and color barcodes. The choice
+  // is remembered, and the barcodes are only computed when first shown.
+  const thumbs = [...document.querySelectorAll("canvas.fp-thumb[data-fp]")].map((canvas) => ({
+    canvas,
+    data: JSON.parse(canvas.dataset.fp),
+    length: canvas.dataset.frames ? Number(canvas.dataset.frames) : null,
+  }));
+  const modeSwitches = document.querySelectorAll("[data-fp-mode]");
+  if (thumbs.length && modeSwitches.length) {
+    let basis;
+    const show = (mode) => {
+      if (mode === "colors" && basis === undefined) {
+        for (const t of thumbs) t.windows = barcodeWindows(t.data, { length: t.length });
+        basis = fitBarcodeBasis(thumbs.map((t) => t.windows));
+      }
+      for (const t of thumbs) {
+        if (mode === "colors") drawBarcode(t.canvas, t.windows, basis, { length: t.length });
+        else drawFingerprint(t.canvas, t.data, { length: t.length });
+        t.canvas.classList.toggle("is-barcode", mode === "colors");
+      }
+      for (const group of modeSwitches) setPressed(group, group.querySelector(`[data-mode="${mode}"]`));
+    };
+    let saved = null;
+    try { saved = localStorage.getItem("fp-thumb-mode"); } catch {}
+    if (saved === "colors") show("colors");
+    for (const group of modeSwitches) {
+      group.addEventListener("click", (e) => {
+        const mode = e.target.closest("button[data-mode]")?.dataset.mode;
+        if (!mode) return;
+        show(mode);
+        try { localStorage.setItem("fp-thumb-mode", mode); } catch {}
+      });
+    }
+  }
+
   // Hero background.
   for (const el of document.querySelectorAll(".band-art[data-fp]")) {
     drawHeroArt(el, JSON.parse(el.dataset.fp));
