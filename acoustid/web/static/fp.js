@@ -131,9 +131,8 @@ function timeAxis(el, frames, startFrame, pxPerFrame) {
 // as 2 Gray-coded bits. Averaging the decoded levels over windows of a few
 // seconds gives one 16-value summary per window, which barely changes with
 // bit errors or small offsets but does change with the music. The summaries
-// of all fingerprints on a page are projected onto their 3 main directions
-// (PCA) and those are drawn as colors, so similar audio gets similar colors.
-// The projection is fitted per page, so colors only compare within a page.
+// are projected onto 3 fixed directions and those are drawn as colors, so
+// similar audio gets similar colors, on every page.
 
 const BARCODE_WINDOW = 24; // frames, ~3 s
 const BARCODE_STEP = 8; // frames, ~1 s
@@ -155,57 +154,30 @@ function barcodeWindows(data, { length = null } = {}) {
   return windows;
 }
 
-// Mean, standard deviation and the top 3 principal axes of all windows,
-// plus the range of each projection for scaling it to a color.
-function fitBarcodeBasis(windowLists) {
-  const all = windowLists.flat();
-  if (all.length < 2) return null;
-  const mean = new Float64Array(16), std = new Float64Array(16);
-  for (const w of all) for (let k = 0; k < 16; k++) mean[k] += w[k] / all.length;
-  for (const w of all) for (let k = 0; k < 16; k++) std[k] += (w[k] - mean[k]) ** 2 / all.length;
-  for (let k = 0; k < 16; k++) std[k] = Math.sqrt(std[k]) || 1;
-  const z = all.map((w) => w.map((v, k) => (v - mean[k]) / std[k]));
-  const cov = Array.from({ length: 16 }, () => new Float64Array(16));
-  for (const v of z) for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) cov[i][j] += v[i] * v[j];
-  const axes = [];
-  for (let c = 0; c < 3; c++) {
-    let v = new Float64Array(16).map((_, i) => 1 + i * 0.01);
-    let lambda = 0;
-    for (let iter = 0; iter < 100; iter++) {
-      const next = cov.map((row) => row.reduce((s, x, j) => s + x * v[j], 0));
-      lambda = Math.hypot(...next);
-      if (!lambda) break;
-      v = next.map((x) => x / lambda);
-    }
-    // An eigenvector's sign is arbitrary; fix it so the colors are stable.
-    const big = v.reduce((m, x, i) => (Math.abs(x) > Math.abs(v[m]) ? i : m), 0);
-    if (v[big] < 0) v = v.map((x) => -x);
-    axes.push(v);
-    // Remove this axis so the next iteration finds the next one.
-    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) cov[i][j] -= lambda * v[i] * v[j];
-  }
-  const basis = { mean, std, axes };
-  const proj = all.map((w) => projectWindow(basis, w));
-  const pct = (c, p) => {
-    const sorted = proj.map((x) => x[c]).sort((a, b) => a - b);
-    return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
-  };
-  basis.lo = [0, 1, 2].map((c) => pct(c, 0.02));
-  basis.hi = [0, 1, 2].map((c) => pct(c, 0.98));
-  return basis;
-}
+// The 3 main directions (PCA) of the standardized window summaries of
+// 10,000 random fingerprints from the database, and the 2nd and 98th
+// percentile of each projection for scaling it to a color. Changing these
+// changes every barcode's colors.
+const BARCODE_BASIS = {
+  mean: [1.49787, 1.50680, 1.32962, 1.41684, 1.38171, 1.52191, 1.55498, 1.44065, 1.52935, 1.59389, 1.35023, 1.39726, 1.31871, 1.56333, 1.55397, 1.68188],
+  std: [0.92719, 0.94487, 0.92213, 0.36092, 0.27873, 0.85465, 0.87213, 0.22686, 0.42783, 0.20291, 0.50265, 0.30505, 0.37624, 0.23622, 0.89651, 0.39105],
+  axes: [
+    [0.04297, -0.05624, 0.01300, -0.27542, 0.58504, 0.02060, 0.04389, -0.29510, -0.57835, 0.07438, 0.02434, 0.22827, 0.08614, -0.23452, 0.00702, 0.17908],
+    [0.19873, -0.07312, -0.22318, -0.00715, -0.02386, 0.41236, 0.51879, -0.11977, 0.05701, -0.05633, -0.41948, 0.16769, 0.04581, 0.14254, 0.43850, -0.16124],
+    [0.15258, 0.23862, 0.09258, -0.05209, -0.05096, -0.10469, -0.09355, -0.46498, 0.14704, 0.22188, 0.25025, 0.44206, 0.15994, 0.48591, -0.09608, -0.26488],
+  ],
+  lo: [-2.79346, -2.69326, -2.46803],
+  hi: [2.86299, 2.28688, 2.50811],
+};
 
-function projectWindow({ mean, std, axes }, w) {
+function projectWindow(w, { mean, std, axes } = BARCODE_BASIS) {
   return axes.map((axis) => axis.reduce((s, a, k) => s + a * (w[k] - mean[k]) / std[k], 0));
 }
 
 // The first component sets the lightness, the other two the red-green and
 // blue-yellow axes of CIELAB, where equal steps look about equally different.
-function barcodeColor(basis, w) {
-  const t = projectWindow(basis, w).map((x, c) => {
-    const range = basis.hi[c] - basis.lo[c];
-    return range > 0 ? Math.max(0, Math.min(1, (x - basis.lo[c]) / range)) : 0.5;
-  });
+function barcodeColor(w, { lo, hi } = BARCODE_BASIS) {
+  const t = projectWindow(w).map((x, c) => Math.max(0, Math.min(1, (x - lo[c]) / (hi[c] - lo[c]))));
   return labToRgb(32 + 58 * t[0], (t[1] - 0.5) * 96, (t[2] - 0.5) * 96);
 }
 
@@ -226,7 +198,7 @@ function labToRgb(L, a, b) {
 
 // One column per window, on the same time scale as drawFingerprint() with
 // the same `length`, so shorter fingerprints leave the same blank space.
-function drawBarcode(canvas, windows, basis, { length = null } = {}) {
+function drawBarcode(canvas, windows, { length = null } = {}) {
   const frames = length ?? (windows.length - 1) * BARCODE_STEP + BARCODE_WINDOW;
   const width = Math.max(1, Math.floor((frames - BARCODE_WINDOW) / BARCODE_STEP) + 1);
   const bg = hexToRgb(cssVar("--bg-sunk"));
@@ -235,7 +207,7 @@ function drawBarcode(canvas, windows, basis, { length = null } = {}) {
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(width, 1);
   for (let x = 0; x < width; x++) {
-    const c = basis && x < windows.length ? barcodeColor(basis, windows[x]) : bg;
+    const c = x < windows.length ? barcodeColor(windows[x]) : bg;
     img.data.set([c[0], c[1], c[2], 255], x * 4);
   }
   ctx.putImageData(img, 0, 0);
