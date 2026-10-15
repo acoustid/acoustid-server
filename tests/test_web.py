@@ -1144,6 +1144,12 @@ def test_mbid_page(app: Flask) -> None:
             '11111111-2222-3333-4444-555555555555"' in rv.text
         )
         assert "/mbid/11111111-2222-3333-4444-555555555555" not in rv.text
+        # Expanding the AcoustID lists every recording it is linked to,
+        # this one included.
+        assert 'aria-controls="links-1"' in rv.text
+        assert "Recordings linked to A" in rv.text
+        assert "this page" in rv.text
+        assert "not in MusicBrainz" in rv.text
     finally:
         with script.context() as ctx:
             ctx.db.get_fingerprint_db().execute(

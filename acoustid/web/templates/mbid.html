@@ -65,6 +65,7 @@
       <thead>
         <tr>
           <th class="shrink"></th>
+          <th class="shrink"></th>
           <th>AcoustID</th>
           {% if representative %}<th>Most common fingerprint</th>{% endif %}
           <th class="num">Fingerprints</th>
@@ -75,6 +76,7 @@
       <tbody id="acoustids">
         {% for t in tracks %}
         <tr data-letter="{{ letters[t.id] }}"{% if t.disabled %} class="mbid-disabled"{% endif %}>
+          <td class="shrink">{% if t.other_recordings %}<button type="button" class="row-toggle" aria-expanded="false" aria-controls="links-{{ t.id }}" title="Show all recordings linked to this AcoustID"><span class="chev">▶</span></button>{% endif %}</td>
           <td class="shrink"><span class="letter">{{ letters[t.id] }}</span></td>
           <td>
             <a class="mono" href="{{ url_for('.track', track_id_or_gid=t.gid) }}">{{ t.gid }}</a>
@@ -82,7 +84,7 @@
             <div class="small muted">
               Also linked to
               {% for r in t.other_recordings[:2] %}{% if r.name %}<a href="{{ url_for('.mbid', mbid=r.mbid) }}">{{ r.name }}</a>{% else %}<a class="mono" href="https://musicbrainz.org/recording/{{ r.mbid }}">{{ r.mbid }}</a>{% endif %}{% if r.artist_name %} by {{ r.artist_name }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
-              {%- if t.other_recordings|length > 2 %} and {{ t.other_recordings|length - 2 }} more{% endif %}
+              {%- if t.other_recordings|length > 2 %} and <button type="button" class="link-button" aria-controls="links-{{ t.id }}">{{ t.other_recordings|length - 2 }} more</button>{% endif %}
             </div>
             {% endif %}
           </td>
@@ -93,6 +95,33 @@
           <td class="num">{{ lengths(t.min_length, t.max_length) }}</td>
           <td>{{ bar(t.submission_count, max_sources) }}</td>
         </tr>
+        {% if t.other_recordings %}
+        {# Every recording this AcoustID is linked to, this one included, to see which link is the odd one out. #}
+        {% set links = ([dict(recording, mbid=mbid, submission_count=t.submission_count, current=true)] + t.other_recordings)|sort(attribute='submission_count', reverse=true) %}
+        {% set max_link = links|map(attribute='submission_count')|max %}
+        <tr class="links-row" id="links-{{ t.id }}" hidden>
+          <td></td>
+          <td colspan="{{ 6 if representative else 5 }}">
+            <div class="links-title">Recordings linked to {{ letters[t.id] }}</div>
+            <table class="links">
+              {% for r in links %}
+              <tr{% if r.current %} class="current"{% endif %}>
+                <td>
+                  {% if r.current %}<b>{{ r.name }}</b> <span class="chip">this page</span>
+                  {% elif r.name %}<a href="{{ url_for('.mbid', mbid=r.mbid) }}">{{ r.name }}</a>
+                  {% else %}<span class="mono muted">{{ r.mbid }}</span> <span class="chip">not in MusicBrainz</span>{% endif %}
+                  {% if r.comment %}<span class="muted">({{ r.comment }})</span>{% endif %}
+                </td>
+                <td>{{ r.artist_name or "–" }}</td>
+                <td class="num">{{ r.length|duration if r.length else "–" }}</td>
+                <td>{{ bar(r.submission_count, max_link) }}</td>
+                <td class="shrink"><a class="small" href="https://musicbrainz.org/recording/{{ r.mbid }}">MusicBrainz</a></td>
+              </tr>
+              {% endfor %}
+            </table>
+          </td>
+        </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>
