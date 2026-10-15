@@ -93,6 +93,18 @@ document.addEventListener("DOMContentLoaded", () => {
     matrix.addEventListener("mouseleave", clear);
   }
 
+  // Rows that expand to show more, like all recordings an AcoustID is
+  // linked to. Every button controlling the same row stays in sync.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("button.row-toggle, button.link-button");
+    const row = btn && document.getElementById(btn.getAttribute("aria-controls"));
+    if (!row) return;
+    row.hidden = !row.hidden;
+    for (const b of document.querySelectorAll(`button.row-toggle[aria-controls="${CSS.escape(row.id)}"]`)) {
+      b.setAttribute("aria-expanded", !row.hidden);
+    }
+  });
+
   // Copy buttons.
   for (const btn of document.querySelectorAll("button[data-copy]")) {
     btn.addEventListener("click", async () => {

@@ -414,7 +414,22 @@ textarea.form-control { min-height: 6em; }
 /* Track moderation */
 
 tr.mbid-disabled td { opacity: 0.55; }
-tr.mbid-disabled td:first-child a { text-decoration: line-through; }
+tr.mbid-disabled td > a.mono { text-decoration: line-through; }
+
+/* All recordings an AcoustID is linked to, expanded under its row */
+
+.row-toggle { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 2px 4px; font-size: 11px; }
+.row-toggle:hover { color: var(--ink); }
+.row-toggle .chev { display: inline-block; transition: transform 0.15s; }
+.row-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.link-button { border: 0; background: none; padding: 0; font: inherit; color: var(--link); cursor: pointer; }
+.link-button:hover { text-decoration: underline; }
+table.data tr.links-row > td, table.data tr.links-row:hover > td { background: var(--bg-soft); padding-top: 2px; padding-bottom: 12px; }
+table.links { width: 100%; border-collapse: collapse; font-size: 14px; }
+.links-title { font-size: 13px; font-weight: 600; color: var(--muted); padding: 6px 0 2px; }
+table.data table.links td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+table.data table.links tr:hover td { background: none; }
+table.links tr:last-child td { border-bottom: 0; }
 .history { list-style: none; padding: 0; font-size: 14px; }
 .history li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .btn.small { padding: 1px 8px; font-size: 13px; }

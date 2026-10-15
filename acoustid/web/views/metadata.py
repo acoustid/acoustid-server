@@ -438,25 +438,34 @@ def mbid(mbid: str) -> str:
     # Other recordings the same AcoustIDs are linked to, which is where wrong
     # links show up.
     if track_ids:
-        query = sql.select(
-            schema.track_mbid.c.track_id, schema.track_mbid.c.mbid
-        ).where(
-            schema.track_mbid.c.track_id.in_(track_ids),
-            schema.track_mbid.c.mbid != mbid,
-            schema.track_mbid.c.disabled.is_(False),
+        query = (
+            sql.select(
+                schema.track_mbid.c.track_id,
+                schema.track_mbid.c.mbid,
+                schema.track_mbid.c.submission_count,
+            )
+            .where(
+                schema.track_mbid.c.track_id.in_(track_ids),
+                schema.track_mbid.c.mbid != mbid,
+                schema.track_mbid.c.disabled.is_(False),
+            )
+            .order_by(schema.track_mbid.c.submission_count.desc())
         )
-        others: dict[int, list[str]] = {}
+        others: dict[int, list[tuple[str, int]]] = {}
         for row in fingerprint_db.execute(query):
-            others.setdefault(row.track_id, []).append(str(row.mbid))
+            others.setdefault(row.track_id, []).append(
+                (str(row.mbid), row.submission_count)
+            )
         other_metadata = {
             str(k): v
             for k, v in lookup_recording_metadata(
-                musicbrainz_db, sorted({m for ms in others.values() for m in ms})
+                musicbrainz_db, sorted({m for ms in others.values() for m, _ in ms})
             ).items()
         }
         for t in tracks:
             t["other_recordings"] = [
-                dict(other_metadata.get(m, {}), mbid=m) for m in others.get(t["id"], [])
+                dict(other_metadata.get(m, {}), mbid=m, submission_count=count)
+                for m, count in others.get(t["id"], [])
             ]
 
     # The most submitted fingerprint of each AcoustID, drawn as a thumbnail
