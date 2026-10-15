@@ -202,6 +202,7 @@ select, input[type=text], input[type=number] {
 
 canvas.fp { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 .fp-thumb { width: 200px; height: 22px; image-rendering: auto; border: 1px solid var(--line); }
+.fp-thumb.is-barcode { image-rendering: pixelated; image-rendering: crisp-edges; }
 .fp-scroll {
   overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--bg-soft); padding: 12px 12px 4px;
