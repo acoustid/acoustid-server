@@ -40,6 +40,9 @@ from acoustid.web.views.metadata import MAX_FINGERPRINT_THUMBNAILS, THUMBNAIL_FR
 logger = logging.getLogger(__name__)
 
 BATCH = 1000
+# Batches in a row that add no recording before giving up, for databases
+# with fewer qualifying recordings than were asked for.
+MAX_IDLE_BATCHES = 50
 
 
 def sample_ids(conn: Any, table: Any) -> Iterator[list[int]]:
@@ -72,10 +75,12 @@ def extract_recordings(conn: Any, path: str, count: int) -> None:
     fp = schema.fingerprint
     seen: set[str] = set()
     written = 0
+    idle = 0
     with open(path, "w") as out:
         # Sampling links rather than recordings favours recordings with many
         # AcoustIDs, which are the pages the barcodes are for.
         for ids in sample_ids(conn, tm):
+            before = written
             mbids = {
                 str(m)
                 for m in conn.execute(
@@ -129,6 +134,15 @@ def extract_recordings(conn: Any, path: str, count: int) -> None:
                 if written >= count:
                     logger.info("Wrote %d recordings to %s", written, path)
                     return
+            idle = idle + 1 if written == before else 0
+            if idle >= MAX_IDLE_BATCHES:
+                logger.warning(
+                    "Only found %d of %d recordings, wrote them to %s",
+                    written,
+                    count,
+                    path,
+                )
+                return
 
 
 def main(script: Any, opts: Any, args: Any) -> None:
