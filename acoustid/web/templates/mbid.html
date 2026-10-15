@@ -18,6 +18,9 @@
 {% set max_sources = tracks|map(attribute='submission_count')|max|default(0) %}
 {% set all_min = tracks|selectattr('min_length')|map(attribute='min_length')|min|default(none) %}
 {% set all_max = tracks|selectattr('max_length')|map(attribute='max_length')|max|default(none) %}
+{# AcoustIDs are labelled A, B, C, ... in the table and the similarity grid. #}
+{% set letters = {} %}
+{% for t in tracks %}{% set _ = letters.update({t.id: loop.index0|letter}) %}{% endfor %}
 
 <div class="page-head">
   <div class="eyebrow">MusicBrainz recording</div>
@@ -55,6 +58,7 @@
     <table class="data">
       <thead>
         <tr>
+          <th class="shrink"></th>
           <th>AcoustID</th>
           {% if representative %}<th>Most common fingerprint</th>{% endif %}
           <th class="num">Fingerprints</th>
@@ -65,6 +69,7 @@
       <tbody>
         {% for t in tracks %}
         <tr{% if t.disabled %} class="mbid-disabled"{% endif %}>
+          <td class="shrink"><span class="letter">{{ letters[t.id] }}</span></td>
           <td>
             <a class="mono" href="{{ url_for('.track', track_id_or_gid=t.gid) }}">{{ t.gid }}</a>
             {% if t.other_recordings %}
@@ -98,17 +103,17 @@
     <table class="matrix">
       <tr>
         <th></th>
-        {% for t in tracks if t.id in representative %}<th>{{ t.gid[:8] }}</th>{% endfor %}
+        {% for t in tracks if t.id in representative %}<th title="{{ t.gid }}"><span class="letter">{{ letters[t.id] }}</span></th>{% endfor %}
       </tr>
       {% for a in tracks if a.id in representative %}
       <tr>
-        <th class="row">{{ a.gid[:8] }}</th>
+        <th class="row" title="{{ a.gid }}"><span class="letter">{{ letters[a.id] }}</span></th>
         {% for b in tracks if b.id in representative %}
         {% if a.id == b.id %}
         <td class="self">—</td>
         {% else %}
         {% set score = similarity.get(a.id, {}).get(b.id, 0) %}
-        <td style="{{ score|score_style }}" title="{{ a.gid }} vs {{ b.gid }}: score {{ '%.2f'|format(score) }}">
+        <td style="{{ score|score_style }}" title="{{ letters[a.id] }} ({{ a.gid }}) vs {{ letters[b.id] }} ({{ b.gid }}): score {{ '%.2f'|format(score) }}">
           <a href="{{ url_for('.compare_fingerprints', fingerprint_id_1=representative[a.id].id, fingerprint_id_2=representative[b.id].id) }}">{{ '%.2f'|format(score) }}</a>
         </td>
         {% endif %}

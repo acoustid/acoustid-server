@@ -26,6 +26,9 @@
 {% block content %}
 {% set lengths = fingerprints|map(attribute='length')|list %}
 {% set max_fp_sources = fingerprints|map(attribute='submission_count')|max|default(0) %}
+{# Fingerprints are labelled A, B, C, ... in the table and the similarity grid. #}
+{% set letters = {} %}
+{% for fp in fingerprints %}{% set _ = letters.update({fp.id: loop.index0|letter}) %}{% endfor %}
 {% set max_rec_sources = recordings|map(attribute='submission_count')|max|default(0) %}
 
 <div class="page-head">
@@ -111,6 +114,7 @@
       <thead>
         <tr>
           <th class="shrink"></th>
+          <th class="shrink"></th>
           <th>ID</th>
           {% if fingerprint_data %}<th>First 2 minutes</th>{% endif %}
           <th class="num">Length</th>
@@ -121,6 +125,7 @@
         {% for fp in fingerprints %}
         <tr>
           <td class="shrink"><input type="checkbox" value="{{ fp.id }}" aria-label="Select fingerprint {{ fp.id }}"></td>
+          <td class="shrink"><span class="letter">{{ letters[fp.id] }}</span></td>
           <td class="mono"><a href="{{ url_for('.fingerprint', fingerprint_id=fp.id) }}">{{ fp.id }}</a></td>
           {% if fingerprint_data %}
           <td>{% if fp.id in fingerprint_data %}<canvas class="fp fp-thumb" data-fp="{{ fingerprint_data[fp.id]|tojson }}" data-frames="948"></canvas>{% endif %}</td>
@@ -144,17 +149,17 @@
     <table class="matrix">
       <tr>
         <th></th>
-        {% for fp in fingerprints %}<th>{{ fp.id }}</th>{% endfor %}
+        {% for fp in fingerprints %}<th title="Fingerprint #{{ fp.id }}"><span class="letter">{{ letters[fp.id] }}</span></th>{% endfor %}
       </tr>
       {% for a in fingerprints %}
       <tr>
-        <th class="row">{{ a.id }}</th>
+        <th class="row" title="Fingerprint #{{ a.id }}"><span class="letter">{{ letters[a.id] }}</span></th>
         {% for b in fingerprints %}
         {% if a.id == b.id %}
         <td class="self">—</td>
         {% else %}
         {% set score = similarity.get(a.id, {}).get(b.id, 0) %}
-        <td style="{{ score|score_style }}" title="#{{ a.id }} vs #{{ b.id }}: score {{ '%.2f'|format(score) }}">
+        <td style="{{ score|score_style }}" title="{{ letters[a.id] }} (#{{ a.id }}) vs {{ letters[b.id] }} (#{{ b.id }}): score {{ '%.2f'|format(score) }}">
           <a href="{{ url_for('.compare_fingerprints', fingerprint_id_1=a.id, fingerprint_id_2=b.id) }}">{{ '%.2f'|format(score) }}</a>
         </td>
         {% endif %}

@@ -460,3 +460,12 @@ tr.mbid-disabled td:first-child a { text-decoration: line-through; }
 }
 .prose .timeline time { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 520px) { .prose .timeline li { grid-template-columns: 1fr; } }
+
+/* Letters that label fingerprints and AcoustIDs in tables and grids */
+
+.letter {
+  display: inline-block; min-width: 1.7em; padding: 0 4px; text-align: center;
+  font: 600 13px/1.6 var(--mono); color: var(--ink);
+  background: var(--bg-sunk); border-radius: 3px;
+}
+.matrix th .letter { font-size: 12px; }
