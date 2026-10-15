@@ -1050,3 +1050,27 @@ def test_mbid_page_rejects_invalid_ids(app: Flask) -> None:
 def test_track_page_metadata_links_keep_disabled_recordings(app: Flask) -> None:
     rv = app.test_client().get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291?disabled=1")
     assert "?metadata=raw&amp;disabled=1#metadata" in rv.text
+
+
+def test_replacing_the_api_key_requires_post(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 2
+
+    assert client.get("/new-api-key").status_code == 405
+    assert "user2key" in client.get("/api-key").text
+
+    try:
+        rv = client.post("/new-api-key")
+        assert rv.status_code == 302
+        assert "user2key" not in client.get("/api-key").text
+    finally:
+        from acoustid import tables as schema
+
+        with app.acoustid_script.context() as ctx:  # type: ignore
+            ctx.db.get_app_db().execute(
+                schema.account.update()
+                .where(schema.account.c.id == 2)
+                .values(apikey="user2key")
+            )
+            ctx.db.session.commit()

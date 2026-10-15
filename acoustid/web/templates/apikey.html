@@ -25,7 +25,9 @@
         Do this if your key has leaked. Applications that still use the old key will no longer be
         able to submit fingerprints until you give them the new one.
       </p>
-      <a class="btn danger" href="{{ url_for('user.new_api_key') }}">Replace my API key</a>
+      <form method="POST" action="{{ url_for('user.new_api_key') }}">
+        <button type="submit" class="btn danger">Replace my API key</button>
+      </form>
     </details>
   </section>
 

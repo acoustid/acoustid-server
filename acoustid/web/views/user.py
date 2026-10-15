@@ -503,7 +503,8 @@ def api_key():
     )
 
 
-@user_page.route("/new-api-key")
+# POST only, so another site can't replace someone's key by linking to it.
+@user_page.route("/new-api-key", methods=["POST"])
 def new_api_key():
     user = require_user()
     user.apikey = generate_api_key()
