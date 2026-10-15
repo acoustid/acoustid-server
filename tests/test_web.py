@@ -716,6 +716,36 @@ def test_track_page_fingerprints(app: Flask, track_fingerprints) -> None:
     assert "/fingerprint/%d/compare/%d" % (a, b) in rv.text
 
 
+def test_track_page_draws_only_the_most_submitted_fingerprints(
+    app: Flask, track_fingerprints
+) -> None:
+    from acoustid import tables as schema
+    from acoustid.web.views import metadata
+
+    a, b, c = track_fingerprints
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        ctx.db.get_fingerprint_db().execute(
+            schema.fingerprint.update()
+            .where(schema.fingerprint.c.id == c)
+            .values(submission_count=5)
+        )
+        ctx.db.session.commit()
+
+    with mock.patch.object(metadata, "MAX_FINGERPRINT_THUMBNAILS", 2):
+        rv = app.test_client().get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
+    assert rv.status_code == 200
+    # Above the limit there are still drawings, of the most submitted ones.
+    assert rv.text.count('class="fp fp-thumb"') == 2
+    assert "Drawn for the 2 most submitted" in rv.text
+    # a and b have one submission each, so b, the later one, is left out.
+    rows = {
+        fp: next(r for r in rv.text.split("<tr") if '/fingerprint/%d">' % fp in r)
+        for fp in (a, b, c)
+    }
+    assert "fp-thumb" in rows[a] and "fp-thumb" in rows[c]
+    assert "fp-thumb" not in rows[b]
+
+
 def test_fingerprint_page(app: Flask, track_fingerprints) -> None:
     client = app.test_client()
     a, b, c = track_fingerprints

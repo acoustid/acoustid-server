@@ -108,6 +108,9 @@
     {% if fingerprints|length > 1 %}
     <span class="meta">Select two to compare them in detail</span>
     {% endif %}
+    {% if fingerprints|length > max_thumbnails %}
+    <span class="meta">Drawn for the {{ max_thumbnails }} most submitted</span>
+    {% endif %}
     {% if fingerprints|length > 1 or fingerprint_data %}
     <div class="actions">
       {% if fingerprint_data %}{{ fp_mode_switch() }}{% endif %}

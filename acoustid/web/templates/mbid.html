@@ -51,7 +51,7 @@
 <section>
   <div class="section-head">
     <h2>AcoustIDs</h2>
-    <span class="meta">Most submitted first{% if num_disabled %}, {{ num_disabled }} disabled{% endif %}</span>
+    <span class="meta">Most submitted first{% if num_disabled %}, {{ num_disabled }} disabled{% endif %}{% if tracks|length > max_thumbnails %}, fingerprints drawn for the top {{ max_thumbnails }}{% endif %}</span>
     {% if (num_disabled and not show_disabled) or representative %}
     <div class="actions">
       {% if num_disabled and not show_disabled %}<a class="small" href="{{ url_for('.mbid', mbid=mbid, disabled='1') }}">Show {{ num_disabled }} disabled link{{ 's' if num_disabled != 1 }}</a>{% endif %}
