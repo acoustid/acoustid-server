@@ -294,14 +294,20 @@ function maxChroma(L, hue) {
   return lo;
 }
 
+// Where a window summary falls on the color axes: its rank on each, the
+// point (u, v) in the square the last two make, and the hue of that point.
+function barcodePoint(w, { quantiles } = BARCODE_BASIS) {
+  const t = projectWindow(w).map((x, c) => quantileRank(x, quantiles[c]));
+  const u = 2 * t[1] - 1, v = 2 * t[2] - 1;
+  return { t, u, v, hue: Math.atan2(v, u) };
+}
+
 // The first direction sets the OKLab lightness, the other two a point in a
 // square that becomes hue and chroma, with chroma scaled to what the screen
 // can show there, so no color gets clipped into another.
-function barcodeColor(w, { quantiles } = BARCODE_BASIS) {
-  const t = projectWindow(w).map((x, c) => quantileRank(x, quantiles[c]));
+function barcodeColor(w) {
+  const { t, u, v, hue } = barcodePoint(w);
   const L = 0.45 + 0.43 * t[0];
-  const u = 2 * t[1] - 1, v = 2 * t[2] - 1;
-  const hue = Math.atan2(v, u);
   const C = maxChroma(L, hue) * (0.25 + 0.75 * Math.min(1, Math.max(Math.abs(u), Math.abs(v))));
   return oklabToLinear(L, C * Math.cos(hue), C * Math.sin(hue)).map((c) => {
     c = Math.max(0, Math.min(1, c));

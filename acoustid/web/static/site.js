@@ -53,7 +53,56 @@ document.addEventListener("DOMContentLoaded", () => {
         t.canvas.classList.toggle("is-barcode", mode === "colors");
       });
       for (const group of modeSwitches) setPressed(group, group.querySelector(`[data-mode="${mode}"]`));
+      for (const group of orderSwitches) group.hidden = mode !== "colors";
+      if (mode !== "colors") sortRows("sources");
     };
+
+    // With colors shown, the rows can also be ordered by color: the first row,
+    // then always the one whose swatch is closest to any taken so far, so
+    // rows that sound alike end up together and the odd ones come last. An
+    // expanded row moves with its row, and rows without a swatch stay at the
+    // end in their original order.
+    const orderSwitches = document.querySelectorAll("[data-fp-order]");
+    const tbody = thumbs[0].canvas.closest("tbody");
+    const rows = [...tbody.children].filter((tr) => !tr.classList.contains("links-row"));
+    const details = new Map(rows.map((tr) => {
+      const next = tr.nextElementSibling;
+      return [tr, next?.classList.contains("links-row") ? next : null];
+    }));
+    const sortRows = (order) => {
+      let sorted = rows;
+      if (order === "color" && swatches) {
+        const points = new Map();
+        thumbs.forEach((t, i) => {
+          if (!swatches[i]) return;
+          const { t: ranks, u, v } = barcodePoint(swatches[i]);
+          points.set(t.canvas.closest("tr"), [2 * ranks[0] - 1, u, v]);
+        });
+        const dist = (a, b) => points.get(a).reduce((sum, x, k) => sum + (x - points.get(b)[k]) ** 2, 0);
+        const left = rows.filter((tr) => points.has(tr));
+        sorted = left.length ? [left.shift()] : [];
+        const nearest = new Map(left.map((tr) => [tr, dist(tr, sorted[0])]));
+        while (left.length) {
+          const next = left.reduce((best, tr) => (nearest.get(tr) < nearest.get(best) ? tr : best));
+          sorted.push(next);
+          left.splice(left.indexOf(next), 1);
+          for (const tr of left) nearest.set(tr, Math.min(nearest.get(tr), dist(tr, next)));
+        }
+        sorted.push(...rows.filter((tr) => !points.has(tr)));
+      }
+      for (const tr of sorted) {
+        tbody.append(tr);
+        if (details.get(tr)) tbody.append(details.get(tr));
+      }
+      for (const group of orderSwitches) setPressed(group, group.querySelector(`[data-order="${order}"]`));
+    };
+    for (const group of orderSwitches) {
+      group.addEventListener("click", (e) => {
+        const order = e.target.closest("button[data-order]")?.dataset.order;
+        if (order) sortRows(order);
+      });
+    }
+
     let saved = null;
     try { saved = localStorage.getItem("fp-thumb-mode"); } catch {}
     if (saved === "colors") show("colors");
