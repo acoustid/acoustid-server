@@ -8,8 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const slider = document.getElementById("offset");
   const zoomGroup = root.querySelector("[data-zoom]");
   const scan = scanOffsets(A, B);
-  // Start at the best alignment, unless the server already picked one.
-  let offset = slider.dataset.best ? Number(slider.dataset.best) : scan.best.offset;
+  let offset = scan.best.offset;
   slider.value = offset;
   let zoom = 2;
 

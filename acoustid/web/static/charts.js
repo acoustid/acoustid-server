@@ -8,7 +8,8 @@ function niceMax(v) {
 function lineChart(el, { labels, series, height = 220, yFormat = fmt.compact, xFormat = (x) => x, yMin = 0, area = false, markers = [], xTick = null }) {
   const W = 720, H = height, L = 48, R = 12, T = 12, B = 26;
   const vals = series.flatMap((s) => s.values).filter((v) => v != null);
-  const yMax = niceMax(Math.max(...vals));
+  // At least 1, so a chart of all zeros (or no values) still has a scale.
+  const yMax = niceMax(Math.max(1, ...vals));
   const x = (i) => L + (i * (W - L - R)) / Math.max(1, labels.length - 1);
   const y = (v) => T + (1 - (v - yMin) / (yMax - yMin)) * (H - T - B);
 

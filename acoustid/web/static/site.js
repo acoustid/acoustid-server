@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const chart = JSON.parse(el.dataset.chart);
     if (chart.tip === "hit-rate") {
       const [all, hits] = chart.series;
-      el._extraTip = (i) => `<div class="row"><span class="muted">Hit rate</span><b>${fmt.pct(hits.values[i] / all.values[i])}</b></div>`;
+      el._extraTip = (i) => `<div class="row"><span class="muted">Hit rate</span><b>${(all.values[i] ? fmt.pct(hits.values[i] / all.values[i]) : "–")}</b></div>`;
     }
     lineChart(el, {
       labels: chart.labels,
