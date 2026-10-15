@@ -154,31 +154,46 @@ function barcodeWindows(data, { length = null } = {}) {
   return windows;
 }
 
-// The 3 main directions (PCA) of the standardized window summaries of
-// 10,000 random fingerprints from the database, and the 2nd and 98th
-// percentile of each projection for scaling it to a color. Changing these
-// changes every barcode's colors.
+// The 3 directions in which the window summaries of different fingerprints
+// differ most, relative to how much they vary within one fingerprint (LDA),
+// fitted on 10,000 random fingerprints from the database. Songs get a
+// steady color of their own instead of flickering with every bar. For each
+// direction, `quantiles` holds 33 evenly spaced points of its distribution
+// over that sample, so that every color gets used about equally. Changing
+// any of this changes every barcode's colors.
 const BARCODE_BASIS = {
   mean: [1.49787, 1.50680, 1.32962, 1.41684, 1.38171, 1.52191, 1.55498, 1.44065, 1.52935, 1.59389, 1.35023, 1.39726, 1.31871, 1.56333, 1.55397, 1.68188],
   std: [0.92719, 0.94487, 0.92213, 0.36092, 0.27873, 0.85465, 0.87213, 0.22686, 0.42783, 0.20291, 0.50265, 0.30505, 0.37624, 0.23622, 0.89651, 0.39105],
   axes: [
-    [0.04297, -0.05624, 0.01300, -0.27542, 0.58504, 0.02060, 0.04389, -0.29510, -0.57835, 0.07438, 0.02434, 0.22827, 0.08614, -0.23452, 0.00702, 0.17908],
-    [0.19873, -0.07312, -0.22318, -0.00715, -0.02386, 0.41236, 0.51879, -0.11977, 0.05701, -0.05633, -0.41948, 0.16769, 0.04581, 0.14254, 0.43850, -0.16124],
-    [0.15258, 0.23862, 0.09258, -0.05209, -0.05096, -0.10469, -0.09355, -0.46498, 0.14704, 0.22188, 0.25025, 0.44206, 0.15994, 0.48591, -0.09608, -0.26488],
+    [-0.43415, -0.26660, 0.02455, 0.02021, -0.00491, 0.43706, 0.61369, 0.03498, -0.02716, 0.00298, 0.05003, 0.04252, 0.01048, 0.05460, 0.40297, -0.00274],
+    [-0.61142, -0.03460, 0.06802, 0.02202, 0.04584, 0.18581, -0.22234, 0.00948, -0.01668, -0.02961, 0.72448, 0.02855, 0.02804, 0.05796, -0.04092, -0.03228],
+    [0.41249, 0.39964, -0.07833, -0.00841, 0.03717, 0.70644, 0.07032, -0.01770, 0.05806, 0.01840, 0.15375, -0.01742, 0.04417, -0.07780, -0.34978, -0.01544],
   ],
-  lo: [-2.79346, -2.69326, -2.46803],
-  hi: [2.86299, 2.28688, 2.50811],
+  quantiles: [
+    [-3.4867, -1.8206, -1.5529, -1.3653, -1.2119, -1.0798, -0.9615, -0.8529, -0.7516, -0.6549, -0.5602, -0.4678, -0.3792, -0.2906, -0.2041, -0.1185, -0.0330, 0.0538, 0.1405, 0.2283, 0.3182, 0.4106, 0.5066, 0.6062, 0.7108, 0.8247, 0.9472, 1.0823, 1.2319, 1.4141, 1.6504, 2.0075, 3.7728],
+    [-2.9933, -1.5169, -1.3096, -1.1674, -1.0509, -0.9497, -0.8580, -0.7721, -0.6907, -0.6139, -0.5396, -0.4679, -0.3971, -0.3269, -0.2570, -0.1872, -0.1164, -0.0443, 0.0287, 0.1046, 0.1839, 0.2664, 0.3523, 0.4448, 0.5458, 0.6563, 0.7804, 0.9249, 1.1018, 1.3296, 1.6527, 2.2136, 4.3055],
+    [-3.7405, -1.8945, -1.5828, -1.3718, -1.2061, -1.0641, -0.9390, -0.8263, -0.7219, -0.6227, -0.5284, -0.4375, -0.3497, -0.2643, -0.1796, -0.0960, -0.0122, 0.0723, 0.1558, 0.2404, 0.3271, 0.4154, 0.5060, 0.6005, 0.7019, 0.8105, 0.9286, 1.0589, 1.2091, 1.3893, 1.6205, 1.9702, 3.9153],
+  ],
 };
 
 function projectWindow(w, { mean, std, axes } = BARCODE_BASIS) {
   return axes.map((axis) => axis.reduce((s, a, k) => s + a * (w[k] - mean[k]) / std[k], 0));
 }
 
-// The first component sets the lightness, the other two the red-green and
+// Where x falls in a sorted table of quantiles, from 0 to 1.
+function quantileRank(x, q) {
+  if (x <= q[0]) return 0;
+  if (x >= q[q.length - 1]) return 1;
+  let i = 1;
+  while (q[i] < x) i++;
+  return (i - 1 + (x - q[i - 1]) / (q[i] - q[i - 1])) / (q.length - 1);
+}
+
+// The first direction sets the lightness, the other two the red-green and
 // blue-yellow axes of CIELAB, where equal steps look about equally different.
-function barcodeColor(w, { lo, hi } = BARCODE_BASIS) {
-  const t = projectWindow(w).map((x, c) => Math.max(0, Math.min(1, (x - lo[c]) / (hi[c] - lo[c]))));
-  return labToRgb(32 + 58 * t[0], (t[1] - 0.5) * 96, (t[2] - 0.5) * 96);
+function barcodeColor(w, { quantiles } = BARCODE_BASIS) {
+  const t = projectWindow(w).map((x, c) => quantileRank(x, quantiles[c]));
+  return labToRgb(28 + 62 * t[0], (t[1] - 0.5) * 120, (t[2] - 0.5) * 120);
 }
 
 function labToRgb(L, a, b) {
