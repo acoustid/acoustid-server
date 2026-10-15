@@ -1074,3 +1074,25 @@ def test_replacing_the_api_key_requires_post(app: Flask) -> None:
                 .values(apikey="user2key")
             )
             ctx.db.session.commit()
+
+
+def test_home_page_labels_old_search_counts_with_their_date(app: Flask) -> None:
+    from acoustid.web import stats_cache
+
+    lookups = [
+        {
+            "date": datetime.date(2020, 1, 2),
+            "count": 1234,
+            "count_hits": 1000,
+            "count_nohits": 234,
+        }
+    ]
+    with (
+        mock.patch.object(
+            stats_cache, "find_current_stats", return_value={"track.all": 10}
+        ),
+        mock.patch.object(stats_cache, "find_lookup_stats", return_value=lookups),
+    ):
+        rv = app.test_client().get("/")
+    assert "Searches on 2020-01-02" in rv.text
+    assert "Searches yesterday" not in rv.text

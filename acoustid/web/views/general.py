@@ -112,7 +112,8 @@ def index():
             "contributors": stats.get("account.active", 0),
         },
         avg_lookups=average_lookups(lookups),
-        last_lookups=lookups[-1]["count"] if lookups else None,
+        last_lookups=lookups[-1] if lookups else None,
+        yesterday=(datetime.date.today() - datetime.timedelta(days=1)).isoformat(),
         sample=get_featured_song(load_home_fingerprint()["fingerprint"]),
     )
 

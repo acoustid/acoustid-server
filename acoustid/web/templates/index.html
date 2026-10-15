@@ -94,7 +94,10 @@
       <div class="fact"><div class="label">Linked recordings</div><div class="value">{{ stats.mbids|thousands }}</div></div>
       <div class="fact"><div class="label">Contributors</div><div class="value">{{ stats.contributors|thousands }}</div></div>
       {% if last_lookups %}
-      <div class="fact"><div class="label">Searches yesterday</div><div class="value">{{ last_lookups|thousands }}</div></div>
+      <div class="fact">
+        <div class="label">{% if last_lookups.date == yesterday %}Searches yesterday{% else %}Searches on {{ last_lookups.date }}{% endif %}</div>
+        <div class="value">{{ last_lookups.count|thousands }}</div>
+      </div>
       {% endif %}
     </div>
   </section>
