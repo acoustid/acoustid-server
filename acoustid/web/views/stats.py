@@ -1,13 +1,16 @@
 # Copyright (C) 2011, 2015 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
-import json
+import datetime
 import logging
 
 from flask import Blueprint, render_template
 
-from acoustid.data.stats import find_current_stats, find_daily_stats, find_lookup_stats
-from acoustid.web import db
+from acoustid.web.stats_cache import (
+    get_current_stats,
+    get_daily_additions,
+    get_lookup_stats,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +46,31 @@ def prepare_pie_chart_data(stats, pattern):
     return track_mbid
 
 
-def prepare_chart_data(stats):
-    for item in stats:
-        item["date"] = item["date"].strftime("%Y-%m-%d")
-    return stats
+def line_chart(stats, series, tip=None, area=False):
+    """Data for charts.js. Each series is (key, name, color, extra options)."""
+    return {
+        "labels": [
+            item["date"] if isinstance(item["date"], str) else item["date"].isoformat()
+            for item in stats
+        ],
+        "series": [
+            dict(
+                name=name,
+                color=color,
+                values=[int(item.get(key) or 0) for item in stats],
+                **opts,
+            )
+            for key, name, color, opts in series
+        ],
+        "tip": tip,
+        "area": area,
+    }
 
 
 @stats_page.route("/stats")
 def stats():
     title = "Statistics"
-    app_db = db.get_app_db()
-    stats = find_current_stats(app_db)
+    stats = get_current_stats()
     basic = {
         "submissions": stats.get("submission.all", 0),
         "fingerprints": stats.get("fingerprint.all", 0),
@@ -64,17 +81,45 @@ def stats():
     track_mbid = prepare_pie_chart_data(stats, "track.%dmbids")
     mbid_track = prepare_pie_chart_data(stats, "mbid.%dtracks")
     basic["tracks_with_mbid"] = basic["tracks"] - stats.get("track.0mbids", 0)
-    basic["tracks_with_mbid_percent"] = percent(
-        basic["tracks_with_mbid"], basic["tracks"]
-    )
-    additions = find_daily_stats(app_db, ["track.all", "mbid.all"])
-    lookups = find_lookup_stats(app_db)
+    coverage = basic["tracks_with_mbid"] / basic["tracks"] if basic["tracks"] else 0.0
+    additions = get_daily_additions()
+    lookups = get_lookup_stats()
+    total_lookups = sum(int(d["count"] or 0) for d in lookups)
+    total_hits = sum(int(d["count_hits"] or 0) for d in lookups)
     return render_template(
         "stats.html",
         title=title,
+        nav="stats",
         basic=basic,
+        coverage=coverage,
         track_mbid=track_mbid,
+        track_mbid_max=max((t["count"] for t in track_mbid), default=0),
         mbid_track=mbid_track,
-        additions_json=json.dumps(prepare_chart_data(additions)),
-        lookups_json=json.dumps(prepare_chart_data(lookups)),
+        mbid_track_max=max((t["count"] for t in mbid_track), default=0),
+        last_date=(
+            datetime.date.fromisoformat(additions[-1]["date"]) if additions else None
+        ),
+        added_tracks=sum(int(d.get("track.all") or 0) for d in additions),
+        added_mbids=sum(int(d.get("mbid.all") or 0) for d in additions),
+        additions_days=len(additions),
+        lookups_days=len(lookups),
+        avg_lookups=total_lookups / len(lookups) if lookups else 0,
+        hit_rate=total_hits / total_lookups if total_lookups else 0,
+        additions_chart=line_chart(
+            additions,
+            [
+                ("track.all", "AcoustIDs", "#0145aa", {}),
+                ("mbid.all", "Recordings", "#aa0000", {}),
+            ],
+            area=True,
+        ),
+        lookups_chart=line_chart(
+            lookups,
+            [
+                ("count", "All", "#8f8c85", {"dash": "4 3", "width": 1.5}),
+                ("count_hits", "Matched", "#0145aa", {}),
+                ("count_nohits", "No match", "#aa0000", {}),
+            ],
+            tip="hit-rate",
+        ),
     )

@@ -1,0 +1,17 @@
+{% extends "_base.html" %}
+{% block content %}
+<div class="error-page">
+  <div class="page-head">
+    <div class="eyebrow">{{ code }}</div>
+    <h1>{{ title }}</h1>
+  </div>
+  <p>{{ message }}</p>
+  {% if code == 404 %}
+  <p>If you followed a link to a track or a fingerprint, it may have been merged into another one.</p>
+  {% endif %}
+  <p class="links">
+    <a href="{{ url_for('general.index') }}">Home page</a>
+    <a href="{{ url_for('general.docs') }}">Documentation</a>
+  </p>
+</div>
+{% endblock %}

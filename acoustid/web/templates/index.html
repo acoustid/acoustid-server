@@ -1,0 +1,106 @@
+{% extends "_base.html" %}
+
+{% block body %}
+<div class="band">
+  <div class="band-art" data-fp="{{ sample.fingerprint|tojson }}"></div>
+  <div class="wrap">
+    <h1>Open source audio identification</h1>
+    <p>
+      Identify music files by how they sound. A free web service, a crowd-sourced database of
+      {% if stats.fingerprints %}{{ stats.fingerprints|compact }} {% endif %}audio fingerprints,
+      and links to <a href="https://musicbrainz.org">MusicBrainz</a> metadata.
+    </p>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="prose-cols">
+    <div>
+      <h2>Identify your music</h2>
+      <p>
+        If you have an unknown music file, one of the applications using AcoustID,
+        such as <a href="https://picard.musicbrainz.org/">MusicBrainz Picard</a> or <a href="https://beets.io/">beets</a>, will very likely be able
+        to tell you what song it is, who wrote it, and a lot more.
+      </p>
+      <p>
+        In case AcoustID doesn't recognize the song yet, you can help by submitting it to the database,
+        so that the next person trying to identify the same song will have more luck.
+      </p>
+      <p class="links">
+        <a href="{{ url_for('user.api_key') }}">Get your API key for submitting fingerprints</a>
+        <a href="{{ url_for('general.faq') }}">Frequently asked questions</a>
+      </p>
+    </div>
+    <div>
+      <h2>Build it into your application</h2>
+      <p>
+        If you are developing an application that needs to identify unknown audio files, you can use the
+        AcoustID web service. It is completely free for non-commercial applications, all you need to do
+        is register your application.
+      </p>
+      <p>
+        You can also use the service in commercial applications via
+        <a href="https://acoustid.biz">AcoustID OÜ</a>, which funds the development of the open source project.
+      </p>
+      <p class="links">
+        <a href="{{ url_for('general.webservice') }}">Read the API documentation</a>
+        <a href="{{ url_for('apps.new_application') }}">Register your application</a>
+        <a href="{{ url_for('apps.applications') }}">Your applications</a>
+      </p>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head"><h2>How it works</h2></div>
+    <div class="prose-cols">
+      <div>
+        <p>
+          At the core of AcoustID is <a href="{{ url_for('general.chromaprint') }}">Chromaprint</a>, an open source
+          library for extracting audio fingerprints. It is optimized for matching near-identical audio,
+          which keeps the fingerprints compact and the extraction fast: a two minute recording becomes
+          about 2.5 KB of data, like this one.
+        </p>
+        <canvas class="fp inline-fp" data-fp="{{ sample.fingerprint|tojson }}"></canvas>
+        <p class="small muted">
+          The first two minutes of
+          <a href="{{ url_for('metadata.track', track_id_or_gid=sample.track) }}">“{{ sample.name }}”</a> by {{ sample.artist }}.
+          Time runs left to right, each row of pixels is one bit.
+        </p>
+      </div>
+      <div>
+        <p>
+          The <a href="{{ url_for('general.database') }}">database</a> stores fingerprints submitted by
+          {% if stats.contributors %}{{ stats.contributors|compact }} {% endif %}contributors, grouped into AcoustIDs,
+          and links them to {% if stats.mbids %}{{ stats.mbids|compact }} {% endif %}MusicBrainz recordings.
+          The <a href="{{ url_for('general.webservice') }}">web service</a> searches it with a custom fingerprint index
+          {% if avg_lookups %}and answers around {{ avg_lookups|compact }} lookups a day{% endif %}.
+        </p>
+        <p>
+          All of it is open source, the <a href="{{ url_for('general.server') }}">server</a> included,
+          and the database is available for download.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {% if stats.tracks %}
+  <section>
+    <div class="section-head">
+      <h2>The database today</h2>
+      <div class="actions"><a href="{{ url_for('stats.stats') }}">More statistics →</a></div>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="label">AcoustIDs</div><div class="value">{{ stats.tracks|thousands }}</div></div>
+      <div class="fact"><div class="label">Linked recordings</div><div class="value">{{ stats.mbids|thousands }}</div></div>
+      <div class="fact"><div class="label">Contributors</div><div class="value">{{ stats.contributors|thousands }}</div></div>
+      {% if last_lookups %}
+      <div class="fact">
+        <div class="label">{% if last_lookups.date == yesterday %}Searches yesterday{% else %}Searches on {{ last_lookups.date }}{% endif %}</div>
+        <div class="value">{{ last_lookups.count|thousands }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

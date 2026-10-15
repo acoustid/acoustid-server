@@ -1,108 +1,110 @@
 {% extends "_base.html" %}
+
+{% macro distribution(rows, maximum, one, many) %}
+<div class="hbars">
+  {% for t in rows %}
+  <span class="k">{% if t.i == 10 %}10 or more {{ many }}{% elif t.i == 1 %}1 {{ one }}{% else %}{{ t.i }} {{ many }}{% endif %}</span>
+  <span class="b"><i style="width:{{ t.count|bar_width(maximum) }}%"></i></span>
+  <span class="v">{{ t.count|thousands }}</span>
+  <span class="p">{{ t.percent }} %</span>
+  {% endfor %}
+</div>
+{% endmacro %}
+
 {% block content %}
+<div class="page-head">
+  <h1>{{ title }}</h1>
+  <div class="sub">
+    <span>Totals are updated daily</span>
+    {% if last_date %}<span>data as of {{ last_date.strftime('%b') }} {{ last_date.day }}</span>{% endif %}
+  </div>
+</div>
 
-<h2>{{ title }}</h2>
+<div class="facts">
+  <div class="fact">
+    <div class="label">AcoustIDs</div>
+    <div class="value">{{ basic.tracks|thousands }}</div>
+    <div class="note">+{{ added_tracks|thousands }} in {{ additions_days }} days</div>
+  </div>
+  <div class="fact">
+    <div class="label">Fingerprints</div>
+    <div class="value">{{ basic.fingerprints|thousands }}</div>
+    <div class="note">{% if basic.tracks %}{{ '%.2f'|format(basic.fingerprints / basic.tracks) }} per AcoustID{% endif %}</div>
+  </div>
+  <div class="fact">
+    <div class="label">Recordings</div>
+    <div class="value">{{ basic.mbids|thousands }}</div>
+    <div class="note">+{{ added_mbids|thousands }} in {{ additions_days }} days</div>
+  </div>
+  <div class="fact">
+    <div class="label">Contributors</div>
+    <div class="value">{{ basic.contributors|thousands }}</div>
+    <div class="note">people who submitted data</div>
+  </div>
+  <div class="fact">
+    <div class="label">Searches / day</div>
+    <div class="value">{{ avg_lookups|compact }}</div>
+    <div class="note">{{ hit_rate|percent }} find a match</div>
+  </div>
+</div>
 
-<h3>Basic statistics</h3>
+<div class="coverage">
+  <div class="track"><i style="width:{{ basic.tracks_with_mbid|bar_width(basic.tracks) }}%"></i></div>
+  <div class="lbls">
+    <span><b>{{ coverage|percent }}</b> of AcoustIDs are linked to a MusicBrainz recording ({{ basic.tracks_with_mbid|thousands }})</span>
+    <span>{{ (basic.tracks - basic.tracks_with_mbid)|thousands }} not linked yet</span>
+  </div>
+</div>
 
-<table class="table">
-    <tr>
-        <td>AcoustIDs</td>
-        <td class="text-right">{{ basic.tracks }}</td>
-    </tr>
-    <tr>
-        <td>Fingerprints</td>
-        <td class="text-right">{{ basic.fingerprints }}</td>
-    </tr>
-    <tr>
-        <td>Recordings</td>
-        <td class="text-right">{{ basic.mbids }}</td>
-    </tr>
-    <tr>
-        <td>Contributors</td>
-        <td class="text-right">{{ basic.contributors }}</td>
-    </tr>
-</table>
+<section>
+  <div class="section-head">
+    <h2>Daily additions</h2>
+    <span class="meta">Last {{ additions_days }} days</span>
+    <div class="chart-legend">
+      <span><span class="swatch" style="background:#0145aa"></span>New AcoustIDs</span>
+      <span><span class="swatch" style="background:#aa0000"></span>New recordings linked</span>
+    </div>
+  </div>
+  {% if additions_days %}
+  <div data-chart="{{ additions_chart|tojson|forceescape }}"></div>
+  {% else %}
+  <p class="muted">No data yet.</p>
+  {% endif %}
+</section>
 
-<h3>Daily additions</h3>
+<section>
+  <div class="section-head">
+    <h2>Searches per day</h2>
+    <span class="meta">Last {{ lookups_days }} days</span>
+    <div class="chart-legend">
+      <span><span class="swatch" style="background:#8f8c85"></span>All searches</span>
+      <span><span class="swatch" style="background:#0145aa"></span>Found a match</span>
+      <span><span class="swatch" style="background:#aa0000"></span>No match</span>
+    </div>
+  </div>
+  {% if lookups_days %}
+  <div data-chart="{{ lookups_chart|tojson|forceescape }}"></div>
+  {% else %}
+  <p class="muted">No data yet.</p>
+  {% endif %}
+</section>
 
-<div id="chart-additions" class="chart"></div>
-
-<h3>Searches</h3>
-
-<div id="chart-searches" class="chart"></div>
-
-<h3>AcoustIDs per the number of linked recordings</h3>
-
-<table class="table">
-    <tr>
-        <td>AcoustIDs with at least 1 recording</td>
-        <td class="text-right">{{ basic.tracks_with_mbid }}</td>
-        <td class="text-right">{{ basic.tracks_with_mbid_percent }} %</td>
-    </tr>
-    {% for t in track_mbid %}
-    <tr>
-        <td class="indented">with {% if t.i == 1 %}1 recording{% elif t.i == 10 %}10 or more recordings{% else %}{{ t.i }} recordings{% endif %}</td>
-        <td class="narrow text-right">{{ t.count }}</td>
-        <td class="narrow text-right">{{ t.percent }} %</td>
-    </tr>
-    {% endfor %}
-</table>
-
-<h3>Recordings per the number of linked AcoustIDs</h3>
-
-<table class="table">
-    <tr>
-        <td>Recording with at least 1 AcoustID</td>
-        <td class="text-right">{{ basic.mbids }}</td>
-        <td class="text-right">100.00 %</td>
-    </tr>
-    {% for t in mbid_track %}
-    <tr>
-        <td class="indented">with {% if t.i == 1 %}1 AcoustID{% elif t.i == 10 %}10 or more AcoustIDs{% else %}{{ t.i }} AcoustIDs{% endif %}</td>
-        <td class="narrow text-right">{{ t.count }}</td>
-        <td class="narrow text-right">{{ t.percent }} %</td>
-    </tr>
-    {% endfor %}
-</table>
-{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/morris.js/{{ morris_js_version }}/morris.css">
-{% endblock %}
-
-{% block extra_js %}
-<script src="//cdnjs.cloudflare.com/ajax/libs/raphael/{{ raphael_js_version }}/raphael-min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/morris.js/{{ morris_js_version }}/morris.min.js"></script>
-<script>
-$(document).ready(function() {
-
-  new Morris.Line({
-    element: 'chart-additions',
-    data: {{ additions_json|safe }},
-    xkey: 'date',
-    ykeys: ['track.all', 'mbid.all'],
-    xLabels: 'day',
-    xLabelFormat: function (x) { return x.toDateString(); },
-    labels: ['AcoustIDs', 'MBIDs'],
-    lineColors: ['#4572A7', '#AA4643', '#89A54E', '#80699B', '#3D96AE', '#DB843D', '#92A8CD', '#A47D7C', '#B5CA92'],
-    hideHover: 'auto',
-    resize: true
-  });
-
-  new Morris.Line({
-    element: 'chart-searches',
-    data: {{ lookups_json|safe }},
-    xkey: 'date',
-    ykeys: ['count', 'count_hits', 'count_nohits'],
-    xLabels: 'day',
-    xLabelFormat: function (x) { return x.toDateString(); },
-    labels: ['All', 'Hits', 'Misses'],
-    lineColors: ['#4572A7', '#AA4643', '#89A54E', '#80699B', '#3D96AE', '#DB843D', '#92A8CD', '#A47D7C', '#B5CA92'],
-    hideHover: 'auto',
-    resize: true
-  });
-
-});
-</script>
+<section class="two-col">
+  <div>
+    <div class="section-head"><h2>Recordings per AcoustID</h2></div>
+    <p class="muted small">
+      How many MusicBrainz recordings each linked AcoustID points to. More than one usually means
+      the same audio was released as different recordings, or a wrong link.
+    </p>
+    {{ distribution(track_mbid, track_mbid_max, "recording", "recordings") }}
+  </div>
+  <div>
+    <div class="section-head"><h2>AcoustIDs per recording</h2></div>
+    <p class="muted small">
+      How many distinct AcoustIDs each recording has. Remasters, different encodings and edits of
+      the same recording often get their own AcoustID.
+    </p>
+    {{ distribution(mbid_track, mbid_track_max, "AcoustID", "AcoustIDs") }}
+  </div>
+</section>
 {% endblock %}

@@ -1,120 +1,241 @@
 {% extends "_base.html" %}
+
+{% macro bar(value, maximum) %}
+<div class="bar-cell">
+  <div class="bar"><i style="width:{{ value|bar_width(maximum) }}%"></i></div>
+  <span>{{ value|thousands }}</span>
+</div>
+{% endmacro %}
+
+{% macro metadata_table(rows) %}
+<table class="data">
+  <thead><tr><th>Title</th><th>Artist</th><th>Album</th><th class="num">Sources</th></tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.title or "–" }}</td>
+      <td>{{ r.artist or "–" }}</td>
+      <td>{{ r.album or "–" }}</td>
+      <td class="num">{{ r.sources|thousands }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
 {% block content %}
+{% set lengths = fingerprints|map(attribute='length')|list %}
+{% set max_fp_sources = fingerprints|map(attribute='submission_count')|max|default(0) %}
+{% set max_rec_sources = recordings|map(attribute='submission_count')|max|default(0) %}
 
-<h2>{{ title }}</h2>
+<div class="page-head">
+  <div class="eyebrow">AcoustID track</div>
+  {% if main_recording %}
+  <h1>{{ main_recording.name }}</h1>
+  <div class="sub"><span>{{ main_recording.artist_name }}</span>{% if main_recording.length %}<span>{{ main_recording.length|duration }}</span>{% endif %}</div>
+  {% else %}
+  <h1>Unknown recording</h1>
+  <div class="sub"><span>Not linked to MusicBrainz yet</span></div>
+  {% endif %}
+  <div class="id-row"><span class="id-chip"><span>{{ track.gid }}</span><button type="button" data-copy="{{ track.gid }}">Copy</button></span></div>
+</div>
 
-<p>
-    This track has {{ fingerprints | length }} fingerprint(s) and is linked
-    to {{ num_enabled }} MusicBrainz recording(s).
-</p>
+<div class="facts">
+  <div class="fact"><div class="label">Fingerprints</div><div class="value">{{ fingerprints|length }}</div><div class="note">distinct audio files</div></div>
+  <div class="fact"><div class="label">Submissions</div><div class="value">{{ fingerprints|sum(attribute='submission_count')|thousands }}</div><div class="note">across all fingerprints</div></div>
+  <div class="fact"><div class="label">Recordings</div><div class="value">{{ num_enabled }}</div><div class="note">linked in MusicBrainz</div></div>
+  {% if lengths %}
+  <div class="fact"><div class="label">Duration</div><div class="value">{{ lengths|min|duration }}{% if lengths|max != lengths|min %}–{{ lengths|max|duration }}{% endif %}</div><div class="note">range of submitted files</div></div>
+  {% endif %}
+</div>
 
-{% macro format_length(secs) -%}
-{{ "%d:%02d" | format(secs / 60, secs % 60) }}
-{%- endmacro %}
-
-<h3>Fingerprints</h3>
-
-<table class="table">
-<tr>
-    <th>ID</th>
-    <th style="width:5em;">Length</th>
-    <th style="width:5em;">Sources</th>
-</tr>
-{% for fp in fingerprints %}
-<tr>
-    <td><a href="{{ url_for('.fingerprint', fingerprint_id=fp.id) }}">{{ fp.id }}</a></td>
-    <td>{{ format_length(fp.length) }}</td>
-    <td>{{ fp.submission_count }}</td>
-{% endfor %}
-</tr>
-</table>
-
-{% if recordings %}
-<h3>Linked MusicBrainz recordings</h3>
-
-<table class="table">
-<tr>
-    <th>Title</th>
-    <th>Artist</th>
-    <th style="width:5em;">Length</th>
-    <th style="width:5em;">Sources</th>
-    {% if moderator %}
-    <th></th>
+<section>
+  <div class="section-head">
+    <h2>MusicBrainz recordings</h2>
+    <span class="meta">{{ num_enabled }} linked{% if num_disabled %}, {{ num_disabled }} disabled{% endif %}</span>
+    {% if num_disabled and not show_disabled %}
+    <div class="actions"><a class="small" href="{{ url_for('.track', track_id_or_gid=track.gid, disabled='1') }}">Show {{ num_disabled }} disabled recording{{ 's' if num_disabled != 1 }}</a></div>
     {% endif %}
-</tr>
-{% for rec in recordings %}
-{% if show_disabled or not rec.disabled %}
-<tr{% if rec.disabled %} class="mbid-disabled"{% endif %} id="{{ rec.mbid }}">
-    {% if rec.name %}
-    <td><a href="//musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a>{% if rec.comment %}<small> ({{ rec.comment }})</small>{% endif %}</td>
-    <td>{{ rec.artist_name }}</td>
-    <td>{% if rec.length %}{{ format_length(rec.length) }}{% else %}-{% endif %}</td>
-    {% else %}
-    <td colspan="3"><i><a href="//musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.mbid }}</a></i></td>
-    {% endif %}
-    <td>{{ rec.submission_count }}</td>
-    {% if moderator %}
-    <td class="text-right">
-      <form action="/edit/toggle-track-mbid" method="POST" style="display: inline">
-          <input type="hidden" name="state" value="{{0 if rec.disabled else 1}}" />
-          <input type="hidden" name="track_id" value="{{track.id}}" />
-          <input type="hidden" name="mbid" value="{{rec.mbid}}" />
-          <input type="submit" class="btn btn-xs btn-default" value="{{'Enable' if rec.disabled else 'Disable'}}" />
-      </form>
-    </td>
-    {% endif %}
-{% endif %}
-{% endfor %}
-</tr>
-</table>
-{% endif %}
+  </div>
+  {% if recordings %}
+  <div class="table-scroll">
+    <table class="data">
+      <thead><tr><th>Title</th><th>Artist</th><th class="num">Length</th><th>Sources</th><th class="shrink"></th></tr></thead>
+      <tbody>
+        {% for rec in recordings %}
+        {% if show_disabled or not rec.disabled %}
+        <tr id="{{ rec.mbid }}"{% if rec.disabled %} class="mbid-disabled"{% endif %}>
+          <td>
+            {% if rec.name %}
+            <a href="https://musicbrainz.org/recording/{{ rec.mbid }}">{{ rec.name }}</a>{% if rec.comment %} <span class="small muted">({{ rec.comment }})</span>{% endif %}
+            {% else %}
+            <a href="https://musicbrainz.org/recording/{{ rec.mbid }}">Unknown recording</a>
+            {% endif %}
+            <div class="small muted mono">{{ rec.mbid }}</div>
+          </td>
+          <td>{{ rec.artist_name or "–" }}</td>
+          <td class="num">{{ rec.length|duration if rec.length else "–" }}</td>
+          <td>{{ bar(rec.submission_count, max_rec_sources) }}</td>
+          <td class="shrink">
+            <a class="small" href="{{ url_for('.mbid', mbid=rec.mbid) }}">Other tracks</a>
+            {% if moderator %}
+            <form action="{{ url_for('.toggle_track_mbid') }}" method="POST" style="display:inline">
+              <input type="hidden" name="state" value="{{ 0 if rec.disabled else 1 }}">
+              <input type="hidden" name="track_id" value="{{ track.id }}">
+              <input type="hidden" name="mbid" value="{{ rec.mbid }}">
+              <button type="submit" class="btn small">{{ 'Enable' if rec.disabled else 'Disable' }}</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">This track is not linked to any MusicBrainz recording yet.</p>
+  {% endif %}
+</section>
 
-{% if num_disabled > 0 and not show_disabled %}
-<p>
-  <small><a href="{{ url_for('.track', track_id_or_gid=track.gid, disabled='1') }}">Show {{ num_disabled }} disabled recording(s).</a></small>
-</p>
-{% endif %}
+<section>
+  <div class="section-head">
+    <h2>Fingerprints</h2>
+    {% if fingerprints|length > 1 %}
+    <span class="meta">Select two to compare them in detail</span>
+    <div class="actions"><button class="btn primary" id="compare-btn" type="button" disabled>Compare selected</button></div>
+    {% endif %}
+  </div>
+  <div class="table-scroll">
+    <table class="data">
+      <thead>
+        <tr>
+          <th class="shrink"></th>
+          <th>ID</th>
+          {% if fingerprint_data %}<th>First 2 minutes</th>{% endif %}
+          <th class="num">Length</th>
+          <th>Sources</th>
+        </tr>
+      </thead>
+      <tbody id="fingerprints">
+        {% for fp in fingerprints %}
+        <tr>
+          <td class="shrink"><input type="checkbox" value="{{ fp.id }}" aria-label="Select fingerprint {{ fp.id }}"></td>
+          <td class="mono"><a href="{{ url_for('.fingerprint', fingerprint_id=fp.id) }}">{{ fp.id }}</a></td>
+          {% if fingerprint_data %}
+          <td>{% if fp.id in fingerprint_data %}<canvas class="fp fp-thumb" data-fp="{{ fingerprint_data[fp.id]|tojson }}" data-frames="948"></canvas>{% endif %}</td>
+          {% endif %}
+          <td class="num">{{ fp.length|duration }}</td>
+          <td>{{ bar(fp.submission_count, max_fp_sources) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if similarity %}
+  <h3 class="matrix-title">How similar are they?</h3>
+  <p class="muted small narrow">
+    Each cell compares two fingerprints of this track at their best alignment.
+    1.00 means identical audio; unrelated recordings score close to 0.
+    Click a cell to see the comparison.
+  </p>
+  <div class="table-scroll">
+    <table class="matrix">
+      <tr>
+        <th></th>
+        {% for fp in fingerprints %}<th>{{ fp.id }}</th>{% endfor %}
+      </tr>
+      {% for a in fingerprints %}
+      <tr>
+        <th class="row">{{ a.id }}</th>
+        {% for b in fingerprints %}
+        {% if a.id == b.id %}
+        <td class="self">—</td>
+        {% else %}
+        {% set score = similarity.get(a.id, {}).get(b.id, 0) %}
+        <td style="{{ score|score_style }}" title="#{{ a.id }} vs #{{ b.id }}: score {{ '%.2f'|format(score) }}">
+          <a href="{{ url_for('.compare_fingerprints', fingerprint_id_1=a.id, fingerprint_id_2=b.id) }}">{{ '%.2f'|format(score) }}</a>
+        </td>
+        {% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+</section>
 
 {% if user_metadata %}
-<h3>Additional user-submitted metadata</h3>
-
-<table class="table">
-<tr>
-    <th>Title</th>
-    <th>Artist</th>
-    <th>Album</th>
-    <th style="width:5em;">Sources</th>
-</tr>
-{% for track, artist, album, submission_count in user_metadata %}
-<tr>
-    <td>{{ track | default("-", true) }}</td>
-    <td>{{ artist | default("-", true) }}</td>
-    <td>{{ album | default("-", true) }}</td>
-    <td>{{ submission_count }}</td>
-{% endfor %}
-</tr>
-</table>
+<section id="metadata">
+  <div class="section-head">
+    <h2>Submitted metadata</h2>
+    <span class="meta">
+      {{ metadata_rows|length }} distinct entries from {{ metadata_rows|sum(attribute='sources')|thousands }} submissions,
+      {{ metadata_groups|length }} after grouping
+    </span>
+    <div class="actions">
+      <span class="seg">
+        {% set disabled = '1' if show_disabled else None %}
+        <a href="{{ url_for('.track', track_id_or_gid=track.gid, metadata='grouped', disabled=disabled, _anchor='metadata') }}"{% if metadata_mode == 'grouped' %} aria-current="true"{% endif %}>Grouped</a>
+        <a href="{{ url_for('.track', track_id_or_gid=track.gid, metadata='raw', disabled=disabled, _anchor='metadata') }}"{% if metadata_mode == 'raw' %} aria-current="true"{% endif %}>All rows</a>
+      </span>
+    </div>
+  </div>
+  {% if metadata_mode == 'raw' %}
+  <div class="table-scroll">{{ metadata_table(metadata_rows) }}</div>
+  {% else %}
+  {% set max_group = metadata_groups|map(attribute='sources')|max|default(0) %}
+  <div class="meta-head"><span></span><span>Title</span><span class="artist">Artist</span><span>Sources</span></div>
+  {% for g in metadata_groups %}
+  <details class="meta-group">
+    <summary>
+      <span class="chev">▶</span>
+      <span>
+        {% if not g.title and not g.artist %}
+        <span class="t muted">No metadata submitted</span>
+        {% else %}
+        <span class="t">{{ g.title or "–" }}</span>
+        {% endif %}
+        {% if g.spellings > 1 %}<span class="small muted"> · {{ g.spellings }} spellings</span>{% endif %}
+        {% if g.albums %}
+        <div class="albums">
+          {% for album in g.albums[:4] %}<span class="chip">{{ album.name }}</span>{% endfor %}
+          {% if g.albums|length > 4 %}<span class="chip muted">+{{ g.albums|length - 4 }} more</span>{% endif %}
+        </div>
+        {% endif %}
+      </span>
+      <span class="artist">{{ g.artist or "–" }}</span>
+      <span class="bar-cell">
+        <span class="bar"><i style="width:{{ g.sources|bar_width(max_group) }}%"></i></span>
+        <span>{{ g.sources|thousands }}</span>
+      </span>
+    </summary>
+    <div class="variants table-scroll">{{ metadata_table(g.rows) }}</div>
+  </details>
+  {% endfor %}
+  {% endif %}
+</section>
 {% endif %}
 
 {% if moderator and edits %}
-<h3>Editing history</h3>
-
-<ul class="list-unstyled">
-{% for edit in edits %}
+<section>
+  <div class="section-head"><h2>Editing history</h2></div>
+  <ul class="history">
+    {% for edit in edits %}
     <li>
-        <small><i>{{ edit.created.strftime("%b, %d %Y %H:%M:%S") }}</i></small><br />
-        User
-        {% if edit.account.mbuser %}
-        <a href="https://musicbrainz.org/user/{{ edit.account.mbuser }}">{{ edit.account.name }}</a>
-        {% else %}
-        {{ edit.account.name }}
-        {% endif %}
-        {{ 'disabled' if edit.disabled else 'enabled' }}
-        <a href="#{{ edit.track_mbid.mbid }}">{{ edit.track_mbid.mbid }}</a>
+      <span class="small muted">{{ edit.created.strftime("%b %d, %Y %H:%M:%S") }}</span><br>
+      User
+      {% if edit.account.mbuser %}
+      <a href="https://musicbrainz.org/user/{{ edit.account.mbuser }}">{{ edit.account.name }}</a>
+      {% else %}
+      {{ edit.account.name }}
+      {% endif %}
+      {{ 'disabled' if edit.disabled else 'enabled' }}
+      <a href="#{{ edit.track_mbid.mbid }}">{{ edit.track_mbid.mbid }}</a>
     </li>
-{% endfor %}
-</ul>
+    {% endfor %}
+  </ul>
+</section>
 {% endif %}
-
 {% endblock %}
-

@@ -1,6 +1,11 @@
 {% extends "_base.html" %}
 {% block content %}
-{% if title %}<h2>{{ title }}</h2>{% endif %}
+{% if title %}
+<div class="page-head">
+  <h1>{{ title }}</h1>
+</div>
+{% endif %}
+<div class="prose">
 {{ content | safe }}
+</div>
 {% endblock %}
-

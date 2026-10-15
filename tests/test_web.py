@@ -26,7 +26,7 @@ def test_home_page(app: Flask) -> None:
 
     rv = client.get("/")
     assert rv.status_code == 200
-    assert "Welcome to AcoustID" in rv.text
+    assert "Open source audio identification" in rv.text
 
 
 def test_docs_page(app: Flask) -> None:
@@ -118,8 +118,8 @@ def test_stats_page(app: Flask) -> None:
 
     rv = client.get("/stats")
     assert rv.status_code == 200
-    assert "Basic statistics" in rv.text
     assert "Daily additions" in rv.text
+    assert "Searches per day" in rv.text
 
 
 def test_login_page(app: Flask) -> None:
@@ -127,6 +127,8 @@ def test_login_page(app: Flask) -> None:
 
     rv = client.get("/login")
     assert rv.status_code == 200
+    assert 'name="login" value="musicbrainz"' in rv.text
+    assert 'name="login" value="google"' in rv.text
 
 
 def test_contact_page(app: Flask) -> None:
@@ -143,9 +145,14 @@ def test_track_page(app: Flask) -> None:
     rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
     assert rv.status_code == 200
     assert "b81f83ee-4da4-11e0-9ed8-0025225356f3" in rv.text
+    assert "Custom Track 1" in rv.text
+    assert "Custom Track 2" in rv.text
+    assert not db.session.registry.has()
+
+    rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291?metadata=raw")
+    assert rv.status_code == 200
     assert rv.data.count(b"Custom Track") == 2
     assert rv.data.count(b"Custom Artist") == 2
-    assert not db.session.registry.has()
 
 
 def test_track_page_show_disabled(app: Flask) -> None:
@@ -494,6 +501,19 @@ class FakeRedis:
         # cope with it
         self.store[key] = value.encode() if isinstance(value, str) else value
 
+    def set(self, key, value, nx=False, ex=None):
+        if self.fail:
+            raise Exception("upstream failure")
+        if nx and key in self.store:
+            return None
+        self.store[key] = value.encode() if isinstance(value, str) else value
+        return True
+
+    def delete(self, key):
+        if self.fail:
+            raise Exception("upstream failure")
+        self.store.pop(key, None)
+
 
 @pytest.fixture()
 def fake_redis():
@@ -650,3 +670,438 @@ def test_chromaprint_backoff_serves_the_stale_release(fake_redis, github) -> Non
     # one call to populate the cache and one that failed; the views after the
     # failure are answered from the cache rather than from GitHub
     assert github.call_count == 2
+
+
+@pytest.fixture()
+def track_fingerprints(app: Flask):
+    """Three fingerprints on track 1: two of the same audio and one unrelated."""
+    from acoustid import tables as schema
+    from acoustid.data.fingerprint import insert_fingerprint
+    from tests import TEST_1A_FP_RAW, TEST_1B_FP_RAW, TEST_2_FP_RAW
+
+    script = app.acoustid_script  # type: ignore
+    ids = []
+    with script.context() as ctx:
+        for fp, length in (
+            (TEST_1A_FP_RAW, 260),
+            (TEST_1B_FP_RAW, 261),
+            (TEST_2_FP_RAW, 320),
+        ):
+            ids.append(
+                insert_fingerprint(
+                    ctx.db.get_fingerprint_db(),
+                    ctx.db.get_ingest_db(),
+                    {"fingerprint": fp, "length": length, "track_id": 1},
+                )
+            )
+        ctx.db.session.commit()
+    yield ids
+    with script.context() as ctx:
+        ctx.db.get_fingerprint_db().execute(
+            schema.fingerprint.delete().where(schema.fingerprint.c.id.in_(ids))
+        )
+        ctx.db.session.commit()
+
+
+def test_track_page_fingerprints(app: Flask, track_fingerprints) -> None:
+    client = app.test_client()
+
+    rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
+    assert rv.status_code == 200
+    a, b, c = track_fingerprints
+    assert 'class="fp fp-thumb"' in rv.text
+    assert "How similar are they?" in rv.text
+    assert "/fingerprint/%d/compare/%d" % (a, b) in rv.text
+
+
+def test_fingerprint_page(app: Flask, track_fingerprints) -> None:
+    client = app.test_client()
+    a, b, c = track_fingerprints
+
+    rv = client.get("/fingerprint/%d" % a)
+    assert rv.status_code == 200
+    assert "#%d" % a in rv.text
+    # The other fingerprint of the same audio ranks first.
+    assert rv.text.index("#%d" % b) < rv.text.index("#%d" % c)
+    assert "Same recording" in rv.text
+
+
+def test_compare_fingerprints_page(app: Flask, track_fingerprints) -> None:
+    client = app.test_client()
+    a, b, c = track_fingerprints
+
+    rv = client.get("/fingerprint/%d/compare/%d" % (a, b))
+    assert rv.status_code == 200
+    assert "#%d vs #%d" % (a, b) in rv.text
+    assert "matcher score" in rv.text
+
+    rv = client.get("/fingerprint/%d/compare/999999" % a)
+    assert rv.status_code == 404
+
+
+def test_fingerprint_page_large_track(app: Flask, track_fingerprints) -> None:
+    from acoustid.web.views import metadata
+
+    client = app.test_client()
+    a, b, c = track_fingerprints
+
+    with mock.patch.object(metadata, "MAX_RANKED_FINGERPRINTS", 2):
+        rv = client.get("/fingerprint/%d" % a)
+    assert rv.status_code == 200
+    assert "most submitted of 3 fingerprints" in rv.text
+    assert "Same recording" not in rv.text
+
+
+def test_not_found_pages(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/no-such-page")
+    assert rv.status_code == 404
+    assert "There is no page at this address." in rv.text
+
+    rv = client.get("/track/00000000-0000-0000-0000-000000000000")
+    assert rv.status_code == 404
+    assert "There is no track with ID 00000000-0000-0000-0000-000000000000" in rv.text
+
+    rv = client.get("/fingerprint/999999")
+    assert rv.status_code == 404
+    assert "There is no fingerprint #999999" in rv.text
+
+    rv = client.get("/mbid/00000000-0000-0000-0000-000000000000")
+    assert rv.status_code == 404
+    assert "There is no MusicBrainz recording" in rv.text
+
+
+@pytest.fixture()
+def moderator(app: Flask):
+    """Account 1, signed in with MusicBrainz, which makes it a moderator."""
+    from acoustid import tables as schema
+
+    script = app.acoustid_script  # type: ignore
+    with script.context() as ctx:
+        ctx.db.get_app_db().execute(
+            schema.account.update()
+            .where(schema.account.c.id == 1)
+            .values(mbuser="moderator")
+        )
+        ctx.db.session.commit()
+    yield 1
+    with script.context() as ctx:
+        ctx.db.get_app_db().execute(
+            schema.account.update().where(schema.account.c.id == 1).values(mbuser=None)
+        )
+        ctx.db.get_fingerprint_db().execute(
+            schema.track_mbid.update()
+            .where(schema.track_mbid.c.mbid == "b81f83ee-4da4-11e0-9ed8-0025225356f3")
+            .values(disabled=False)
+        )
+        ctx.db.get_ingest_db().execute(schema.track_mbid_change.delete())
+        ctx.db.session.commit()
+
+
+TOGGLE_URL = (
+    "/edit/toggle-track-mbid?track_gid=eb31d1c3-950e-468b-9e36-e46fa75b1291"
+    "&mbid=b81f83ee-4da4-11e0-9ed8-0025225356f3&state=1"
+)
+
+
+def test_toggle_track_mbid_requires_musicbrainz_account(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.get(TOGGLE_URL)
+    assert rv.status_code == 200
+    assert "MusicBrainz account required" in rv.text
+
+
+def test_toggle_track_mbid(app: Flask, moderator: int) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = moderator
+
+    rv = client.get(TOGGLE_URL)
+    assert rv.status_code == 200
+    assert "Unlink this recording?" in rv.text
+    assert "b81f83ee-4da4-11e0-9ed8-0025225356f3" in rv.text
+
+    rv = client.post(
+        "/edit/toggle-track-mbid",
+        data={
+            "track_id": "1",
+            "mbid": "b81f83ee-4da4-11e0-9ed8-0025225356f3",
+            "state": "1",
+            "note": "wrong version",
+            "submit": "1",
+        },
+    )
+    assert rv.status_code == 302
+
+    rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
+    assert "Show 2 disabled recordings" in rv.text
+
+
+def test_account_page(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+
+    rv = client.get("/api-key")
+    assert rv.status_code == 200
+    assert "user1key" in rv.text
+    assert "Replace my API key" in rv.text
+    assert 'href="/my-applications"' in rv.text
+
+
+def test_account_link_in_header(app: Flask) -> None:
+    client = app.test_client()
+    assert "Your account" not in client.get("/").text
+
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 1
+    assert "Your account" in client.get("/").text
+
+
+def test_about_page(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/about")
+    assert rv.status_code == 200
+    assert "History" in rv.text
+    assert 'class="timeline"' in rv.text
+    # The test database has no stats, so the current numbers are left out.
+    assert "Today the database holds" not in rv.text
+
+
+@pytest.fixture(autouse=True)
+def isolated_stats_cache():
+    """Every test gets its own cache, so cached numbers never leak between them."""
+    from acoustid.web import stats_cache
+
+    with mock.patch.object(stats_cache.db, "get_redis", return_value=FakeRedis()):
+        yield
+
+
+def test_stats_are_cached(app: Flask) -> None:
+    from acoustid.web import stats_cache
+
+    with app.test_request_context():
+        with mock.patch.object(
+            stats_cache, "find_current_stats", return_value={"fingerprint.all": 5}
+        ) as find:
+            assert stats_cache.get_current_stats() == {"fingerprint.all": 5}
+            assert stats_cache.get_current_stats() == {"fingerprint.all": 5}
+        assert find.call_count == 1
+
+
+def test_stats_work_without_redis(app: Flask) -> None:
+    from acoustid.web import stats_cache
+
+    with app.test_request_context():
+        with (
+            mock.patch.object(
+                stats_cache.db, "get_redis", return_value=FakeRedis(fail=True)
+            ),
+            mock.patch.object(
+                stats_cache, "find_current_stats", return_value={"fingerprint.all": 5}
+            ) as find,
+        ):
+            assert stats_cache.get_current_stats() == {"fingerprint.all": 5}
+            assert stats_cache.get_current_stats() == {"fingerprint.all": 5}
+        assert find.call_count == 2
+
+    rv = app.test_client().get("/")
+    assert rv.status_code == 200
+
+
+def test_home_page_falls_back_to_a_known_song(app: Flask) -> None:
+    # The test database has no fingerprint linked to a recording.
+    rv = app.test_client().get("/")
+    assert rv.status_code == 200
+    assert "Lower Your Eyelids to Die With the Sun" in rv.text
+
+
+def test_home_page_song_is_picked_once_per_hour(app: Flask) -> None:
+    from acoustid.web import featured_song
+
+    song = {
+        "track": "eb31d1c3-950e-468b-9e36-e46fa75b1291",
+        "name": "Random Song",
+        "artist": "Random Artist",
+        "fingerprint": [1, 2, 3],
+    }
+    client = app.test_client()
+    with mock.patch.object(
+        featured_song, "pick_random_song", return_value=song
+    ) as pick:
+        assert "Random Song" in client.get("/").text
+        assert "Random Song" in client.get("/").text
+    assert pick.call_count == 1
+
+
+def test_home_page_renders_without_the_database(app: Flask) -> None:
+    from acoustid.web import featured_song, stats_cache
+
+    with (
+        mock.patch.object(
+            stats_cache, "find_current_stats", side_effect=RuntimeError("db down")
+        ),
+        mock.patch.object(
+            stats_cache, "find_lookup_stats", side_effect=RuntimeError("db down")
+        ),
+        mock.patch.object(
+            featured_song, "pick_random_song", side_effect=RuntimeError("db down")
+        ),
+    ):
+        rv = app.test_client().get("/")
+        assert rv.status_code == 200
+        assert "Lower Your Eyelids to Die With the Sun" in rv.text
+        assert "The database today" not in rv.text
+
+        assert app.test_client().get("/about").status_code == 200
+
+
+def test_featured_song_is_computed_by_one_request_at_a_time(app: Flask) -> None:
+    from acoustid.web import featured_song, stats_cache
+
+    redis = FakeRedis()
+    redis.store[featured_song.FEATURED_SONG_KEY + ":lock"] = b"1"
+    with (
+        app.test_request_context(),
+        mock.patch.object(stats_cache.db, "get_redis", return_value=redis),
+        mock.patch.object(featured_song, "pick_random_song") as pick,
+    ):
+        song = featured_song.get_featured_song([1, 2, 3])
+    assert song["name"] == "Lower Your Eyelids to Die With the Sun"
+    assert pick.call_count == 0
+
+
+def test_pick_random_song(app: Flask) -> None:
+    from acoustid import tables as schema
+    from acoustid.data.fingerprint import insert_fingerprint
+    from acoustid.web.featured_song import pick_random_song
+    from tests import TEST_1A_FP_RAW
+    from tests.test_data_musicbrainz import insert_artist_credit, insert_recording
+
+    script = app.acoustid_script  # type: ignore
+    with script.context() as ctx:
+        mb_db = ctx.db.get_musicbrainz_db()
+        artist_credit = insert_artist_credit(mb_db, "Picked Artist")
+        recording = insert_recording(
+            mb_db, "b81f83ee-4da4-11e0-9ed8-0025225356f3", "Picked Song", artist_credit
+        )
+        fp_db = ctx.db.get_fingerprint_db()
+        fingerprint_id = insert_fingerprint(
+            fp_db,
+            ctx.db.get_ingest_db(),
+            {"fingerprint": TEST_1A_FP_RAW * 3, "length": 300, "track_id": 1},
+        )
+        fp_db.execute(
+            schema.fingerprint.update()
+            .where(schema.fingerprint.c.id == fingerprint_id)
+            .values(submission_count=5)
+        )
+        ctx.db.session.commit()
+    try:
+        with app.test_request_context():
+            song = pick_random_song()
+        assert song is not None
+        assert song["name"] == "Picked Song"
+        assert song["artist"] == "Picked Artist"
+        assert song["track"] == "eb31d1c3-950e-468b-9e36-e46fa75b1291"
+        assert len(song["fingerprint"]) == 948
+    finally:
+        with script.context() as ctx:
+            ctx.db.get_fingerprint_db().execute(
+                schema.fingerprint.delete().where(
+                    schema.fingerprint.c.id == fingerprint_id
+                )
+            )
+            mb_db = ctx.db.get_musicbrainz_db()
+            mb_db.execute(
+                schema.mb_recording.delete().where(
+                    schema.mb_recording.c.id == recording
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist_credit_name.delete().where(
+                    schema.mb_artist_credit_name.c.artist_credit == artist_credit
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist_credit.delete().where(
+                    schema.mb_artist_credit.c.id == artist_credit
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist.delete().where(
+                    schema.mb_artist.c.name == "Picked Artist"
+                )
+            )
+            ctx.db.session.commit()
+
+
+def test_mbid_page_rejects_invalid_ids(app: Flask) -> None:
+    rv = app.test_client().get("/mbid/not-a-uuid")
+    assert rv.status_code == 404
+    assert "is not a MusicBrainz recording ID" in rv.text
+
+
+def test_track_page_metadata_links_keep_disabled_recordings(app: Flask) -> None:
+    rv = app.test_client().get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291?disabled=1")
+    assert "?metadata=raw&amp;disabled=1#metadata" in rv.text
+
+
+def test_replacing_the_api_key_requires_post_and_a_token(app: Flask) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 2
+
+    assert client.get("/new-api-key").status_code == 405
+    assert "user2key" in client.get("/api-key").text
+
+    try:
+        # Without the token from the account page, nothing changes.
+        assert client.post("/new-api-key").status_code == 400
+        assert (
+            client.post("/new-api-key", data={"csrf_token": "wrong"}).status_code == 400
+        )
+        assert "user2key" in client.get("/api-key").text
+
+        with client.session_transaction() as flask_session:
+            token = flask_session["api_key_csrf_token"]
+        rv = client.post("/new-api-key", data={"csrf_token": token})
+        assert rv.status_code == 302
+        assert "user2key" not in client.get("/api-key").text
+    finally:
+        from acoustid import tables as schema
+
+        with app.acoustid_script.context() as ctx:  # type: ignore
+            ctx.db.get_app_db().execute(
+                schema.account.update()
+                .where(schema.account.c.id == 2)
+                .values(apikey="user2key")
+            )
+            ctx.db.session.commit()
+
+
+def test_home_page_labels_old_search_counts_with_their_date(app: Flask) -> None:
+    from acoustid.web import stats_cache
+
+    lookups = [
+        {
+            "date": datetime.date(2020, 1, 2),
+            "count": 1234,
+            "count_hits": 1000,
+            "count_nohits": 234,
+        }
+    ]
+    with (
+        mock.patch.object(
+            stats_cache, "find_current_stats", return_value={"track.all": 10}
+        ),
+        mock.patch.object(stats_cache, "find_lookup_stats", return_value=lookups),
+    ):
+        rv = app.test_client().get("/")
+    assert "Searches on 2020-01-02" in rv.text
+    assert "Searches yesterday" not in rv.text

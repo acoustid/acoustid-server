@@ -1,12 +1,14 @@
 import os
 import pickle
 
-from flask import Flask, request, session
+from flask import Flask, render_template, request, session
 from flask.sessions import SecureCookieSessionInterface
+from werkzeug.exceptions import HTTPException, NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from acoustid.script import Script
 from acoustid.web import db
+from acoustid.web.filters import register_filters
 from acoustid.web.views.admin import admin_page
 from acoustid.web.views.apps import apps_page
 from acoustid.web.views.general import general_page
@@ -50,10 +52,19 @@ def make_application(config_filename=None, tests=False):
         return dict(
             account_id=session.get("id"),
             show_maintenace_banner=config.website.maintenance,
-            morris_js_version="0.5.1",
-            raphael_js_version="2.1.4",
-            bootstrap_version="3.3.6",
-            jquery_version="1.12.0",
+        )
+
+    register_filters(app)
+
+    @app.errorhandler(404)
+    def page_not_found(error: HTTPException):
+        # A view can explain what is missing with abort(404, description=...).
+        message = error.description
+        if message == NotFound.description:
+            message = "There is no page at this address."
+        return (
+            render_template("error.html", title="Not found", code=404, message=message),
+            404,
         )
 
     def get_flask_request_scope():

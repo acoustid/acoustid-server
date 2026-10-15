@@ -1,29 +1,52 @@
 {% extends "_base.html" %}
 {% block content %}
 
-<h2>{{ title }}</h2>
+<div class="confirm">
+  <div class="page-head">
+    <div class="eyebrow">Moderation</div>
+    <h1>{% if state %}Unlink this recording?{% else %}Link this recording again?{% endif %}</h1>
+  </div>
 
-<p>
-    Are you sure you want to {% if not state %}link{% else %}unlink{% endif %}
-    MBID "<a href="//musicbrainz.org/recording/{{ mbid }}">{{ mbid }}</a>"
-    {% if not state %}to{% else %}from{% endif %}
-    track "<a href="{{ url_for('.track', track_id_or_gid=track_gid) }}">{{ track_gid }}</a>"?
-</p>
+  <dl class="details">
+    <dt>Recording</dt>
+    <dd>
+      {% if recording %}
+      <a href="https://musicbrainz.org/recording/{{ mbid }}">{{ recording.name }}</a>
+      by {{ recording.artist_name }}{% if recording.length %} · {{ recording.length|duration }}{% endif %}
+      {% else %}
+      <a href="https://musicbrainz.org/recording/{{ mbid }}">Unknown recording</a>
+      {% endif %}
+      <div class="small muted mono">{{ mbid }}</div>
+    </dd>
+    <dt>AcoustID</dt>
+    <dd><a class="mono" href="{{ url_for('.track', track_id_or_gid=track_gid) }}">{{ track_gid }}</a></dd>
+  </dl>
 
-<form method="POST" action="{{ url_for('.toggle_track_mbid') }}">
+  <p class="muted">
+    {% if state %}
+    Lookups of this AcoustID will no longer return this recording. Do this when the audio
+    doesn't match the recording, for example a different version or a wrong submission.
+    {% else %}
+    Lookups of this AcoustID will return this recording again.
+    {% endif %}
+    The change is shown in the track's editing history and can be undone.
+  </p>
 
-<div class="form-group">
-  <label for="note_i">Comment:</label>
-  <textarea class="form-control" name="note" id="name_i"></textarea>
+  <form method="POST" action="{{ url_for('.toggle_track_mbid') }}">
+    <div class="form-group">
+      <label for="note_i">Reason <span class="muted">(optional)</span></label>
+      <textarea class="form-control" name="note" id="note_i" placeholder="{% if state %}For example: this is the live version, not the album version{% endif %}"></textarea>
+    </div>
+
+    <input type="hidden" name="mbid" value="{{ mbid }}" />
+    <input type="hidden" name="track_id" value="{{ track_id }}" />
+    <input type="hidden" name="state" value="{{ '1' if state else '0' }}" />
+    <input type="hidden" name="submit" value="1" />
+    <div class="form-actions">
+      <button type="submit" class="btn {{ 'danger' if state else 'primary' }}">{% if state %}Unlink recording{% else %}Link recording{% endif %}</button>
+      <a class="btn" href="{{ url_for('.track', track_id_or_gid=track_gid) }}">Cancel</a>
+    </div>
+  </form>
 </div>
 
-<input type="hidden" name="mbid" value="{{ mbid }}" />
-<input type="hidden" name="track_id" value="{{ track_id }}" />
-<input type="hidden" name="state" value="{{ '1' if state else '0' }}" />
-<input type="hidden" name="submit" value="1" />
-<input type="submit" class="btn btn-default" value="Submit" />
-
-</form>
-
 {% endblock %}
-

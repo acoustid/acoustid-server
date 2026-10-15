@@ -1,7 +1,10 @@
 {% extends "_base.html" %}
+{% set nav = 'account' %}
 {% block content %}
 
-<h2>{{ title }}</h2>
+<div class="page-head">
+  <h1>{{ title }}</h1>
+</div>
 
 {% if applications %}
 
@@ -38,7 +41,7 @@
 {% endif %}
 
 <p>
-  <a class="btn btn-default" href="{{ url_for('.new_application') }}">Register a new application</a>
+  <a class="btn" href="{{ url_for('.new_application') }}">Register a new application</a>
 </p>
 
 {% endblock %}

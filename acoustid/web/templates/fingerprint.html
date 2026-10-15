@@ -1,27 +1,79 @@
 {% extends "_base.html" %}
 {% block content %}
-<h2>{{ title }}</h2>
+<div class="page-head">
+  <div class="eyebrow">Fingerprint</div>
+  <h1>#{{ fingerprint.id }}</h1>
+  <div class="sub">
+    <span>Part of track <a class="mono" href="{{ url_for('.track', track_id_or_gid=track_gid) }}">{{ track_gid }}</a></span>
+  </div>
+</div>
 
-<p><canvas style="border: solid 2px #C5C5C5;" id="fp-img" width="32" height="0"></canvas></p>
+<div class="facts">
+  <div class="fact"><div class="label">File length</div><div class="value">{{ fingerprint.length|duration }}</div><div class="note">duration of the submitted audio</div></div>
+  <div class="fact"><div class="label">Fingerprinted</div><div class="value">{{ (fingerprint.fingerprint|length * 0.1238)|duration }}</div><div class="note">{{ fingerprint.fingerprint|length|thousands }} frames of 32 bits</div></div>
+  <div class="fact"><div class="label">Sources</div><div class="value">{{ fingerprint.submission_count|thousands }}</div><div class="note">submissions with this fingerprint</div></div>
+</div>
 
-<p>Compare with another fingerprint <input id="fp_id" size="6" placeholder="ID"/> <button id="compare">Compare</button></p>
+<section>
+  <div class="section-head">
+    <h2>Fingerprint data</h2>
+    <span class="meta">Time runs left to right, each row of pixels is one of the 32 bits</span>
+    <div class="actions">
+      <span class="seg" data-zoom>
+        <button type="button" data-z="1" aria-pressed="true">1×</button>
+        <button type="button" data-z="2" aria-pressed="false">2×</button>
+        <button type="button" data-z="4" aria-pressed="false">4×</button>
+      </span>
+    </div>
+  </div>
+  <div class="fp-scroll" data-fp-view data-fp="{{ fingerprint.fingerprint|tojson }}">
+    <div class="fp-row"><div class="lbl">Bits<b>#{{ fingerprint.id }}</b></div><canvas class="fp strip"></canvas></div>
+    <div class="fp-row"><div class="lbl"></div><div class="time-axis"></div></div>
+  </div>
+</section>
 
-<p>Back to <a href="{{ url_for('.track', track_id_or_gid=track_gid) }}">track "{{ track_gid }}"</a></p>
-{% endblock %}
-
-{% block extra_js %}
-<script type="text/javascript" src="{{ url_for('static', filename='fputils.js') }}"></script>
-<script type="text/javascript">
-$(document).ready(function () {
-   var fp = {{ fingerprint.fingerprint }};
-   var canvas = document.getElementById('fp-img');
-   paintFingerprint(canvas, fp);
-
-   $('#compare').click(function () {
-       var id2 = $('#fp_id').val();
-       var url = '/fingerprint/{{ fingerprint.id }}/compare/' + id2;
-       window.location.href = url;
-   });
-});
-</script>
+<section>
+  <div class="section-head">
+    <h2>Compare</h2>
+    {% if ranked %}
+    <span class="meta">Other fingerprints of the same track, most similar first</span>
+    {% else %}
+    <span class="meta">The {{ siblings|length }} most submitted of {{ track_size|thousands }} fingerprints of the same track</span>
+    {% endif %}
+  </div>
+  <div class="table-scroll">
+    <table class="data">
+      <thead><tr><th>Fingerprint</th><th class="num">Length</th><th class="num">Sources</th><th>Similarity</th><th class="shrink"></th></tr></thead>
+      <tbody>
+        {% for fp in siblings %}
+        <tr>
+          <td class="mono"><a href="{{ url_for('.fingerprint', fingerprint_id=fp.id) }}">#{{ fp.id }}</a></td>
+          <td class="num">{{ fp.length|duration }}</td>
+          <td class="num">{{ fp.submission_count|thousands }}</td>
+          <td>
+            {% if fp.score is defined %}
+            {% set verdict = fp.score|verdict %}
+            <div class="bar-cell">
+              <div class="bar"><i style="width:{{ '%.1f'|format(100 * fp.score) }}%"></i></div>
+              <span>{{ '%.2f'|format(fp.score) }}</span>
+              <span class="pill {{ verdict[0] }}">{{ verdict[1] }}</span>
+            </div>
+            {% else %}
+            <span class="muted">–</span>
+            {% endif %}
+          </td>
+          <td class="shrink"><a class="btn" href="{{ url_for('.compare_fingerprints', fingerprint_id_1=fingerprint.id, fingerprint_id_2=fp.id) }}">Compare</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted">This is the only fingerprint of its track.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <form class="compare-form" data-compare-with="{{ fingerprint.id }}">
+    <label for="other">Compare with any fingerprint</label>
+    <input id="other" name="other" placeholder="ID" inputmode="numeric">
+    <button class="btn">Compare</button>
+  </form>
+</section>
 {% endblock %}

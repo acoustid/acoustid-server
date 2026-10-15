@@ -1,7 +1,11 @@
 {% extends "_base.html" %}
+{% set title = "Searches by application" %}
 {% block content %}
 
-<h2>Application statistics</h2>
+<div class="page-head">
+  <div class="eyebrow"><a href="{{ url_for('admin.index') }}">Admin</a></div>
+  <h1>Searches by application</h1>
+</div>
 
 <p>
 Show for
@@ -16,7 +20,7 @@ Show for
 {%- endfor %}
 </p>
 
-<table class="table table-striped">
+<table class="table">
   <thead>
     <tr>
       <th>Application</th>

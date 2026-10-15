@@ -1,66 +1,47 @@
 {% extends "_base.html" %}
+{% set title = "Sign in" %}
 {% block content %}
 
-<h2>Sign in</h2> 
+<div class="auth">
+  <div class="auth-main">
+    <div class="page-head">
+      <h1>Sign in</h1>
+      <div class="sub"><span>Use an account you already have, there is no separate AcoustID password.</span></div>
+    </div>
 
-{% if errors %}
-<p class="errors">{% for error in errors %}{{ error }}<br />{% endfor %}</p>
-{% endif %}
+    {% if errors %}
+    <div class="alert">{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div>
+    {% endif %}
 
-<p>Please sign in with an account from one of these providers:</p>
+    <form action="{{ url_for('.login') }}" method="POST" class="auth-providers">
+      <input type="hidden" name="return_url" value="{{ return_url or '' }}">
+      <button type="submit" name="login" value="musicbrainz" class="btn primary provider">Continue with MusicBrainz</button>
+      <p class="small muted">Recommended. A MusicBrainz account also lets you fix wrong links between AcoustIDs and recordings.</p>
+      <button type="submit" name="login" value="google" class="btn provider">Continue with Google</button>
+    </form>
 
-<form action="{{ url_for('.login') }}" method="POST"  class="form-inline"> 
+    <details class="auth-openid"{% if errors %} open{% endif %}>
+      <summary>Signed in with OpenID before?</summary>
+      <form action="{{ url_for('.login') }}" method="POST" class="openid-form">
+        <input type="hidden" name="return_url" value="{{ return_url or '' }}">
+        <input type="hidden" name="login" value="openid">
+        <label for="openid_identifier" class="small muted">Your OpenID URL</label>
+        <input name="openid_identifier" id="openid_identifier" type="url" required
+               placeholder="https://example.com/openid" class="form-control">
+        <button type="submit" class="btn">Sign in</button>
+      </form>
+    </details>
+  </div>
 
-<p>
-    <a class="login-block login-musicbrainz" href="#"><span>Log in with MusicBrainz</span></a>
-    <a class="login-block login-google" href="#"><span>Log in with Google</span></a>
-    <a class="login-block login-openid" href="#"><span>Log in with OpenID</span></a>
-</p>
-
-<p class="openid-form" style="display:none">
-    <label for="openid_identifier">Your OpenID URL</label>
-    <input name="openid_identifier" id="openid_identifier" type="url"
-           placeholder="https://example.com/openid"
-           class="openid form-control" />
-    <input type="submit" value="Sign in" class="btn btn-default" />
-</p>
-
-<input type="hidden" name="return_url" value="{{ return_url }}" />
-{# Defaults to empty on purpose: clients that ignore the inline display:none
-   (text browsers, crawlers) can otherwise submit this form without ever
-   choosing a provider, which used to land in the OpenID path with an empty
-   identifier. #}
-<input type="hidden" name="login" value="" />
-
-</form> 
-
-{% endblock %}
-
-{% block extra_js %}
-
-<script type="text/javascript"> 
-$(document).ready(function () {
-    $('.login-musicbrainz').click(function () {
-        var $form = $(this).closest('form');
-        $form.find('input[name=login]').val('musicbrainz');
-        $form.submit();
-        return false;
-    });
-    $('.login-google').click(function () {
-        var $form = $(this).closest('form');
-        $form.find('input[name=login]').val('google');
-        $form.submit();
-        return false;
-    });
-    $('.login-openid').click(function () {
-        var $this = $(this), $form = $this.closest('form');
-        $this.addClass('active');
-        $form.find('input[name=login]').val('openid');
-        $form.find('.openid-form').show();
-        $form.find('.openid-form input.openid').focus();
-        return false;
-    });
-});
-</script> 
+  <aside class="auth-aside">
+    <h2>What's an account for?</h2>
+    <ul>
+      <li>Getting an <b>API key</b> for submitting fingerprints from applications like MusicBrainz Picard.</li>
+      <li>Registering your <b>own application</b> to use the web service.</li>
+      <li>Fixing <b>wrong links</b> between AcoustIDs and MusicBrainz recordings.</li>
+    </ul>
+    <p class="small muted">You don't need an account to look up music, or to browse the database.</p>
+  </aside>
+</div>
 
 {% endblock %}

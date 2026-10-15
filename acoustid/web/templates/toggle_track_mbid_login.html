@@ -1,8 +1,20 @@
 {% extends "_base.html" %}
 {% block content %}
 
-<h2>{{ title }}</h2>
+<div class="confirm">
+  <div class="page-head">
+    <div class="eyebrow">Moderation</div>
+    <h1>{{ title }}</h1>
+  </div>
 
-<p>We are sorry, but editing is only possible if you log in with a MusicBrainz account.</p>
+  <p>
+    Only people signed in with a MusicBrainz account can change links between AcoustIDs and
+    recordings. Sign out, and sign in again with MusicBrainz.
+  </p>
+
+  <p class="links">
+    <a href="{{ url_for('user.logout') }}">Sign out</a>
+  </p>
+</div>
 
 {% endblock %}

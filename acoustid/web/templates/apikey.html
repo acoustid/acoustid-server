@@ -1,23 +1,48 @@
 {% extends "_base.html" %}
+{% set nav = 'account' %}
 {% block content %}
 
-<h2>{{ title }}</h2>
+<div class="account">
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+    <div class="sub">
+      <span>Signed in as {{ user.name }}</span>
+      {% if user.mbuser %}<span>MusicBrainz account <a href="https://musicbrainz.org/user/{{ user.mbuser }}">{{ user.mbuser }}</a></span>{% endif %}
+    </div>
+  </div>
 
-<p>
-  Your API key is a token that can be used in an application for submitting
-  new fingerprints to the AcoustID database.
-</p>
+  <section>
+    <div class="section-head"><h2>API key</h2></div>
+    <p>
+      Applications use this key to submit fingerprints to AcoustID in your name.
+      In <a href="https://picard.musicbrainz.org/">MusicBrainz Picard</a>, paste it in
+      <i>Options → Fingerprinting → API key</i>.
+    </p>
+    <p><span class="id-chip apikey"><span>{{ apikey }}</span><button type="button" data-copy="{{ apikey }}">Copy</button></span></p>
+    <details class="danger-zone">
+      <summary>Generate a new API key</summary>
+      <p>
+        Do this if your key has leaked. Applications that still use the old key will no longer be
+        able to submit fingerprints until you give them the new one.
+      </p>
+      <form method="POST" action="{{ url_for('user.new_api_key') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn danger">Replace my API key</button>
+      </form>
+    </details>
+  </section>
 
-<p>
-  Your current API key:
-</p>
-
-<p>
-	<code style="padding: 0.4em; border: solid 1px #b2b2b2; font-size: 140%;">{{ apikey }}</code>
-</p>
-
-<p>
-	<a class="btn btn-default" href="{{ url_for('user.new_api_key') }}">Generate a new API key</a>
-</p>
+  <section>
+    <div class="section-head"><h2>Applications</h2></div>
+    <p>
+      If you are developing an application that uses the AcoustID web service, it needs its own
+      key, separate from yours.
+    </p>
+    <p class="links">
+      <a href="{{ url_for('apps.applications') }}">Your applications</a>
+      <a href="{{ url_for('apps.new_application') }}">Register a new application</a>
+    </p>
+  </section>
+</div>
 
 {% endblock %}

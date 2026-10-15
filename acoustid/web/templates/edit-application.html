@@ -1,10 +1,13 @@
 {% extends "_base.html" %}
+{% set nav = 'account' %}
 {% block content %}
 
-<h2>{{ title }}</h2> 
+<div class="page-head">
+  <h1>{{ title }}</h1>
+</div>
 
 {% if errors %}
-<p class="errors">{% for error in errors %}{{ error }}<br />{% endfor %}</p>
+<div class="alert">{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div>
 {% endif %}
 
 <form action="{{ url_for('.edit_application', application_id=app.id) }}" method="POST"> 
@@ -19,12 +22,13 @@
   <div class="form-group">
     <label for="email_i">Contact email</label>
     <input name="email" id="email_i" type="text" class="form-control" value="{{ form.email }}" />
+    <p class="small muted">Only used to contact you about this application, for example if it causes problems for the service.</p>
   </div>
   <div class="form-group">
     <label for="website_i">Website (optional)</label>
     <input name="website" id="website_i" type="website" class="form-control" value="{{ form.website }}" />
   </div>
-	<button type="submit" class="btn btn-default">Save</button>
+	<button type="submit" class="btn primary">Save</button>
 	<input type="hidden" name="submit" value="1" />
 </form>
 

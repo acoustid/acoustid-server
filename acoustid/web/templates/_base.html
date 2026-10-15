@@ -1,35 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> 
+<head>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if title %}{{ title }} | {% endif %}AcoustID</title> 
-  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Roboto:300">
-  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Open+Sans:400,600">
-  <link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootstrap/{{ bootstrap_version }}/css/bootstrap.min.css">
+  <title>{% if title %}{{ title }} | AcoustID{% else %}AcoustID · open source audio identification{% endif %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='acoustid.css') }}">
   {% block extra_css %}{% endblock %}
-  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='acoustid.css') }}" />
-  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
-	<!--<script type="text/javascript"> 
- 
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-18981078-1']);
-  _gaq.push(['_trackPageview']);
- 
-  (function() {
-    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
-  })();
- 
-	</script> -->
-</head> 
+  <script defer src="{{ url_for('static', filename='fp.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='charts.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='hero-art.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='site.js') }}"></script>
+  {% block extra_js %}{% endblock %}
+</head>
 <body>
 
 {% if show_maintenace_banner %}
   <div class="maintenance-header">
-    <div class="container">
+    <div class="wrap">
       <p>
         AcoustID is currently in read-only mode for maintenance.
         Follow <a href="https://status.acoustid.org/">status.acoustid.org</a> for updates.
@@ -38,61 +26,49 @@
   </div>
 {% endif %}
 
-  <nav class="navbar navbar-default navbar-static-top">
-    <div class="container">
-      <div class="navbar-header">
-        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-          <span class="sr-only">Toggle navigation</span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-        </button>
-        <div class="navbar-brand">
-          <a href="{{ url_for('general.index') }}" title="AcoustID">
-            <img src="{{ url_for('static', filename='acoustid.svg') }}" alt="AcoustID">
-          </a>
-          <small>open source audio identification</small>
-        </div>
-      </div>
-      <div id="navbar" class="navbar-collapse collapse">
-        <ul class="nav navbar-nav navbar-right">
-          <li><a href="{{ url_for('general.docs') }}">Documentation</a></li>
-          <li><a href="{{ url_for('stats.stats') }}">Statistics</a></li>
-          {% if account_id %}
-          <li><a href="{{ url_for('user.logout') }}">Sign out</a></li>
-          {% else %}
-          <li><a href="{{ url_for('user.login') }}">Sign in</a></li>
-          {% endif %}
-        </ul>
-      </div>
-    </div>
-  </nav>
+{% set nav = nav|default('') %}
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="{{ url_for('general.index') }}" title="AcoustID">
+      <img src="{{ url_for('static', filename='acoustid.svg') }}" alt="AcoustID">
+      <small>open source audio identification</small>
+    </a>
+    <nav class="nav">
+      <a href="{{ url_for('general.docs') }}"{% if nav == 'docs' %} class="active"{% endif %}>Documentation</a>
+      <a href="{{ url_for('general.webservice') }}"{% if nav == 'webservice' %} class="active"{% endif %}>Web service</a>
+      <a href="{{ url_for('stats.stats') }}"{% if nav == 'stats' %} class="active"{% endif %}>Statistics</a>
+      {% if account_id %}
+      <a href="{{ url_for('user.api_key') }}"{% if nav == 'account' %} class="active"{% endif %}>Your account</a>
+      <a href="{{ url_for('user.logout') }}">Sign out</a>
+      {% else %}
+      <a href="{{ url_for('user.login') }}">Sign in</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
 
-	<div class="container"> 
+{% block body %}
+<main class="wrap">
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}
 
-    <div class="content">
-      {% block content %}{% endblock %}
-    </div>
+<footer class="site-footer">
+  <div class="wrap">
+    <p>
+      Software created by <a href="https://oxygene.sk/">Lukáš Lalinský</a>,
+      hosted by <a href="https://acoustid.biz">AcoustID OÜ</a>,
+      data crowd-sourced by <a href="{{ url_for('stats.stats') }}">thousands of contributors</a>.
+    </p>
+    <nav>
+      <a href="{{ url_for('general.about') }}">About</a>
+      <a href="{{ url_for('general.contact') }}">Contact</a>
+      <a href="https://github.com/acoustid">Source code</a>
+      <a href="https://blog.acoustid.org/">Blog</a>
+      <a href="{{ url_for('general.license') }}">Data license</a>
+    </nav>
+  </div>
+</footer>
 
-	</div> 
-
-	<div class="footer">
-    <div class="container">
-      <p class="text-muted">Software created by <a href="https://oxygene.sk/">Lukáš Lalinský</a>, hosted by <a href="https://acoustid.biz">AcoustID OÜ</a>, data crowd-sourced by <a href="{{ url_for('stats.stats') }}">thousands of contributors</a>.</p>
-      <p class="text-muted">
-        <a href="{{ url_for('general.contact') }}">Contact</a> |
-        <a href="https://blog.acoustid.org/">Blog</a> |
-        <a href="https://twitter.com/acoustid">Twitter</a> |
-        <a href="https://www.facebook.com/acoustid">Facebook</a>
-      </p>
-    </div>
-	</div>
-
-  <script src="//ajax.googleapis.com/ajax/libs/jquery/{{ jquery_version }}/jquery.min.js"></script>
-  <script src="//maxcdn.bootstrapcdn.com/bootstrap/{{ bootstrap_version }}/js/bootstrap.min.js"></script>
-  <script async src="https://c6.patreon.com/becomePatronButton.bundle.js"></script>
-  {% block extra_js %}{% endblock %}
-
-</body> 
-</html> 
- 
+</body>
+</html>

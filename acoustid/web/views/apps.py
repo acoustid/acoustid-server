@@ -1,4 +1,3 @@
-import json
 import logging
 
 from flask import (
@@ -21,7 +20,7 @@ from acoustid.data.stats import find_application_lookup_stats
 from acoustid.web import db
 from acoustid.web.utils import is_valid_email, is_valid_url, require_user
 
-from .stats import prepare_chart_data
+from .stats import line_chart
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +74,15 @@ def application(application_id: int) -> str:
         app=application,
         monthly_stats=monthly_stats,
         lookups=lookups,
-        lookups_json=json.dumps(prepare_chart_data(lookups)),
+        lookups_chart=line_chart(
+            lookups,
+            [
+                ("count", "All", "#8f8c85", {"dash": "4 3", "width": 1.5}),
+                ("count_hits", "Matched", "#0145aa", {}),
+                ("count_nohits", "No match", "#aa0000", {}),
+            ],
+            tip="hit-rate",
+        ),
     )
 
 
