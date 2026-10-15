@@ -746,6 +746,26 @@ def test_track_page_draws_only_the_most_submitted_fingerprints(
     assert "fp-thumb" not in rows[b]
 
 
+def test_track_page_lists_most_submitted_fingerprints_first(
+    app: Flask, track_fingerprints
+) -> None:
+    from acoustid import tables as schema
+
+    a, b, c = track_fingerprints
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        ctx.db.get_fingerprint_db().execute(
+            schema.fingerprint.update()
+            .where(schema.fingerprint.c.id == c)
+            .values(submission_count=5)
+        )
+        ctx.db.session.commit()
+
+    rv = app.test_client().get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
+    row = '/fingerprint/%d">%d</a>'
+    assert rv.text.index(row % (c, c)) < rv.text.index(row % (a, a))
+    assert rv.text.index(row % (a, a)) < rv.text.index(row % (b, b))
+
+
 def test_fingerprint_page(app: Flask, track_fingerprints) -> None:
     client = app.test_client()
     a, b, c = track_fingerprints
