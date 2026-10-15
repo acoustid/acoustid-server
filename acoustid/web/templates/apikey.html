@@ -26,6 +26,7 @@
         able to submit fingerprints until you give them the new one.
       </p>
       <form method="POST" action="{{ url_for('user.new_api_key') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="btn danger">Replace my API key</button>
       </form>
     </details>

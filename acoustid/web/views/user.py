@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
+    abort,
     current_app,
     redirect,
     render_template,
@@ -495,18 +496,35 @@ def logout():
     return redirect(url_for("general.index"))
 
 
+# Where the CSRF token for replacing the API key is kept in the session.
+API_KEY_TOKEN_KEY = "api_key_csrf_token"
+
+
 @user_page.route("/api-key")
 def api_key():
     user = require_user()
+    # A CSRF token for the form that replaces the key, kept in the session.
+    token = session.get(API_KEY_TOKEN_KEY)
+    if not token:
+        token = session[API_KEY_TOKEN_KEY] = secrets.token_urlsafe(32)
     return render_template(
-        "apikey.html", title="Your account", user=user, apikey=user.apikey
+        "apikey.html",
+        title="Your account",
+        user=user,
+        apikey=user.apikey,
+        csrf_token=token,
     )
 
 
-# POST only, so another site can't replace someone's key by linking to it.
+# POST only, and with the token from the account page, so another site can't
+# replace someone's key, neither by linking to it nor by posting a form.
 @user_page.route("/new-api-key", methods=["POST"])
 def new_api_key():
     user = require_user()
+    token = session.get(API_KEY_TOKEN_KEY)
+    sent = request.form.get("csrf_token", "")
+    if not token or not hmac.compare_digest(token, sent):
+        abort(400)
     user.apikey = generate_api_key()
     db.session.commit()
     return redirect(url_for(".api_key"))

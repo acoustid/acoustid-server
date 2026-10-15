@@ -1052,7 +1052,7 @@ def test_track_page_metadata_links_keep_disabled_recordings(app: Flask) -> None:
     assert "?metadata=raw&amp;disabled=1#metadata" in rv.text
 
 
-def test_replacing_the_api_key_requires_post(app: Flask) -> None:
+def test_replacing_the_api_key_requires_post_and_a_token(app: Flask) -> None:
     client = app.test_client()
     with client.session_transaction() as flask_session:
         flask_session["id"] = 2
@@ -1061,7 +1061,16 @@ def test_replacing_the_api_key_requires_post(app: Flask) -> None:
     assert "user2key" in client.get("/api-key").text
 
     try:
-        rv = client.post("/new-api-key")
+        # Without the token from the account page, nothing changes.
+        assert client.post("/new-api-key").status_code == 400
+        assert (
+            client.post("/new-api-key", data={"csrf_token": "wrong"}).status_code == 400
+        )
+        assert "user2key" in client.get("/api-key").text
+
+        with client.session_transaction() as flask_session:
+            token = flask_session["api_key_csrf_token"]
+        rv = client.post("/new-api-key", data={"csrf_token": token})
         assert rv.status_code == 302
         assert "user2key" not in client.get("/api-key").text
     finally:
