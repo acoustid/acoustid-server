@@ -302,7 +302,7 @@ canvas.fp { display: block; image-rendering: pixelated; image-rendering: crisp-e
 
 /* Track page */
 
-.id-row { margin-top: 12px; }
+.id-row { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .matrix-title { margin: 28px 0 4px; }
 .narrow { max-width: 640px; }
 .matrix td a { display: block; color: inherit; line-height: 34px; }
@@ -460,3 +460,14 @@ tr.mbid-disabled td:first-child a { text-decoration: line-through; }
 }
 .prose .timeline time { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 520px) { .prose .timeline li { grid-template-columns: 1fr; } }
+
+/* Letters that label fingerprints and AcoustIDs in tables and grids */
+
+.letter {
+  display: inline-block; min-width: 1.7em; padding: 0 4px; text-align: center;
+  font: 600 13px/1.6 var(--mono); color: var(--ink);
+  background: var(--bg-sunk); border-radius: 3px;
+}
+.matrix th .letter { font-size: 12px; }
+tr.is-highlighted td { background: #e3ebf7; }
+th.is-highlighted .letter, tr.is-highlighted .letter { background: var(--link); color: #fff; }

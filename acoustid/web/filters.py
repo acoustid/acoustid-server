@@ -73,6 +73,16 @@ def verdict(score: float) -> tuple[str, str]:
     return "bad", "Different audio"
 
 
+def letter(index: int) -> str:
+    """0 -> "A", 25 -> "Z", 26 -> "AA", for labelling rows in tables and grids."""
+    label = ""
+    index += 1
+    while index > 0:
+        index, rest = divmod(index - 1, 26)
+        label = chr(ord("A") + rest) + label
+    return label
+
+
 def register_filters(app: Flask) -> None:
     app.jinja_env.filters["thousands"] = thousands
     app.jinja_env.filters["compact"] = compact
@@ -81,3 +91,4 @@ def register_filters(app: Flask) -> None:
     app.jinja_env.filters["bar_width"] = bar_width
     app.jinja_env.filters["score_style"] = score_style
     app.jinja_env.filters["verdict"] = verdict
+    app.jinja_env.filters["letter"] = letter

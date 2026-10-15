@@ -1,4 +1,11 @@
-from acoustid.web.filters import compact, duration, score_style, thousands, verdict
+from acoustid.web.filters import (
+    compact,
+    duration,
+    letter,
+    score_style,
+    thousands,
+    verdict,
+)
 from acoustid.web.grouping import MetaRow, group_metadata, normalize
 
 
@@ -52,3 +59,15 @@ def test_filters() -> None:
     assert verdict(0.9) == ("good", "Same recording")
     assert verdict(0.1) == ("bad", "Different audio")
     assert score_style(0.95).endswith("color:#fff")
+
+
+def test_letter() -> None:
+    assert [letter(i) for i in (0, 1, 25, 26, 27, 51, 52)] == [
+        "A",
+        "B",
+        "Z",
+        "AA",
+        "AB",
+        "AZ",
+        "BA",
+    ]

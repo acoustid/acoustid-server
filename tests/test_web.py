@@ -1109,6 +1109,72 @@ def test_home_page_labels_old_search_counts_with_their_date(app: Flask) -> None:
     assert "Searches yesterday" not in rv.text
 
 
+def test_mbid_page(app: Flask) -> None:
+    from acoustid import tables as schema
+    from tests.test_data_musicbrainz import insert_artist_credit, insert_recording
+
+    script = app.acoustid_script  # type: ignore
+    with script.context() as ctx:
+        mb_db = ctx.db.get_musicbrainz_db()
+        artist_credit = insert_artist_credit(mb_db, "Linked <Artist>")
+        recording = insert_recording(
+            mb_db, "b81f83ee-4da4-11e0-9ed8-0025225356f3", "Linked Song", artist_credit
+        )
+        ctx.db.get_fingerprint_db().execute(
+            schema.track_mbid.insert().values(
+                track_id=1,
+                mbid="11111111-2222-3333-4444-555555555555",
+                submission_count=1,
+                disabled=False,
+            )
+        )
+        ctx.db.session.commit()
+    try:
+        client = app.test_client()
+        rv = client.get("/mbid/B81F83EE-4DA4-11E0-9ED8-0025225356F3")
+        assert rv.status_code == 200
+        assert "Linked Song" in rv.text
+        # Names from MusicBrainz are escaped like any other data.
+        assert "Linked &lt;Artist&gt;" in rv.text
+        assert "eb31d1c3-950e-468b-9e36-e46fa75b1291" in rv.text
+        # The track is also linked to a recording we have no metadata for,
+        # which can only be linked to on MusicBrainz.
+        assert (
+            'href="https://musicbrainz.org/recording/'
+            '11111111-2222-3333-4444-555555555555"' in rv.text
+        )
+        assert "/mbid/11111111-2222-3333-4444-555555555555" not in rv.text
+    finally:
+        with script.context() as ctx:
+            ctx.db.get_fingerprint_db().execute(
+                schema.track_mbid.delete().where(
+                    schema.track_mbid.c.mbid == "11111111-2222-3333-4444-555555555555"
+                )
+            )
+            mb_db = ctx.db.get_musicbrainz_db()
+            mb_db.execute(
+                schema.mb_recording.delete().where(
+                    schema.mb_recording.c.id == recording
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist_credit_name.delete().where(
+                    schema.mb_artist_credit_name.c.artist_credit == artist_credit
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist_credit.delete().where(
+                    schema.mb_artist_credit.c.id == artist_credit
+                )
+            )
+            mb_db.execute(
+                schema.mb_artist.delete().where(
+                    schema.mb_artist.c.name == "Linked <Artist>"
+                )
+            )
+            ctx.db.session.commit()
+
+
 class FakeResponse:
     """Just enough of a requests response for the OAuth paths."""
 
