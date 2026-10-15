@@ -24,10 +24,11 @@ logger = logging.getLogger(__name__)
 
 metadata_page = Blueprint("metadata", __name__)
 
-# Fingerprint drawings on the track page load the raw fingerprints, and the
-# similarity grid compares every pair, so both are left out for tracks with
-# many fingerprints. The drawings only show the first two minutes.
-MAX_FINGERPRINT_THUMBNAILS = 30
+# Fingerprint drawings put the raw fingerprints into the page, so only the
+# most submitted fingerprints (on the recording page, AcoustIDs) get one. The
+# similarity grid compares every pair, so it is left out for tracks with many
+# fingerprints. The drawings only show the first two minutes.
+MAX_FINGERPRINT_THUMBNAILS = 50
 THUMBNAIL_FRAMES = 948
 MAX_SIMILARITY_MATRIX = 12
 # The fingerprint page scores every other fingerprint of the track to rank
@@ -81,11 +82,15 @@ def track(track_id_or_gid: str) -> str:
     fingerprints = fingerprint_db.execute(query).fetchall()
 
     fingerprint_data: dict[int, list[int]] = {}
-    if 0 < len(fingerprints) <= MAX_FINGERPRINT_THUMBNAILS:
+    thumbnail_ids = [
+        fp.id
+        for fp in sorted(fingerprints, key=lambda fp: (-fp.submission_count, fp.id))
+    ][:MAX_FINGERPRINT_THUMBNAILS]
+    if thumbnail_ids:
         query = sql.select(
             schema.fingerprint.c.id,
             schema.fingerprint.c.fingerprint[1:THUMBNAIL_FRAMES].label("fingerprint"),
-        ).where(schema.fingerprint.c.track_id == track_id)
+        ).where(schema.fingerprint.c.id.in_(thumbnail_ids))
         for row in fingerprint_db.execute(query):
             fingerprint_data[row.id] = row.fingerprint
 
@@ -209,6 +214,7 @@ def track(track_id_or_gid: str) -> str:
         metadata_rows=metadata_rows,
         metadata_groups=metadata_groups,
         thumbnail_frames=THUMBNAIL_FRAMES,
+        max_thumbnails=MAX_FINGERPRINT_THUMBNAILS,
     )
 
 
@@ -468,10 +474,10 @@ def mbid(mbid: str) -> str:
                 for m, count in others.get(t["id"], [])
             ]
 
-    # The most submitted fingerprint of each AcoustID, drawn as a thumbnail
-    # and compared in the similarity grid.
+    # The most submitted fingerprint of each of the most submitted AcoustIDs,
+    # drawn as a thumbnail and compared in the similarity grid.
     representative: dict[int, dict[str, Any]] = {}
-    if 0 < len(track_ids) <= MAX_FINGERPRINT_THUMBNAILS:
+    if track_ids:
         query = (
             sql.select(
                 schema.fingerprint.c.track_id,
@@ -480,7 +486,11 @@ def mbid(mbid: str) -> str:
                     "fingerprint"
                 ),
             )
-            .where(schema.fingerprint.c.track_id.in_(track_ids))
+            .where(
+                schema.fingerprint.c.track_id.in_(
+                    track_ids[:MAX_FINGERPRINT_THUMBNAILS]
+                )
+            )
             .distinct(schema.fingerprint.c.track_id)
             .order_by(
                 schema.fingerprint.c.track_id,
@@ -521,6 +531,7 @@ def mbid(mbid: str) -> str:
         representative=representative,
         similarity=similarity,
         thumbnail_frames=THUMBNAIL_FRAMES,
+        max_thumbnails=MAX_FINGERPRINT_THUMBNAILS,
     )
 
 
