@@ -1174,6 +1174,7 @@ def test_mbid_page(app: Flask) -> None:
             )
             ctx.db.session.commit()
 
+
 class FakeResponse:
     """Just enough of a requests response for the OAuth paths."""
 
