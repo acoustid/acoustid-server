@@ -1,5 +1,7 @@
 import datetime
 import json
+import logging
+from typing import Any
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
@@ -1171,3 +1173,147 @@ def test_mbid_page(app: Flask) -> None:
                 )
             )
             ctx.db.session.commit()
+
+class FakeResponse:
+    """Just enough of a requests response for the OAuth paths."""
+
+    def __init__(self, content: bytes, status_code: int = 200) -> None:
+        self.content = content
+        self.status_code = status_code
+
+    def json(self) -> object:
+        return json.loads(self.content)
+
+
+class FakeSession:
+    def __init__(self, response: FakeResponse) -> None:
+        self.response = response
+
+    def get(self, url: str, **kwargs: object) -> FakeResponse:
+        return self.response
+
+
+def stub_musicbrainz_oauth(
+    monkeypatch: pytest.MonkeyPatch,
+    token_body: bytes,
+    userinfo_body: bytes = b'{"sub": "mb-user"}',
+    token_status: int = 200,
+    userinfo_status: int = 200,
+) -> None:
+    monkeypatch.setattr(
+        OAuth2Service,
+        "get_raw_access_token",
+        lambda self, *a, **k: FakeResponse(token_body, token_status),
+    )
+    monkeypatch.setattr(
+        OAuth2Service,
+        "get_session",
+        lambda self, token: FakeSession(FakeResponse(userinfo_body, userinfo_status)),
+    )
+
+
+def attempt_musicbrainz_login(app: Flask) -> Any:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["mb_login_token"] = "the-token-we-issued"
+    state = URLSafeSerializer(app.config["SECRET_KEY"]).dumps(
+        {"return_url": None, "token": "the-token-we-issued"}
+    )
+    return client.get(
+        "/login/musicbrainz",
+        query_string={"code": "an-authorization-code", "state": state},
+    )
+
+
+# The four Bugsink issues this retires are all the same mistake: a response
+# that is not the happy path was treated as impossible. A stale or replayed
+# authorization code is a user action, not an incident, so each of these must
+# be a warning and a message on the login page rather than an error event.
+MALFORMED_OAUTH_RESPONSES = [
+    pytest.param(
+        {
+            "token_body": b'{"error":"invalid_grant","error_description":"Invalid authorization code"}'
+        },
+        id="token endpoint reports invalid_grant",
+    ),
+    pytest.param(
+        {
+            "token_body": b'{"error_description":"Invalid authorization code","error":"invalid_grant"}'
+        },
+        id="same, with the JSON keys the other way round",
+    ),
+    pytest.param(
+        {"token_body": b"<html>502 Bad Gateway</html>", "token_status": 502},
+        id="token endpoint returns a non-JSON body",
+    ),
+    pytest.param(
+        {
+            "token_body": b'{"access_token":"a-secret-token"}',
+            "userinfo_body": b"<html>502 Bad Gateway</html>",
+            "userinfo_status": 502,
+        },
+        id="userinfo returns a non-JSON body",
+    ),
+    pytest.param(
+        {
+            "token_body": b'{"access_token":"a-secret-token"}',
+            "userinfo_body": b'{"name":"someone"}',
+        },
+        id="userinfo carries no sub",
+    ),
+]
+
+
+@pytest.mark.parametrize("stub", MALFORMED_OAUTH_RESPONSES)
+def test_musicbrainz_login_failures_are_warnings_not_errors(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, caplog, stub: dict
+) -> None:
+    stub_musicbrainz_oauth(monkeypatch, **stub)
+
+    with caplog.at_level(logging.DEBUG):
+        rv = attempt_musicbrainz_login(app)
+
+    # the user is sent back to the login page with something to act on
+    assert rv.status_code == 302
+    assert urlparse(rv.headers["Location"]).path == "/login"
+    assert parse_qs(urlparse(rv.headers["Location"]).query)["error"]
+
+    # and nothing is reported as a server error, which is what used to turn
+    # each of these into a Bugsink issue
+    assert [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR] == []
+    assert any(r.levelno == logging.WARNING for r in caplog.records)
+
+
+def test_musicbrainz_login_never_logs_the_access_token(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, caplog
+) -> None:
+    """A token response that is missing something can still carry a token.
+
+    The old code let rauth raise a KeyError whose message was the whole body,
+    so this is the path by which a token could have reached the logs.
+    """
+    stub_musicbrainz_oauth(
+        monkeypatch,
+        token_body=b'{"access_token":"a-secret-token","error":"invalid_scope"}',
+        userinfo_body=b'{"name":"someone"}',
+    )
+
+    with caplog.at_level(logging.DEBUG):
+        attempt_musicbrainz_login(app)
+
+    assert "a-secret-token" not in caplog.text
+
+
+def test_musicbrainz_login_succeeds_when_the_responses_are_well_formed(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_musicbrainz_oauth(
+        monkeypatch,
+        token_body=b'{"access_token":"a-secret-token"}',
+        userinfo_body=b'{"sub":"mb-user-42"}',
+    )
+
+    rv = attempt_musicbrainz_login(app)
+
+    assert rv.status_code == 302
+    assert urlparse(rv.headers["Location"]).path != "/login"

@@ -48,7 +48,12 @@ from acoustid.handler import Handler
 from acoustid.ratelimiter import RateLimiter
 from acoustid.tasks import enqueue_task
 from acoustid.tracing import initialize_trace_id
-from acoustid.utils import check_demo_client_api_key, is_foreignid, is_uuid
+from acoustid.utils import (
+    check_demo_client_api_key,
+    is_foreignid,
+    is_uuid,
+    normalize_format_name,
+)
 
 if TYPE_CHECKING:
     from acoustid.config import Config
@@ -1010,6 +1015,10 @@ class SubmitHandlerParams(APIHandlerParams):
         if p["mbids"] and not all(map(is_uuid, p["mbids"])):
             raise errors.InvalidUUIDError("mbid" + suffix)
         self._parse_duration_and_format(p, values, suffix)
+        # Both API versions set p["format"] from whatever the client sent, and
+        # it ends up as a row in the format table. Normalised here rather than
+        # in either _parse_duration_and_format so v1 and v2 cannot drift.
+        p["format"] = normalize_format_name(p["format"])
         fingerprint_string = values.get("fingerprint" + suffix)
         if not fingerprint_string:
             raise errors.MissingParameterError("fingerprint" + suffix)

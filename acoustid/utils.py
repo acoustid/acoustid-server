@@ -7,6 +7,7 @@ import hmac
 import os
 import re
 from logging import Handler
+from typing import Optional
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -53,6 +54,42 @@ def is_int(s):
     except ValueError:
         return False
     return True
+
+
+# Audio format names are free text from the client, and whatever arrives
+# becomes a permanent row in the `format` table. Real values are short codec
+# names -- FLAC, MP3, PCM_S16LE, the longest legitimate one on production being
+# 9 characters -- but clients have also sent filenames and track titles, which
+# is how a quarter of that table came to be junk. The cap is generous against
+# the real values and still far below a filename.
+MAX_FORMAT_NAME_LENGTH = 32
+
+_AUDIO_FILE_SUFFIX_RE = re.compile(
+    r"\.(aac|aif|aiff|alac|ape|dsf|flac|m4a|m4b|mp3|mp4|mpc|oga|ogg|opus|wav|wma|wv)$",
+    re.IGNORECASE,
+)
+
+
+def normalize_format_name(name):
+    # type: (Optional[str]) -> Optional[str]
+    """A plausible audio format name, or None if it does not look like one.
+
+    Dropped rather than rejected: the format is optional metadata, so a client
+    sending nonsense in that field is not a reason to refuse an otherwise good
+    fingerprint. It is a reason not to store the nonsense forever.
+    """
+    if name is None:
+        return None
+    name = name.strip()
+    if not name or len(name) > MAX_FORMAT_NAME_LENGTH:
+        return None
+    if "/" in name or "\\" in name:
+        # A path, or an artist/album name. Either way not a codec.
+        return None
+    if _AUDIO_FILE_SUFFIX_RE.search(name):
+        # A filename short enough to pass the length check.
+        return None
+    return name
 
 
 def is_foreignid(s):
