@@ -176,8 +176,9 @@
     </span>
     <div class="actions">
       <span class="seg">
-        <a href="?metadata=grouped#metadata"{% if metadata_mode == 'grouped' %} aria-current="true"{% endif %}>Grouped</a>
-        <a href="?metadata=raw#metadata"{% if metadata_mode == 'raw' %} aria-current="true"{% endif %}>All rows</a>
+        {% set disabled = '1' if show_disabled else None %}
+        <a href="{{ url_for('.track', track_id_or_gid=track.gid, metadata='grouped', disabled=disabled, _anchor='metadata') }}"{% if metadata_mode == 'grouped' %} aria-current="true"{% endif %}>Grouped</a>
+        <a href="{{ url_for('.track', track_id_or_gid=track.gid, metadata='raw', disabled=disabled, _anchor='metadata') }}"{% if metadata_mode == 'raw' %} aria-current="true"{% endif %}>All rows</a>
       </span>
     </div>
   </div>

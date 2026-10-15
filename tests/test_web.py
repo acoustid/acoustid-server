@@ -1045,3 +1045,8 @@ def test_mbid_page_rejects_invalid_ids(app: Flask) -> None:
     rv = app.test_client().get("/mbid/not-a-uuid")
     assert rv.status_code == 404
     assert "is not a MusicBrainz recording ID" in rv.text
+
+
+def test_track_page_metadata_links_keep_disabled_recordings(app: Flask) -> None:
+    rv = app.test_client().get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291?disabled=1")
+    assert "?metadata=raw&amp;disabled=1#metadata" in rv.text
