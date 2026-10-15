@@ -16,8 +16,10 @@
 
 {% block content %}
 {% set max_sources = tracks|map(attribute='submission_count')|max|default(0) %}
-{% set all_min = tracks|selectattr('min_length')|map(attribute='min_length')|min|default(none) %}
-{% set all_max = tracks|selectattr('max_length')|map(attribute='max_length')|max|default(none) %}
+{# The facts count enabled links only, also when disabled ones are shown. #}
+{% set linked = tracks|rejectattr('disabled')|list %}
+{% set all_min = linked|selectattr('min_length')|map(attribute='min_length')|min|default(none) %}
+{% set all_max = linked|selectattr('max_length')|map(attribute='max_length')|max|default(none) %}
 {# AcoustIDs are labelled A, B, C, ... in the table and the similarity grid. #}
 {% set letters = {} %}
 {% for t in tracks %}{% set _ = letters.update({t.id: loop.index0|letter}) %}{% endfor %}
@@ -37,9 +39,9 @@
 </div>
 
 <div class="facts">
-  <div class="fact"><div class="label">AcoustIDs</div><div class="value">{{ tracks|length }}</div><div class="note">linked to this recording</div></div>
-  <div class="fact"><div class="label">Submissions</div><div class="value">{{ tracks|sum(attribute='submission_count')|thousands }}</div><div class="note">linking them to it</div></div>
-  <div class="fact"><div class="label">Fingerprints</div><div class="value">{{ tracks|selectattr('fingerprints')|sum(attribute='fingerprints')|thousands }}</div><div class="note">distinct audio files</div></div>
+  <div class="fact"><div class="label">AcoustIDs</div><div class="value">{{ linked|length }}</div><div class="note">linked to this recording</div></div>
+  <div class="fact"><div class="label">Submissions</div><div class="value">{{ linked|sum(attribute='submission_count')|thousands }}</div><div class="note">linking them to it</div></div>
+  <div class="fact"><div class="label">Fingerprints</div><div class="value">{{ linked|selectattr('fingerprints')|sum(attribute='fingerprints')|thousands }}</div><div class="note">distinct audio files</div></div>
   {% if all_min is not none %}
   <div class="fact"><div class="label">Duration</div><div class="value">{{ lengths(all_min, all_max) }}</div><div class="note">range of submitted files</div></div>
   {% endif %}
@@ -75,13 +77,13 @@
             {% if t.other_recordings %}
             <div class="small muted">
               Also linked to
-              {% for r in t.other_recordings[:2] %}<a href="{{ url_for('.mbid', mbid=r.mbid) }}">{{ r.name or r.mbid }}</a>{% if r.artist_name %} by {{ r.artist_name }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+              {% for r in t.other_recordings[:2] %}{% if r.name %}<a href="{{ url_for('.mbid', mbid=r.mbid) }}">{{ r.name }}</a>{% else %}<a class="mono" href="https://musicbrainz.org/recording/{{ r.mbid }}">{{ r.mbid }}</a>{% endif %}{% if r.artist_name %} by {{ r.artist_name }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
               {%- if t.other_recordings|length > 2 %} and {{ t.other_recordings|length - 2 }} more{% endif %}
             </div>
             {% endif %}
           </td>
           {% if representative %}
-          <td>{% if t.id in representative %}<a href="{{ url_for('.fingerprint', fingerprint_id=representative[t.id].id) }}"><canvas class="fp fp-thumb" data-fp="{{ representative[t.id].fingerprint|tojson }}" data-frames="948"></canvas></a>{% endif %}</td>
+          <td>{% if t.id in representative %}<a href="{{ url_for('.fingerprint', fingerprint_id=representative[t.id].id) }}"><canvas class="fp fp-thumb" data-fp="{{ representative[t.id].fingerprint|tojson }}" data-frames="{{ thumbnail_frames }}"></canvas></a>{% endif %}</td>
           {% endif %}
           <td class="num">{{ (t.fingerprints or 0)|thousands }}</td>
           <td class="num">{{ lengths(t.min_length, t.max_length) }}</td>

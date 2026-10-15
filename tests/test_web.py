@@ -1118,6 +1118,14 @@ def test_mbid_page(app: Flask) -> None:
         recording = insert_recording(
             mb_db, "b81f83ee-4da4-11e0-9ed8-0025225356f3", "Linked Song", artist_credit
         )
+        ctx.db.get_fingerprint_db().execute(
+            schema.track_mbid.insert().values(
+                track_id=1,
+                mbid="11111111-2222-3333-4444-555555555555",
+                submission_count=1,
+                disabled=False,
+            )
+        )
         ctx.db.session.commit()
     try:
         client = app.test_client()
@@ -1127,8 +1135,20 @@ def test_mbid_page(app: Flask) -> None:
         # Names from MusicBrainz are escaped like any other data.
         assert "Linked &lt;Artist&gt;" in rv.text
         assert "eb31d1c3-950e-468b-9e36-e46fa75b1291" in rv.text
+        # The track is also linked to a recording we have no metadata for,
+        # which can only be linked to on MusicBrainz.
+        assert (
+            'href="https://musicbrainz.org/recording/'
+            '11111111-2222-3333-4444-555555555555"' in rv.text
+        )
+        assert "/mbid/11111111-2222-3333-4444-555555555555" not in rv.text
     finally:
         with script.context() as ctx:
+            ctx.db.get_fingerprint_db().execute(
+                schema.track_mbid.delete().where(
+                    schema.track_mbid.c.mbid == "11111111-2222-3333-4444-555555555555"
+                )
+            )
             mb_db = ctx.db.get_musicbrainz_db()
             mb_db.execute(
                 schema.mb_recording.delete().where(
