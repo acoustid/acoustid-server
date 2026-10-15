@@ -35,6 +35,17 @@ def find_or_insert_format(conn: AppDB, name: str) -> int:
     if id is None:
         # The conflict fired, so somebody inserted it in between. Theirs is as
         # good as ours would have been.
+        #
+        # scalar_one() rather than scalar(): returning no row here implies a
+        # committed conflicting row, so the re-select cannot come up empty. If
+        # the other transaction were still open our insert would be waiting on
+        # the unique index instead of arriving here, and if it then rolled back
+        # our insert would have succeeded and returned an id.
+        #
+        # That argument needs READ COMMITTED, which is what the server gives us
+        # -- nothing in create_engine_params sets an isolation level. Under
+        # REPEATABLE READ the re-select would read a snapshot older than the
+        # other transaction's commit, find nothing, and raise here instead.
         id = conn.execute(query).scalar_one()
         return id
 
