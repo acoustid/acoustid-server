@@ -302,7 +302,7 @@ canvas.fp { display: block; image-rendering: pixelated; image-rendering: crisp-e
 
 /* Track page */
 
-.id-row { margin-top: 12px; }
+.id-row { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .matrix-title { margin: 28px 0 4px; }
 .narrow { max-width: 640px; }
 .matrix td a { display: block; color: inherit; line-height: 34px; }

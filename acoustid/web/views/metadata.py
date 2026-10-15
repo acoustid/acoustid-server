@@ -374,29 +374,143 @@ def compare_fingerprints(fingerprint_id_1: int, fingerprint_id_2: int) -> str:
 
 @metadata_page.route("/mbid/<mbid>")
 def mbid(mbid: str) -> str:
-    from acoustid.data.musicbrainz import lookup_recording_metadata
-    from acoustid.data.track import lookup_tracks
-
     if not is_uuid(mbid):
         abort(404, description="%s is not a MusicBrainz recording ID." % (mbid,))
     mbid = mbid.lower()
+    fingerprint_db = db.get_fingerprint_db()
+    musicbrainz_db = db.get_musicbrainz_db()
+    show_disabled = request.args.get("disabled") == "1"
 
     # The lookups key their results by UUID objects, not strings.
     metadata = {
-        str(k): v
-        for k, v in lookup_recording_metadata(db.get_musicbrainz_db(), [mbid]).items()
+        str(k): v for k, v in lookup_recording_metadata(musicbrainz_db, [mbid]).items()
     }
     if mbid not in metadata:
         abort(
             404,
             description="There is no MusicBrainz recording with ID %s." % (mbid,),
         )
-    metadata = metadata[mbid]
-    title = 'Recording "%s" by %s' % (metadata["name"], metadata["artist_name"])
-    tracks = {
-        str(k): v for k, v in lookup_tracks(db.get_fingerprint_db(), [mbid]).items()
-    }.get(mbid, [])
-    return render_template("mbid.html", title=title, tracks=tracks, mbid=mbid)
+    recording = metadata[mbid]
+    title = "%s by %s" % (recording["name"], recording["artist_name"])
+
+    # The AcoustIDs linked to the recording, most submitted first.
+    query = (
+        sql.select(
+            schema.track.c.id,
+            schema.track.c.gid,
+            schema.track_mbid.c.submission_count,
+            schema.track_mbid.c.disabled,
+        )
+        .select_from(
+            schema.track_mbid.join(
+                schema.track, schema.track.c.id == schema.track_mbid.c.track_id
+            )
+        )
+        .where(schema.track_mbid.c.mbid == mbid)
+        .order_by(schema.track_mbid.c.submission_count.desc())
+    )
+    all_tracks = [
+        dict(row._mapping, gid=str(row.gid)) for row in fingerprint_db.execute(query)
+    ]
+    num_disabled = sum(1 for t in all_tracks if t["disabled"])
+    tracks = [t for t in all_tracks if show_disabled or not t["disabled"]]
+    track_ids = [t["id"] for t in tracks]
+    tracks_by_id = {t["id"]: t for t in tracks}
+    for t in tracks:
+        t.update(fingerprints=0, min_length=None, max_length=None, other_recordings=[])
+
+    # Their fingerprints: how many, and the range of file lengths.
+    if track_ids:
+        query = (
+            sql.select(
+                schema.fingerprint.c.track_id,
+                sql.func.count().label("fingerprints"),
+                sql.func.min(schema.fingerprint.c.length).label("min_length"),
+                sql.func.max(schema.fingerprint.c.length).label("max_length"),
+            )
+            .where(schema.fingerprint.c.track_id.in_(track_ids))
+            .group_by(schema.fingerprint.c.track_id)
+        )
+        for row in fingerprint_db.execute(query):
+            tracks_by_id[row.track_id].update(row._mapping)
+
+    # Other recordings the same AcoustIDs are linked to, which is where wrong
+    # links show up.
+    if track_ids:
+        query = sql.select(
+            schema.track_mbid.c.track_id, schema.track_mbid.c.mbid
+        ).where(
+            schema.track_mbid.c.track_id.in_(track_ids),
+            schema.track_mbid.c.mbid != mbid,
+            schema.track_mbid.c.disabled.is_(False),
+        )
+        others: dict[int, list[str]] = {}
+        for row in fingerprint_db.execute(query):
+            others.setdefault(row.track_id, []).append(str(row.mbid))
+        other_metadata = {
+            str(k): v
+            for k, v in lookup_recording_metadata(
+                musicbrainz_db, sorted({m for ms in others.values() for m in ms})
+            ).items()
+        }
+        for t in tracks:
+            t["other_recordings"] = [
+                dict(other_metadata.get(m, {}), mbid=m) for m in others.get(t["id"], [])
+            ]
+
+    # The most submitted fingerprint of each AcoustID, drawn as a thumbnail
+    # and compared in the similarity grid.
+    representative: dict[int, dict[str, Any]] = {}
+    if 0 < len(track_ids) <= MAX_FINGERPRINT_THUMBNAILS:
+        query = (
+            sql.select(
+                schema.fingerprint.c.track_id,
+                schema.fingerprint.c.id,
+                schema.fingerprint.c.fingerprint[1:THUMBNAIL_FRAMES].label(
+                    "fingerprint"
+                ),
+            )
+            .where(schema.fingerprint.c.track_id.in_(track_ids))
+            .distinct(schema.fingerprint.c.track_id)
+            .order_by(
+                schema.fingerprint.c.track_id,
+                schema.fingerprint.c.submission_count.desc(),
+            )
+        )
+        for row in fingerprint_db.execute(query):
+            representative[row.track_id] = dict(row._mapping)
+
+    similarity: dict[int, dict[int, float]] = {}
+    if 2 <= len(representative) <= MAX_SIMILARITY_MATRIX:
+        fp_ids = [r["id"] for r in representative.values()]
+        fp1 = schema.fingerprint.alias("fp1")
+        fp2 = schema.fingerprint.alias("fp2")
+        query = (
+            sql.select(
+                fp1.c.track_id,
+                fp2.c.track_id,
+                sql.func.acoustid_compare2(
+                    fp1.c.fingerprint, fp2.c.fingerprint, const.TRACK_MAX_OFFSET
+                ),
+            )
+            .select_from(fp1.join(fp2, fp1.c.id < fp2.c.id))
+            .where(fp1.c.id.in_(fp_ids), fp2.c.id.in_(fp_ids))
+        )
+        for track1, track2, score in fingerprint_db.execute(query):
+            similarity.setdefault(track1, {})[track2] = score
+            similarity.setdefault(track2, {})[track1] = score
+
+    return render_template(
+        "mbid.html",
+        title=title,
+        mbid=mbid,
+        recording=recording,
+        tracks=tracks,
+        num_disabled=num_disabled,
+        show_disabled=show_disabled,
+        representative=representative,
+        similarity=similarity,
+    )
 
 
 @metadata_page.route("/edit/toggle-track-mbid", methods=["GET", "POST"])
