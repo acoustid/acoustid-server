@@ -38,16 +38,20 @@ document.addEventListener("DOMContentLoaded", () => {
   }));
   const modeSwitches = document.querySelectorAll("[data-fp-mode]");
   if (thumbs.length && modeSwitches.length) {
+    let swatches = null;
     const show = (mode) => {
-      for (const t of thumbs) {
+      if (mode === "colors" && !swatches) {
+        for (const t of thumbs) t.windows = barcodeWindows(t.data, { length: t.length });
+        swatches = barcodeSwatches(thumbs);
+      }
+      thumbs.forEach((t, i) => {
         if (mode === "colors") {
-          t.windows ??= barcodeWindows(t.data, { length: t.length });
-          drawBarcode(t.canvas, t.windows, { length: t.length });
+          drawBarcode(t.canvas, t.windows, { length: t.length, swatch: swatches[i] });
         } else {
           drawFingerprint(t.canvas, t.data, { length: t.length });
         }
         t.canvas.classList.toggle("is-barcode", mode === "colors");
-      }
+      });
       for (const group of modeSwitches) setPressed(group, group.querySelector(`[data-mode="${mode}"]`));
     };
     let saved = null;
