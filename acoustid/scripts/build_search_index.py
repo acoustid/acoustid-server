@@ -70,24 +70,42 @@ CANARY_QUERIES = [
     ("bohemian rhapsody", "Queen", 10000),
     ("yesterday", "The Beatles", 5000),
     ("smells like teen spirit", "Nirvana", 3000),
+    # Artist and title together, which is how people actually search and the
+    # one pattern that was comprehensively broken by per-field matching. With
+    # separate name and artist fields this query answered with a Vienna
+    # Symphonic medley at popularity 93 and put Queen's own recording at rank
+    # 20, so it is worth a canary of its own rather than trusting the schema.
+    ("queen bohemian rhapsody", "Queen", 10000),
 ]
 
 SEARCH_PARAMS = {
-    "query_by": "name,artist,aliases",
-    "query_by_weights": "3,2,1",
+    "query_by": "text",
     "sort_by": "_text_match(buckets: 10):desc,popularity:desc",
     "prioritize_exact_match": "true",
 }
 
+# One searchable field, holding the title, the credited artist and every alias
+# of both. The rest are stored but not indexed -- they are rendered, never
+# queried, so indexing them would pay memory for nothing.
+#
+# Searching separate `name` and `artist` fields was tried first and is badly
+# wrong, because Typesense scores a document higher when all the query terms
+# occur in one field. "artist + title" is the ordinary way people search, and
+# under per-field matching every such query was won by whatever cover or
+# mashup had put both strings in its title: "abba dancing queen" returned
+# "Dancing Lollipop Queen (Lil Wayne vs ...)" at popularity 9 ahead of ABBA at
+# 16655, and "queen bohemian rhapsody" put Queen's own recording at rank 20.
+# Measured over 20 queries with known answers against real documents, 10/20
+# hit@1 with separate fields against 20/20 with this one.
 COLLECTION_SCHEMA: dict[str, Any] = {
     "fields": [
-        {"name": "name", "type": "string"},
-        {"name": "artist", "type": "string"},
-        {"name": "comment", "type": "string"},
-        {"name": "aliases", "type": "string[]"},
-        {"name": "length_ms", "type": "int32"},
+        {"name": "text", "type": "string"},
+        {"name": "name", "type": "string", "index": False, "optional": True},
+        {"name": "artist", "type": "string", "index": False, "optional": True},
+        {"name": "comment", "type": "string", "index": False, "optional": True},
+        {"name": "length_ms", "type": "int32", "index": False, "optional": True},
         {"name": "popularity", "type": "int32"},
-        {"name": "n_tracks", "type": "int32"},
+        {"name": "n_tracks", "type": "int32", "index": False, "optional": True},
     ],
     "default_sorting_field": "popularity",
 }
@@ -132,6 +150,12 @@ artist_aliases AS (
     GROUP BY acn.artist_credit
 )
 SELECT
+    * EXCLUDE (aliases),
+    -- concat_ws skips NULLs, and an empty alias list contributes an empty
+    -- string, so a recording with no aliases still gets "<title> <artist>".
+    concat_ws(' ', name, artist, array_to_string(aliases, ' ')) AS text
+FROM (
+SELECT
     r.gid::VARCHAR AS id,
     r.name AS name,
     ac.name AS artist,
@@ -150,6 +174,7 @@ JOIN mb.musicbrainz.artist_credit ac ON ac.id = r.artist_credit
 LEFT JOIN popularity p ON p.recording_id = r.id
 LEFT JOIN recording_aliases ra ON ra.recording_id = r.id
 LEFT JOIN artist_aliases aa ON aa.artist_credit = r.artist_credit
+)
 ORDER BY popularity DESC
 """
 
