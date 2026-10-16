@@ -13,6 +13,10 @@ dependencies = [
     "blinker",
     "cachetools",
     "click",
+    # Pinned exactly: the postgres extension is baked into the image at a
+    # version-specific path, so an upgrade would silently fall back to
+    # downloading it. See acoustid/scripts/build_search_index.py.
+    "duckdb==1.5.6",
     "flask>=2,<3",
     "gevent",
     "gunicorn",
