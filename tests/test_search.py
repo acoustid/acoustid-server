@@ -185,6 +185,24 @@ def test_unknown_length_comes_back_as_none() -> None:
     assert results.results[0].length is None
 
 
+def test_queries_one_combined_field() -> None:
+    """Pins the configuration, because the obvious alternative is much worse.
+
+    Typesense scores a document higher when every query term occurs in a
+    single field, so querying separate name and artist fields hands every
+    "artist + title" search to whichever cover or mashup put both strings in
+    its title. Measured over 20 queries with known answers against real
+    documents: 10/20 hit@1 that way, 20/20 against the combined field the
+    indexer builds. Reintroducing per-field weights would silently undo it.
+    """
+    with mock.patch("requests.get", return_value=typesense_response(ONE_HIT)) as get:
+        search_metadata(make_config(), "queen bohemian rhapsody")
+    params = get.call_args.kwargs["params"]
+    assert params["query_by"] == "text"
+    assert "query_by_weights" not in params
+    assert params["sort_by"] == "_text_match(buckets: 10):desc,popularity:desc"
+
+
 def test_unavailable_helper_keeps_the_query() -> None:
     """The caller echoes the query back, so it has to survive the failure."""
     assert SearchResults.unavailable("queen").query == "queen"

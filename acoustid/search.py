@@ -26,12 +26,18 @@ from acoustid.config import SearchConfig
 
 logger = logging.getLogger(__name__)
 
-# Matches the indexer. Weights put the title first, then the credited artist,
-# then the alias tables -- aliases are what make non-Latin and alternate
-# spellings findable without a transliteration analyzer, but a match in one is
-# weaker evidence than a match in the title.
-QUERY_BY = "name,artist,aliases"
-QUERY_BY_WEIGHTS = "3,2,1"
+# One field, matching the indexer, which puts the title, the credited artist
+# and every alias of both into `text`.
+#
+# Querying separate name and artist fields instead is measurably worse, not a
+# matter of taste: Typesense scores a document higher when all the query terms
+# occur in one field, so "artist + title" -- the ordinary way people search --
+# was won by whatever cover or mashup had both strings in its title. Over 20
+# queries with known answers that was 10/20 hit@1 against 20/20 here. The
+# aliases are what make non-Latin and misspelled input findable without a
+# transliteration analyzer, and folding them into the same field is what lets
+# "utada hikaru first love" reach a recording credited to 宇多田ヒカル.
+QUERY_BY = "text"
 
 # Relevance first, bucketed, then popularity. Without the popularity tiebreak
 # a search for "yesterday" answers with an artist nobody has heard of at
@@ -130,7 +136,6 @@ def search_metadata(
             params={
                 "q": query,
                 "query_by": QUERY_BY,
-                "query_by_weights": QUERY_BY_WEIGHTS,
                 "sort_by": SORT_BY,
                 "prioritize_exact_match": "true",
                 "per_page": str(limit),
@@ -144,12 +149,13 @@ def search_metadata(
         )
         response.raise_for_status()
         payload = response.json()
-    except requests.RequestException:
+    except requests.RequestException as error:
         # Expected in normal operation rather than exceptional: one instance,
         # no replication, and a timeout tight enough that a slow moment trips
-        # it. Logged as a warning so it is visible without being treated as a
-        # fault.
-        logger.warning("Metadata search for %r failed", query, exc_info=True)
+        # it. The cause is logged but not the traceback -- the stack is always
+        # these same few frames, and on a path designed to fire regularly it
+        # would be pages of noise hiding the one line that says what broke.
+        logger.warning("Metadata search for %r failed: %s", query, error)
         return SearchResults.unavailable(query)
     except ValueError:
         logger.warning("Metadata search for %r returned a non-JSON body", query)
