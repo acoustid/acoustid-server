@@ -639,6 +639,42 @@ class ExportConfig(BaseConfig):
         read_env_item(self, "max_days", prefix + "EXPORT_MAX_DAYS", convert=int)
 
 
+class SearchConfig(BaseConfig):
+    """The Typesense instance that answers metadata search.
+
+    Search is explicitly not a primary function of the site: a single instance
+    with no replication, and downtime is acceptable. Everything here is shaped
+    by that -- a tight timeout, and a caller that treats every failure as "no
+    search right now" rather than as an error worth propagating.
+    """
+
+    def __init__(self) -> None:
+        self.url = ""
+        self.api_key = ""
+        self.collection = "mb_recordings"
+        # Deliberately short. A visitor waiting on a search box would rather be
+        # told search is unavailable than wait; the index answers in 2-53 ms
+        # when healthy, so anything near this bound is already broken.
+        self.timeout = 0.8
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.url and self.api_key)
+
+    def read_section(self, parser: RawConfigParser, section: str) -> None:
+        read_config_str_option(parser, section, self, "url", "url")
+        read_config_str_option(parser, section, self, "api_key", "api_key")
+        read_config_str_option(parser, section, self, "collection", "collection")
+        if parser.has_option(section, "timeout"):
+            self.timeout = parser.getfloat(section, "timeout")
+
+    def read_env(self, prefix: str) -> None:
+        read_env_item(self, "url", prefix + "SEARCH_URL")
+        read_env_item(self, "api_key", prefix + "SEARCH_API_KEY")
+        read_env_item(self, "collection", prefix + "SEARCH_COLLECTION")
+        read_env_item(self, "timeout", prefix + "SEARCH_TIMEOUT", convert=float)
+
+
 class Config(object):
     def __init__(self) -> None:
         self.databases = DatabasesConfig()
@@ -654,6 +690,7 @@ class Config(object):
         self.statsd = StatsdConfig()
         self.sentry = SentryConfig()
         self.export = ExportConfig()
+        self.search = SearchConfig()
 
     @classmethod
     def load(cls, path: str | None = None, tests: bool = False) -> "Config":
@@ -682,6 +719,7 @@ class Config(object):
         self.statsd.read(parser, "statsd")
         self.sentry.read(parser, "sentry")
         self.export.read(parser, "export")
+        self.search.read(parser, "search")
 
     def read_env(self, tests: bool = False) -> None:
         if tests:
@@ -701,3 +739,4 @@ class Config(object):
         self.statsd.read_env(prefix)
         self.sentry.read_env(prefix)
         self.export.read_env(prefix)
+        self.search.read_env(prefix)
