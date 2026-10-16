@@ -100,11 +100,37 @@ user_api_key_cache = cachetools.TTLCache(
 
 
 def check_app_api_key_cache_key(config, db, application_apikey):
+    # Deliberately the API key alone. `db` is the same database every time and
+    # is not hashable anyway -- but note what that costs: this cache is shared
+    # by every caller whatever they pass as `db`, so a caller passing the
+    # wrong thing fails only on a miss, and only while no other caller is
+    # keeping the entry warm. That is how a broken call site survived in
+    # production, failing for rarely-used API keys and never for busy ones.
+    #
+    # The annotations below document the contract but cannot enforce it, and
+    # no annotation could. cachetools 5.5.2 ships no py.typed marker, so under
+    # PEP 561 the whole package is untyped to mypy: `cached` returns Any, the
+    # decorated function becomes Any, and every call site goes unchecked. The
+    # opacity is on their side of the import, not at our signature.
+    #
+    # Installing types-cachetools does not fix it either. Measured rather than
+    # assumed: with the stubs present, reverting the call-site fix produces
+    # exactly the same mypy output as leaving it correct, because the stub
+    # types the wrapper's __call__ as (*args: Any, **kwargs: Any). The stubs
+    # do surface four unrelated errors elsewhere, so adding them is its own
+    # piece of work and not a guard for this.
+    #
+    # Only two functions in the codebase are wrapped this way -- this one and
+    # check_user_api_key below -- so the exposure is bounded and both are
+    # accounted for. The guard is the regression test, which clears this cache
+    # first so that it reaches the code rather than a warm entry.
     return application_apikey
 
 
 @cachetools.cached(app_api_key_cache, key=check_app_api_key_cache_key)
-def check_app_api_key(config, db, application_apikey):
+def check_app_api_key(
+    config: "Config", db: DatabaseContext, application_apikey: str
+) -> int | None:
     app_db = db.get_app_db(read_only=True)
     application_id = lookup_application_id_by_apikey(
         app_db, application_apikey, only_active=True
