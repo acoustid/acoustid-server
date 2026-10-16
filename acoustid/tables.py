@@ -820,6 +820,63 @@ mb_release_country = Table(
     info={"bind_key": "musicbrainz"},
 )
 
+# Metadata search logging, on the app cluster.
+#
+# There is no account id and no IP address here, deliberately. A query string
+# alongside either of those is personal data; a query string alongside an
+# opaque, rotating token is not. `session` holds an HMAC of a token the client
+# generates for itself, keyed on both a secret and the current day, so the
+# same visitor hashes differently tomorrow and the rows cannot be stitched
+# into a history. It is nullable because a client that sends no token is
+# logged anyway -- the query is the useful part, and refusing to log without a
+# token would quietly bias the data toward whoever runs JavaScript.
+search_query = Table(
+    "search_query",
+    metadata,
+    Column("id", BigInteger, primary_key=True),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.func.now(),
+        nullable=False,
+    ),
+    Column("query", String, nullable=False),
+    Column("found", Integer, nullable=False),
+    Column("session", String),
+    # Retention deletes by age, so this index is what keeps that from being a
+    # sequential scan over the whole table every night.
+    Index("search_query_idx_created", "created"),
+    info={"bind_key": "app"},
+)
+
+# Which result someone chose, and where it sat in the list. Joined to the
+# query rather than to a visitor: that is what makes the pair useful -- "this
+# query led to this recording at this position" -- without needing to know who
+# asked. ON DELETE CASCADE means retention on search_query cannot leave
+# orphaned clicks behind.
+search_click = Table(
+    "search_click",
+    metadata,
+    Column("id", BigInteger, primary_key=True),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.func.now(),
+        nullable=False,
+    ),
+    Column(
+        "query_id",
+        BigInteger,
+        ForeignKey("search_query.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("mbid", UUID, nullable=False),
+    Column("position", Integer, nullable=False),
+    Index("search_click_idx_query_id", "query_id"),
+    info={"bind_key": "app"},
+)
+
+
 for table in metadata.sorted_tables:
     if table.schema in {
         "musicbrainz",
