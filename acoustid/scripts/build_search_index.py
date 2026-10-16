@@ -225,7 +225,20 @@ def resolve_replica_dsn(patroni_url: str, database: str) -> str:
     member = sorted(replicas, key=lambda m: m.get("name", ""))[0]
     host = member["host"]
     port = member.get("port", 5432)
-    logger.info("Pinned to Patroni member %s (%s:%s)", member.get("name"), host, port)
+    # Logged, deliberately not gated on. Patroni reports replay_lag for every
+    # non-leader, and rejecting a badly lagged candidate looks like free
+    # insurance -- but each of these clusters has exactly one async replica, so
+    # a lag threshold converts "the index is a few hours stale" into "there is
+    # no index", and this index is rebuilt from scratch every six hours anyway.
+    # Staleness is the failure it is designed to tolerate; having the number in
+    # the log is what makes a stale index diagnosable after the fact.
+    logger.info(
+        "Pinned to Patroni member %s (%s:%s), replay lag %s",
+        member.get("name"),
+        host,
+        port,
+        member.get("replay_lag", "not reported"),
+    )
     return "host=%s port=%s dbname=%s" % (host, port, database)
 
 

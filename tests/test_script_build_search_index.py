@@ -124,6 +124,23 @@ def test_resolve_replica_dsn_skips_a_replica_replaying_archived_wal() -> None:
     assert "pg-2" in dsn
 
 
+def test_resolve_replica_dsn_uses_a_lagging_replica_rather_than_failing() -> None:
+    """Lag must not disqualify a candidate, however tempting a threshold looks.
+
+    Both production clusters have exactly one async replica, so rejecting a
+    lagged one does not fall back to another member -- it means no index gets
+    built at all. A few hours of staleness is the failure this design already
+    tolerates, since the whole index is rebuilt every six hours; an empty
+    index is not. The lag is logged instead, so a stale index stays
+    diagnosable afterwards.
+    """
+    lagging = dict(member("pg-1"), replay_lag=900_000_000)
+    members = [member("pg-0", role="leader", state="running"), lagging]
+    with mock.patch("requests.get", return_value=patroni_response(members)):
+        dsn = resolve_replica_dsn("http://patroni:8008", "acoustid")
+    assert "pg-1" in dsn
+
+
 def test_resolve_replica_dsn_error_names_what_it_saw() -> None:
     """The message has to be diagnosable without cluster access.
 
