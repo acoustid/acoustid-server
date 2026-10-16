@@ -17,6 +17,7 @@ from unittest import mock
 import pytest
 
 from acoustid.scripts.build_search_index import (
+    COLLECTION_SCHEMA,
     SearchIndexError,
     obsolete_collections,
     resolve_replica_dsn,
@@ -265,6 +266,36 @@ def test_obsolete_collections_leaves_a_longer_alias_alone() -> None:
         obsolete_collections(typesense, "mb_recordings", ("mb_recordings_200", None))
     )
     assert result == ["mb_recordings_100"]
+
+
+def test_popularity_stays_indexed_and_required() -> None:
+    """The ranking field must be indexed, and nothing warns if it is not.
+
+    Creation validates the sorting field for sortability, which a non-indexed
+    int32 still satisfies, while queries require indexedness -- so a schema
+    that cannot rank at all is created and imported without complaint and
+    fails on the first search. A build would get through the whole corpus
+    before anything noticed, and the canaries would report it as a rejected
+    build rather than as a schema error. Indexing is also what makes
+    filter_by=popularity:>0 usable.
+    """
+    fields = {field["name"]: field for field in COLLECTION_SCHEMA["fields"]}
+    assert COLLECTION_SCHEMA["default_sorting_field"] == "popularity"
+    assert fields["popularity"].get("index", True) is True
+    assert fields["popularity"].get("optional", False) is False
+
+
+def test_only_the_combined_field_is_searchable() -> None:
+    """Display fields are stored, not indexed.
+
+    They are rendered and never queried, so indexing them would pay memory for
+    nothing -- and keeping them unindexed is what stops adding `text` from
+    being a straight increase in index size.
+    """
+    fields = {field["name"]: field for field in COLLECTION_SCHEMA["fields"]}
+    assert fields["text"].get("index", True) is True
+    for name in ("name", "artist", "comment", "length_ms", "n_tracks"):
+        assert fields[name]["index"] is False, name
 
 
 def test_sql_literal_escapes_quotes() -> None:

@@ -104,7 +104,29 @@ COLLECTION_SCHEMA: dict[str, Any] = {
         {"name": "artist", "type": "string", "index": False, "optional": True},
         {"name": "comment", "type": "string", "index": False, "optional": True},
         {"name": "length_ms", "type": "int32", "index": False, "optional": True},
-        {"name": "popularity", "type": "int32"},
+        # Indexed explicitly, and it must stay that way.
+        #
+        # Creating a collection whose default_sorting_field is non-indexed
+        # succeeds, and importing into it succeeds, and then every single
+        # search fails with "Default sorting field ... has been marked as a
+        # non-indexed field". The two disagree because they check different
+        # flags: creation validates the sorting field for *sortability*, and a
+        # non-indexed int32 still reports sort: true, while a query requires
+        # *indexedness*. So a schema that cannot rank at all would pass every
+        # build-time check, import 23M documents over half an hour, and fail
+        # on the first query -- which the canaries would then report as a
+        # rejected build rather than as the schema error it is. If that ever
+        # happens, GET /collections/<name> does reveal it, but only if you
+        # read `index` rather than `sort`.
+        #
+        # Indexing is also what makes filter_by=popularity:>0 work, which is
+        # how #281 intends to decide at query time whether to surface
+        # recordings that have no fingerprints yet; Typesense rejects
+        # filter_by against a non-indexed field outright.
+        {"name": "popularity", "type": "int32", "index": True},
+        # Not indexed, so it cannot be filtered on -- Typesense rejects
+        # filter_by against a non-indexed field. Flip this if anything ever
+        # needs to; nothing does today, and it is only displayed.
         {"name": "n_tracks", "type": "int32", "index": False, "optional": True},
     ],
     "default_sorting_field": "popularity",
