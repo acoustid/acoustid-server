@@ -42,6 +42,14 @@ logger = logging.getLogger(__name__)
 # falls back to downloading it -- or fails outright wherever egress is closed.
 EXPECTED_DUCKDB_VERSION = "1.5.6"
 
+# What a usable replica's `state` may say. Patroni reports a non-leader's state
+# from `replication_state` since 3.0.4, which says "streaming" -- "running" is
+# what the *leader* reports, so accepting only "running" would reject every
+# healthy replica and pick nothing at all. "running" stays for older Patroni.
+# "in archive recovery" is deliberately absent: that member is replaying
+# archived WAL rather than streaming, so it can lag arbitrarily far behind.
+HEALTHY_REPLICA_STATES = frozenset(("streaming", "running"))
+
 COLLECTION_ALIAS = os.environ.get("TYPESENSE_COLLECTION_ALIAS", "mb_recordings")
 
 # Where the swap marker is written. The alert that matters is not "did the job
@@ -195,14 +203,24 @@ def resolve_replica_dsn(patroni_url: str, database: str) -> str:
     response.raise_for_status()
     members = response.json().get("members", [])
     replicas = [
-        m for m in members if m.get("role") == "replica" and m.get("state") == "running"
+        m
+        for m in members
+        if m.get("role") == "replica" and m.get("state") in HEALTHY_REPLICA_STATES
     ]
     if not replicas:
         raise SearchIndexError(
-            "No running async replica in the Patroni cluster at %s. "
-            "Reading from the leader would work but is not what this job is "
-            "for; fix the cluster rather than pointing the indexer at it."
-            % (patroni_url,)
+            "No healthy async replica in the Patroni cluster at %s, saw %s. "
+            "Reading from the leader or the sync standby would work but is "
+            "not what this job is for; fix the cluster rather than pointing "
+            "the indexer at it."
+            % (
+                patroni_url,
+                ", ".join(
+                    "%s=%s/%s" % (m.get("name"), m.get("role"), m.get("state"))
+                    for m in members
+                )
+                or "no members at all",
+            )
         )
     member = sorted(replicas, key=lambda m: m.get("name", ""))[0]
     host = member["host"]
@@ -294,7 +312,7 @@ class Typesense:
 
     def import_documents(self, name: str, path: str) -> None:
         with open(path, "rb") as fileobj:
-            response = requests.post(
+            response = requests.post(  # noqa: S113
                 self.url + "/collections/" + name + "/documents/import",
                 params={"action": "create"},
                 headers=self.headers,
@@ -308,17 +326,27 @@ class Typesense:
                 # takes every later rebuild down with it. The connect phase
                 # has no reason to wait at all.
                 timeout=(10, 7200),
+                # Typesense answers with one JSONL line per document, so the
+                # response is as long as the input: around 400 MB for 23.3M
+                # documents, and holding that as one str plus a list of 23.3M
+                # more measured 2.4 GB resident. That is unaffordable on a node
+                # picked for having little RAM to spare. Streaming keeps one
+                # line alive at a time.
+                stream=True,
             )
-        response.raise_for_status()
-        failures = [
-            line
-            for line in response.text.splitlines()
-            if line and not json.loads(line).get("success")
-        ]
+        with response:
+            response.raise_for_status()
+            failures = 0
+            first_failure = None
+            for line in response.iter_lines(decode_unicode=True):
+                if not line or json.loads(line).get("success"):
+                    continue
+                failures += 1
+                if first_failure is None:
+                    first_failure = line[:300]
         if failures:
             raise SearchIndexError(
-                "%d document(s) failed to import, first: %s"
-                % (len(failures), failures[0][:300])
+                "%d document(s) failed to import, first: %s" % (failures, first_failure)
             )
 
     def search(self, name: str, query: str, **params: Any) -> Any:
@@ -347,6 +375,62 @@ class Typesense:
         self.request("DELETE", "/collections/" + name)
 
 
+def search_with_retry(
+    typesense: Typesense, collection: str, query: str, attempts: int = 3
+) -> Any:
+    """A canary search, retried, because the cost of losing one is a whole build.
+
+    A canary that cannot be reached is not a canary that failed. By the time
+    these run, forty minutes of scanning, exporting and importing has already
+    happened -- the 3.8 minutes in the design ticket is the export alone -- so
+    treating a momentary connection reset as a bad index would throw all of it
+    away and start again from the Postgres scan.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return typesense.search(collection, query, per_page=1)
+        except requests.RequestException:
+            if attempt == attempts:
+                raise
+            logger.warning(
+                "Canary search %r failed (attempt %d of %d), retrying",
+                query,
+                attempt,
+                attempts,
+            )
+            time.sleep(2**attempt)
+    raise AssertionError("unreachable")
+
+
+def count_with_retry(
+    typesense: Typesense, collection: str, expected: int, attempts: int = 3
+) -> int | None:
+    """The new collection's document count, allowed a moment to settle.
+
+    The import is synchronous, so this should agree first time. It is retried
+    anyway for the same reason the canaries are: by now forty minutes of work
+    is on the line, and rejecting a good build because a count had not caught
+    up would throw all of it away.
+    """
+    imported = None
+    for attempt in range(1, attempts + 1):
+        imported = typesense.collection_document_count(collection)
+        if imported == expected:
+            return imported
+        if attempt < attempts:
+            logger.warning(
+                "Collection %s reports %s documents, expected %d; "
+                "re-reading (attempt %d of %d)",
+                collection,
+                imported,
+                expected,
+                attempt,
+                attempts,
+            )
+            time.sleep(2**attempt)
+    return imported
+
+
 def check_canaries(typesense: Typesense, collection: str) -> None:
     """Refuse to swap in a collection that answers known queries wrongly.
 
@@ -356,7 +440,7 @@ def check_canaries(typesense: Typesense, collection: str) -> None:
     shape as the --max-delete guard on the backup sync.
     """
     for query, expected_artist, min_popularity in CANARY_QUERIES:
-        hits = typesense.search(collection, query, per_page=1).get("hits", [])
+        hits = search_with_retry(typesense, collection, query).get("hits", [])
         if not hits:
             raise SearchIndexError("Canary %r returned nothing" % (query,))
         document = hits[0]["document"]
@@ -439,12 +523,20 @@ def obsolete_collections(
     kept = {name for name in keep if name}
     for collection in typesense.collections():
         name = collection["name"]
-        if name.startswith(alias + "_") and name not in kept:
+        if name in kept:
+            continue
+        # Match the generated shape exactly rather than the prefix. A bare
+        # prefix test also claims `<alias>_v2_<epoch>`, so the day a second
+        # alias is added under a name extending this one, this job would
+        # cheerfully delete the other one's collections.
+        prefix = alias + "_"
+        if name.startswith(prefix) and name.removeprefix(prefix).isdigit():
             yield name
 
 
 def run_build_search_index(script: Script, opts: Any = None, args: Any = None) -> None:
     started = time.monotonic()
+    script.setup_sentry(component="search-index")
 
     typesense = Typesense(
         required_env("TYPESENSE_URL"), required_env("TYPESENSE_ADMIN_KEY")
@@ -465,7 +557,12 @@ def run_build_search_index(script: Script, opts: Any = None, args: Any = None) -
     previous = typesense.alias_target(COLLECTION_ALIAS)
     collection = "%s_%d" % (COLLECTION_ALIAS, int(time.time()))
 
-    with tempfile.TemporaryDirectory(prefix="search-index-") as workdir:
+    # Both the NDJSON and DuckDB's spill land here, which is the one resource
+    # the design actually leans on -- 5.69 GiB of documents plus whatever the
+    # join spills. Explicit rather than inherited from $TMPDIR, so a manifest
+    # says where it goes instead of having to know that it does not say.
+    work_root = os.environ.get("ACOUSTID_INDEX_WORK_DIR") or None
+    with tempfile.TemporaryDirectory(prefix="search-index-", dir=work_root) as workdir:
         path = os.path.join(workdir, "documents.ndjson")
         conn = connect_duckdb(workdir)
         try:
@@ -484,6 +581,18 @@ def run_build_search_index(script: Script, opts: Any = None, args: Any = None) -
         typesense.create_collection(collection)
         try:
             typesense.import_documents(collection, path)
+            imported = count_with_retry(typesense, collection, count)
+            if imported != count:
+                # The canaries cannot catch a truncated import. The export is
+                # ordered by popularity DESC so the head loads first, which is
+                # deliberate -- but it means Queen, The Beatles and Nirvana are
+                # among the first documents written, and a collection holding
+                # only the popular head passes every canary. This is the check
+                # that sees it.
+                raise SearchIndexError(
+                    "Imported %s documents but exported %d; refusing to swap "
+                    "in a short collection." % (imported, count)
+                )
             check_canaries(typesense, collection)
         except Exception:
             # The alias has not moved, so nothing is serving from this
@@ -497,6 +606,12 @@ def run_build_search_index(script: Script, opts: Any = None, args: Any = None) -
             logger.error("Dropping failed collection %s", collection)
             typesense.drop_collection(collection)
             raise
+
+    # Re-read rather than trusting the value from before the build. Forty
+    # minutes have passed, and if an operator rolled the alias back to a known
+    # good collection in that window, the stale value would have this run drop
+    # the very collection they rolled back to.
+    previous = typesense.alias_target(COLLECTION_ALIAS) or previous
 
     logger.info("Pointing alias %s at %s", COLLECTION_ALIAS, collection)
     typesense.set_alias(COLLECTION_ALIAS, collection)

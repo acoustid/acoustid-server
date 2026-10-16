@@ -24,8 +24,17 @@ from acoustid.scripts.build_search_index import (
 )
 
 
-def member(name: str, role: str = "replica", state: str = "running") -> dict[str, Any]:
-    """One entry as Patroni's /cluster endpoint reports it."""
+def member(
+    name: str, role: str = "replica", state: str = "streaming"
+) -> dict[str, Any]:
+    """One entry as Patroni's /cluster endpoint reports it.
+
+    The default state is "streaming", not "running". Patroni reports a
+    non-leader's state from `replication_state` since 3.0.4, and "running" is
+    what the leader reports -- a fixture using "running" for a replica
+    describes a cluster that does not exist, which is how the code under test
+    came to reject every healthy replica.
+    """
     return {
         "name": name,
         "role": role,
@@ -52,7 +61,7 @@ def test_resolve_replica_dsn_never_returns_the_leader() -> None:
     The job exists to keep this load off the primary, and it would otherwise
     succeed quietly while doing exactly what it was meant to avoid.
     """
-    members = [member("pg-0", role="leader"), member("pg-1")]
+    members = [member("pg-0", role="leader", state="running"), member("pg-1")]
     with mock.patch("requests.get", return_value=patroni_response(members)):
         dsn = resolve_replica_dsn("http://patroni:8008", "acoustid")
     assert "pg-1" in dsn
@@ -68,7 +77,7 @@ def test_resolve_replica_dsn_never_returns_the_sync_standby() -> None:
     latency the primary waits on.
     """
     members = [
-        member("pg-0", role="leader"),
+        member("pg-0", role="leader", state="running"),
         member("pg-1", role="sync_standby"),
         member("pg-2"),
     ]
@@ -79,22 +88,57 @@ def test_resolve_replica_dsn_never_returns_the_sync_standby() -> None:
 
 def test_resolve_replica_dsn_raises_when_only_a_sync_standby_is_available() -> None:
     """Better to skip a build than to run it against the commit path."""
-    members = [member("pg-0", role="leader"), member("pg-1", role="sync_standby")]
+    members = [
+        member("pg-0", role="leader", state="running"),
+        member("pg-1", role="sync_standby"),
+    ]
     with mock.patch("requests.get", return_value=patroni_response(members)):
         with pytest.raises(SearchIndexError):
             resolve_replica_dsn("http://patroni:8008", "acoustid")
 
 
-def test_resolve_replica_dsn_skips_members_that_are_not_running() -> None:
-    """A member that is streaming or starting up cannot serve the scan."""
+def test_resolve_replica_dsn_accepts_a_streaming_replica() -> None:
+    """ "streaming" is what a healthy replica actually reports.
+
+    This is the regression test for the inverted filter. The code accepted
+    only state == "running", which a replica never reports on Patroni 3.0.4 or
+    later -- so every member was rejected and the job raised instead of ever
+    building an index. The one path the hand-verification could not cover,
+    because it ran through the explicit-DSN fallback.
+    """
+    members = [member("pg-0", role="leader", state="running"), member("pg-1")]
+    with mock.patch("requests.get", return_value=patroni_response(members)):
+        dsn = resolve_replica_dsn("http://patroni:8008", "acoustid")
+    assert "pg-1" in dsn
+
+
+def test_resolve_replica_dsn_skips_a_replica_replaying_archived_wal() -> None:
+    """ "in archive recovery" is not streaming, so it can lag arbitrarily."""
     members = [
-        member("pg-0", role="leader"),
-        member("pg-1", state="creating replica"),
+        member("pg-0", role="leader", state="running"),
+        member("pg-1", state="in archive recovery"),
         member("pg-2"),
     ]
     with mock.patch("requests.get", return_value=patroni_response(members)):
         dsn = resolve_replica_dsn("http://patroni:8008", "acoustid")
     assert "pg-2" in dsn
+
+
+def test_resolve_replica_dsn_error_names_what_it_saw() -> None:
+    """The message has to be diagnosable without cluster access.
+
+    A bare "no healthy replica" against a cluster that plainly has replicas
+    sends the reader to the wrong place. Naming each member's role and state
+    is what would have identified the inverted filter immediately.
+    """
+    members = [
+        member("pg-0", role="leader", state="running"),
+        member("pg-1", state="in archive recovery"),
+    ]
+    with mock.patch("requests.get", return_value=patroni_response(members)):
+        with pytest.raises(SearchIndexError) as caught:
+            resolve_replica_dsn("http://patroni:8008", "acoustid")
+    assert "pg-1=replica/in archive recovery" in str(caught.value)
 
 
 def test_resolve_replica_dsn_is_stable_across_calls() -> None:
@@ -187,6 +231,23 @@ def test_obsolete_collections_leaves_unrelated_collections_alone() -> None:
     )
     assert "index_meta" not in result
     assert "mb_artists_100" not in result
+
+
+def test_obsolete_collections_leaves_a_longer_alias_alone() -> None:
+    """`mb_recordings_v2_100` belongs to a different alias, not to this one.
+
+    A bare prefix test claims it, so the day a second alias is added under a
+    name extending this one, this job would delete the other one's
+    collections. Generated names are always `<alias>_<epoch>`.
+    """
+    typesense = mock.Mock()
+    typesense.collections.return_value = as_collections(
+        ["mb_recordings_100", "mb_recordings_200", "mb_recordings_v2_100"]
+    )
+    result = list(
+        obsolete_collections(typesense, "mb_recordings", ("mb_recordings_200", None))
+    )
+    assert result == ["mb_recordings_100"]
 
 
 def test_sql_literal_escapes_quotes() -> None:
