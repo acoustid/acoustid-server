@@ -263,8 +263,21 @@ def connect_duckdb(temp_directory: str) -> Any:
         # Explicit rather than $HOME: the workloads do not all run as the same
         # uid, so $HOME is not a stable location for a baked extension.
         conn.execute("SET extension_directory = " + sql_literal(extension_directory))
-    conn.execute("INSTALL postgres")
-    conn.execute("LOAD postgres")
+    try:
+        # LOAD first, and only fall back to INSTALL. The extension is baked
+        # into the image, and INSTALL on an already-present extension is a
+        # no-op -- but trying LOAD first means the normal path cannot reach
+        # the network at all, rather than depending on that being true.
+        conn.execute("LOAD postgres")
+    except duckdb.Error:
+        logger.warning(
+            "The postgres extension is not present%s, downloading it. In the "
+            "image it is baked in, so this means either the DuckDB version "
+            "moved away from the baked path or the directory is wrong.",
+            " in " + extension_directory if extension_directory else "",
+        )
+        conn.execute("INSTALL postgres")
+        conn.execute("LOAD postgres")
     return conn
 
 
