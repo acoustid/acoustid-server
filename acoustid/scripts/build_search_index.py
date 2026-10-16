@@ -484,10 +484,28 @@ def count_with_retry(
     anyway for the same reason the canaries are: by now forty minutes of work
     is on the line, and rejecting a good build because a count had not caught
     up would throw all of it away.
+
+    A request that cannot be made at all is retried on the same terms. Letting
+    it propagate would discard the build over a momentary connection reset
+    while the retry loop beside it sat unused -- the same asymmetry the canary
+    retry exists to avoid.
     """
     imported = None
     for attempt in range(1, attempts + 1):
-        imported = typesense.collection_document_count(collection)
+        try:
+            imported = typesense.collection_document_count(collection)
+        except requests.RequestException:
+            if attempt == attempts:
+                raise
+            logger.warning(
+                "Could not read the document count of %s (attempt %d of %d), "
+                "retrying",
+                collection,
+                attempt,
+                attempts,
+            )
+            time.sleep(2**attempt)
+            continue
         if imported == expected:
             return imported
         if attempt < attempts:
@@ -697,13 +715,22 @@ def run_build_search_index(script: Script, opts: Any = None, args: Any = None) -
 
     # Past this point the new index is already serving and the marker is
     # written, so the build has succeeded whatever happens next. Letting a
-    # failed delete propagate would exit non-zero and report that success as a
-    # failure; the collection is merely left for the next run to sweep.
-    for name in obsolete_collections(
-        typesense, COLLECTION_ALIAS, (collection, previous)
-    ):
-        logger.info("Dropping superseded collection %s", name)
-        try:
+    # failure here propagate would exit non-zero and report that success as a
+    # failure; the collections are merely left for the next run to sweep.
+    #
+    # The guard covers listing as well as deleting. obsolete_collections asks
+    # Typesense what exists, and that request can fail exactly like the
+    # deletes can -- protecting only the deletes would have left the one call
+    # that happens first unprotected.
+    try:
+        for name in obsolete_collections(
+            typesense, COLLECTION_ALIAS, (collection, previous)
+        ):
+            logger.info("Dropping superseded collection %s", name)
             typesense.drop_collection(name)
-        except requests.RequestException:
-            logger.exception("Could not drop superseded collection %s", name)
+    except requests.RequestException:
+        logger.exception(
+            "Could not sweep collections superseded by %s; the next successful "
+            "build will clear them",
+            collection,
+        )

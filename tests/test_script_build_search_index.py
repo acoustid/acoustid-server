@@ -15,10 +15,12 @@ from typing import Any
 from unittest import mock
 
 import pytest
+import requests
 
 from acoustid.scripts.build_search_index import (
     COLLECTION_SCHEMA,
     SearchIndexError,
+    count_with_retry,
     obsolete_collections,
     resolve_replica_dsn,
     sql_literal,
@@ -266,6 +268,37 @@ def test_obsolete_collections_leaves_a_longer_alias_alone() -> None:
         obsolete_collections(typesense, "mb_recordings", ("mb_recordings_200", None))
     )
     assert result == ["mb_recordings_100"]
+
+
+def test_count_check_retries_a_failed_request() -> None:
+    """A count that cannot be read is not a count that disagreed.
+
+    By the time this runs, the export, the import and forty minutes have
+    happened. Letting a momentary connection reset propagate would discard all
+    of it and start again from the Postgres scan, while the retry loop beside
+    it sat unused.
+    """
+    typesense = mock.Mock()
+    typesense.collection_document_count.side_effect = [
+        requests.ConnectionError("reset"),
+        23,
+    ]
+    assert count_with_retry(typesense, "mb_recordings_1", 23, attempts=3) == 23
+
+
+def test_count_check_gives_up_after_its_attempts() -> None:
+    """Persistent failure still has to surface rather than be swallowed."""
+    typesense = mock.Mock()
+    typesense.collection_document_count.side_effect = requests.ConnectionError("down")
+    with pytest.raises(requests.ConnectionError):
+        count_with_retry(typesense, "mb_recordings_1", 23, attempts=2)
+
+
+def test_count_check_reports_a_genuine_mismatch() -> None:
+    """A short import must still be caught -- the retry is not a way to pass."""
+    typesense = mock.Mock()
+    typesense.collection_document_count.return_value = 7
+    assert count_with_retry(typesense, "mb_recordings_1", 23, attempts=2) == 7
 
 
 def test_popularity_stays_indexed_and_required() -> None:
