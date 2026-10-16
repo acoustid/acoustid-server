@@ -299,7 +299,15 @@ class Typesense:
                 params={"action": "create"},
                 headers=self.headers,
                 data=fileobj,
-                timeout=None,
+                # The read has to be generous: Typesense indexes the whole
+                # body before it answers, which measured 36 minutes for 23.3M
+                # documents, and indexing the full catalogue would be more.
+                # Two hours covers that with headroom and still bounds the
+                # hang -- unbounded, a Typesense that stops answering wedges
+                # the pod forever, and with concurrencyPolicy: Forbid that
+                # takes every later rebuild down with it. The connect phase
+                # has no reason to wait at all.
+                timeout=(10, 7200),
             )
         response.raise_for_status()
         failures = [
@@ -499,8 +507,15 @@ def run_build_search_index(script: Script, opts: Any = None, args: Any = None) -
         "Swapped in %s with %d documents in %.1f s", collection, count, duration
     )
 
+    # Past this point the new index is already serving and the marker is
+    # written, so the build has succeeded whatever happens next. Letting a
+    # failed delete propagate would exit non-zero and report that success as a
+    # failure; the collection is merely left for the next run to sweep.
     for name in obsolete_collections(
         typesense, COLLECTION_ALIAS, (collection, previous)
     ):
         logger.info("Dropping superseded collection %s", name)
-        typesense.drop_collection(name)
+        try:
+            typesense.drop_collection(name)
+        except requests.RequestException:
+            logger.exception("Could not drop superseded collection %s", name)
