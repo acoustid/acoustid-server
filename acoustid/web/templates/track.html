@@ -234,19 +234,24 @@
 
 {% if moderator and edits %}
 <section>
-  <div class="section-head"><h2>Editing history</h2></div>
+  <div class="section-head">
+    <h2>Editing history</h2>
+    <a class="small" href="{{ url_for('.edits', acoustid=track.gid) }}">{{ 'Show all edits' if more_edits else 'Open in audit view' }}</a>
+  </div>
   <ul class="history">
     {% for edit in edits %}
     <li>
       <span class="small muted">{{ edit.created.strftime("%b %d, %Y %H:%M:%S") }}</span><br>
       User
-      {% if edit.account.mbuser %}
+      {% if edit.account and edit.account.mbuser %}
       <a href="https://musicbrainz.org/user/{{ edit.account.mbuser }}">{{ edit.account.name }}</a>
-      {% else %}
+      {% elif edit.account %}
       {{ edit.account.name }}
+      {% else %}
+      <span class="muted">(deleted account)</span>
       {% endif %}
       {{ 'disabled' if edit.disabled else 'enabled' }}
-      <a href="#{{ edit.track_mbid.mbid }}">{{ edit.track_mbid.mbid }}</a>
+      {% if edit.mbid %}<a href="#{{ edit.mbid }}">{{ edit.mbid }}</a>{% else %}<span class="muted">unknown</span>{% endif %}
     </li>
     {% endfor %}
   </ul>

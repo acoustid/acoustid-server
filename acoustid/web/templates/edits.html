@@ -1,0 +1,86 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<section>
+  <div class="section-head">
+    <h2>Editing history</h2>
+    {% if mbid_filter or acoustid_filter %}
+    <a class="small" href="{{ url_for('.edits') }}">Clear filter</a>
+    {% endif %}
+  </div>
+
+  {% if mbid_filter %}
+  <p class="muted">Changes to AcoustIDs linked to recording
+    <a class="mono" href="{{ url_for('.mbid', mbid=mbid_filter) }}">{{ mbid_filter }}</a>.</p>
+  {% elif acoustid_filter %}
+  <p class="muted">Changes to the recordings linked to AcoustID
+    <a class="mono" href="{{ url_for('.track', track_id_or_gid=acoustid_filter) }}">{{ acoustid_filter }}</a>.</p>
+  {% else %}
+  <p class="muted">Every recording link that has been enabled or disabled, newest first.</p>
+  {% endif %}
+
+  {% if edits %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>User</th>
+          <th>Change</th>
+          <th>AcoustID</th>
+          <th>Recording</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for edit in edits %}
+        <tr>
+          <td class="small muted">{{ edit.created.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+          <td>
+            {% if edit.account and edit.account.mbuser %}
+            <a href="https://musicbrainz.org/user/{{ edit.account.mbuser }}">{{ edit.account.name }}</a>
+            {% elif edit.account %}
+            {{ edit.account.name }}
+            {% else %}
+            <span class="muted">(deleted account)</span>
+            {% endif %}
+          </td>
+          <td>{{ 'disabled' if edit.disabled else 'enabled' }}</td>
+          <td>
+            {% if edit.track_gid %}
+            <a class="mono" href="{{ url_for('.track', track_id_or_gid=edit.track_gid) }}">{{ edit.track_gid }}</a>
+            {% else %}
+            <span class="muted">unknown</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if edit.mbid %}
+            <a class="mono" href="{{ url_for('.mbid', mbid=edit.mbid) }}">{{ edit.mbid }}</a>
+            {% else %}
+            <span class="muted">unknown</span>
+            {% endif %}
+          </td>
+          <td>{% if edit.note %}{{ edit.note }}{% else %}<span class="muted">&mdash;</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page > 1 or has_more %}
+  <p class="pager">
+    {% if page > 1 %}
+    <a href="{{ url_for('.edits', mbid=mbid_filter, acoustid=acoustid_filter, page=page - 1) }}">&larr; Newer</a>
+    {% endif %}
+    <span class="muted small">Page {{ page }}</span>
+    {% if has_more %}
+    <a href="{{ url_for('.edits', mbid=mbid_filter, acoustid=acoustid_filter, page=page + 1) }}">Older &rarr;</a>
+    {% endif %}
+  </p>
+  {% endif %}
+
+  {% else %}
+  <p class="muted">No edits{% if mbid_filter or acoustid_filter %} match this filter{% endif %}.</p>
+  {% endif %}
+</section>
+{% endblock %}

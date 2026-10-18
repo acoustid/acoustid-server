@@ -18,7 +18,7 @@ from acoustid.models import Account, Meta, TrackMBID, TrackMBIDChange, TrackMeta
 from acoustid.utils import is_uuid
 from acoustid.web import db
 from acoustid.web.grouping import MetaRow, group_metadata
-from acoustid.web.utils import require_user
+from acoustid.web.utils import require_moderator, require_user
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,15 @@ metadata_page = Blueprint("metadata", __name__)
 MAX_FINGERPRINT_THUMBNAILS = 50
 THUMBNAIL_FRAMES = 948
 MAX_SIMILARITY_MATRIX = 12
+
+# The inline history on a track or recording page is a summary: the last few
+# changes, with the rest a click away on the audit page. An uncapped list grows
+# without limit on a heavily moderated recording and pushes the rest of the
+# page out of view.
+MAX_INLINE_EDITS = 10
+
+# One page of the audit listing.
+EDITS_PER_PAGE = 100
 # The fingerprint page scores every other fingerprint of the track to rank
 # them, which is only done for tracks up to this size.
 MAX_RANKED_FINGERPRINTS = 200
@@ -151,40 +160,19 @@ def track(track_id_or_gid: str) -> str:
     ]
     metadata_groups = group_metadata(metadata_rows)
 
-    edits = (
+    rows = (
         db.session.query(TrackMBIDChange)
         .filter(TrackMBIDChange.track_mbid_id.in_(m.id for m in mbids))
         .order_by(TrackMBIDChange.created.desc())
+        .limit(MAX_INLINE_EDITS + 1)
         .all()
     )
-
-    edits_accounts = (
-        db.session.query(Account)
-        .options(load_only(Account.mbuser, Account.name))
-        .filter(Account.id.in_(e.account_id for e in edits))
-        .all()
-    )
-    edits_accounts_by_id = {}
-    for account in edits_accounts:
-        edits_accounts_by_id[account.id] = account
-
-    edits_track_mbids = (
-        db.session.query(TrackMBID)
-        .options(load_only(TrackMBID.mbid))
-        .filter(TrackMBID.id.in_(e.track_mbid_id for e in edits))
-        .all()
-    )
-    edits_track_mbids_by_id = {}
-    for track_mbid in edits_track_mbids:
-        edits_track_mbids_by_id[track_mbid.id] = track_mbid
-
-    for edit in edits:
-        account_or_none = edits_accounts_by_id.get(edit.account_id)
-        if account_or_none is not None:
-            edit.account = account_or_none
-        track_mbid_or_none = edits_track_mbids_by_id.get(edit.track_mbid_id)
-        if track_mbid_or_none is not None:
-            edit.track_mbid = track_mbid_or_none
+    # One more than shown, so the page knows whether to offer the rest without
+    # counting the whole history. Previously this list was uncapped, which on a
+    # heavily moderated track pushed everything below it off the page.
+    more_edits = len(rows) > MAX_INLINE_EDITS
+    edits = rows[:MAX_INLINE_EDITS]
+    attach_edit_details(edits)
 
     current_account_id = session.get("id")
     if current_account_id is None:
@@ -200,6 +188,7 @@ def track(track_id_or_gid: str) -> str:
         moderator=moderator,
         track=track,
         edits=edits,
+        more_edits=more_edits,
         user_metadata=user_metadata,
         show_disabled=show_disabled,
         num_disabled=num_disabled,
@@ -402,6 +391,7 @@ def mbid(mbid: str) -> str:
         sql.select(
             schema.track.c.id,
             schema.track.c.gid,
+            schema.track_mbid.c.id.label("track_mbid_id"),
             schema.track_mbid.c.submission_count,
             schema.track_mbid.c.disabled,
         )
@@ -517,10 +507,42 @@ def mbid(mbid: str) -> str:
             similarity.setdefault(track1, {})[track2] = score
             similarity.setdefault(track2, {})[track1] = score
 
+    # The editing history of every AcoustID link to this recording, for
+    # moderators. Drawn from all_tracks rather than tracks, deliberately: an
+    # unlink sets disabled, so the tracks whose history is most worth reading
+    # are exactly the ones hidden from the list by default.
+    current_account_id = session.get("id")
+    moderator = current_account_id is not None and is_moderator(
+        db.get_app_db(), current_account_id
+    )
+
+    edits: list[Any] = []
+    more_edits = False
+    if moderator and all_tracks:
+        rows = (
+            db.session.query(TrackMBIDChange)
+            .filter(
+                TrackMBIDChange.track_mbid_id.in_(
+                    [t["track_mbid_id"] for t in all_tracks]
+                )
+            )
+            .order_by(TrackMBIDChange.created.desc())
+            .limit(MAX_INLINE_EDITS + 1)
+            .all()
+        )
+        # One more than shown, so the page knows whether to offer the rest
+        # without counting the whole history.
+        more_edits = len(rows) > MAX_INLINE_EDITS
+        edits = rows[:MAX_INLINE_EDITS]
+        attach_edit_details(edits)
+
     return render_template(
         "mbid.html",
         title=title,
         mbid=mbid,
+        moderator=moderator,
+        edits=edits,
+        more_edits=more_edits,
         recording=recording,
         tracks=tracks,
         num_disabled=num_disabled,
@@ -529,6 +551,120 @@ def mbid(mbid: str) -> str:
         similarity=similarity,
         thumbnail_frames=THUMBNAIL_FRAMES,
         max_thumbnails=MAX_FINGERPRINT_THUMBNAILS,
+    )
+
+
+def attach_edit_details(edits: list[Any]) -> None:
+    """Fill in the account, AcoustID and recording each change refers to.
+
+    A change records only a track_mbid id and an account id, and the three
+    things needed to describe it live on three different clusters: the change
+    on ingest, the link and its track on fingerprint, the account on app. So
+    this is three batched lookups and a stitch rather than a join, which is
+    not a style choice -- there is no join available.
+
+    Anything that cannot be resolved is left as None rather than skipped.
+    account_id carries no foreign key, because it points at a cluster the
+    ingest one cannot reference, so a deleted account must not take the page
+    down with it.
+    """
+    if not edits:
+        return
+
+    accounts_by_id = {
+        account.id: account
+        for account in db.session.query(Account)
+        .options(load_only(Account.mbuser, Account.name))
+        .filter(Account.id.in_({e.account_id for e in edits}))
+        .all()
+    }
+
+    query = (
+        sql.select(
+            schema.track_mbid.c.id,
+            schema.track_mbid.c.mbid,
+            schema.track.c.gid,
+        )
+        .select_from(
+            schema.track_mbid.join(
+                schema.track, schema.track.c.id == schema.track_mbid.c.track_id
+            )
+        )
+        .where(schema.track_mbid.c.id.in_({e.track_mbid_id for e in edits}))
+    )
+    links_by_id = {
+        row.id: (str(row.mbid), str(row.gid))
+        for row in db.get_fingerprint_db().execute(query)
+    }
+
+    for edit in edits:
+        edit.account = accounts_by_id.get(edit.account_id)
+        mbid, track_gid = links_by_id.get(edit.track_mbid_id, (None, None))
+        edit.mbid = mbid
+        edit.track_gid = track_gid
+
+
+@metadata_page.route("/edits")
+def edits() -> str:
+    """Every link and unlink change, newest first, filterable.
+
+    The inline histories on the track and recording pages show only the last
+    few; this is where the rest lives, and the only place the moderator's note
+    is shown -- on a page devoted to the edits there is room for the reason,
+    which is the most useful part of an audit trail.
+    """
+    require_moderator()
+    fingerprint_db = db.get_fingerprint_db()
+
+    mbid_filter = request.args.get("mbid")
+    acoustid_filter = request.args.get("acoustid")
+    page = max(1, request.args.get("page", default=1, type=int))
+
+    if mbid_filter and not is_uuid(mbid_filter):
+        abort(404, description="%s is not a MusicBrainz recording ID." % mbid_filter)
+    if acoustid_filter and not is_uuid(acoustid_filter):
+        abort(404, description="%s is not an AcoustID." % acoustid_filter)
+
+    # Both filters are expressed as a set of track_mbid rows, because that is
+    # what a change points at. Resolved on the fingerprint cluster, since the
+    # changes live on ingest and no join between them is possible.
+    track_mbid_ids: list[int] | None = None
+    if mbid_filter or acoustid_filter:
+        query = sql.select(schema.track_mbid.c.id)
+        if mbid_filter:
+            query = query.where(schema.track_mbid.c.mbid == mbid_filter.lower())
+        if acoustid_filter:
+            track_id = resolve_track_gid(fingerprint_db, acoustid_filter.lower())
+            if track_id is None:
+                abort(404, description="There is no AcoustID %s." % acoustid_filter)
+            query = query.where(schema.track_mbid.c.track_id == track_id)
+        track_mbid_ids = list(fingerprint_db.execute(query).scalars())
+
+    edits: list[Any] = []
+    has_more = False
+    if track_mbid_ids is None or track_mbid_ids:
+        changes = db.session.query(TrackMBIDChange).order_by(
+            TrackMBIDChange.created.desc()
+        )
+        if track_mbid_ids is not None:
+            changes = changes.filter(TrackMBIDChange.track_mbid_id.in_(track_mbid_ids))
+        # One more than the page, so "is there a next page" needs no count().
+        rows = (
+            changes.offset((page - 1) * EDITS_PER_PAGE).limit(EDITS_PER_PAGE + 1).all()
+        )
+        has_more = len(rows) > EDITS_PER_PAGE
+        edits = rows[:EDITS_PER_PAGE]
+
+    attach_edit_details(edits)
+
+    return render_template(
+        "edits.html",
+        title="Editing history",
+        edits=edits,
+        page=page,
+        has_more=has_more,
+        mbid_filter=mbid_filter,
+        acoustid_filter=acoustid_filter,
     )
 
 
