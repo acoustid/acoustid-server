@@ -9,6 +9,7 @@ import pytest
 from flask import Flask
 from itsdangerous import URLSafeSerializer
 from rauth import OAuth2Service
+from sqlalchemy import sql
 
 from acoustid.web import db
 from acoustid.web.views import general
@@ -1374,3 +1375,243 @@ def test_musicbrainz_login_succeeds_when_the_responses_are_well_formed(
 
     assert rv.status_code == 302
     assert urlparse(rv.headers["Location"]).path != "/login"
+
+
+MODERATED_MBID = "b81f83ee-4da4-11e0-9ed8-0025225356f3"
+TRACK_1_GID = "eb31d1c3-950e-468b-9e36-e46fa75b1291"
+TRACK_2_GID = "92732e4b-97c6-4250-b237-1636384d466f"
+
+
+@pytest.fixture()
+def edit_history(app: Flask, moderator: int):
+    """A recording in the mirror, two links to it, and a change to each.
+
+    The second link is disabled, which is the case worth constructing: the
+    recording page hides disabled links, so it is the one whose history would
+    be invisible if the page only looked at what it displays.
+    """
+    from acoustid import tables as schema
+
+    script = app.acoustid_script  # type: ignore
+    with script.context() as ctx:
+        mb_db = ctx.db.get_musicbrainz_db()
+        mb_db.execute(
+            sql.text(
+                "INSERT INTO musicbrainz.artist_credit "
+                "(id, name, artist_count, edits_pending) "
+                "VALUES (9100, 'Test Artist', 1, 0)"
+            )
+        )
+        mb_db.execute(
+            sql.text(
+                "INSERT INTO musicbrainz.recording "
+                "(id, gid, name, artist_credit, length, comment, "
+                " edits_pending, video) "
+                "VALUES (9100, :gid, 'Test Recording', 9100, 200000, '', 0, false)"
+            ).bindparams(gid=MODERATED_MBID)
+        )
+
+        fp_db = ctx.db.get_fingerprint_db()
+        hidden_link_id = fp_db.execute(
+            schema.track_mbid.insert()
+            .values(track_id=2, mbid=MODERATED_MBID, submission_count=1, disabled=True)
+            .returning(schema.track_mbid.c.id)
+        ).scalar_one()
+        visible_link_id = fp_db.execute(
+            sql.select(schema.track_mbid.c.id).where(
+                sql.and_(
+                    schema.track_mbid.c.track_id == 1,
+                    schema.track_mbid.c.mbid == MODERATED_MBID,
+                )
+            )
+        ).scalar_one()
+
+        ingest_db = ctx.db.get_ingest_db()
+        ingest_db.execute(
+            schema.track_mbid_change.insert().values(
+                track_mbid_id=visible_link_id,
+                account_id=moderator,
+                disabled=False,
+                note="relinked after review",
+            )
+        )
+        ingest_db.execute(
+            schema.track_mbid_change.insert().values(
+                track_mbid_id=hidden_link_id,
+                account_id=moderator,
+                disabled=True,
+                note="wrong recording",
+            )
+        )
+        ctx.db.session.commit()
+
+    yield moderator
+
+    with script.context() as ctx:
+        ctx.db.get_ingest_db().execute(schema.track_mbid_change.delete())
+        ctx.db.get_fingerprint_db().execute(
+            schema.track_mbid.delete().where(schema.track_mbid.c.track_id == 2)
+        )
+        mb_db = ctx.db.get_musicbrainz_db()
+        mb_db.execute(sql.text("DELETE FROM musicbrainz.recording WHERE id = 9100"))
+        mb_db.execute(sql.text("DELETE FROM musicbrainz.artist_credit WHERE id = 9100"))
+        ctx.db.session.commit()
+
+
+def test_mbid_page_hides_editing_history_from_anonymous_visitors(
+    app: Flask, edit_history: int
+) -> None:
+    rv = app.test_client().get("/mbid/%s" % MODERATED_MBID)
+    assert rv.status_code == 200
+    assert "Editing history" not in rv.text
+    assert "wrong recording" not in rv.text
+
+
+def test_mbid_page_shows_editing_history_to_moderators(
+    app: Flask, edit_history: int
+) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+
+    rv = client.get("/mbid/%s" % MODERATED_MBID)
+    assert rv.status_code == 200
+    assert "Editing history" in rv.text
+    assert TRACK_1_GID in rv.text
+
+
+def test_mbid_page_history_covers_links_the_page_does_not_show(
+    app: Flask, edit_history: int
+) -> None:
+    """The point of reading history from all links rather than visible ones.
+
+    An unlink sets disabled, and the recording page hides disabled links, so
+    the edits most worth seeing belong to tracks absent from the list. Here
+    track 2's link is disabled: its AcoustID is not in the table, and its
+    change still has to appear in the history.
+    """
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+
+    rv = client.get("/mbid/%s" % MODERATED_MBID)
+    assert rv.status_code == 200
+    # Shown once in the history, and not in the list of linked AcoustIDs.
+    assert "Show 1 disabled link" in rv.text
+    assert TRACK_2_GID in rv.text
+
+
+def test_audit_page_requires_a_moderator(app: Flask) -> None:
+    client = app.test_client()
+    assert client.get("/edits").status_code == 302
+
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 2  # no MusicBrainz account linked
+    assert client.get("/edits").status_code == 404
+
+
+def test_audit_page_lists_edits_with_their_notes(app: Flask, edit_history: int) -> None:
+    """The note is shown here and nowhere else -- it is the reason for an edit."""
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+
+    rv = client.get("/edits")
+    assert rv.status_code == 200
+    assert "relinked after review" in rv.text
+    assert "wrong recording" in rv.text
+    assert MODERATED_MBID in rv.text
+    assert TRACK_1_GID in rv.text
+
+
+def test_audit_page_filters_by_recording(app: Flask, edit_history: int) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+
+    rv = client.get("/edits?mbid=%s" % MODERATED_MBID)
+    assert rv.status_code == 200
+    assert "wrong recording" in rv.text
+
+    # A recording with no links has no edits, rather than all of them.
+    rv = client.get("/edits?mbid=54b7b412-fc69-4fc7-8c96-17800eda3a98")
+    assert rv.status_code == 200
+    assert "wrong recording" not in rv.text
+    assert "No edits match this filter" in rv.text
+
+
+def test_audit_page_filters_by_acoustid(app: Flask, edit_history: int) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+
+    rv = client.get("/edits?acoustid=%s" % TRACK_2_GID)
+    assert rv.status_code == 200
+    assert "wrong recording" in rv.text
+    assert "relinked after review" not in rv.text
+
+
+def test_audit_page_rejects_identifiers_that_are_not_uuids(
+    app: Flask, edit_history: int
+) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+
+    assert client.get("/edits?mbid=nope").status_code == 404
+    assert client.get("/edits?acoustid=nope").status_code == 404
+    # A well-formed AcoustID that does not exist is also a 404, rather than an
+    # unfiltered listing of every edit on the site.
+    rv = client.get("/edits?acoustid=00000000-0000-0000-0000-000000000000")
+    assert rv.status_code == 404
+
+
+def test_inline_history_is_capped_and_offers_the_rest(
+    app: Flask, edit_history: int
+) -> None:
+    """The inline list is a summary, with the audit page for the whole thing.
+
+    Uncapped, a heavily moderated recording pushes everything below the
+    history off the page, which is what this replaced.
+    """
+    from acoustid import tables as schema
+    from acoustid.web.views.metadata import MAX_INLINE_EDITS
+
+    script = app.acoustid_script  # type: ignore
+    with script.context() as ctx:
+        link_id = (
+            ctx.db.get_fingerprint_db()
+            .execute(
+                sql.select(schema.track_mbid.c.id).where(
+                    sql.and_(
+                        schema.track_mbid.c.track_id == 1,
+                        schema.track_mbid.c.mbid == MODERATED_MBID,
+                    )
+                )
+            )
+            .scalar_one()
+        )
+        for i in range(MAX_INLINE_EDITS):
+            ctx.db.get_ingest_db().execute(
+                schema.track_mbid_change.insert().values(
+                    track_mbid_id=link_id,
+                    account_id=edit_history,
+                    disabled=bool(i % 2),
+                    note="filler %d" % i,
+                )
+            )
+        ctx.db.session.commit()
+
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+
+    rv = client.get("/mbid/%s" % MODERATED_MBID)
+    assert rv.status_code == 200
+    # The fixture's two changes plus MAX_INLINE_EDITS fillers is more than fits.
+    assert "Show all edits" in rv.text
+    assert rv.text.count("musicbrainz.org/user/moderator") == MAX_INLINE_EDITS
+    # And the audit page it points at has them all.
+    rv = client.get("/edits?mbid=%s" % MODERATED_MBID)
+    assert rv.status_code == 200
+    assert rv.text.count("musicbrainz.org/user/moderator") == MAX_INLINE_EDITS + 2

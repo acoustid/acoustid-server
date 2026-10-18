@@ -677,6 +677,10 @@ track_mbid_change = Table(
     Column("disabled", Boolean, nullable=False),
     Column("note", Text),
     Column("updated", DateTime(timezone=True)),
+    # The audit page lists changes newest first, across the whole table when
+    # unfiltered. Without this that is a full scan and a sort on every page
+    # view; the existing track_mbid_id index only helps the filtered views.
+    Index("track_mbid_change_idx_created", "created"),
     info={"bind_key": "ingest"},
 )
 

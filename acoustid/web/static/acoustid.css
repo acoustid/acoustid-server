@@ -434,6 +434,7 @@ table.links tr:last-child td { border-bottom: 0; }
 .history { list-style: none; padding: 0; font-size: 14px; }
 .history li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .btn.small { padding: 1px 8px; font-size: 13px; }
+.pager { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
 
 /* Error pages */
 

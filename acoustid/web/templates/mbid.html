@@ -162,4 +162,34 @@
   <p class="muted">No AcoustIDs are linked to this recording.</p>
   {% endif %}
 </section>
+
+{% if moderator and edits %}
+<section>
+  <div class="section-head">
+    <h2>Editing history</h2>
+    <a class="small" href="{{ url_for('.edits', mbid=mbid) }}">{{ 'Show all edits' if more_edits else 'Open in audit view' }}</a>
+  </div>
+  <ul class="history">
+    {% for edit in edits %}
+    <li>
+      <span class="small muted">{{ edit.created.strftime("%b %d, %Y %H:%M:%S") }}</span><br>
+      User
+      {% if edit.account and edit.account.mbuser %}
+      <a href="https://musicbrainz.org/user/{{ edit.account.mbuser }}">{{ edit.account.name }}</a>
+      {% elif edit.account %}
+      {{ edit.account.name }}
+      {% else %}
+      <span class="muted">(deleted account)</span>
+      {% endif %}
+      {{ 'disabled' if edit.disabled else 'enabled' }} the link to
+      {% if edit.track_gid %}
+      <a class="mono" href="{{ url_for('.track', track_id_or_gid=edit.track_gid) }}">{{ edit.track_gid }}</a>
+      {% else %}
+      <span class="muted">an AcoustID no longer linked to this recording</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 {% endblock %}
