@@ -71,3 +71,11 @@ import_acoustid=http://data.acoustid.org/replication/acoustid-update-{seq}.xml.b
 [export]
 #directory=/var/lib/acoustid/data-export
 #max_days=30
+
+[search]
+# Metadata search. With no url or api_key, search is switched off and the
+# endpoint reports it as unavailable rather than failing.
+#url=http://typesense:8108
+#api_key=XXX
+#collection=mb_recordings
+#timeout=0.8
