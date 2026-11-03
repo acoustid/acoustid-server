@@ -21,6 +21,11 @@ from acoustid.api.v2 import (
     LookupHandlerParams,
     SubmitHandler,
     SubmitHandlerParams,
+    app_api_key_cache,
+)
+from acoustid.api.v2.internal import (
+    CheckApplicationHandler,
+    CheckApplicationHandlerParams,
 )
 from acoustid.api.v2.misc import UserCreateAnonymousHandler, UserLookupHandler
 from acoustid.script import ScriptContext
@@ -869,3 +874,34 @@ def test_cluster_requests_touch_no_bucket_at_all(ctx):
         assert "200 OK" == handler.handle(_cluster_secret_request("wrong")).status
         assert "global" in buckets
         assert "ip" in buckets
+
+
+@with_script_context
+def test_check_application_resolves_its_own_connection(ctx):
+    # type: (ScriptContext) -> None
+    """The internal endpoint passed a connection where a context was wanted.
+
+    check_app_api_key calls db.get_app_db(read_only=True) itself, so handing
+    it an already-resolved connection raised
+    AttributeError: 'Connection' object has no attribute 'get_app_db'.
+
+    The cache is what hid it, and it is why this test clears it first. The
+    cache key is the API key alone -- the db argument is not part of it -- so
+    one entry is shared with the correctly-written caller in
+    APIHandlerParams._parse_client. Any ordinary lookup for the same key
+    within the 60s TTL fills that entry, and this endpoint then returns the
+    cached value without ever reaching the broken line. A busy key therefore
+    never failed and a rarely-used one failed every time, which is why there
+    was no deploy correlation: nothing changed except a cache miss.
+    """
+    app_api_key_cache.clear()
+    ctx.config.cluster.secret = "s3cr3t"
+
+    handler = CheckApplicationHandler(ctx)
+    params = CheckApplicationHandlerParams(ctx.config)
+    params.parse(
+        MultiDict({"client": "app1key", "secret": "s3cr3t", "api_key": "app2key"}),
+        ctx.db,
+    )
+
+    assert {"id": 2} == handler._handle_internal(params)

@@ -180,9 +180,11 @@ class CheckApplicationHandler(APIHandler):
         if self.ctx.config.cluster.secret != params.secret:
             logger.warning("Invalid cluster secret")
             raise errors.NotAllowedError()
-        application_id = check_app_api_key(
-            self.ctx.config, self.ctx.db.get_app_db(), params.api_key
-        )
+        # The database context, not a connection from it: check_app_api_key
+        # resolves its own read-only connection. Passing a connection made
+        # this raise AttributeError on every cache miss, which the shared
+        # cache hid for as long as another caller kept the entry warm.
+        application_id = check_app_api_key(self.ctx.config, self.ctx.db, params.api_key)
         if not application_id:
             raise errors.InvalidAPIKeyError()
         return {"id": application_id}
