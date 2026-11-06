@@ -1,12 +1,13 @@
 import datetime
 import json
 import logging
+import re
 from typing import Any
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from flask import Flask
+from flask import Flask, url_for
 from itsdangerous import URLSafeSerializer
 from rauth import OAuth2Service
 from sqlalchemy import sql
@@ -1615,3 +1616,87 @@ def test_inline_history_is_capped_and_offers_the_rest(
     rv = client.get("/edits?mbid=%s" % MODERATED_MBID)
     assert rv.status_code == 200
     assert rv.text.count("musicbrainz.org/user/moderator") == MAX_INLINE_EDITS + 2
+
+
+def robots_rules(text: str) -> list[str]:
+    """The Disallow paths for User-agent: *, ignoring comments."""
+    paths = []
+    for line in text.splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line.lower().startswith("disallow:"):
+            paths.append(line.split(":", 1)[1].strip())
+    return paths
+
+
+def robots_blocks(rule: str, path: str) -> bool:
+    """Whether an RFC 9309 Disallow path matches a URL path.
+
+    Hand-rolled because urllib.robotparser does not implement the "*"
+    wildcard -- verified: it reports /fingerprint/1/compare/2 as allowed under
+    Disallow: /fingerprint/*/compare/. RFC 9309 defines it and the major
+    crawlers honour it, so the stdlib parser is the wrong oracle here, not the
+    rule.
+    """
+    pattern = "".join(
+        ".*" if part == "*" else re.escape(part) for part in re.split(r"(\*)", rule)
+    )
+    return re.match(pattern, path) is not None
+
+
+def test_robots_txt_is_served_from_the_root(app: Flask) -> None:
+    """It lived under /static for years, where no crawler looks."""
+    rv = app.test_client().get("/robots.txt")
+    assert rv.status_code == 200
+    assert rv.mimetype == "text/plain"
+    assert "User-agent: *" in rv.text
+
+
+def test_robots_txt_blocks_the_comparison_urls_the_site_actually_links(
+    app: Flask,
+) -> None:
+    """The rule is checked against a URL built from the route itself.
+
+    This is the pairing that matters: if the comparison route is ever renamed,
+    the rule stops matching and crawling resumes silently. Generating the URL
+    from url_for means the test fails instead.
+    """
+    rv = app.test_client().get("/robots.txt")
+    rules = robots_rules(rv.text)
+
+    with app.test_request_context():
+        compare_url = url_for(
+            "metadata.compare_fingerprints",
+            fingerprint_id_1=1234,
+            fingerprint_id_2=5678,
+        )
+
+    assert any(robots_blocks(rule, compare_url) for rule in rules), (
+        "no Disallow rule in robots.txt matches %s" % compare_url
+    )
+
+
+@pytest.mark.parametrize(
+    "endpoint,kwargs",
+    [
+        ("metadata.fingerprint", {"fingerprint_id": 1234}),
+        ("metadata.mbid", {"mbid": "b81f83ee-4da4-11e0-9ed8-0025225356f3"}),
+        ("metadata.track", {"track_id_or_gid": "eb31d1c3-950e-468b-9e36-e46fa75b1291"}),
+        ("general.index", {}),
+    ],
+)
+def test_robots_txt_leaves_the_content_pages_crawlable(
+    app: Flask, endpoint: str, kwargs: dict
+) -> None:
+    """Only the comparison surface is excluded, not the pages worth indexing.
+
+    The fingerprint page is the one at risk: the obvious way to block
+    comparisons is Disallow: /fingerprint/, which takes these with it.
+    """
+    rv = app.test_client().get("/robots.txt")
+    rules = robots_rules(rv.text)
+
+    with app.test_request_context():
+        path = url_for(endpoint, **kwargs)
+
+    blocking = [rule for rule in rules if robots_blocks(rule, path)]
+    assert not blocking, "%s is blocked by %r" % (path, blocking)

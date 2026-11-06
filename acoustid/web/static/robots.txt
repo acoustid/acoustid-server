@@ -1,3 +1,22 @@
 User-agent: *
+
+# Google ignores this; Bing and many smaller crawlers honour it. Also an
+# extension rather than part of the original spec, so the parsers that skip
+# the wildcard below will skip this too.
+Crawl-delay: 10
+
+# Published data files, which are large and better fetched from
+# data.acoustid.org than crawled from here.
 Disallow: /data/
 
+# Fingerprint comparison. Every pair of fingerprints is its own URL, so this
+# is a combinatorial surface rather than a set of pages: the similarity grid
+# on a recording page links up to 144 of them, and each one runs
+# acoustid_compare2 against the database. Crawling it is unbounded work for
+# content nobody searches for.
+#
+# The wildcard is needed because the path is /fingerprint/<id>/compare/<id>,
+# so no prefix rule can reach it without also blocking the fingerprint pages
+# themselves. "*" is standard since RFC 9309 and honoured by the major
+# crawlers; parsers that predate it will ignore this line.
+Disallow: /fingerprint/*/compare/

@@ -36,6 +36,17 @@ def favicon_ico():
     return redirect(url_for("static", filename="favicon.ico"))
 
 
+@general_page.route("/robots.txt")
+def robots_txt():
+    """Serve robots.txt from the root, which is the only place crawlers look.
+
+    The file has existed under /static for years and nothing served it at
+    /robots.txt, so none of it has ever applied. Sent rather than redirected
+    to: a crawler should get the body with a 200, not a hop.
+    """
+    return current_app.send_static_file("robots.txt")
+
+
 class MarkdownFlaskUrlProcessor(markdown.util.Processor):
     def run(self, root):
         stack = [root]
