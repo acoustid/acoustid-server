@@ -1754,6 +1754,75 @@ def test_visited_rule_sits_between_the_link_and_hover_rules() -> None:
     )
 
 
+def test_visited_rule_uses_the_visited_colour() -> None:
+    """Position alone is not enough -- the rule has to set the right colour.
+
+    An a:visited rule pointing at var(--link) would satisfy every other test
+    here while leaving visited links indistinguishable, which is the bug this
+    change exists to fix.
+    """
+    with open(STYLESHEET) as fileobj:
+        for line in fileobj:
+            if line.startswith("a:visited"):
+                assert "var(--link-visited)" in line
+                return
+    raise AssertionError("no a:visited rule in acoustid.css")
+
+
+def test_no_single_class_colour_rule_applies_to_a_link() -> None:
+    """Links styled by one class lose their colour to a:visited.
+
+    `a:visited` is (0,1,1) and a bare `.cls` is (0,1,0), so any link whose
+    colour comes from a single class selector turns purple once visited.
+    That is how the header brand and the buttons broke: `.brand` and `.btn`
+    are applied directly to anchors and were outranked.
+
+    This checks the invariant rather than those two cases, so a class added
+    later gets caught too. Either fix is accepted: qualify the selector
+    (a.brand), or leave it and add an anchor-specific rule after a:visited
+    (a.btn, which cannot be qualified because <button> uses it as well).
+    """
+    templates = os.path.join(os.path.dirname(STYLESHEET), "..", "templates")
+    anchor_classes = set()
+    for name in os.listdir(templates):
+        if not name.endswith(".html"):
+            continue
+        with open(os.path.join(templates, name)) as fileobj:
+            for tag in re.findall(r"<a\b[^>]*>", fileobj.read()):
+                for attr in re.findall(r'class="([^"]+)"', tag):
+                    anchor_classes.update(attr.split())
+
+    # Parsed over the whole file rather than line by line: .btn spans several
+    # lines, and a line-wise version silently skipped it -- which is exactly
+    # the rule that broke.
+    with open(STYLESHEET) as fileobj:
+        css = fileobj.read()
+    visited_at = css.index("a:visited")
+    offenders = []
+    for match in re.finditer(r"(?m)^\.([\w-]+)\s*\{([^}]*)\}", css):
+        name, body = match.group(1), match.group(2)
+        if name not in anchor_classes:
+            continue
+        if not re.search(r"(?<!-)\bcolor:", body):
+            continue
+        # Acceptable if an anchor-qualified rule restores the colour later in
+        # the file, which is how .btn is handled -- it cannot be qualified
+        # itself, because <button> uses it too.
+        rescue = re.search(
+            r"(?m)^a\.%s\b[^{]*\{[^}]*(?<!-)\bcolor:" % re.escape(name), css
+        )
+        if rescue and rescue.start() > visited_at:
+            continue
+        line = css.count("\n", 0, match.start()) + 1
+        offenders.append("%d: .%s" % (line, name))
+
+    assert (
+        not offenders
+    ), "single-class colour rules that a:visited would override: %s" % ", ".join(
+        offenders
+    )
+
+
 def test_visited_colour_differs_from_the_unvisited_one() -> None:
     """A visited colour equal to the link colour is the bug with extra steps."""
     with open(STYLESHEET) as fileobj:
