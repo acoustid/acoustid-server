@@ -13,6 +13,7 @@
   --line: #e4e2dc;
   --line-strong: #cfccc4;
   --link: #0145aa;
+  --link-visited: #6b3fa0;
   --link-hover: #aa0000;
   --brand-red: #aa0000;
 
@@ -56,6 +57,12 @@ body > main.wrap { flex: 1 0 auto; min-width: min(100%, 800px); max-width: min(1
 .site-footer { margin-top: auto; }
 
 a { color: var(--link); text-decoration: none; }
+/* Must stay between the two rules around it. :visited and :hover have equal
+   specificity, so source order decides: below a:hover, visited links would
+   stop changing colour on hover. Colour is also the only property available
+   here -- browsers restrict :visited to colour-ish properties to prevent
+   history sniffing -- so there is no non-colour cue to add alongside it. */
+a:visited { color: var(--link-visited); }
 a:hover { color: var(--link-hover); text-decoration: underline; }
 
 h1, h2, h3 { line-height: 1.2; margin: 0; font-weight: 600; }
@@ -76,7 +83,7 @@ code, .mono { font-family: var(--mono); font-size: 0.88em; }
   display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
   min-height: 68px; padding-block: 10px;
 }
-.brand { display: flex; align-items: baseline; gap: 12px; color: var(--muted); }
+a.brand { display: flex; align-items: baseline; gap: 12px; color: var(--muted); }
 .brand:hover { text-decoration: none; color: var(--muted); }
 .brand img { height: 26px; width: auto; display: block; transform: translateY(4px); }
 .brand small { font-size: 14px; font-style: italic; }
@@ -166,6 +173,12 @@ table.data .shrink { width: 1%; white-space: nowrap; }
   background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius);
   padding: 4px 12px; cursor: pointer; text-decoration: none;
 }
+/* Buttons are UI, not content, so a visited one keeps its own colour.
+   Needed because a:visited is (0,1,1) and outranks the bare .btn class
+   (0,1,0); this is (0,1,1) and later in the file, so it wins on order. The
+   rule above cannot simply be qualified, because .btn is used on <button>
+   too. */
+a.btn { color: var(--ink); }
 .btn:hover { background: var(--bg-soft); text-decoration: none; color: var(--ink); }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn.primary { background: var(--link); border-color: var(--link); color: #fff; }
