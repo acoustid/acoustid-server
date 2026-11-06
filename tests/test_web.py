@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import os
 import re
 from typing import Any
 from unittest import mock
@@ -1700,3 +1701,64 @@ def test_robots_txt_leaves_the_content_pages_crawlable(
 
     blocking = [rule for rule in rules if robots_blocks(rule, path)]
     assert not blocking, "%s is blocked by %r" % (path, blocking)
+
+
+STYLESHEET = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..",
+    "acoustid",
+    "web",
+    "static",
+    "acoustid.css",
+)
+
+
+def stylesheet_rule_line(selector: str) -> int:
+    """The line a top-level rule starts on, ignoring comments."""
+    with open(STYLESHEET) as fileobj:
+        for number, line in enumerate(fileobj, 1):
+            if re.match(r"^%s\s*\{" % re.escape(selector), line):
+                return number
+    raise AssertionError("no %r rule in acoustid.css" % selector)
+
+
+def test_visited_links_are_styled() -> None:
+    """Clicked links have to look different.
+
+    The redesign set a colour on `a` without an `a:visited` rule, which
+    overrides the browser default and so removed the distinction entirely
+    rather than restyling it. People working through long track lists rely on
+    it to see where they have already been.
+    """
+    with open(STYLESHEET) as fileobj:
+        css = fileobj.read()
+    assert "a:visited" in css
+    assert "--link-visited:" in css
+
+
+def test_visited_rule_sits_between_the_link_and_hover_rules() -> None:
+    """LVHA order, which breaks silently if it is wrong.
+
+    a:visited and a:hover have identical specificity (0,1,1), so source order
+    decides which wins. Below a:hover, visited links stop changing colour on
+    hover; above `a`, the plain rule overrides visited entirely. Nothing about
+    either failure shows up as an error -- only as links that look wrong.
+    """
+    link = stylesheet_rule_line("a")
+    visited = stylesheet_rule_line("a:visited")
+    hover = stylesheet_rule_line("a:hover")
+    assert link < visited < hover, "expected a (%d) < a:visited (%d) < a:hover (%d)" % (
+        link,
+        visited,
+        hover,
+    )
+
+
+def test_visited_colour_differs_from_the_unvisited_one() -> None:
+    """A visited colour equal to the link colour is the bug with extra steps."""
+    with open(STYLESHEET) as fileobj:
+        css = fileobj.read()
+    link = re.search(r"--link:\s*(#[0-9a-fA-F]+)", css)
+    visited = re.search(r"--link-visited:\s*(#[0-9a-fA-F]+)", css)
+    assert link and visited
+    assert link.group(1).lower() != visited.group(1).lower()

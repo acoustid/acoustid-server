@@ -13,6 +13,7 @@
   --line: #e4e2dc;
   --line-strong: #cfccc4;
   --link: #0145aa;
+  --link-visited: #6b3fa0;
   --link-hover: #aa0000;
   --brand-red: #aa0000;
 
@@ -56,6 +57,12 @@ body > main.wrap { flex: 1 0 auto; min-width: min(100%, 800px); max-width: min(1
 .site-footer { margin-top: auto; }
 
 a { color: var(--link); text-decoration: none; }
+/* Must stay between the two rules around it. :visited and :hover have equal
+   specificity, so source order decides: below a:hover, visited links would
+   stop changing colour on hover. Colour is also the only property available
+   here -- browsers restrict :visited to colour-ish properties to prevent
+   history sniffing -- so there is no non-colour cue to add alongside it. */
+a:visited { color: var(--link-visited); }
 a:hover { color: var(--link-hover); text-decoration: underline; }
 
 h1, h2, h3 { line-height: 1.2; margin: 0; font-weight: 600; }
