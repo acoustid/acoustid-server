@@ -9,11 +9,14 @@ from unittest import mock
 from uuid import UUID
 
 import pytest
+from sqlalchemy import sql
 from werkzeug.datastructures import MultiDict
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
-from acoustid import const, tables
+from acoustid import const
+from acoustid import tables
+from acoustid import tables as schema
 from acoustid.api import errors
 from acoustid.api.v2 import (
     APIHandler,
@@ -23,6 +26,13 @@ from acoustid.api.v2 import (
     LookupHandlerParams,
     SubmitHandler,
     SubmitHandlerParams,
+    app_user_key_policy_cache,
+)
+from acoustid.api.v2.internal import (
+    CreateApplicationHandler,
+    CreateApplicationHandlerParams,
+    UpdateApplicationStatusHandler,
+    UpdateApplicationStatusHandlerParams,
 )
 from acoustid.api.v2.misc import UserCreateAnonymousHandler, UserLookupHandler
 from acoustid.script import ScriptContext
@@ -981,3 +991,226 @@ def test_submissions_still_require_a_user_key_whatever_the_date(ctx):
         with pytest.raises(errors.MissingParameterError) as caught:
             params.parse(values, ctx.db)
     assert caught.value.parameter == "user"
+
+
+@with_script_context
+def test_lookup_skips_the_user_key_for_an_exempt_application(ctx):
+    # type: (ScriptContext) -> None
+    """An exempt application's lookups work after the cutover without a key.
+
+    This is the whole point of the column: commercial keys are billed to the
+    application, so there is nobody for a user key to identify, and the
+    announced policy does not apply to them.
+    """
+    app_db = ctx.db.get_app_db()
+    app_db.execute(
+        schema.application.update()
+        .where(schema.application.c.apikey == "app1key")
+        .values(requires_user_key=False)
+    )
+    app_user_key_policy_cache.clear()
+
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        params.parse(lookup_values(), ctx.db)
+    assert params.account_id is None
+
+
+@with_script_context
+def test_an_exempt_application_still_cannot_send_a_bad_user_key(ctx):
+    # type: (ScriptContext) -> None
+    """Exemption is from needing a key, not from the key being checked."""
+    app_db = ctx.db.get_app_db()
+    app_db.execute(
+        schema.application.update()
+        .where(schema.application.c.apikey == "app1key")
+        .values(requires_user_key=False)
+    )
+    app_user_key_policy_cache.clear()
+
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        assert_raises(
+            errors.InvalidUserAPIKeyError,
+            params.parse,
+            lookup_values(user="N/A"),
+            ctx.db,
+        )
+
+
+@with_script_context
+def test_applications_require_a_user_key_unless_told_otherwise(ctx):
+    # type: (ScriptContext) -> None
+    """The default is the policy, so a new application needs no configuring."""
+    app_user_key_policy_cache.clear()
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        with pytest.raises(errors.MissingParameterError) as caught:
+            params.parse(lookup_values(), ctx.db)
+    assert caught.value.parameter == "user"
+
+
+def application_flag(ctx, application_id):
+    # type: (ScriptContext, int) -> bool
+    return bool(
+        ctx.db.get_app_db()
+        .execute(
+            sql.select(schema.application.c.requires_user_key).where(
+                schema.application.c.id == application_id
+            )
+        )
+        .scalar()
+    )
+
+
+@with_script_context
+def test_create_application_can_issue_an_exempt_key(ctx):
+    # type: (ScriptContext) -> None
+    """acoustid.biz issues keys through this endpoint, and its keys are exempt.
+
+    Sent as "" rather than "false" because that is the convention this API
+    already uses with that client -- see `active` in its hourly key sync.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = CreateApplicationHandler(ctx)
+    params = CreateApplicationHandlerParams(ctx.config)
+    params.parse(
+        MultiDict(
+            {
+                "secret": "s3cr3t",
+                "account_id": "1",
+                "name": "Commercial App",
+                "version": "1.0",
+                "requires_user_key": "",
+            }
+        ),
+        ctx.db,
+    )
+    result = handler._handle_internal(params)
+    assert application_flag(ctx, result["id"]) is False
+
+
+@with_script_context
+def test_create_application_requires_a_user_key_by_default(ctx):
+    # type: (ScriptContext) -> None
+    """Omitting the parameter must not create an exempt application."""
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = CreateApplicationHandler(ctx)
+    params = CreateApplicationHandlerParams(ctx.config)
+    params.parse(
+        MultiDict(
+            {
+                "secret": "s3cr3t",
+                "account_id": "1",
+                "name": "Normal App",
+                "version": "1.0",
+            }
+        ),
+        ctx.db,
+    )
+    result = handler._handle_internal(params)
+    assert application_flag(ctx, result["id"]) is True
+
+
+@with_script_context
+def test_update_application_status_can_exempt_an_existing_application(ctx):
+    # type: (ScriptContext) -> None
+    """How the applications that already exist get exempted.
+
+    acoustid.biz calls this hourly for every key it manages, so adding the
+    parameter there is enough to cover its whole estate without a backfill.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = UpdateApplicationStatusHandler(ctx)
+    params = UpdateApplicationStatusHandlerParams(ctx.config)
+    params.parse(
+        MultiDict(
+            {
+                "secret": "s3cr3t",
+                "account_id": "1",
+                "application_id": "1",
+                "active": "1",
+                "requires_user_key": "",
+            }
+        ),
+        ctx.db,
+    )
+    handler._handle_internal(params)
+    assert application_flag(ctx, 1) is False
+
+
+@with_script_context
+def test_update_application_status_leaves_the_flag_alone_when_omitted(ctx):
+    # type: (ScriptContext) -> None
+    """The existing hourly sync sends only `active` and must stay harmless.
+
+    If omission meant false, every run of acoustid.biz's key sync would exempt
+    every application it touches -- the opposite of the policy, applied
+    silently and hourly.
+    """
+    ctx.db.get_app_db().execute(
+        schema.application.update()
+        .where(schema.application.c.id == 1)
+        .values(requires_user_key=False)
+    )
+
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = UpdateApplicationStatusHandler(ctx)
+    params = UpdateApplicationStatusHandlerParams(ctx.config)
+    params.parse(
+        MultiDict(
+            {
+                "secret": "s3cr3t",
+                "account_id": "1",
+                "application_id": "1",
+                "active": "1",
+            }
+        ),
+        ctx.db,
+    )
+    handler._handle_internal(params)
+    assert application_flag(ctx, 1) is False
+
+
+@with_script_context
+def test_the_string_false_does_not_mean_false(ctx):
+    # type: (ScriptContext) -> None
+    """Pins the sharp edge of the convention rather than hiding it.
+
+    type=bool over a query string makes any non-empty value true, so "false"
+    exempts the application -- the opposite of what someone writing a caller
+    would intend, and silent. The convention is "" for false, matching
+    `active`. If this behaviour is ever changed, this test should fail and be
+    deleted deliberately rather than quietly diverging from the comment that
+    documents it.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    params = UpdateApplicationStatusHandlerParams(ctx.config)
+    params.parse(
+        MultiDict(
+            {
+                "secret": "s3cr3t",
+                "account_id": "1",
+                "application_id": "1",
+                "active": "1",
+                "requires_user_key": "false",
+            }
+        ),
+        ctx.db,
+    )
+    assert params.requires_user_key is True
+
+    params = UpdateApplicationStatusHandlerParams(ctx.config)
+    params.parse(
+        MultiDict(
+            {
+                "secret": "s3cr3t",
+                "account_id": "1",
+                "application_id": "1",
+                "active": "1",
+                "requires_user_key": "",
+            }
+        ),
+        ctx.db,
+    )
+    assert params.requires_user_key is False

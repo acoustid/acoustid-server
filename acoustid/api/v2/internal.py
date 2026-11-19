@@ -195,6 +195,19 @@ class CreateApplicationHandlerParams(APIHandlerParams):
         self.account_id = values.get("account_id", type=int)
         self.name = values.get("name")
         self.version = values.get("version")
+        # Absent means "use the default", which is to require one.
+        #
+        # The convention is the one `active` already uses with the client that
+        # calls this: "1" is true, "" is false. type=bool over a query string,
+        # so absent gives None and empty gives False, and those three states
+        # are what let omission mean "unchanged" rather than "false".
+        #
+        # The sharp edge, worth knowing before writing a caller: bool() of a
+        # non-empty string is True, so "false", "0" and "no" ALL MEAN TRUE
+        # here. Send "" for false. Getting that wrong on this parameter would
+        # silently exempt an application from needing a user key, with no
+        # error to notice.
+        self.requires_user_key = values.get("requires_user_key", type=bool)
 
 
 class CreateApplicationHandler(APIHandler):
@@ -204,13 +217,15 @@ class CreateApplicationHandler(APIHandler):
         if self.ctx.config.cluster.secret != params.secret:
             logger.warning("Invalid cluster secret")
             raise errors.NotAllowedError()
+        data = {
+            "account_id": params.account_id,
+            "name": params.name,
+            "version": params.version,
+        }
+        if params.requires_user_key is not None:
+            data["requires_user_key"] = params.requires_user_key
         application_id, application_api_key = insert_application(
-            self.ctx.db.get_app_db(),
-            {
-                "account_id": params.account_id,
-                "name": params.name,
-                "version": params.version,
-            },
+            self.ctx.db.get_app_db(), data
         )
         self.ctx.db.session.commit()
         return {"id": application_id, "api_key": application_api_key}
@@ -227,6 +242,14 @@ class UpdateApplicationStatusHandlerParams(APIHandlerParams):
         ):
             raise errors.UnknownApplicationError()
         self.active = values.get("active", type=bool)
+        # Optional, and left alone when absent. The caller here is
+        # acoustid.biz's hourly key sync, which has always sent only `active`;
+        # if omission meant false, every run would reset this on every
+        # application it touches.
+        #
+        # Same sharp edge as on create: "false", "0" and "no" all evaluate to
+        # True. Send "" for false.
+        self.requires_user_key = values.get("requires_user_key", type=bool)
 
 
 class UpdateApplicationStatusHandler(APIHandler):
@@ -237,7 +260,13 @@ class UpdateApplicationStatusHandler(APIHandler):
             logger.warning("Invalid cluster secret")
             raise errors.NotAllowedError()
         update_application_status(
-            self.ctx.db.get_app_db(), params.application_id, params.active
+            self.ctx.db.get_app_db(),
+            params.application_id,
+            params.active,
+            requires_user_key=params.requires_user_key,
         )
         self.ctx.db.session.commit()
-        return {"id": params.application_id, "active": params.active}
+        response = {"id": params.application_id, "active": params.active}
+        if params.requires_user_key is not None:
+            response["requires_user_key"] = params.requires_user_key
+        return response
