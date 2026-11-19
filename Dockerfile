@@ -60,9 +60,20 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     CFLAGS="-O3 -march=haswell -ffast-math" \
     uv sync --frozen --no-install-project
 
+# Bake the DuckDB postgres extension in. The search index builder ATTACHes two
+# Postgres clusters through it, and without it present every run re-downloads
+# 40 MB from extensions.duckdb.org -- and fails outright wherever egress is
+# closed. The install path contains the DuckDB version, which is why duckdb is
+# pinned exactly rather than loosely in pyproject.toml.
+RUN /opt/acoustid/server/.venv/bin/python -c "import duckdb; c = duckdb.connect(); c.execute(\"SET extension_directory = '/opt/duckdb/extensions'\"); c.execute('INSTALL postgres')"
+
 FROM base
 
 COPY --from=builder /opt/acoustid/server/.venv /opt/acoustid/server/.venv
+COPY --from=builder /opt/duckdb/extensions /opt/duckdb/extensions
+
+# Pointed at the baked copy by default, so nothing has to know this path.
+ENV DUCKDB_EXTENSION_DIRECTORY=/opt/duckdb/extensions
 
 COPY . /opt/acoustid/server
 
