@@ -1170,3 +1170,47 @@ def test_update_application_status_leaves_the_flag_alone_when_omitted(ctx):
     )
     handler._handle_internal(params)
     assert application_flag(ctx, 1) is False
+
+
+@with_script_context
+def test_the_string_false_does_not_mean_false(ctx):
+    # type: (ScriptContext) -> None
+    """Pins the sharp edge of the convention rather than hiding it.
+
+    type=bool over a query string makes any non-empty value true, so "false"
+    exempts the application -- the opposite of what someone writing a caller
+    would intend, and silent. The convention is "" for false, matching
+    `active`. If this behaviour is ever changed, this test should fail and be
+    deleted deliberately rather than quietly diverging from the comment that
+    documents it.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    params = UpdateApplicationStatusHandlerParams(ctx.config)
+    params.parse(
+        MultiDict(
+            {
+                "secret": "s3cr3t",
+                "account_id": "1",
+                "application_id": "1",
+                "active": "1",
+                "requires_user_key": "false",
+            }
+        ),
+        ctx.db,
+    )
+    assert params.requires_user_key is True
+
+    params = UpdateApplicationStatusHandlerParams(ctx.config)
+    params.parse(
+        MultiDict(
+            {
+                "secret": "s3cr3t",
+                "account_id": "1",
+                "application_id": "1",
+                "active": "1",
+                "requires_user_key": "",
+            }
+        ),
+        ctx.db,
+    )
+    assert params.requires_user_key is False
