@@ -13,6 +13,7 @@ from acoustid.web.views.admin import admin_page
 from acoustid.web.views.apps import apps_page
 from acoustid.web.views.general import general_page
 from acoustid.web.views.metadata import metadata_page
+from acoustid.web.views.search import search_page
 from acoustid.web.views.stats import stats_page
 from acoustid.web.views.user import user_page
 
@@ -98,6 +99,7 @@ def make_application(config_filename=None, tests=False):
     app.register_blueprint(user_page)
     app.register_blueprint(apps_page)
     app.register_blueprint(metadata_page)
+    app.register_blueprint(search_page)
     app.register_blueprint(stats_page)
     app.register_blueprint(admin_page)
 
