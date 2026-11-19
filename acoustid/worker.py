@@ -12,6 +12,7 @@ import sentry_sdk.consts
 from acoustid.script import Script
 from acoustid.scripts.fpindex_changelog import run_manage_fpindex_changelog
 from acoustid.scripts.merge_missing_mbids import run_merge_missing_mbid
+from acoustid.scripts.purge_search_log import run_purge_search_log
 from acoustid.scripts.update_lookup_stats import (
     run_update_all_lookup_stats,
     run_update_lookup_stats,
@@ -37,6 +38,7 @@ TASKS: Dict[str, TaskFunc] = {
     "update_all_user_agent_stats": run_update_all_user_agent_stats,
     "merge_missing_mbid": run_merge_missing_mbid,
     "manage_fpindex_changelog": run_manage_fpindex_changelog,
+    "purge_search_log": run_purge_search_log,
 }
 
 
