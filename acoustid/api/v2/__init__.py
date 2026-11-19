@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import contextvars
+import datetime
 import hmac
 import json
 import logging
@@ -130,6 +131,11 @@ class APIHandlerParams(object):
         # type: (Config) -> None
         self.config = config
         self.format = DEFAULT_FORMAT
+        # Always present, so a handler can ask who the caller is without
+        # knowing whether the endpoint requires a user key. None means the
+        # request carried none, which lookups still allow until
+        # const.LOOKUP_USER_REQUIRED_FROM.
+        self.account_id = None  # type: int | None
 
     def _parse_client(self, values, db):
         application_apikey = values.get("client")
@@ -140,6 +146,25 @@ class APIHandlerParams(object):
             logger.warning("Invalid API key %s", application_apikey)
             raise errors.InvalidAPIKeyError()
         self.application_version = values.get("clientversion")
+
+    def _parse_user(self, values, db, required=True):
+        # type: (MultiDict, DatabaseContext, bool) -> None
+        """Validate the `user` parameter and resolve it to an account.
+
+        `required` is what differs between callers: submissions have always
+        needed a user key, while lookups are in the window before
+        const.LOOKUP_USER_REQUIRED_FROM and may still omit it. A key that is
+        present is validated either way -- a caller sending one that does not
+        work has a bug now, whatever the date.
+        """
+        account_apikey = values.get("user")
+        if not account_apikey:
+            if required:
+                raise errors.MissingParameterError("user")
+            return
+        self.account_id = check_user_api_key(self.config, db, account_apikey)
+        if not self.account_id:
+            raise errors.InvalidUserAPIKeyError()
 
     def _parse_format(self, values):
         self.format = values.get("format", DEFAULT_FORMAT)
@@ -369,6 +394,15 @@ class LookupHandlerParams(APIHandlerParams):
         # type: (MultiDict, DatabaseContext) -> None
         super(LookupHandlerParams, self).parse(values, db)
         self._parse_client(values, db)
+        # Required from const.LOOKUP_USER_REQUIRED_FROM onwards. Read from the
+        # clock rather than from config so the cutover needs no deploy, and
+        # compared as a date in the server's timezone -- an hour either side of
+        # midnight does not matter for a change announced months ahead.
+        self._parse_user(
+            values,
+            db,
+            required=datetime.date.today() >= const.LOOKUP_USER_REQUIRED_FROM,
+        )
         self.meta = values.get("meta")
         if self.meta == "0" or not self.meta:
             self.meta = []
@@ -983,15 +1017,6 @@ class SubmissionStatusHandler(APIHandler):
 
 
 class SubmitHandlerParams(APIHandlerParams):
-    def _parse_user(self, values, db):
-        # type: (MultiDict, DatabaseContext) -> None
-        account_apikey = values.get("user")
-        if not account_apikey:
-            raise errors.MissingParameterError("user")
-        self.account_id = check_user_api_key(self.config, db, account_apikey)
-        if not self.account_id:
-            raise errors.InvalidUserAPIKeyError()
-
     def _parse_duration_and_format(self, p, values, suffix):
         # type: (Dict[str, Any], MultiDict, str) -> None
         p["duration"] = values.get("duration" + suffix, type=int)

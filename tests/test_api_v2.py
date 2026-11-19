@@ -3,15 +3,17 @@
 
 import json
 import unittest
+from datetime import date
 from typing import Any, Dict, Optional
 from unittest import mock
 from uuid import UUID
 
+import pytest
 from werkzeug.datastructures import MultiDict
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
-from acoustid import tables
+from acoustid import const, tables
 from acoustid.api import errors
 from acoustid.api.v2 import (
     APIHandler,
@@ -869,3 +871,113 @@ def test_cluster_requests_touch_no_bucket_at_all(ctx):
         assert "200 OK" == handler.handle(_cluster_secret_request("wrong")).status
         assert "global" in buckets
         assert "ip" in buckets
+
+
+def lookup_values(**extra: str) -> MultiDict:
+    """A lookup that is valid apart from whatever the test is varying."""
+    values = MultiDict(
+        {
+            "format": "json",
+            "client": "app1key",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+        }
+    )
+    for name, value in extra.items():
+        values[name] = value
+    return values
+
+
+@with_script_context
+def test_lookup_accepts_no_user_key_before_the_cutover(ctx):
+    # type: (ScriptContext) -> None
+    """The window exists so clients can add a key before it is required."""
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        params.parse(lookup_values(), ctx.db)
+    assert params.account_id is None
+
+
+@with_script_context
+def test_lookup_requires_a_user_key_from_the_cutover(ctx):
+    # type: (ScriptContext) -> None
+    """The whole point of the date: the same request stops being accepted."""
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        with pytest.raises(errors.MissingParameterError) as caught:
+            params.parse(lookup_values(), ctx.db)
+    assert caught.value.parameter == "user"
+
+
+@with_script_context
+def test_lookup_rejects_an_invalid_user_key_before_the_cutover(ctx):
+    # type: (ScriptContext) -> None
+    """A key that does not work is a caller bug now, not in 2027.
+
+    This is the half that takes effect immediately, and it is the reason the
+    change is worth shipping before the deadline: clients sending a stale or
+    mistyped key find out while there is still time to fix it.
+    """
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        assert_raises(
+            errors.InvalidUserAPIKeyError,
+            params.parse,
+            lookup_values(user="N/A"),
+            ctx.db,
+        )
+
+
+@with_script_context
+def test_lookup_accepts_a_valid_user_key_and_resolves_the_account(ctx):
+    # type: (ScriptContext) -> None
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        params.parse(lookup_values(user="user1key"), ctx.db)
+    assert params.account_id == 1
+
+
+@with_script_context
+def test_lookup_treats_an_empty_user_key_as_absent(ctx):
+    # type: (ScriptContext) -> None
+    """`user=` is how a client that builds the parameter unconditionally and
+    has nothing to put in it ends up sending it, so it has to mean the same as
+    omitting it rather than being an invalid key."""
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        params.parse(lookup_values(user=""), ctx.db)
+    assert params.account_id is None
+
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        with pytest.raises(errors.MissingParameterError) as caught:
+            params.parse(lookup_values(user=""), ctx.db)
+    assert caught.value.parameter == "user"
+
+
+@with_script_context
+def test_submissions_still_require_a_user_key_whatever_the_date(ctx):
+    # type: (ScriptContext) -> None
+    """The cutover is about lookups. Submissions have always required a user
+    key, and moving the parsing to a shared method must not loosen that.
+
+    Asserting on the parameter name rather than just the exception type,
+    because a submission missing `user` is also missing a fingerprint and
+    raises MissingParameterError either way. The first version of this test
+    passed with the requirement removed entirely.
+    """
+    values = MultiDict(
+        {
+            "format": "json",
+            "client": "app1key",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+            "bitrate": "192",
+            "fileformat": "MP3",
+        }
+    )
+    params = SubmitHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        with pytest.raises(errors.MissingParameterError) as caught:
+            params.parse(values, ctx.db)
+    assert caught.value.parameter == "user"
