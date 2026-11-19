@@ -180,9 +180,7 @@ class CheckApplicationHandler(APIHandler):
         if self.ctx.config.cluster.secret != params.secret:
             logger.warning("Invalid cluster secret")
             raise errors.NotAllowedError()
-        application_id = check_app_api_key(
-            self.ctx.config, self.ctx.db.get_app_db(), params.api_key
-        )
+        application_id = check_app_api_key(self.ctx.config, self.ctx.db, params.api_key)
         if not application_id:
             raise errors.InvalidAPIKeyError()
         return {"id": application_id}

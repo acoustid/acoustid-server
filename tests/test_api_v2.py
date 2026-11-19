@@ -26,9 +26,12 @@ from acoustid.api.v2 import (
     LookupHandlerParams,
     SubmitHandler,
     SubmitHandlerParams,
+    app_api_key_cache,
     app_user_key_policy_cache,
 )
 from acoustid.api.v2.internal import (
+    CheckApplicationHandler,
+    CheckApplicationHandlerParams,
     CreateApplicationHandler,
     CreateApplicationHandlerParams,
     UpdateApplicationStatusHandler,
@@ -1214,3 +1217,26 @@ def test_the_string_false_does_not_mean_false(ctx):
         ctx.db,
     )
     assert params.requires_user_key is False
+
+
+@with_script_context
+def test_check_application_resolves_its_own_connection(ctx):
+    # type: (ScriptContext) -> None
+    """The endpoint passed a connection where a context was wanted.
+
+    check_app_api_key resolves its own connection from what it is given, so a
+    connection raised AttributeError. The cache is cleared first because the
+    cache key omits `db`, so a warm entry from another caller would let this
+    pass without reaching the code.
+    """
+    app_api_key_cache.clear()
+    ctx.config.cluster.secret = "s3cr3t"
+
+    handler = CheckApplicationHandler(ctx)
+    params = CheckApplicationHandlerParams(ctx.config)
+    params.parse(
+        MultiDict({"secret": "s3cr3t", "api_key": "app2key"}),
+        ctx.db,
+    )
+
+    assert {"id": 2} == handler._handle_internal(params)

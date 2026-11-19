@@ -138,11 +138,16 @@ def app_requires_user_key(config, db, application_id):
 
 
 def check_app_api_key_cache_key(config, db, application_apikey):
+    # The API key alone: `db` is the same database every time and is not
+    # hashable. It also means every caller shares one entry whatever it passes
+    # as `db`, so a caller passing the wrong thing fails only on a miss.
     return application_apikey
 
 
 @cachetools.cached(app_api_key_cache, key=check_app_api_key_cache_key)
-def check_app_api_key(config, db, application_apikey):
+def check_app_api_key(
+    config: "Config", db: DatabaseContext, application_apikey: str
+) -> int | None:
     app_db = db.get_app_db(read_only=True)
     application_id = lookup_application_id_by_apikey(
         app_db, application_apikey, only_active=True
