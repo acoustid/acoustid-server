@@ -33,7 +33,10 @@ from acoustid import const
 from acoustid.api import errors, serialize_response
 from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.data.account import lookup_account_id_by_apikey
-from acoustid.data.application import lookup_application_id_by_apikey
+from acoustid.data.application import (
+    lookup_application_id_by_apikey,
+    lookup_application_requires_user_key,
+)
 from acoustid.data.fingerprint import (
     FingerprintMatch,
     FingerprintSearcher,
@@ -98,6 +101,31 @@ app_api_key_cache = cachetools.TTLCache(
 user_api_key_cache = cachetools.TTLCache(
     maxsize=1000, ttl=60.0
 )  # type: cachetools.Cache
+# Keyed on application id, of which there are few, so this one does not have
+# the working-set problem the user key cache has.
+app_user_key_policy_cache = cachetools.TTLCache(
+    maxsize=10000, ttl=60.0
+)  # type: cachetools.Cache
+
+
+def app_requires_user_key_cache_key(config, db, application_id):
+    return application_id
+
+
+@cachetools.cached(app_user_key_policy_cache, key=app_requires_user_key_cache_key)
+def app_requires_user_key(config, db, application_id):
+    # type: (Config, DatabaseContext, int | None) -> bool
+    """Whether this application's lookups must carry a user key.
+
+    Separate from check_app_api_key rather than folded into it: that function
+    is being changed in another branch, and applications are few enough that a
+    second cached lookup costs about one query per application per minute.
+    """
+    if application_id is None:
+        return True
+    return lookup_application_requires_user_key(
+        db.get_app_db(read_only=True), application_id
+    )
 
 
 def check_app_api_key_cache_key(config, db, application_apikey):
@@ -136,6 +164,9 @@ class APIHandlerParams(object):
         # request carried none, which lookups still allow until
         # const.LOOKUP_USER_REQUIRED_FROM.
         self.account_id = None  # type: int | None
+        # Set by _parse_client. True unless the application is exempt from
+        # carrying a user key on lookups.
+        self.application_requires_user_key = True
 
     def _parse_client(self, values, db):
         application_apikey = values.get("client")
@@ -145,6 +176,9 @@ class APIHandlerParams(object):
         if not self.application_id:
             logger.warning("Invalid API key %s", application_apikey)
             raise errors.InvalidAPIKeyError()
+        self.application_requires_user_key = app_requires_user_key(
+            self.config, db, self.application_id
+        )
         self.application_version = values.get("clientversion")
 
     def _parse_user(self, values, db, required=True):
@@ -398,10 +432,16 @@ class LookupHandlerParams(APIHandlerParams):
         # clock rather than from config so the cutover needs no deploy, and
         # compared as a date in the server's timezone -- an hour either side of
         # midnight does not matter for a change announced months ahead.
+        # Required once the cutover has passed, unless this application is
+        # exempt. An exempt key's lookups are accounted to the application, so
+        # there is nobody for a user key to identify.
         self._parse_user(
             values,
             db,
-            required=datetime.date.today() >= const.LOOKUP_USER_REQUIRED_FROM,
+            required=(
+                self.application_requires_user_key
+                and datetime.date.today() >= const.LOOKUP_USER_REQUIRED_FROM
+            ),
         )
         self.meta = values.get("meta")
         if self.meta == "0" or not self.meta:

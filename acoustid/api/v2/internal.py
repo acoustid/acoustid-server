@@ -195,6 +195,13 @@ class CreateApplicationHandlerParams(APIHandlerParams):
         self.account_id = values.get("account_id", type=int)
         self.name = values.get("name")
         self.version = values.get("version")
+        # Absent means "use the default", which is to require one. Note the
+        # convention this follows, set by `active` on the handler below and by
+        # the client that calls it: "1" is true and "" is false, because
+        # type=bool is applied to a query string. Absent is distinguishable
+        # from empty, which is what lets omission mean "unchanged" rather than
+        # "false".
+        self.requires_user_key = values.get("requires_user_key", type=bool)
 
 
 class CreateApplicationHandler(APIHandler):
@@ -204,13 +211,15 @@ class CreateApplicationHandler(APIHandler):
         if self.ctx.config.cluster.secret != params.secret:
             logger.warning("Invalid cluster secret")
             raise errors.NotAllowedError()
+        data = {
+            "account_id": params.account_id,
+            "name": params.name,
+            "version": params.version,
+        }
+        if params.requires_user_key is not None:
+            data["requires_user_key"] = params.requires_user_key
         application_id, application_api_key = insert_application(
-            self.ctx.db.get_app_db(),
-            {
-                "account_id": params.account_id,
-                "name": params.name,
-                "version": params.version,
-            },
+            self.ctx.db.get_app_db(), data
         )
         self.ctx.db.session.commit()
         return {"id": application_id, "api_key": application_api_key}
@@ -227,6 +236,11 @@ class UpdateApplicationStatusHandlerParams(APIHandlerParams):
         ):
             raise errors.UnknownApplicationError()
         self.active = values.get("active", type=bool)
+        # Optional, and left alone when absent. The caller here is
+        # acoustid.biz's hourly key sync, which has always sent only `active`;
+        # if omission meant false, every run would reset this on every
+        # application it touches.
+        self.requires_user_key = values.get("requires_user_key", type=bool)
 
 
 class UpdateApplicationStatusHandler(APIHandler):
@@ -237,7 +251,13 @@ class UpdateApplicationStatusHandler(APIHandler):
             logger.warning("Invalid cluster secret")
             raise errors.NotAllowedError()
         update_application_status(
-            self.ctx.db.get_app_db(), params.application_id, params.active
+            self.ctx.db.get_app_db(),
+            params.application_id,
+            params.active,
+            requires_user_key=params.requires_user_key,
         )
         self.ctx.db.session.commit()
-        return {"id": params.application_id, "active": params.active}
+        response = {"id": params.application_id, "active": params.active}
+        if params.requires_user_key is not None:
+            response["requires_user_key"] = params.requires_user_key
+        return response

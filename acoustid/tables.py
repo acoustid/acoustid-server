@@ -103,6 +103,17 @@ application = Table(
         nullable=False,
     ),
     Column("active", Boolean, default=True, server_default=sql.true()),
+    # Whether lookups with this application's key must also carry a user key,
+    # which they must from const.LOOKUP_USER_REQUIRED_FROM. Named positively
+    # and defaulting to true so the policy applies to anything new without
+    # anyone remembering to set it; the exceptions are what get recorded.
+    Column(
+        "requires_user_key",
+        Boolean,
+        default=True,
+        server_default=sql.true(),
+        nullable=False,
+    ),
     Column("account_id", Integer, ForeignKey("account.id"), nullable=False),
     Column("email", String),
     Column("website", String),

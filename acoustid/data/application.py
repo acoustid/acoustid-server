@@ -24,6 +24,24 @@ def lookup_application_id_by_apikey(
     return conn.execute(query).scalar()
 
 
+def lookup_application_requires_user_key(conn: AppDB, application_id: int) -> bool:
+    """Whether lookups with this application's key must carry a user key.
+
+    Keyed on the id rather than the API key so it can be cached separately
+    from check_app_api_key, which is being changed elsewhere. Applications are
+    few and the result is cached per id, so this is about one extra query per
+    application per minute rather than one per request.
+
+    Unknown ids answer True: an application that cannot be read should not
+    thereby become exempt.
+    """
+    query = sql.select(schema.application.c.requires_user_key).where(
+        schema.application.c.id == application_id
+    )
+    value = conn.execute(query).scalar()
+    return True if value is None else bool(value)
+
+
 def lookup_application_id(
     conn: AppDB, application_id: str, account_id: int | None = None
 ) -> int | None:
@@ -67,6 +85,8 @@ def insert_application(conn: AppDB, data: dict[str, Any]) -> tuple[int, str]:
             "apikey": api_key,
         }
     )
+    if "requires_user_key" in data:
+        insert_stmt = insert_stmt.values(requires_user_key=data["requires_user_key"])
     id = conn.execute(insert_stmt).inserted_primary_key[0]
     logger.debug("Inserted application %r with data %r", id, data)
     return id, api_key
@@ -87,8 +107,16 @@ def update_application(conn: AppDB, id: int, data: dict[str, Any]) -> int:
     return id
 
 
-def update_application_status(conn: AppDB, id: int, active: bool) -> int:
-    data = {"active": active}
+def update_application_status(
+    conn: AppDB, id: int, active: bool, requires_user_key: bool | None = None
+) -> int:
+    data: dict[str, Any] = {"active": active}
+    # Left alone when not given, rather than defaulted. The caller that drives
+    # this is acoustid.biz's hourly key sync, which has always sent only
+    # `active`; defaulting here would have every one of those runs silently
+    # reset the flag on every application it touches.
+    if requires_user_key is not None:
+        data["requires_user_key"] = requires_user_key
     update_stmt = schema.application.update().where(schema.application.c.id == id)
     update_stmt = update_stmt.values(data)
     conn.execute(update_stmt)
