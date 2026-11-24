@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 class UpdateLookupStatsHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         super(UpdateLookupStatsHandlerParams, self).parse(values, db)
-        self.secret = values.get("secret")
         self.application_id = values.get("application_id", type=int)
         self.date = values.get("date")
         self.hour = values.get("hour", type=int)
@@ -34,6 +33,7 @@ class UpdateLookupStatsHandlerParams(APIHandlerParams):
 
 
 class UpdateLookupStatsHandler(APIHandler):
+    requires_cluster_secret = True
     params_class = UpdateLookupStatsHandlerParams
 
     def _handle_internal(self, params):
@@ -42,9 +42,6 @@ class UpdateLookupStatsHandler(APIHandler):
                 "Trying to call update_lookup_stats on %s server",
                 self.ctx.config.cluster.role,
             )
-            raise errors.NotAllowedError()
-        if self.ctx.config.cluster.secret != params.secret:
-            logger.warning("Invalid cluster secret")
             raise errors.NotAllowedError()
         app_db = self.ctx.db.get_app_db()
         update_lookup_stats(
@@ -62,7 +59,6 @@ class UpdateLookupStatsHandler(APIHandler):
 class UpdateUserAgentStatsHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         super(UpdateUserAgentStatsHandlerParams, self).parse(values, db)
-        self.secret = values.get("secret")
         self.application_id = values.get("application_id", type=int)
         self.date = values.get("date")
         self.user_agent = values.get("user_agent")
@@ -71,6 +67,7 @@ class UpdateUserAgentStatsHandlerParams(APIHandlerParams):
 
 
 class UpdateUserAgentStatsHandler(APIHandler):
+    requires_cluster_secret = True
     params_class = UpdateUserAgentStatsHandlerParams
 
     def _handle_internal(self, params):
@@ -79,9 +76,6 @@ class UpdateUserAgentStatsHandler(APIHandler):
                 "Trying to call update_user_agent_stats on %s server",
                 self.ctx.config.cluster.role,
             )
-            raise errors.NotAllowedError()
-        if self.ctx.config.cluster.secret != params.secret:
-            logger.warning("Invalid cluster secret")
             raise errors.NotAllowedError()
         app_db = self.ctx.db.get_app_db()
         update_user_agent_stats(
@@ -99,7 +93,6 @@ class UpdateUserAgentStatsHandler(APIHandler):
 class LookupStatsHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         super(LookupStatsHandlerParams, self).parse(values, db)
-        self.secret = values.get("secret")
         apikeys = values.getlist("client")
         if not apikeys:
             raise errors.InvalidAPIKeyError()
@@ -118,12 +111,10 @@ class LookupStatsHandlerParams(APIHandlerParams):
 
 
 class LookupStatsHandler(APIHandler):
+    requires_cluster_secret = True
     params_class = LookupStatsHandlerParams
 
     def _handle_internal(self, params):
-        if self.ctx.config.cluster.secret != params.secret:
-            logger.warning("Invalid cluster secret")
-            raise errors.NotAllowedError()
         application_ids = dict(
             (app["id"], app["apikey"]) for app in params.applications
         )
@@ -145,16 +136,13 @@ class LookupStatsHandler(APIHandler):
 class CreateAccountHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         super(CreateAccountHandlerParams, self).parse(values, db)
-        self.secret = values.get("secret")
 
 
 class CreateAccountHandler(APIHandler):
+    requires_cluster_secret = True
     params_class = CreateAccountHandlerParams
 
     def _handle_internal(self, params):
-        if self.ctx.config.cluster.secret != params.secret:
-            logger.warning("Invalid cluster secret")
-            raise errors.NotAllowedError()
         account_id, account_api_key = insert_account(
             self.ctx.db.get_app_db(),
             {
@@ -169,17 +157,14 @@ class CreateAccountHandler(APIHandler):
 class CheckApplicationHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         super().parse(values, db)
-        self.secret = values.get("secret")
         self.api_key = values.get("api_key")
 
 
 class CheckApplicationHandler(APIHandler):
+    requires_cluster_secret = True
     params_class = CheckApplicationHandlerParams
 
     def _handle_internal(self, params):
-        if self.ctx.config.cluster.secret != params.secret:
-            logger.warning("Invalid cluster secret")
-            raise errors.NotAllowedError()
         application_id = check_app_api_key(self.ctx.config, self.ctx.db, params.api_key)
         if not application_id:
             raise errors.InvalidAPIKeyError()
@@ -189,7 +174,6 @@ class CheckApplicationHandler(APIHandler):
 class CreateApplicationHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         super(CreateApplicationHandlerParams, self).parse(values, db)
-        self.secret = values.get("secret")
         self.account_id = values.get("account_id", type=int)
         self.name = values.get("name")
         self.version = values.get("version")
@@ -209,12 +193,10 @@ class CreateApplicationHandlerParams(APIHandlerParams):
 
 
 class CreateApplicationHandler(APIHandler):
+    requires_cluster_secret = True
     params_class = CreateApplicationHandlerParams
 
     def _handle_internal(self, params):
-        if self.ctx.config.cluster.secret != params.secret:
-            logger.warning("Invalid cluster secret")
-            raise errors.NotAllowedError()
         data = {
             "account_id": params.account_id,
             "name": params.name,
@@ -232,7 +214,6 @@ class CreateApplicationHandler(APIHandler):
 class UpdateApplicationStatusHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         super(UpdateApplicationStatusHandlerParams, self).parse(values, db)
-        self.secret = values.get("secret")
         self.account_id = values.get("account_id", type=int)
         self.application_id = values.get("application_id", type=int)
         if not lookup_application_id(
@@ -251,12 +232,10 @@ class UpdateApplicationStatusHandlerParams(APIHandlerParams):
 
 
 class UpdateApplicationStatusHandler(APIHandler):
+    requires_cluster_secret = True
     params_class = UpdateApplicationStatusHandlerParams
 
     def _handle_internal(self, params):
-        if self.ctx.config.cluster.secret != params.secret:
-            logger.warning("Invalid cluster secret")
-            raise errors.NotAllowedError()
         update_application_status(
             self.ctx.db.get_app_db(),
             params.application_id,

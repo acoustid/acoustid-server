@@ -10,7 +10,7 @@ from uuid import UUID
 
 import pytest
 from sqlalchemy import sql
-from werkzeug.datastructures import MultiDict
+from werkzeug.datastructures import Headers, MultiDict
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
@@ -32,6 +32,7 @@ from acoustid.api.v2 import (
 from acoustid.api.v2.internal import (
     CheckApplicationHandler,
     CheckApplicationHandlerParams,
+    CreateAccountHandler,
     CreateApplicationHandler,
     CreateApplicationHandlerParams,
     UpdateApplicationStatusHandler,
@@ -780,10 +781,15 @@ def test_user_lookup_handler_missing(ctx):
 
 def _cluster_secret_request(secret):
     # type: (Optional[str]) -> Request
-    values = {"format": "json"}
+    """A request authenticating with the cluster secret.
+
+    As `Authorization: Bearer`, not a query parameter -- a URL carrying a
+    secret ends up in access logs, proxy logs and error reports.
+    """
+    headers = Headers()
     if secret is not None:
-        values["secret"] = secret
-    builder = EnvironBuilder(method="POST", data=values)
+        headers["Authorization"] = "Bearer %s" % secret
+    builder = EnvironBuilder(method="POST", data={"format": "json"}, headers=headers)
     return Request(builder.get_environ())
 
 
@@ -1080,7 +1086,6 @@ def test_create_application_can_issue_an_exempt_key(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "name": "Commercial App",
                 "version": "1.0",
@@ -1103,7 +1108,6 @@ def test_create_application_requires_a_user_key_by_default(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "name": "Normal App",
                 "version": "1.0",
@@ -1129,7 +1133,6 @@ def test_update_application_status_can_exempt_an_existing_application(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "application_id": "1",
                 "active": "1",
@@ -1163,7 +1166,6 @@ def test_update_application_status_leaves_the_flag_alone_when_omitted(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "application_id": "1",
                 "active": "1",
@@ -1192,7 +1194,6 @@ def test_the_string_false_does_not_mean_false(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "application_id": "1",
                 "active": "1",
@@ -1207,7 +1208,6 @@ def test_the_string_false_does_not_mean_false(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "application_id": "1",
                 "active": "1",
@@ -1240,3 +1240,78 @@ def test_check_application_resolves_its_own_connection(ctx):
     )
 
     assert {"id": 2} == handler._handle_internal(params)
+
+
+def _internal_request(bearer, **params):
+    # type: (Optional[str], str) -> Request
+    """An internal request, authenticating with `bearer` if given.
+
+    `params` goes into the body, so a test can put `secret=...` there to check
+    that the query-parameter form is no longer accepted.
+    """
+    headers = Headers()
+    if bearer is not None:
+        headers["Authorization"] = "Bearer %s" % bearer
+    data = dict({"format": "json"}, **params)
+    return Request(
+        EnvironBuilder(method="POST", data=data, headers=headers).get_environ()
+    )
+
+
+@with_script_context
+def test_internal_endpoint_requires_the_cluster_secret(ctx):
+    # type: (ScriptContext) -> None
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = CreateAccountHandler(ctx)
+
+    for secret, label in ((None, "no header"), ("wrong", "wrong secret")):
+        body = json.loads(handler.handle(_internal_request(secret)).data)
+        assert body["status"] == "error", label
+        assert body["error"]["code"] == errors.ERROR_NOT_ALLOWED, label
+
+    body = json.loads(handler.handle(_internal_request("s3cr3t")).data)
+    assert body["status"] == "ok"
+
+
+@with_script_context
+def test_internal_endpoint_rejects_the_secret_as_a_query_parameter(ctx):
+    # type: (ScriptContext) -> None
+    """The point of the change: a secret in the URL is no longer accepted.
+
+    It ends up in access logs, proxy logs and error reports, none of which are
+    places for it.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = CreateAccountHandler(ctx)
+    body = json.loads(handler.handle(_internal_request(None, secret="s3cr3t")).data)
+    assert body["status"] == "error"
+    assert body["error"]["code"] == errors.ERROR_NOT_ALLOWED
+
+
+@with_script_context
+def test_unauthenticated_caller_cannot_probe_which_applications_exist(ctx):
+    # type: (ScriptContext) -> None
+    """The secret is checked before parse, not after.
+
+    Parsing an internal request touches the database: the application-status
+    handler looks the application up and raises if it is unknown. While the
+    secret was checked afterwards, a caller without it got
+    UnknownApplicationError for a missing application and a different error
+    for one that exists -- enough to enumerate them. Both must now answer
+    identically.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = UpdateApplicationStatusHandler(ctx)
+
+    answers = set()
+    for application_id in ("1", "9999"):
+        response = handler.handle(
+            _internal_request(
+                "wrong", account_id="1", application_id=application_id, active="1"
+            )
+        )
+        body = json.loads(response.data)
+        answers.add((response.status, body["error"]["code"], body["error"]["message"]))
+
+    assert len(answers) == 1, "responses differ, so existence is still observable"
+    assert answers.pop()[1] == errors.ERROR_NOT_ALLOWED

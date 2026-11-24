@@ -168,10 +168,26 @@ def check_user_api_key(config, db, user_apikey):
     return lookup_account_id_by_apikey(app_db, user_apikey)
 
 
+def cluster_secret_from_request(req):
+    # type: (Request) -> str | None
+    """The cluster secret, which arrives as `Authorization: Bearer <secret>`.
+
+    Not a query parameter: a URL carrying a secret ends up in access logs,
+    proxy logs and error reports, none of which are places for it. Setting it
+    as Authorization also means the redaction that logging and error-reporting
+    tools already apply to that header applies here.
+    """
+    auth = req.authorization
+    if auth is None or auth.type != "bearer":
+        return None
+    return auth.token
+
+
 class APIHandlerParams(object):
     def __init__(self, config):
         # type: (Config) -> None
         self.config = config
+
         self.format = DEFAULT_FORMAT
         # Always present, so a handler can ask who the caller is without
         # knowing whether the endpoint requires a user key. None means the
@@ -258,6 +274,11 @@ class APIHandler(Handler):
             f"api.rate_limit_exceeded_total,bucket={bucket},app={application_id}"
         )
 
+    # Set on the handlers under /v2/internal. The check itself lives in
+    # _handle_inside_context, so a new internal handler gets it by declaring
+    # this rather than by remembering to write the comparison.
+    requires_cluster_secret = False
+
     def _is_cluster_request(self, req: Request) -> bool:
         """Whether the caller authenticated itself with the cluster secret.
 
@@ -284,11 +305,11 @@ class APIHandler(Handler):
         so nothing is granted here that was not granted already.
         """
         secret = self.ctx.config.cluster.secret
-        given = req.values.get("secret")
+        given = cluster_secret_from_request(req)
         if not secret or not given:
             return False
         # Compared as bytes: compare_digest rejects a str containing anything
-        # outside ASCII, and the secret arrives from the query string where a
+        # outside ASCII, and the secret arrives from a request header where a
         # caller can put whatever it likes.
         return hmac.compare_digest(
             given.encode("utf-8", "replace"), secret.encode("utf-8", "replace")
@@ -345,6 +366,17 @@ class APIHandler(Handler):
             t0 = time.time()
             try:
                 try:
+                    # Before parse, deliberately. Parsing an internal
+                    # request touches the database -- the application-status
+                    # handler looks up the application and raises if it is
+                    # unknown -- so checking afterwards let an unauthenticated
+                    # caller tell an existing application from a missing one by
+                    # which error came back.
+                    if self.requires_cluster_secret and not self._is_cluster_request(
+                        req
+                    ):
+                        logger.warning("Invalid cluster secret")
+                        raise errors.NotAllowedError()
                     params.parse(req.values, self.ctx.db)
                     self.ctx.db.session.close()
                     application_id = getattr(params, "application_id", None)
