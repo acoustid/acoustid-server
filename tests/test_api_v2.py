@@ -41,6 +41,7 @@ from acoustid.api.v2.internal import (
 )
 from acoustid.api.v2.misc import UserCreateAnonymousHandler, UserLookupHandler
 from acoustid.script import ScriptContext
+from acoustid.utils import call_internal_api
 from tests import (
     TEST_1_FP,
     TEST_1_FP_RAW,
@@ -1421,3 +1422,37 @@ def test_the_handler_reads_the_credential_headers(ctx):
     # No client parameter anywhere in the request, so a 200 can only mean the
     # header was read.
     assert json.loads(response.data)["status"] == "ok"
+
+
+@with_script_context
+def test_the_internal_api_client_is_accepted_by_the_internal_handler(ctx):
+    # type: (ScriptContext) -> None
+    """The in-repo client and the endpoints agree on where the secret goes.
+
+    Nothing coupled them before, which is how call_internal_api came to send
+    the secret in the body while the endpoints read it from a header -- a
+    break that would have shown up only as non-master stats silently failing
+    to forward. So this captures what the client actually sends and replays it
+    at the handler rather than asserting on either side alone.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    ctx.config.cluster.base_master_url = "http://master"
+
+    sent = []  # type: list[Any]
+    with mock.patch("acoustid.utils.urlopen", side_effect=sent.append):
+        call_internal_api(ctx.config, "create_account")
+
+    assert len(sent) == 1
+    request = sent[0]
+    assert request.get_header("Authorization") == "Bearer s3cr3t"
+    assert b"secret" not in (request.data or b"")
+
+    replayed = EnvironBuilder(
+        method="POST",
+        data=request.data or b"",
+        content_type="application/x-www-form-urlencoded",
+        headers=Headers(dict(request.header_items())),
+    )
+    handler = CreateAccountHandler(ctx)
+    body = json.loads(handler.handle(Request(replayed.get_environ())).data)
+    assert body["status"] == "ok"

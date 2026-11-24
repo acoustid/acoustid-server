@@ -9,7 +9,7 @@ import re
 from logging import Handler
 from typing import Optional
 from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 
 def generate_api_key(length=10) -> str:
@@ -114,7 +114,13 @@ def singular(plural):
 
 
 def call_internal_api(config, func, **kwargs):
+    # The secret goes in Authorization, not the body: that is what the
+    # internal endpoints accept, and a credential in a request line ends up in
+    # logs. The remaining kwargs stay in the body as before.
     url = config.cluster.base_master_url.rstrip("/") + "/v2/internal/" + func
-    data = dict(kwargs)
-    data["secret"] = config.cluster.secret
-    urlopen(url, urlencode(data).encode("ascii"))
+    request = Request(
+        url,
+        data=urlencode(kwargs).encode("ascii"),
+        headers={"Authorization": "Bearer %s" % config.cluster.secret},
+    )
+    urlopen(request)
