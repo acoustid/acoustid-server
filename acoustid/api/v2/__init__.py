@@ -25,7 +25,7 @@ from typing import (
 
 import attr
 import cachetools
-from werkzeug.datastructures import MultiDict
+from werkzeug.datastructures import CombinedMultiDict, MultiDict
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.wrappers import Request, Response
 
@@ -166,6 +166,43 @@ def user_api_key_cache_key(config, db, user_apikey):
 def check_user_api_key(config, db, user_apikey):
     app_db = db.get_app_db(read_only=True)
     return lookup_account_id_by_apikey(app_db, user_apikey)
+
+
+# Credentials may arrive as request headers instead of query parameters. A
+# credential in a URL ends up in access logs, proxy logs, browser history and
+# the request line that error reports capture; a header does not.
+#
+# Headers rather than Authorization for these two, deliberately. There are two
+# independent credentials, which Authorization can only carry by inventing a
+# parameter grammar, and many CDNs refuse to cache a response at all when the
+# request carries Authorization -- which would take edge caching off the table
+# for the whole API. Namespaced rather than X- prefixed: RFC 6648 deprecated
+# the prefix, and an unnamespaced name is one some proxy or framework may
+# invent too.
+CREDENTIAL_HEADERS = {
+    "client": "Acoustid-App-Key",
+    "user": "Acoustid-User-Key",
+}
+
+
+def credential_values(req):
+    # type: (Request) -> MultiDict | CombinedMultiDict
+    """req.values, with any credentials sent as headers taking precedence.
+
+    Returned as a view over the original rather than a copy, because
+    req.values holds the submitted fingerprints on a POST and those are large.
+
+    The query parameters still work. A client sending both gets the header,
+    on the grounds that it is the one it had to go out of its way to set.
+    """
+    sent = {
+        param: req.headers[header]
+        for param, header in CREDENTIAL_HEADERS.items()
+        if req.headers.get(header)
+    }
+    if not sent:
+        return req.values
+    return CombinedMultiDict([MultiDict(sent), req.values])
 
 
 def cluster_secret_from_request(req):
@@ -377,7 +414,7 @@ class APIHandler(Handler):
                     ):
                         logger.warning("Invalid cluster secret")
                         raise errors.NotAllowedError()
-                    params.parse(req.values, self.ctx.db)
+                    params.parse(credential_values(req), self.ctx.db)
                     self.ctx.db.session.close()
                     application_id = getattr(params, "application_id", None)
                     if self.ctx.statsd is not None:

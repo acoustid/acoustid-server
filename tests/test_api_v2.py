@@ -10,7 +10,7 @@ from uuid import UUID
 
 import pytest
 from sqlalchemy import sql
-from werkzeug.datastructures import Headers, MultiDict
+from werkzeug.datastructures import CombinedMultiDict, Headers, MultiDict
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
@@ -28,6 +28,7 @@ from acoustid.api.v2 import (
     SubmitHandlerParams,
     app_api_key_cache,
     app_user_key_policy_cache,
+    credential_values,
 )
 from acoustid.api.v2.internal import (
     CheckApplicationHandler,
@@ -1315,3 +1316,108 @@ def test_unauthenticated_caller_cannot_probe_which_applications_exist(ctx):
 
     assert len(answers) == 1, "responses differ, so existence is still observable"
     assert answers.pop()[1] == errors.ERROR_NOT_ALLOWED
+
+
+def _lookup_with_headers(**headers):
+    # type: (str) -> MultiDict
+    """The values a lookup handler would parse, given these headers."""
+    builder = EnvironBuilder(
+        method="POST",
+        data={
+            "format": "json",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+        },
+        headers=Headers(headers),
+    )
+    return credential_values(Request(builder.get_environ()))
+
+
+@with_script_context
+def test_credentials_may_be_sent_as_headers(ctx):
+    # type: (ScriptContext) -> None
+    """Keys in a URL end up in access logs and error reports; headers do not."""
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        params.parse(
+            _lookup_with_headers(
+                **{"Acoustid-App-Key": "app1key", "Acoustid-User-Key": "user1key"}
+            ),
+            ctx.db,
+        )
+    assert params.application_id == 1
+    assert params.account_id == 1
+
+
+@with_script_context
+def test_query_parameters_still_work(ctx):
+    # type: (ScriptContext) -> None
+    """The headers are an addition, not a replacement."""
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        params.parse(lookup_values(user="user1key"), ctx.db)
+    assert params.application_id == 1
+    assert params.account_id == 1
+
+
+@with_script_context
+def test_a_credential_header_beats_the_query_parameter(ctx):
+    # type: (ScriptContext) -> None
+    """A client sending both went out of its way to set the header."""
+    builder = EnvironBuilder(
+        method="POST",
+        data={
+            "format": "json",
+            "client": "app2key",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+        },
+        headers=Headers({"Acoustid-App-Key": "app1key"}),
+    )
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        params.parse(credential_values(Request(builder.get_environ())), ctx.db)
+    assert params.application_id == 1
+
+
+def test_credential_values_does_not_copy_the_request_body() -> None:
+    """A submission's fingerprints are large; the view must not duplicate them."""
+    builder = EnvironBuilder(method="POST", data={"fingerprint": "x" * 100000})
+    req = Request(builder.get_environ())
+    assert credential_values(req) is req.values
+
+    builder = EnvironBuilder(
+        method="POST",
+        data={"fingerprint": "x" * 100000},
+        headers=Headers({"Acoustid-App-Key": "app1key"}),
+    )
+    req = Request(builder.get_environ())
+    values = credential_values(req)
+    assert isinstance(values, CombinedMultiDict)
+    assert req.values in values.dicts
+
+
+@with_script_context
+def test_the_handler_reads_the_credential_headers(ctx):
+    # type: (ScriptContext) -> None
+    """Through handle(), so the wiring is covered and not just the helper.
+
+    The tests above call credential_values() themselves, which means they pass
+    whether or not the handler uses it -- confirmed by mutation. This one goes
+    through the real request path.
+    """
+    builder = EnvironBuilder(
+        method="POST",
+        data={
+            "format": "json",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+        },
+        headers=Headers({"Acoustid-App-Key": "app1key"}),
+    )
+    handler = LookupHandler(ctx)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        response = handler.handle(Request(builder.get_environ()))
+    # No client parameter anywhere in the request, so a 200 can only mean the
+    # header was read.
+    assert json.loads(response.data)["status"] == "ok"

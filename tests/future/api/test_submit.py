@@ -12,8 +12,8 @@ def test_submit(client: TestClient) -> None:
     response = client.post(
         "/v3/submit",
         headers={
-            "X-App-Key": "test",
-            "X-User-Key": "test",
+            "Acoustid-App-Key": "test",
+            "Acoustid-User-Key": "test",
         },
         json={
             "submissions": [
