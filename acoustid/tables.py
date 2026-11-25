@@ -99,6 +99,8 @@ account_application_key = Table(
     Column("application_id", Integer, ForeignKey("application.id"), nullable=False),
     Column("account_id", Integer, ForeignKey("account.id")),
     Column("device", String),
+    # Where /link sends the user after they decide, if the client gave one.
+    Column("return_url", String),
     Column(
         "created",
         DateTime(timezone=True),
@@ -118,6 +120,15 @@ account_application_key = Table(
     Index("account_application_key_idx_apikey", "apikey", unique=True),
     Index("account_application_key_idx_link_code", "link_code", unique=True),
     Index("account_application_key_idx_account_id", "account_id"),
+    # Live link codes per application, which request_link counts. With the
+    # expiry in the index, codes that have lapsed are skipped rather than
+    # scanned, so a flood stops costing anything once its codes expire.
+    Index(
+        "account_application_key_idx_application_id_pending",
+        "application_id",
+        "link_expires",
+        postgresql_where=sql.text("link_code IS NOT NULL"),
+    ),
     info={"bind_key": "app"},
 )
 

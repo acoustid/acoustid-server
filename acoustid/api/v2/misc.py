@@ -1,19 +1,32 @@
 # Copyright (C) 2011,2012 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import datetime
 import logging
+import unicodedata
+from typing import Any
+from urllib.parse import urlparse
 
 import requests
+from redis.exceptions import RedisError
 from sqlalchemy import String, sql
+from werkzeug.datastructures import MultiDict
 
+from acoustid import const
 from acoustid import tables as schema
 from acoustid.api import errors
 from acoustid.api.v2 import APIHandler, APIHandlerParams
 from acoustid.data.account import (
+    count_pending_link_requests,
+    create_user_key_link_request,
+    format_link_code,
     get_account_details_by_mbuser,
+    get_user_key_status,
     insert_account,
     lookup_account_id_by_apikey,
+    refresh_cached_user_key,
 )
+from acoustid.db import DatabaseContext
 from acoustid.utils import is_uuid
 
 logger = logging.getLogger(__name__)
@@ -149,6 +162,136 @@ class UserCreateAnonymousHandler(APIHandler):
         result = {"user": {"apikey": api_key}}
         self.ctx.db.session.commit()
         return result
+
+
+MAX_DEVICE_LENGTH = 100
+MAX_RETURN_URL_LENGTH = 2000
+
+
+def has_unsafe_characters(value: str) -> bool:
+    """Control and formatting characters, bidi overrides among them, which
+    could make a string shown on the consent page read as something else."""
+    return any(unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in value)
+
+
+class UserRequestLinkHandlerParams(APIHandlerParams):
+    def parse(self, values: MultiDict, db: DatabaseContext) -> None:
+        super().parse(values, db)
+        self._parse_client(values, db)
+        self.device: str | None = values.get("device", "").strip() or None
+        if self.device is not None:
+            if len(self.device) > MAX_DEVICE_LENGTH:
+                raise errors.InvalidParameterError(
+                    "device", "must be at most %d characters" % MAX_DEVICE_LENGTH
+                )
+            if has_unsafe_characters(self.device):
+                raise errors.InvalidParameterError(
+                    "device", "must not contain control characters"
+                )
+        self.return_url: str | None = values.get("return_url", "").strip() or None
+        if self.return_url is not None:
+            self._check_return_url(self.return_url)
+
+    def _check_return_url(self, value: str) -> None:
+        if len(value) > MAX_RETURN_URL_LENGTH:
+            raise errors.InvalidParameterError(
+                "return_url", "must be at most %d characters" % MAX_RETURN_URL_LENGTH
+            )
+        # Printable ASCII only, and no backslash, which browsers read as a
+        # slash where urlparse does not, so the host the user is shown would
+        # not be the host they are sent to.
+        if not all(0x21 <= ord(c) <= 0x7E for c in value) or "\\" in value:
+            raise errors.InvalidParameterError(
+                "return_url", "must not contain spaces or special characters"
+            )
+        url = urlparse(value)
+        if url.scheme not in ("http", "https") or not url.hostname:
+            raise errors.InvalidParameterError(
+                "return_url", "must be an http or https URL"
+            )
+        if "@" in url.netloc:
+            raise errors.InvalidParameterError(
+                "return_url", "must not contain a user name or password"
+            )
+
+
+class UserRequestLinkHandler(APIHandler):
+    """Start linking a user key to an account: the key is returned now, and
+    works once someone approves it at the returned URL."""
+
+    params_class = UserRequestLinkHandlerParams
+
+    def _handle_internal(self, params: APIHandlerParams) -> dict[str, Any]:
+        assert isinstance(params, UserRequestLinkHandlerParams)
+        self._check_link_request_limit()
+        app_db = self.ctx.db.get_app_db()
+        cap = const.USER_KEY_MAX_PENDING_LINKS_PER_APPLICATION
+        if count_pending_link_requests(app_db, params.application_id, cap) >= cap:
+            logger.warning(
+                "Too many pending link requests for application %s",
+                params.application_id,
+            )
+            raise errors.TooManyLinkRequestsError()
+        req = create_user_key_link_request(
+            app_db, params.application_id, params.device, params.return_url
+        )
+        self.ctx.db.session.commit()
+        refresh_cached_user_key(self.ctx.redis, self.ctx.db.get_app_db(), req.apikey)
+        code = format_link_code(req.link_code)
+        base_url = self.ctx.config.website.base_url.rstrip("/")
+        return {
+            "user": {
+                "apikey": req.apikey,
+                "link": {
+                    "code": code,
+                    "url": "%s/link?code=%s" % (base_url, code),
+                    "expires": req.link_expires.isoformat(),
+                },
+            }
+        }
+
+    def _check_link_request_limit(self) -> None:
+        hour = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H")
+        key = "linkreq:%s:%s" % (self.user_ip, hour)
+        try:
+            pipe = self.ctx.redis.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, 3600)
+            count = pipe.execute()[0]
+        except RedisError:
+            logger.warning("Failed to check link request limit", exc_info=True)
+            return
+        if count > const.USER_KEY_LINK_REQUESTS_PER_IP_PER_HOUR:
+            raise errors.TooManyLinkRequestsError()
+
+
+class UserLinkStatusHandlerParams(APIHandlerParams):
+    def parse(self, values: MultiDict, db: DatabaseContext) -> None:
+        super().parse(values, db)
+        self._parse_client(values, db)
+        self.user_apikey: str = values.get("user", "")
+        if not self.user_apikey:
+            raise errors.MissingParameterError("user")
+
+
+class UserLinkStatusHandler(APIHandler):
+    """The state of a user key, so a client can tell waiting from starting over.
+
+    Read from the database rather than the cache: this is what a client polls
+    while the user approves.
+    """
+
+    params_class = UserLinkStatusHandlerParams
+
+    def _handle_internal(self, params: APIHandlerParams) -> dict[str, Any]:
+        assert isinstance(params, UserLinkStatusHandlerParams)
+        status = get_user_key_status(self.ctx.db.get_app_db(), params.user_apikey)
+        if status is None:
+            return {"key": {"state": "unknown"}}
+        result: dict[str, Any] = {"state": status.state}
+        if status.expires is not None:
+            result["expires"] = status.expires.isoformat()
+        return {"key": result}
 
 
 class UserLookupHandlerParams(APIHandlerParams):

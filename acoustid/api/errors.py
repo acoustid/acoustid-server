@@ -27,6 +27,7 @@ ERROR_INSECURE_REQUEST = 16
 ERROR_UNKNOWN_APPLICATION = 17
 ERROR_FINGERPRINT_NOT_FOUND = 18
 ERROR_REQUEST_TOO_LARGE = 19
+ERROR_INVALID_PARAMETER = 20
 
 error_name_by_code = {}
 for name, value in list(globals().items()):
@@ -148,6 +149,21 @@ class TooManyRequests(WebServiceError):
     def __init__(self, rate) -> None:
         message = "rate limit (%f requests per second) exceeded, try again later" % rate
         WebServiceError.__init__(self, ERROR_TOO_MANY_REQUESTS, message)
+
+
+class TooManyLinkRequestsError(WebServiceError):
+    status = 429
+
+    def __init__(self) -> None:
+        message = "too many link requests, try again later"
+        WebServiceError.__init__(self, ERROR_TOO_MANY_REQUESTS, message)
+
+
+class InvalidParameterError(WebServiceError):
+    def __init__(self, name: str, reason: str) -> None:
+        message = 'parameter "%s" %s' % (name, reason)
+        WebServiceError.__init__(self, ERROR_INVALID_PARAMETER, message)
+        self.parameter = name
 
 
 class InvalidMusicBrainzAccessTokenError(WebServiceError):

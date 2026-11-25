@@ -378,10 +378,14 @@ class WebSiteConfig(BaseConfig):
         self.shutdown_file_path = "/tmp/acoustid-server-shutdown.txt"
         self.search_timeout = 1.0
         self.search_return_metadata = True
+        # Where the website is, for links the API hands out.
+        self.base_url = "https://acoustid.org/"
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
         read_config_secret_str_option(parser, section, self, "secret", "secret")
+        if parser.has_option(section, "base_url"):
+            self.base_url = parser.get(section, "base_url")
         read_config_secret_str_option(
             parser, section, self, "mb_oauth_client_id", "mb_oauth_client_id"
         )
@@ -425,6 +429,7 @@ class WebSiteConfig(BaseConfig):
         )
         read_env_item(self, "shutdown_delay", prefix + "SHUTDOWN_DELAY", convert=int)
         read_env_item(self, "shutdown_file_path", prefix + "SHUTDOWN_FILE")
+        read_env_item(self, "base_url", prefix + "BASE_URL")
 
 
 class GunicornConfig(BaseConfig):

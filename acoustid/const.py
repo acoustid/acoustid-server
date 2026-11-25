@@ -39,3 +39,9 @@ LOOKUP_USER_REQUIRED_FROM = datetime.date(2027, 1, 1)
 
 # How long a link code from the user key link flow stays usable.
 USER_KEY_LINK_TTL = datetime.timedelta(minutes=15)
+
+# Limits on starting the link flow. Application keys are public, so the
+# per-application cap is only a backstop: hitting it blocks that application's
+# users from linking, which is what the per-IP limit is there to prevent.
+USER_KEY_LINK_REQUESTS_PER_IP_PER_HOUR = 10
+USER_KEY_MAX_PENDING_LINKS_PER_APPLICATION = 10000
