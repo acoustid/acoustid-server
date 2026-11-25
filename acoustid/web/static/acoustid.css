@@ -136,11 +136,7 @@ section { margin-top: 52px; }
 
 .muted { color: var(--muted); }
 .account-name.mb { white-space: nowrap; }
-.mb-badge {
-  display: inline-block; margin-right: 3px; padding: 0 3px; border-radius: 3px;
-  font-size: 0.7em; font-weight: 700; line-height: 1.4; vertical-align: 0.1em;
-  color: #fff; background: #ba478f;
-}
+.mb-icon { width: 0.8em; height: 0.9em; margin-right: 3px; vertical-align: -0.08em; }
 .small { font-size: 14px; }
 
 /* Facts row */

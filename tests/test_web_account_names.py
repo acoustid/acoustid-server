@@ -38,7 +38,8 @@ def render(app: Flask, account: Any) -> str:
 def test_musicbrainz_account(app: Flask) -> None:
     html = render(app, SimpleNamespace(id=7, mbuser="Some User", name="ignored"))
     assert 'href="https://musicbrainz.org/user/Some%20User"' in html
-    assert 'class="mb-badge"' in html
+    assert 'class="mb-icon"' in html
+    assert 'aria-label="MusicBrainz"' in html
     assert ">Some User</a>" in html
     assert "ignored" not in html
     assert "user7" not in html
@@ -59,8 +60,8 @@ def test_musicbrainz_user_named_like_an_id(app: Flask) -> None:
     mb = render(app, SimpleNamespace(id=1, mbuser="user1234", name=""))
     plain = render(app, SimpleNamespace(id=1234, mbuser=None, name=""))
     assert mb != plain
-    assert "mb-badge" in mb and "<a " in mb
-    assert "mb-badge" not in plain and "<a " not in plain
+    assert "mb-icon" in mb and "<a " in mb
+    assert "mb-icon" not in plain and "<a " not in plain
 
 
 def test_musicbrainz_name_is_escaped(app: Flask) -> None:
