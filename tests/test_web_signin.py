@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
+from redis.exceptions import RedisError
 from sqlalchemy import sql
 
 from acoustid import tables as schema
@@ -17,6 +18,8 @@ from acoustid.data.email import (
     EMAIL_ACCOUNT_NAME,
     MAX_CODE_ATTEMPTS,
     MAX_EMAILS_PER_ADDRESS_PER_HOUR,
+    MAX_SIGNINS_PER_ADDRESS_PER_HOUR,
+    MAX_WRONG_CODES_PER_ADDRESS_PER_DAY,
     RATE_LIMIT_PREFIX,
     find_account_by_email,
     find_or_create_email_account,
@@ -74,9 +77,13 @@ def request_signin(
     return client.post("/login/email", data=data)
 
 
-def read_mail(email: str) -> tuple[str, str]:
-    """The link path and the code from the one email sent to the address."""
-    [summary] = find_messages(email)
+def read_mail(email: str, latest: bool = False) -> tuple[str, str]:
+    """The link path and the code from the email sent to the address."""
+    messages = find_messages(email)
+    if latest:
+        summary = messages[0]
+    else:
+        [summary] = messages
     message = get_message(summary["ID"])
     assert message["Subject"] == "Sign in to AcoustID"
     link = re.search(r"https?://\S+/login/email/link\?token=\S+", message["Text"])
@@ -245,8 +252,9 @@ def test_wrong_codes_kill_the_request(app: Flask, client: FlaskClient) -> None:
     assert rv.status_code == 400
     assert b"too many wrong codes" in rv.data
     # Dead: neither the right code nor the link works any more.
-    request_again = enter_code(client, code)
-    assert request_again.status_code == 302
+    rv = enter_code(client, code)
+    assert rv.status_code == 400
+    assert b"Ask for a new email" in rv.data
     assert signed_in_as(client) is None
     rv = use_link(app.test_client(), link)
     assert rv.status_code == 400
@@ -397,9 +405,25 @@ def test_mail_failure(app: Flask, client: FlaskClient) -> None:
     assert client.get("/login/email/code").status_code == 302
 
 
-def test_cleanup_deletes_expired_signins(app: Flask, client: FlaskClient) -> None:
+def age_signins(app: Flask, interval: str) -> None:
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        table = schema.account_email_signin
+        ctx.db.get_app_db().execute(
+            table.update().values(
+                created=table.c.created - sql.text("interval '%s'" % interval),
+                expires=table.c.expires - sql.text("interval '%s'" % interval),
+            )
+        )
+        ctx.db.session.commit()
+
+
+def test_cleanup_deletes_old_signins(app: Flask, client: FlaskClient) -> None:
+    # Kept for a day after they are made, for the per-address limits.
     request_signin(client, unique_address())
-    expire_signins(app)
+    age_signins(app, "23 hours")
+    run_cleanup_user_keys(app.acoustid_script)  # type: ignore
+    assert len(signin_rows(app)) == 1
+    age_signins(app, "2 hours")
     live = unique_address()
     request_signin(app.test_client(), live)
     run_cleanup_user_keys(app.acoustid_script)  # type: ignore
@@ -448,3 +472,96 @@ def test_code_requires_csrf_token(client: FlaskClient) -> None:
     assert rv.status_code == 400
     assert signed_in_as(client) is None
     assert enter_code(client, code).status_code == 303
+
+
+def wrong(code: str) -> str:
+    return "%06d" % ((int(code) + 1) % 1000000)
+
+
+def test_address_limit_holds_without_redis(app: Flask) -> None:
+    email = unique_address()
+    with mock.patch("redis.client.Pipeline.execute", side_effect=RedisError("gone")):
+        for _ in range(MAX_SIGNINS_PER_ADDRESS_PER_HOUR):
+            assert request_signin(app.test_client(), email).status_code == 303
+        rv = request_signin(app.test_client(), email)
+    assert rv.status_code == 400
+    assert b"Too many emails" in rv.data
+    assert len(find_messages(email)) == MAX_SIGNINS_PER_ADDRESS_PER_HOUR
+
+
+def test_wrong_codes_per_address_per_day(app: Flask) -> None:
+    email = unique_address()
+    # One short of killing each request, so the last one is still alive.
+    per_request = MAX_CODE_ATTEMPTS - 1
+    wrong_so_far = 0
+    with mock.patch("redis.client.Pipeline.execute", side_effect=RedisError("gone")):
+        while wrong_so_far < MAX_WRONG_CODES_PER_ADDRESS_PER_DAY:
+            # A new hour's worth of emails each time round.
+            age_signins(app, "61 minutes")
+            client = app.test_client()
+            assert request_signin(client, email).status_code == 303
+            link, code = read_mail(email, latest=True)
+            for _ in range(
+                min(per_request, MAX_WRONG_CODES_PER_ADDRESS_PER_DAY - wrong_so_far)
+            ):
+                assert enter_code(client, wrong(code)).status_code == 400
+                wrong_so_far += 1
+    # Codes are refused now, the right one too, but the link still works.
+    rv = enter_code(client, code)
+    assert rv.status_code == 400
+    assert b"Too many wrong codes for this address today" in rv.data
+    assert signed_in_as(client) is None
+    assert use_link(app.test_client(), link).status_code == 303
+
+
+def test_code_from_an_earlier_email(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_signin(client, email)
+    _, first_code = read_mail(email)
+    request_signin(client, email)
+    rv = enter_code(client, first_code)
+    assert rv.status_code == 303
+    assert signed_in_as(client) is not None
+    # Both requests are used up.
+    assert signin_rows(app) == []
+
+
+def test_second_click_does_not_sign_out(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_signin(client, email)
+    _, code = read_mail(email)
+    token = csrf_token(client)
+    # Two submissions sent with the same cookie: the second arrives after
+    # the first has signed in, and must not send back a session of its own.
+    second = app.test_client()
+    cookie = client.get_cookie("session")
+    assert cookie is not None
+    second.set_cookie("session", cookie.value)
+    assert enter_code(client, code).status_code == 303
+    rv = second.post("/login/email/code", data={"csrf_token": token, "code": code})
+    assert rv.status_code == 400
+    assert "Set-Cookie" not in rv.headers
+
+
+def test_signing_in_starts_a_new_session(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_signin(client, email)
+    before = csrf_token(client)
+    _, code = read_mail(email)
+    enter_code(client, code)
+    with client.session_transaction() as flask_session:
+        assert set(flask_session.keys()) == {"id"}
+        assert before not in flask_session.values()
+
+
+def test_link_page_warns_when_signed_in(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_signin(client, email)
+    link, _ = read_mail(email)
+    other = app.test_client()
+    with other.session_transaction() as flask_session:
+        flask_session["id"] = EXISTING_ACCOUNT_ID
+    rv = other.get(link)
+    assert b"You are signed in to an AcoustID account already" in rv.data
+    rv = app.test_client().get(link)
+    assert b"You are signed in" not in rv.data

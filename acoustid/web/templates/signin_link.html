@@ -11,6 +11,9 @@
   <p class="links"><a href="{{ url_for('user.login') }}">Sign in</a></p>
   {% else %}
   <p>Sign in to AcoustID with <b>{{ masked_email }}</b>?</p>
+  {% if signed_in %}
+  <p class="small">You are signed in to an AcoustID account already. Signing in here switches to the account with this address.</p>
+  {% endif %}
   <form method="POST" action="{{ url_for('signin.signin_link_post') }}" class="signin-link-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="token" value="{{ token }}">

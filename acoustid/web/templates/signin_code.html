@@ -15,7 +15,7 @@
     <form method="POST" action="{{ url_for('signin.signin_code_post') }}" class="email-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
-             pattern="[0-9 ]*" maxlength="7" required autofocus
+             pattern="[0-9 ]*" maxlength="12" required autofocus
              aria-label="Code" placeholder="123456" class="code-input">
       <button type="submit" class="btn primary">Sign in</button>
     </form>

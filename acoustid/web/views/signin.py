@@ -20,6 +20,7 @@ from werkzeug.wrappers import Response
 
 from acoustid.data.email import (
     SIGNIN_TTL,
+    TooManyWrongCodes,
     UsedSignin,
     consume_email_signin_by_code,
     consume_email_signin_by_token,
@@ -30,6 +31,7 @@ from acoustid.data.email import (
     get_email_signin_by_token,
     mask_email,
     normalize_email,
+    signin_allowed,
 )
 from acoustid.mail import MailError, send_mail
 from acoustid.web import db
@@ -44,8 +46,10 @@ logger = logging.getLogger(__name__)
 
 signin_page = Blueprint("signin", __name__)
 
-# The sign-in request whose code this browser may enter.
-SIGNIN_SESSION_KEY = "email_signin_id"
+# The sign-in requests whose codes this browser may enter, newest last.
+SIGNIN_SESSION_KEY = "email_signin_ids"
+# Kept for asking again when the first email is slow to arrive.
+MAX_SIGNINS_PER_SESSION = 3
 
 INVALID_LINK = (
     "This sign-in link is not valid. It may have been used already, or "
@@ -72,7 +76,9 @@ def sign_in(used: UsedSignin) -> Response:
         db.get_app_db(), used.email, request.remote_addr
     )
     db.session.commit()
-    session.pop(SIGNIN_SESSION_KEY, None)
+    # A new session for the new identity: nothing from before signing in,
+    # the CSRF token included, carries over.
+    session.clear()
     session["id"] = account_id
     if used.return_url and is_our_url(used.return_url):
         return redirect(used.return_url, code=303)
@@ -94,13 +100,15 @@ def request_signin() -> Any:
             ["That does not look like an email address."], return_url, entered, 400
         )
     # The same answer whether or not an account has the address, so this
-    # cannot be used to find out which addresses are registered.
+    # cannot be used to find out which addresses are registered. The first
+    # limit is in Postgres and holds without redis; see signin_allowed.
+    too_many = ["Too many emails sent. Try again in an hour."]
+    if not signin_allowed(db.get_app_db(), email):
+        return render_login_page(too_many, return_url, entered, 400)
     if not count_signin_email_sent(
         db.get_redis(), secret(), email, request.remote_addr or ""
     ):
-        return render_login_page(
-            ["Too many emails sent. Try again in an hour."], return_url, entered, 400
-        )
+        return render_login_page(too_many, return_url, entered, 400)
     signin = create_email_signin(db.get_app_db(), secret(), email, return_url)
     # Committed before sending: a link that arrives must work.
     db.session.commit()
@@ -125,7 +133,8 @@ def request_signin() -> Any:
             entered,
             400,
         )
-    session[SIGNIN_SESSION_KEY] = signin.id
+    ids = signin_ids() + [signin.id]
+    session[SIGNIN_SESSION_KEY] = ids[-MAX_SIGNINS_PER_SESSION:]
     return redirect(url_for(".signin_code"), code=303)
 
 
@@ -143,8 +152,15 @@ def code_page(email: str, error: str | None = None) -> Response:
     )
 
 
+def signin_ids() -> list[int]:
+    ids = session.get(SIGNIN_SESSION_KEY)
+    return list(ids) if isinstance(ids, list) else []
+
+
 def expired_request() -> Response:
-    session.pop(SIGNIN_SESSION_KEY, None)
+    # The session is left alone. This is also what a second click on "Sign
+    # in" gets after the first one signed in, and its response must not
+    # overwrite the session the first one set.
     return render_login_page(
         [
             "That sign-in request has expired, or had too many wrong codes. "
@@ -157,10 +173,10 @@ def expired_request() -> Response:
 
 @signin_page.route("/login/email/code")
 def signin_code() -> Any:
-    signin_id = session.get(SIGNIN_SESSION_KEY)
-    if signin_id is None:
+    ids = signin_ids()
+    if not ids:
         return redirect(url_for("user.login"))
-    email = get_email_signin_address(db.get_app_db(), signin_id)
+    email = get_email_signin_address(db.get_app_db(), ids[-1])
     if email is None:
         return expired_request()
     return code_page(email)
@@ -169,18 +185,27 @@ def signin_code() -> Any:
 @signin_page.route("/login/email/code", methods=["POST"])
 def signin_code_post() -> Any:
     check_account_csrf_token()
-    signin_id = session.get(SIGNIN_SESSION_KEY)
-    if signin_id is None:
+    ids = signin_ids()
+    if not ids:
         return redirect(url_for("user.login"))
-    app_db = db.get_app_db()
-    used = consume_email_signin_by_code(
-        app_db, secret(), signin_id, request.form.get("code", "")
-    )
+    try:
+        used = consume_email_signin_by_code(
+            db.get_app_db(), secret(), ids, request.form.get("code", "")
+        )
+    except TooManyWrongCodes:
+        email = get_email_signin_address(db.get_app_db(), ids[-1])
+        if email is None:
+            return expired_request()
+        return code_page(
+            email,
+            "Too many wrong codes for this address today. "
+            "Use the link in the email instead.",
+        )
     if used is not None:
         return sign_in(used)
     # A wrong code was counted; keep the count.
     db.session.commit()
-    email = get_email_signin_address(db.get_app_db(), signin_id)
+    email = get_email_signin_address(db.get_app_db(), ids[-1])
     if email is None:
         return expired_request()
     return code_page(email, "That code is not right. Check the email and try again.")
@@ -198,6 +223,7 @@ def signin_link() -> Response:
             title="Sign in to AcoustID",
             token=token,
             masked_email=mask_email(email) if email else None,
+            signed_in="id" in session,
             error=None if email else INVALID_LINK,
             csrf_token=account_csrf_token(),
         ),

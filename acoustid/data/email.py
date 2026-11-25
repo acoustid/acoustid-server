@@ -230,9 +230,20 @@ def set_account_email(conn: AppDB, account_id: int, email: str) -> bool:
 SIGNIN_TTL = datetime.timedelta(minutes=15)
 
 # Wrong codes one sign-in request takes before it is dead, link included.
-# Guessing one of a million codes in five tries, with at most a few emails
-# an hour to an address, is not a practical attack.
 MAX_CODE_ATTEMPTS = 5
+
+# Limits per address that hold even when redis does not, counted from the
+# rows themselves. A code is one in a million; with these, someone guessing
+# at an address gets at most MAX_WRONG_CODES_PER_ADDRESS_PER_DAY tries a day,
+# however many emails they make it send. Past that the codes stop working,
+# but the links do not, so the owner of the address is not locked out.
+MAX_SIGNINS_PER_ADDRESS_PER_HOUR = 3
+MAX_WRONG_CODES_PER_ADDRESS_PER_DAY = 20
+SIGNIN_RETENTION = datetime.timedelta(days=1)
+
+
+class TooManyWrongCodes(Exception):
+    """Codes for this address are refused for now; links still work."""
 
 
 def hash_code(secret: str, token_hash: str, code: str) -> str:
@@ -322,45 +333,79 @@ def get_email_signin_address(conn: AppDB, id: int) -> str | None:
     return conn.execute(stmt).scalar()
 
 
+def signin_allowed(conn: AppDB, email: str) -> bool:
+    """Whether another sign-in email may go to this address this hour."""
+    table = schema.account_email_signin
+    stmt = (
+        sql.select(sql.func.count())
+        .where(table.c.email == email)
+        .where(table.c.created > sql.func.now() - datetime.timedelta(hours=1))
+    )
+    return conn.execute(stmt).scalar_one() < MAX_SIGNINS_PER_ADDRESS_PER_HOUR
+
+
+def wrong_codes_today(conn: AppDB, email: str) -> int:
+    table = schema.account_email_signin
+    stmt = (
+        sql.select(sql.func.coalesce(sql.func.sum(table.c.code_attempts), 0))
+        .where(table.c.email == email)
+        .where(table.c.created > sql.func.now() - SIGNIN_RETENTION)
+    )
+    return conn.execute(stmt).scalar_one()
+
+
 def consume_email_signin_by_code(
-    conn: AppDB, secret: str, id: int, code: str
+    conn: AppDB, secret: str, ids: list[int], code: str
 ) -> UsedSignin | None:
     """Use a sign-in request up by its code, and with it the link.
 
-    A wrong code counts against the request, and the caller must commit even
-    then, or the count is lost. The row is locked while it is checked, so
-    concurrent guesses are counted one after another.
+    ids are the requests this browser made, newest last, so the code from an
+    earlier email still works after asking for another. Using one uses them
+    all up. A wrong code counts against the newest, and the caller must
+    commit even then, or the count is lost. The rows are locked while they
+    are checked, so concurrent guesses are counted one after another.
+
+    Raises TooManyWrongCodes if the address has had too many today.
     """
+    if not ids:
+        return None
     table = schema.account_email_signin
     stmt = (
-        sql.select(table.c.token_hash, table.c.code_hash)
-        .where(table.c.id == id)
+        sql.select(
+            table.c.id,
+            table.c.email,
+            table.c.token_hash,
+            table.c.code_hash,
+            table.c.return_url,
+        )
+        .where(table.c.id.in_(ids))
         .where(live_signin(table))
+        .order_by(table.c.id)
         .with_for_update()
     )
-    row = conn.execute(stmt).first()
-    if row is None:
+    rows = conn.execute(stmt).fetchall()
+    if not rows:
         return None
-    expected = hash_code(secret, row.token_hash, normalize_code(code))
-    if not hmac.compare_digest(expected, row.code_hash):
-        conn.execute(
-            table.update()
-            .where(table.c.id == id)
-            .values(code_attempts=table.c.code_attempts + 1)
-        )
-        return None
-    delete = (
-        table.delete()
-        .where(table.c.id == id)
-        .returning(table.c.email, table.c.return_url)
+    newest = rows[-1]
+    if wrong_codes_today(conn, newest.email) >= MAX_WRONG_CODES_PER_ADDRESS_PER_DAY:
+        raise TooManyWrongCodes()
+    code = normalize_code(code)
+    for row in rows:
+        expected = hash_code(secret, row.token_hash, code)
+        if hmac.compare_digest(expected, row.code_hash):
+            conn.execute(table.delete().where(table.c.id.in_(ids)))
+            return UsedSignin(email=row.email, return_url=row.return_url)
+    conn.execute(
+        table.update()
+        .where(table.c.id == newest.id)
+        .values(code_attempts=table.c.code_attempts + 1)
     )
-    used = conn.execute(delete).one()
-    return UsedSignin(email=used.email, return_url=used.return_url)
+    return None
 
 
 def delete_expired_email_signins(conn: AppDB) -> int:
     table = schema.account_email_signin
-    stmt = table.delete().where(table.c.expires < sql.func.now())
+    stmt = table.delete().where(table.c.created < sql.func.now() - SIGNIN_RETENTION)
     return conn.execute(stmt).rowcount
 
 

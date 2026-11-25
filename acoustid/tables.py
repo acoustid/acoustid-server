@@ -123,7 +123,8 @@ account_email_confirmation = Table(
 )
 
 # Requests to sign in by email. The email carries a link and a code, and using
-# either deletes the row. Expired rows go in the daily cleanup.
+# either deletes the row. Others are kept for a day after they are made, since
+# the per-address limits count them, and then go in the daily cleanup.
 account_email_signin = Table(
     "account_email_signin",
     metadata,
@@ -144,6 +145,8 @@ account_email_signin = Table(
     ),
     Column("expires", DateTime(timezone=True), nullable=False),
     Index("account_email_signin_idx_token_hash", "token_hash", unique=True),
+    # The per-address limits count recent rows.
+    Index("account_email_signin_idx_email_created", "email", "created"),
     info={"bind_key": "app"},
 )
 

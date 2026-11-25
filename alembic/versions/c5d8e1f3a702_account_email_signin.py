@@ -51,6 +51,11 @@ def upgrade_app():
         ["token_hash"],
         unique=True,
     )
+    op.create_index(
+        "account_email_signin_idx_email_created",
+        "account_email_signin",
+        ["email", "created"],
+    )
 
 
 def downgrade_app():
