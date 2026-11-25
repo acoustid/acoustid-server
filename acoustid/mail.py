@@ -4,8 +4,9 @@
 """Outgoing mail over SMTP.
 
 Plain SMTP keeps the code independent of the provider: switching is a config
-change. Mail is sent synchronously, so the timeout in the config bounds how long
-a request can wait on the server.
+change. Mail is sent synchronously. The timeout in the config applies to each
+connect and each read or write on the socket, not to the whole exchange, which
+takes about ten round trips.
 """
 
 import logging
@@ -22,6 +23,28 @@ logger = logging.getLogger(__name__)
 
 class MailError(Exception):
     """The message could not be handed to the SMTP server."""
+
+
+def check_recipient(to: str) -> None:
+    # The envelope recipients would otherwise be parsed out of the To header,
+    # so "victim@example.com, attacker@example.com" would mail both.
+    name, addr = parseaddr(to)
+    if (
+        name
+        or addr != to
+        or addr.count("@") != 1
+        or any(c in addr for c in ',;<>"\\ \t\r\n')
+    ):
+        raise ValueError("expected a single bare email address")
+
+
+def describe_error(e: Exception) -> str:
+    # str() of some SMTP errors includes the recipient address, which must not
+    # end up in logs.
+    code = getattr(e, "smtp_code", None) or getattr(e, "errno", None)
+    if code is not None:
+        return "%s (%s)" % (type(e).__name__, code)
+    return type(e).__name__
 
 
 def build_message(
@@ -71,14 +94,27 @@ def send_mail(
     """Send one message, with an HTML alternative if html is given.
 
     Raises MailError if mail is not configured or the server does not take the
-    message, and ValueError if a header value contains a line break.
+    message, and ValueError if to is not a single bare address or a header
+    value contains a line break.
     """
     if not config.host or not config.from_address:
         raise MailError("mail is not configured")
+    check_recipient(to)
     msg = build_message(config, to, subject, text, html)
     try:
-        with connect(config) as smtp:
-            smtp.send_message(msg)
+        smtp = connect(config)
+        try:
+            smtp.send_message(msg, to_addrs=[to])
+        finally:
+            # The message is already accepted at this point, so a failed QUIT
+            # must not turn it into an error a caller might retry.
+            try:
+                smtp.quit()
+            except (OSError, smtplib.SMTPException):
+                smtp.close()
     except (OSError, smtplib.SMTPException) as e:
-        logger.warning("Failed to send mail via %s:%s: %s", config.host, config.port, e)
-        raise MailError(str(e)) from e
+        error = describe_error(e)
+        logger.warning(
+            "Failed to send mail via %s:%s: %s", config.host, config.port, error
+        )
+        raise MailError(error) from e

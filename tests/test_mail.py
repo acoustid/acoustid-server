@@ -1,6 +1,8 @@
 import copy
 import os
+import smtplib
 import socket
+import ssl
 import uuid
 from configparser import RawConfigParser
 from typing import Any
@@ -108,16 +110,80 @@ def test_send_mail_starttls_required() -> None:
     # Mailpit runs without a certificate, so it does not offer STARTTLS. The
     # message must not go out in plain text instead.
     to = unique_address()
-    with pytest.raises(MailError):
+    with pytest.raises(MailError) as exc_info:
         send_mail(mail_config(security="starttls"), to, "Hi", "Hi\n")
+    assert isinstance(exc_info.value.__cause__, smtplib.SMTPNotSupportedError)
     assert find_messages(to) == []
 
 
 def test_send_mail_tls_against_plain_server() -> None:
     to = unique_address()
-    with pytest.raises(MailError):
+    with pytest.raises(MailError) as exc_info:
         send_mail(mail_config(security="tls", timeout=2.0), to, "Hi", "Hi\n")
+    assert isinstance(exc_info.value.__cause__, ssl.SSLError)
     assert find_messages(to) == []
+
+
+def assert_verifying(context: Any) -> None:
+    assert isinstance(context, ssl.SSLContext)
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    assert context.check_hostname
+
+
+def test_send_mail_tls_verifies_certificate() -> None:
+    with mock.patch("smtplib.SMTP_SSL") as smtp_ssl:
+        send_mail(mail_config(security="tls"), unique_address(), "Hi", "Hi\n")
+    assert_verifying(smtp_ssl.call_args.kwargs["context"])
+
+
+def test_send_mail_starttls_verifies_certificate() -> None:
+    with mock.patch("smtplib.SMTP") as smtp:
+        send_mail(mail_config(security="starttls"), unique_address(), "Hi", "Hi\n")
+    assert_verifying(smtp.return_value.starttls.call_args.kwargs["context"])
+
+
+def test_send_mail_ignores_quit_failure() -> None:
+    to = unique_address()
+    with mock.patch(
+        "smtplib.SMTP.quit", side_effect=smtplib.SMTPServerDisconnected("gone")
+    ):
+        send_mail(mail_config(), to, "Hi", "Hi\n")
+    assert len(find_messages(to)) == 1
+
+
+def test_send_mail_does_not_log_recipient(caplog: pytest.LogCaptureFixture) -> None:
+    to = unique_address()
+    refused = smtplib.SMTPRecipientsRefused({to: (550, b"no such user")})
+    with mock.patch("smtplib.SMTP.send_message", side_effect=refused):
+        with pytest.raises(MailError) as exc_info:
+            send_mail(mail_config(), to, "Hi", "Hi\n")
+    assert to not in str(exc_info.value)
+    assert "SMTPRecipientsRefused" in caplog.text
+    assert to not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "to",
+    [
+        "{a}, {b}",
+        "{a},{b}",
+        "{a}; {b}",
+        "Someone <{b}>",
+        "<{b}>",
+        " {a}",
+        "{a} ",
+        "a@b@example.com",
+        "not-an-address",
+        "",
+    ],
+)
+def test_send_mail_rejects_anything_but_one_address(to: str) -> None:
+    a = unique_address()
+    b = unique_address()
+    with pytest.raises(ValueError):
+        send_mail(mail_config(), to.format(a=a, b=b), "Hi", "Hi\n")
+    assert find_messages(a) == []
+    assert find_messages(b) == []
 
 
 @pytest.mark.parametrize("field", ["to", "subject"])
@@ -186,6 +252,23 @@ def test_mail_config_read_env() -> None:
     assert config.password == "pass"
     assert config.from_address == "noreply@example.com"
     assert config.timeout == 3.5
+
+
+@pytest.mark.parametrize("option", ["port=0", "port=65536", "timeout=0", "timeout=-1"])
+def test_mail_config_rejects_bad_numbers(option: str) -> None:
+    parser = RawConfigParser()
+    parser.read_string("[mail]\n" + option + "\n")
+    with pytest.raises(ValueError):
+        MailConfig().read(parser, "mail")
+
+
+def test_mail_config_warns_about_plain_text_credentials(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    parser = RawConfigParser()
+    parser.read_string("[mail]\nsecurity=none\nusername=user\n")
+    MailConfig().read(parser, "mail")
+    assert "unencrypted" in caplog.text
 
 
 def test_mail_config_rejects_unknown_security() -> None:

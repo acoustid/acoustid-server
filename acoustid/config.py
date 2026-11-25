@@ -676,6 +676,14 @@ class MailConfig(BaseConfig):
                 "mail security must be one of %s, not %r"
                 % (", ".join(self.SECURITY_MODES), self.security)
             )
+        if not 0 < self.port < 65536:
+            raise ValueError("mail port must be between 1 and 65535")
+        if not self.timeout > 0:
+            raise ValueError("mail timeout must be positive")
+        if self.security == "none" and self.username:
+            logger.warning(
+                "Mail security is none, SMTP credentials will be sent unencrypted"
+            )
 
     def read_section(self, parser: RawConfigParser, section: str) -> None:
         read_config_str_option(parser, section, self, "host", "host")
