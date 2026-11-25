@@ -17,7 +17,6 @@ from flask import (
     session,
     url_for,
 )
-from redis.exceptions import RedisError
 from werkzeug.wrappers import Response
 
 from acoustid.data.email import (
@@ -88,20 +87,15 @@ def change_email() -> Any:
     # Whether another account already has the address is not checked here:
     # saying so would tell anyone with an account which addresses are
     # registered. Confirming the link is where it fails.
-    redis = db.get_redis()
-    try:
-        if not count_email_sent(redis, user.id, email):
-            return account_page_with_error(
-                user, entered, "Too many emails sent. Try again in an hour."
-            )
-        token = create_email_confirmation(redis, user.id, email)
-    except RedisError:
-        logger.warning("Failed to store an email confirmation", exc_info=True)
+    if not count_email_sent(db.get_redis(), user.id, email):
         return account_page_with_error(
-            user, entered, "Something went wrong. Please try again later."
+            user, entered, "Too many emails sent. Try again in an hour."
         )
+    token = create_email_confirmation(db.get_app_db(), user.id, email)
+    # Committed before sending: a link that arrives must work.
+    db.session.commit()
     link = url_for(".confirm_email", token=token, _external=True)
-    context = dict(link=link, minutes=CONFIRMATION_TTL // 60)
+    context = dict(link=link, minutes=int(CONFIRMATION_TTL.total_seconds() // 60))
     try:
         send_mail(
             current_app.acoustid_config.mail,  # type: ignore
@@ -140,11 +134,7 @@ def confirm_page(error: str | None = None, **kwargs: Any) -> Response:
 def confirm_email() -> Response:
     token = request.args.get("token", "")
     user = require_user()
-    try:
-        confirmation = get_email_confirmation(db.get_redis(), token)
-    except RedisError:
-        logger.warning("Failed to read an email confirmation", exc_info=True)
-        return confirm_page("Something went wrong. Please try again later.")
+    confirmation = get_email_confirmation(db.get_app_db(), token)
     if confirmation is None:
         return confirm_page(INVALID_LINK)
     if confirmation.account_id != user.id:
@@ -160,24 +150,20 @@ def confirm_email_post() -> Any:
     token = request.form.get("token", "")
     user = signed_in_user(url_for(".confirm_email", token=token, _external=True))
     check_account_csrf_token()
-    redis = db.get_redis()
-    try:
-        # Look before using it up, so a link opened while signed in to the
-        # wrong account still works once the right one is signed in.
-        confirmation = get_email_confirmation(redis, token)
-        if confirmation is None or confirmation.account_id != user.id:
-            return confirm_page(INVALID_LINK)
-        if consume_email_confirmation(redis, token) != confirmation:
-            return confirm_page(INVALID_LINK)
-    except RedisError:
-        logger.warning("Failed to use an email confirmation", exc_info=True)
-        return confirm_page("Something went wrong. Please try again later.")
-    if not set_account_email(db.get_app_db(), user.id, confirmation.email):
+    app_db = db.get_app_db()
+    # A link sent for another account is left alone, so it still works once
+    # the right account is signed in.
+    email = consume_email_confirmation(app_db, token, user.id)
+    if email is None:
+        return confirm_page(INVALID_LINK)
+    if not set_account_email(app_db, user.id, email):
+        # Rolls back the consumed link too, which is harmless: it would fail
+        # the same way again.
         db.session.rollback()
         return confirm_page(
             "Another AcoustID account already uses this email address. "
             "Accounts are not merged; sign in to that account instead."
         )
     db.session.commit()
-    set_notice("confirmed", confirmation.email)
+    set_notice("confirmed", email)
     return redirect(url_for("user.api_key"), code=303)

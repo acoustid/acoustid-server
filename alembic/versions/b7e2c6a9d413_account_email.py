@@ -1,4 +1,4 @@
-"""account.email
+"""account.email, account_email_confirmation
 
 Revision ID: b7e2c6a9d413
 Revises: f1a6d28c3b94
@@ -42,9 +42,37 @@ def upgrade_app():
         postgresql_where=sa.text("email_verified IS NOT NULL"),
         if_not_exists=True,
     )
+    op.create_table(
+        "account_email_confirmation",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("token_hash", sa.String(), nullable=False),
+        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("email", sa.String(), nullable=False),
+        sa.Column(
+            "created",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column("expires", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["account_id"], ["account.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "account_email_confirmation_idx_token_hash",
+        "account_email_confirmation",
+        ["token_hash"],
+        unique=True,
+    )
+    op.create_index(
+        "account_email_confirmation_idx_account_id",
+        "account_email_confirmation",
+        ["account_id"],
+    )
 
 
 def downgrade_app():
+    op.drop_table("account_email_confirmation")
     op.drop_index("account_idx_email", table_name="account")
     op.drop_column("account", "email_verified")
     op.drop_column("account", "email")

@@ -585,7 +585,8 @@ def pop_notice() -> str | None:
     if not notice:
         return None
     name, email = notice
-    return NOTICES[name].format(email=email, minutes=CONFIRMATION_TTL // 60)
+    minutes = int(CONFIRMATION_TTL.total_seconds() // 60)
+    return NOTICES[name].format(email=email, minutes=minutes)
 
 
 def render_account_page(

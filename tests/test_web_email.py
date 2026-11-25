@@ -1,6 +1,7 @@
 # Copyright (C) 2026 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import hashlib
 import re
 import uuid
 from typing import Any, Iterator
@@ -10,11 +11,11 @@ from urllib.parse import urlparse
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
+from redis.exceptions import RedisError
 from sqlalchemy import sql
 
 from acoustid import tables as schema
 from acoustid.data.email import (
-    CONFIRMATION_PREFIX,
     MAX_EMAILS_PER_ACCOUNT_PER_HOUR,
     MAX_EMAILS_PER_ADDRESS_PER_HOUR,
     RATE_LIMIT_PREFIX,
@@ -23,6 +24,7 @@ from acoustid.data.email import (
     normalize_email,
     set_account_email,
 )
+from acoustid.scripts.user_keys import run_cleanup_user_keys
 from tests import make_web_application
 from tests.test_mail import find_messages, get_message
 
@@ -37,13 +39,13 @@ def app(config_file: str) -> Iterator[Flask]:
     yield app
     script = app.acoustid_script  # type: ignore
     with script.context() as ctx:
+        ctx.db.get_app_db().execute(schema.account_email_confirmation.delete())
         ctx.db.get_app_db().execute(
             schema.account.update().values(email=None, email_verified=None)
         )
         ctx.db.session.commit()
-        for pattern in (CONFIRMATION_PREFIX + "*", RATE_LIMIT_PREFIX + "*"):
-            for key in ctx.redis.scan_iter(pattern):
-                ctx.redis.delete(key)
+        for key in ctx.redis.scan_iter(RATE_LIMIT_PREFIX + "*"):
+            ctx.redis.delete(key)
 
 
 def sign_in(client: FlaskClient, account_id: int) -> None:
@@ -339,3 +341,67 @@ def test_set_account_email_conflict_keeps_transaction(app: Flask) -> None:
     with app.acoustid_script.context() as ctx:  # type: ignore
         found = find_account_by_email(ctx.db.get_app_db(), email)
     assert found == OTHER_ACCOUNT_ID
+
+
+def confirmation_rows(app: Flask) -> list[Any]:
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        table = schema.account_email_confirmation
+        return list(ctx.db.get_app_db().execute(sql.select(table)).fetchall())
+
+
+def expire_confirmations(app: Flask) -> None:
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        table = schema.account_email_confirmation
+        ctx.db.get_app_db().execute(
+            table.update().values(
+                expires=sql.func.now() - sql.text("interval '1 second'")
+            )
+        )
+        ctx.db.session.commit()
+
+
+def test_only_the_token_hash_is_stored(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_link(client, email)
+    token = token_of(link_from_mail(email))
+    [row] = confirmation_rows(app)
+    assert row.account_id == ACCOUNT_ID
+    assert row.email == email
+    assert row.token_hash == hashlib.sha256(token.encode()).hexdigest()
+    assert token not in str(tuple(row))
+
+    confirm(client, link_from_mail(email))
+    assert confirmation_rows(app) == []
+
+
+def test_expired_link(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_link(client, email)
+    link = link_from_mail(email)
+    expire_confirmations(app)
+    rv = client.get(link)
+    assert rv.status_code == 400
+    assert b"not valid" in rv.data
+    rv = confirm(client, link)
+    assert rv.status_code == 400
+    assert account_email(app, ACCOUNT_ID) == (None, None)
+
+
+def test_cleanup_deletes_expired_confirmations(app: Flask, client: FlaskClient) -> None:
+    expired = unique_address()
+    request_link(client, expired)
+    expire_confirmations(app)
+    live = unique_address()
+    request_link(client, live)
+
+    run_cleanup_user_keys(app.acoustid_script)  # type: ignore
+    assert [row.email for row in confirmation_rows(app)] == [live]
+
+
+def test_rate_limit_allows_when_redis_fails(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    with mock.patch("redis.client.Pipeline.execute", side_effect=RedisError("gone")):
+        rv = request_link(client, email)
+    assert rv.status_code == 303
+    assert confirm(client, link_from_mail(email)).status_code == 303
+    assert account_email(app, ACCOUNT_ID)[0] == email

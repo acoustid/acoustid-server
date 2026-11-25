@@ -5,16 +5,18 @@
 
 An address only reaches the account row once its owner has opened a
 confirmation link, so account.email is always a verified address. Until then
-the pending address lives in redis, under a hash of the link's token, for
-CONFIRMATION_TTL seconds; the link works once.
+the pending address is in account_email_confirmation, under a hash of the
+link's token, for CONFIRMATION_TTL; the link works once.
 """
 
+import datetime
 import hashlib
-import json
+import logging
 import secrets
 from dataclasses import dataclass
 
 from redis import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import sql
 from sqlalchemy.exc import IntegrityError
 
@@ -22,8 +24,9 @@ from acoustid import tables as schema
 from acoustid.db import AppDB
 from acoustid.mail import check_recipient
 
-CONFIRMATION_TTL = 15 * 60
-CONFIRMATION_PREFIX = "emailconfirm:"
+logger = logging.getLogger(__name__)
+
+CONFIRMATION_TTL = datetime.timedelta(minutes=15)
 
 # Confirmation emails per hour, per account and per address. The second limit
 # is what stops someone flooding an inbox that is not theirs.
@@ -73,38 +76,67 @@ class EmailConfirmation:
     email: str
 
 
-def create_email_confirmation(redis: Redis, account_id: int, email: str) -> str:
+def create_email_confirmation(conn: AppDB, account_id: int, email: str) -> str:
     """Returns the token for the link. Only its hash is stored."""
     token = secrets.token_urlsafe(32)
-    value = json.dumps({"account_id": account_id, "email": email})
-    redis.set(CONFIRMATION_PREFIX + hash_token(token), value, ex=CONFIRMATION_TTL)
+    table = schema.account_email_confirmation
+    conn.execute(
+        table.insert().values(
+            token_hash=hash_token(token),
+            account_id=account_id,
+            email=email,
+            expires=sql.func.now() + CONFIRMATION_TTL,
+        )
+    )
     return token
 
 
-def parse_confirmation(value: bytes | str | None) -> EmailConfirmation | None:
-    if value is None:
-        return None
-    data = json.loads(value)
-    return EmailConfirmation(account_id=data["account_id"], email=data["email"])
-
-
-def get_email_confirmation(redis: Redis, token: str) -> EmailConfirmation | None:
+def get_email_confirmation(conn: AppDB, token: str) -> EmailConfirmation | None:
     """Look without using the link up, for the page that asks to confirm."""
     if not token:
         return None
-    return parse_confirmation(redis.get(CONFIRMATION_PREFIX + hash_token(token)))
+    table = schema.account_email_confirmation
+    stmt = (
+        sql.select(table.c.account_id, table.c.email)
+        .where(table.c.token_hash == hash_token(token))
+        .where(table.c.expires > sql.func.now())
+    )
+    row = conn.execute(stmt).first()
+    if row is None:
+        return None
+    return EmailConfirmation(account_id=row.account_id, email=row.email)
 
 
-def consume_email_confirmation(redis: Redis, token: str) -> EmailConfirmation | None:
-    """Use the link up. Of two concurrent requests, only one gets it."""
+def consume_email_confirmation(conn: AppDB, token: str, account_id: int) -> str | None:
+    """Use the link up and return its address, if it is live and was sent for
+    this account. Of two concurrent requests, only one gets it; if the
+    transaction rolls back, the link is still there."""
     if not token:
         return None
-    return parse_confirmation(redis.getdel(CONFIRMATION_PREFIX + hash_token(token)))
+    table = schema.account_email_confirmation
+    stmt = (
+        table.delete()
+        .where(table.c.token_hash == hash_token(token))
+        .where(table.c.account_id == account_id)
+        .where(table.c.expires > sql.func.now())
+        .returning(table.c.email)
+    )
+    return conn.execute(stmt).scalar()
+
+
+def delete_expired_email_confirmations(conn: AppDB) -> int:
+    table = schema.account_email_confirmation
+    stmt = table.delete().where(table.c.expires < sql.func.now())
+    return conn.execute(stmt).rowcount
 
 
 def count_email_sent(redis: Redis, account_id: int, email: str) -> bool:
     """Count one confirmation email. False if either hourly limit is reached,
-    in which case the email must not be sent."""
+    in which case the email must not be sent.
+
+    The counts are only a brake. If redis is unavailable, or loses them, more
+    emails get through for a while, so this allows the email rather than fail.
+    """
     # The address is hashed so the key does not hold it.
     keys = [
         (
@@ -116,11 +148,17 @@ def count_email_sent(redis: Redis, account_id: int, email: str) -> bool:
             MAX_EMAILS_PER_ADDRESS_PER_HOUR,
         ),
     ]
-    pipe = redis.pipeline()
-    for key, _ in keys:
-        pipe.incr(key)
-        pipe.expire(key, 3600, nx=True)
-    counts = pipe.execute()[::2]
+    try:
+        pipe = redis.pipeline()
+        for key, _ in keys:
+            pipe.incr(key)
+            # Without NX, which needs redis 7: each email restarts the hour,
+            # as the link code limiter does.
+            pipe.expire(key, 3600)
+        counts = pipe.execute()[::2]
+    except RedisError:
+        logger.warning("Failed to count confirmation emails", exc_info=True)
+        return True
     return all(count <= limit for count, (_, limit) in zip(counts, keys))
 
 

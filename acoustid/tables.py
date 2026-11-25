@@ -102,6 +102,28 @@ account_google = Table(
 
 # User keys issued to one application through the link flow. The key is handed
 # to the client before anyone approves it; approval sets account_id.
+# Links sent to confirm an email address for an account. A row is deleted when
+# its link is used, and expired rows by the daily cleanup.
+account_email_confirmation = Table(
+    "account_email_confirmation",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    # SHA-256 of the token in the link, hex. The token itself is not stored.
+    Column("token_hash", String, nullable=False),
+    Column("account_id", Integer, ForeignKey("account.id"), nullable=False),
+    Column("email", String, nullable=False),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.func.current_timestamp(),
+        nullable=False,
+    ),
+    Column("expires", DateTime(timezone=True), nullable=False),
+    Index("account_email_confirmation_idx_token_hash", "token_hash", unique=True),
+    Index("account_email_confirmation_idx_account_id", "account_id"),
+    info={"bind_key": "app"},
+)
+
 account_application_key = Table(
     "account_application_key",
     metadata,
