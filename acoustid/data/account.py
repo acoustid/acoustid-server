@@ -396,6 +396,10 @@ def list_user_application_keys(conn: AppDB, account_id: int) -> list[dict[str, A
             key.c.approved,
             key.c.revoked,
             key.c.last_used,
+            (
+                sql.func.coalesce(key.c.last_used, sql.cast(key.c.approved, Date))
+                < sql.func.current_date() - const.USER_KEY_LIFETIME_DAYS
+            ).label("lapsed"),
             app.c.id.label("application_id"),
             app.c.name.label("application_name"),
         )

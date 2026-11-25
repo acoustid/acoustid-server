@@ -27,7 +27,13 @@ def run_flush_user_key_use(script: Script) -> None:
         for name in ctx.redis.scan_iter(USER_KEY_USED_PREFIX + "*"):
             if isinstance(name, bytes):
                 name = name.decode()
-            date = datetime.date.fromisoformat(name.removeprefix(USER_KEY_USED_PREFIX))
+            try:
+                date = datetime.date.fromisoformat(
+                    name.removeprefix(USER_KEY_USED_PREFIX)
+                )
+            except ValueError:
+                logger.warning("Ignoring unexpected redis key %s", name)
+                continue
             members = ctx.redis.sscan_iter(name, count=BATCH_SIZE)
             while batch := list(islice(members, BATCH_SIZE)):
                 apikeys = [m.decode() if isinstance(m, bytes) else m for m in batch]

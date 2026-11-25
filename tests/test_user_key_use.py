@@ -80,6 +80,17 @@ def test_never_used_key_lapses_a_year_after_approval(conn: AppDB) -> None:
 
 
 @with_database
+def test_lapsing_does_not_change_pending_or_revoked_keys(conn: AppDB) -> None:
+    year_ago = TODAY - datetime.timedelta(days=366)
+    pending = create_user_key_link_request(conn, 1, None)
+    assert lookup_user_api_key(conn, pending.apikey) == UserKey(None, 1, "pending")
+
+    revoked = approved_key(conn)
+    set_key_dates(conn, revoked, approved=year_ago, revoked=sql.func.now())
+    assert lookup_user_api_key(conn, revoked) == UserKey(2, 1, "revoked")
+
+
+@with_database
 def test_mark_user_keys_used_only_moves_forward(conn: AppDB) -> None:
     apikey = approved_key(conn)
     mark_user_keys_used(conn, [apikey], TODAY)
@@ -145,6 +156,21 @@ def test_flush_writes_last_used_and_clears_redis(ctx: ScriptContext) -> None:
         run_flush_user_key_use(tests.script)
         assert last_used(ctx.db.get_app_db(), apikey) == TODAY
         assert not ctx.redis.exists(USER_KEY_USED_PREFIX + TODAY.isoformat())
+    finally:
+        ctx.db.get_app_db().execute(schema.account_application_key.delete())
+        ctx.db.session.commit()
+
+
+@with_script_context
+def test_flush_ignores_keys_that_are_not_dates(ctx: ScriptContext) -> None:
+    apikey = approved_key(ctx.db.get_app_db())
+    ctx.db.session.commit()
+    try:
+        ctx.redis.sadd(USER_KEY_USED_PREFIX + "not-a-date", "x")
+        record_user_key_use(ctx.redis, apikey, TODAY)
+        assert tests.script is not None
+        run_flush_user_key_use(tests.script)
+        assert last_used(ctx.db.get_app_db(), apikey) == TODAY
     finally:
         ctx.db.get_app_db().execute(schema.account_application_key.delete())
         ctx.db.session.commit()

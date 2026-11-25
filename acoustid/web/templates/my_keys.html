@@ -15,7 +15,7 @@
     </thead>
     <tbody>
       {% for key in keys %}
-      <tr{% if key.revoked %} class="muted"{% endif %}>
+      <tr{% if key.revoked or key.lapsed %} class="muted"{% endif %}>
         <td><span class="link-app-name">{{ key.application_name|truncate(60, True) }}</span></td>
         <td>{{ key.device or '' }}</td>
         <td class="shrink">{{ key.approved.strftime("%Y-%m-%d") }}</td>
@@ -23,6 +23,8 @@
         <td class="shrink">
           {% if key.revoked %}
             revoked {{ key.revoked.strftime("%Y-%m-%d") }}
+          {% elif key.lapsed %}
+            expired, unused for a year
           {% else %}
           <form method="POST" action="{{ url_for('link.revoke') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
