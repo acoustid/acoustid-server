@@ -97,7 +97,7 @@ def change_email() -> Any:
         within_global_limits(redis, mail_config.max_per_hour, mail_config.max_per_day)
     ):
         return account_page_with_error(
-            user, entered, "Too many emails sent. Try again in an hour."
+            user, entered, "Too many emails sent. Try again later."
         )
     token = create_email_confirmation(db.get_app_db(), user.id, email)
     # Committed before sending: a link that arrives must work.

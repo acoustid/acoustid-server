@@ -178,7 +178,8 @@ def within_global_limits(redis: Redis, max_per_hour: int, max_per_day: int) -> b
         ("global:hour:" + now.strftime("%Y%m%d%H"), max_per_hour, 3600),
         ("global:day:" + now.strftime("%Y%m%d"), max_per_day, 86400),
     ]
-    allowed = True
+    # Stops at the first cap that refuses, so the emails the hourly cap
+    # turns away do not count towards the day's.
     for name, limit, ttl in caps:
         if not limit:
             continue
@@ -192,10 +193,10 @@ def within_global_limits(redis: Redis, max_per_hour: int, max_per_day: int) -> b
             logger.warning("Failed to count emails", exc_info=True)
             continue
         if count > limit:
-            allowed = False
             if count == limit + 1:
                 logger.warning("Site-wide email cap reached: %s (%d)", name, limit)
-    return allowed
+            return False
+    return True
 
 
 def address_limit(secret: str, email: str) -> tuple[str, int]:

@@ -106,7 +106,7 @@ def request_signin() -> Any:
     # The same answer whether or not an account has the address, so this
     # cannot be used to find out which addresses are registered. The first
     # limit is in Postgres and holds without redis; see signin_allowed.
-    too_many = ["Too many emails sent. Try again in an hour."]
+    too_many = ["Too many emails sent. Try again later."]
     if not signin_allowed(db.get_app_db(), email):
         return render_login_page(too_many, return_url, entered, 400)
     mail_config = current_app.acoustid_config.mail  # type: ignore

@@ -80,8 +80,9 @@ def test_daily_cap(app: Flask) -> None:
 
 
 def test_refused_requests_do_not_use_the_cap_up(app: Flask) -> None:
-    # Requests stopped by the per-address limit send nothing, so they must
-    # not count against the site-wide cap either.
+    # Requests stopped by the per-address limit (in Postgres, before any
+    # redis counter) send nothing, so they must not count against the
+    # site-wide cap either. The per-IP test below covers a redis limit.
     email = unique_address()
     with caps(app, per_hour=4):
         for _ in range(3):
@@ -151,3 +152,14 @@ def test_requests_refused_per_ip_do_not_use_the_cap_up(app: Flask) -> None:
         # One email left under the cap, for someone else.
         assert signin_from(app, "192.0.2.2", unique_address()) == 303
         assert signin_from(app, "192.0.2.3", unique_address()) == 400
+
+
+def test_hourly_refusals_do_not_count_towards_the_day(
+    app: Flask, caplog: pytest.LogCaptureFixture
+) -> None:
+    redis = app.acoustid_script.get_redis()  # type: ignore
+    results = [within_global_limits(redis, 2, 5) for _ in range(6)]
+    assert results == [True, True, False, False, False, False]
+    [day_key] = redis.scan_iter(RATE_LIMIT_PREFIX + "global:day:*")
+    assert int(redis.get(day_key)) == 2
+    assert "global:day" not in caplog.text
