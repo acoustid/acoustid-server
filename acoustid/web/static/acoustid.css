@@ -190,7 +190,7 @@ a.btn { color: var(--ink); }
 }
 .seg button:last-child { border-right: 0; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; font-weight: 600; }
-select, input[type=text], input[type=number] {
+select, input[type=text], input[type=number], input[type=email] {
   font: 14px var(--font); color: var(--ink); background: var(--bg);
   border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 4px 8px;
 }
@@ -423,6 +423,10 @@ textarea.form-control { min-height: 6em; }
 .auth-aside p { margin: 0; }
 .alert { border-left: 3px solid var(--bad); background: #f9ecec; padding: 10px 14px; margin-bottom: 18px; color: var(--ink); }
 .alert p { margin: 0; }
+.notice { border-left: 3px solid var(--good); background: #eaf4ed; padding: 10px 14px; margin-bottom: 18px; color: var(--ink); }
+.notice p { margin: 0; }
+.email-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.email-form input[type=email] { flex: 1 1 240px; max-width: 360px; }
 @media (max-width: 760px) { .auth { grid-template-columns: 1fr; } }
 
 /* Track moderation */

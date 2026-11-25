@@ -66,8 +66,19 @@ account = Table(
     Column(
         "is_admin", Boolean, default=False, server_default=sql.false(), nullable=False
     ),
+    # Lowercased. Only ever set to an address the account has confirmed;
+    # a pending change lives in redis until then.
+    Column("email", String),
+    Column("email_verified", DateTime(timezone=True)),
     Index("account_idx_mbuser", "mbuser", unique=True),
     Index("account_idx_apikey", "apikey", unique=True),
+    # A verified address names exactly one account.
+    Index(
+        "account_idx_email",
+        "email",
+        unique=True,
+        postgresql_where=sql.text("email_verified IS NOT NULL"),
+    ),
     info={"bind_key": "app"},
 )
 
