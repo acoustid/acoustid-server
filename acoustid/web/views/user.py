@@ -387,12 +387,10 @@ def handle_openid_login_response():
                     "openid": openid_url,
                 },
             )
+        # Not the email address: addresses sign people in now, and stay out
+        # of the logs.
         logger.info(
-            "Successfuly identified OpenID user %s (%d) with email '%s' and nickname '%s'",
-            openid_url,
-            account_id,
-            values.get("email", ""),
-            values.get("name", ""),
+            "Successfully identified OpenID user %s (%d)", openid_url, account_id
         )
         return login_user_and_redirect(account_id)
     elif info.status == openid.CANCEL:
@@ -535,6 +533,10 @@ def handle_google_oauth2_login():
             ),
         )
 
+    # The signature is not checked. That is sound only because the token comes
+    # straight from Google's token endpoint over TLS, in exchange for a code
+    # redeemed with our client secret (OpenID Connect Core 3.1.3.7). It must
+    # never be taken from the browser, as in the implicit flow.
     header, payload, secret = str(response["id_token"]).split(".")
     payload += "=" * (4 - (len(payload) % 4))
     id_token = json.loads(base64.urlsafe_b64decode(payload))
@@ -546,22 +548,36 @@ def handle_google_oauth2_login():
     return login_user_and_redirect(user.id)
 
 
+GMAIL_DOMAINS = ("gmail.com", "googlemail.com")
+
+
 def store_google_email(user: Account, id_token: dict[str, Any]) -> None:
     """Give the account the address from Google's ID token, if Google has
-    verified it and the account has none yet.
+    verified it, Google hosts it, and the account has none yet.
 
     An address another account has already verified is left alone: accounts
     are never merged, and the unique index would refuse it anyway.
     """
     if user.email is not None:
         return
-    # A JSON boolean, though older tokens had the string "true".
-    if id_token.get("email_verified") not in (True, "true"):
+    # A JSON boolean, though older tokens had the string "true". Compared
+    # exactly, so nothing else that happens to be truthy counts.
+    verified = id_token.get("email_verified")
+    if not (verified is True or verified == "true"):
         return
     email = normalize_email(str(id_token.get("email") or ""))
     if email is None:
         return
+    # email_verified only says the address was verified once, when it was
+    # added to the Google account, possibly years ago. Only for an address
+    # Google itself hosts, Gmail or a Workspace domain (the hd claim), does
+    # signing in with Google show the person still controls it. Anything else
+    # could have passed to someone else since, who could then sign in by email.
+    domain = email.rpartition("@")[2]
+    if domain not in GMAIL_DOMAINS and not id_token.get("hd"):
+        return
     if set_account_email(db.get_app_db(), user.id, email):
+        db.session.expire(user, ["email", "email_verified"])
         logger.info("Stored the email address from Google for user %s", user.id)
 
 

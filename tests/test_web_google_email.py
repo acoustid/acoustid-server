@@ -26,13 +26,14 @@ def app(config_file: str) -> Iterator[Flask]:
     with app.acoustid_script.context() as ctx:  # type: ignore
         conn = ctx.db.get_app_db()
         conn.execute(schema.account_google.delete())
+        conn.execute(schema.account_openid.delete())
         conn.execute(schema.account.delete().where(schema.account.c.id > 2))
         conn.execute(schema.account.update().values(email=None, email_verified=None))
         ctx.db.session.commit()
 
 
-def unique_address() -> str:
-    return "test-%s@example.com" % uuid.uuid4().hex
+def unique_address(domain: str = "gmail.com") -> str:
+    return "test-%s@%s" % (uuid.uuid4().hex, domain)
 
 
 def b64(data: dict[str, Any]) -> str:
@@ -105,6 +106,10 @@ def test_stores_a_verified_address(
         {},
         {"email_verified": True, "email": ""},
         {"email_verified": True, "email": "not an address"},
+        {"email_verified": 1},
+        {"email_verified": "True"},
+        # Not hosted by Google: verified once, maybe long ago.
+        {"email_verified": True, "email": unique_address("example.com")},
     ],
 )
 def test_ignores_an_unverified_or_missing_address(
@@ -146,3 +151,60 @@ def test_leaves_an_address_another_account_has(
     assert account_id != 2
     assert account_email(app, account_id) == (None, None)
     assert account_email(app, 2)[0] == email
+
+
+@pytest.mark.parametrize(
+    "domain,hd",
+    [("googlemail.com", None), ("example.com", "example.com")],
+)
+def test_stores_addresses_google_hosts(
+    app: Flask, monkeypatch: pytest.MonkeyPatch, domain: str, hd: str | None
+) -> None:
+    email = unique_address(domain)
+    claims: dict[str, Any] = {
+        "sub": uuid.uuid4().hex,
+        "email": email,
+        "email_verified": True,
+    }
+    if hd is not None:
+        claims["hd"] = hd
+    account_id = google_login(app, monkeypatch, claims)
+    assert account_email(app, account_id)[0] == email
+
+
+def test_conflict_keeps_the_google_link(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    email = unique_address()
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        assert set_account_email(ctx.db.get_app_db(), 2, email)
+        ctx.db.session.commit()
+    claims = {"sub": uuid.uuid4().hex, "email": email, "email_verified": True}
+    first = google_login(app, monkeypatch, claims)
+    assert google_login(app, monkeypatch, claims) == first
+
+
+def test_migrated_openid_account_gets_the_address(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    openid = "https://www.google.com/accounts/o8/id?id=%s" % uuid.uuid4().hex
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        conn = ctx.db.get_app_db()
+        account_id = conn.execute(
+            schema.account.insert()
+            .values(name="OpenID User", apikey=uuid.uuid4().hex[:10])
+            .returning(schema.account.c.id)
+        ).scalar_one()
+        conn.execute(
+            schema.account_openid.insert().values(account_id=account_id, openid=openid)
+        )
+        ctx.db.session.commit()
+    email = unique_address()
+    claims = {
+        "sub": uuid.uuid4().hex,
+        "openid_id": openid,
+        "email": email,
+        "email_verified": True,
+    }
+    assert google_login(app, monkeypatch, claims) == account_id
+    assert account_email(app, account_id)[0] == email
