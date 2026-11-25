@@ -58,7 +58,6 @@ and lookups can be attributed to them. It goes in the <code>user</code> paramete
 
  * **Submissions** always need one.
  * **Lookups** may include one, and from **1 January 2027** they require one.
- * A user key that is sent is always checked, so a wrong one is an error even before that date.
 
 The key belongs to the user, not to you, so never put one in your application's code. Your
 application gets it from the user in one of two ways:
