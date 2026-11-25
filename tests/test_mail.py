@@ -197,6 +197,8 @@ def test_send_mail_does_not_log_recipient(caplog: pytest.LogCaptureFixture) -> N
         "not-an-address",
         "@example.com",
         "user@",
+        "{a}\r\nBcc: {b}",
+        "{a}\n",
         "{a}\x85",
         "{a}\u2028",
         "user\x00{a}",
@@ -213,16 +215,33 @@ def test_send_mail_rejects_anything_but_one_address(to: str) -> None:
     assert find_messages(b) == []
 
 
-@pytest.mark.parametrize("field", ["to", "subject"])
-def test_send_mail_rejects_header_injection(field: str) -> None:
+@pytest.mark.parametrize(
+    "subject", ["Hi\r\nBcc: {victim}", "Hi\nBcc: {victim}", "Hi\n", "Hi\r\n", "Hi\r"]
+)
+def test_send_mail_rejects_line_breaks_in_subject(subject: str) -> None:
     to = unique_address()
     victim = unique_address()
-    args = {"to": to, "subject": "Hi"}
-    args[field] += "\r\nBcc: " + victim
     with pytest.raises(ValueError):
-        send_mail(mail_config(), args["to"], args["subject"], "Hi\n")
+        send_mail(mail_config(), to, subject.format(victim=victim), "Hi\n")
     assert find_messages(to) == []
     assert find_messages(victim) == []
+
+
+def test_send_mail_rejects_line_breaks_in_from_address() -> None:
+    to = unique_address()
+    config = mail_config(from_address="AcoustID <noreply@acoustid.test>\n")
+    with pytest.raises(ValueError):
+        send_mail(config, to, "Hi", "Hi\n")
+    assert find_messages(to) == []
+
+
+def test_send_mail_multiline_bodies() -> None:
+    to = unique_address()
+    send_mail(mail_config(), to, "Hi", "one\r\ntwo\n", "<p>one</p>\n<p>two</p>\n")
+    [summary] = find_messages(to)
+    message = get_message(summary["ID"])
+    assert message["Text"].splitlines() == ["one", "two"]
+    assert "<p>two</p>" in message["HTML"]
 
 
 def test_mail_config_read_section() -> None:

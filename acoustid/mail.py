@@ -55,8 +55,13 @@ def describe_error(e: Exception) -> str:
 def build_message(
     config: MailConfig, to: str, subject: str, text: str, html: str | None = None
 ) -> EmailMessage:
-    # The SMTP policy rejects CR and LF in header values, so a value taken from
-    # user input cannot add headers of its own.
+    # The SMTP policy rejects line breaks inside header values, so a value
+    # taken from user input cannot add headers of its own. It lets a trailing
+    # one through, though (encoded, but still not something a subject should
+    # have), so check explicitly.
+    for value in (config.from_address, subject):
+        if "\r" in value or "\n" in value:
+            raise ValueError("header values may not contain line breaks")
     msg = EmailMessage(policy=SMTP)
     msg["From"] = config.from_address
     msg["To"] = to
