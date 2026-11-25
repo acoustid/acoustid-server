@@ -40,6 +40,10 @@ from acoustid.api.v2.internal import (
     UpdateApplicationStatusHandlerParams,
 )
 from acoustid.api.v2.misc import UserCreateAnonymousHandler, UserLookupHandler
+from acoustid.data.account import (
+    approve_user_key_link_request,
+    create_user_key_link_request,
+)
 from acoustid.script import ScriptContext
 from acoustid.utils import call_internal_api
 from tests import (
@@ -974,6 +978,58 @@ def test_lookup_treats_an_empty_user_key_as_absent(ctx):
         with pytest.raises(errors.MissingParameterError) as caught:
             params.parse(lookup_values(user=""), ctx.db)
     assert caught.value.parameter == "user"
+
+
+def linked_user_key(ctx, application_id=1, approve=True):
+    # type: (ScriptContext, int, bool) -> str
+    req = create_user_key_link_request(ctx.db.get_app_db(), application_id, "nas")
+    if approve:
+        approve_user_key_link_request(ctx.db.get_app_db(), req.link_code, 2)
+    return req.apikey
+
+
+@with_script_context
+def test_linked_user_key_works_with_its_own_application(ctx):
+    # type: (ScriptContext) -> None
+    apikey = linked_user_key(ctx)
+    params = LookupHandlerParams(ctx.config)
+    params.parse(lookup_values(user=apikey), ctx.db)
+    assert params.account_id == 2
+
+    values = lookup_values(user=apikey, bitrate="192", fileformat="MP3")
+    submit_params = SubmitHandlerParams(ctx.config)
+    submit_params.parse(values, ctx.db)
+    assert submit_params.account_id == 2
+
+
+@with_script_context
+def test_linked_user_key_is_rejected_with_another_application(ctx):
+    # type: (ScriptContext) -> None
+    apikey = linked_user_key(ctx)
+    for handler in (LookupHandlerParams, SubmitHandlerParams):
+        values = lookup_values(user=apikey, client="app2key", fileformat="MP3")
+        assert_raises(
+            errors.InvalidUserAPIKeyError,
+            handler(ctx.config).parse,
+            values,
+            ctx.db,
+        )
+
+
+@with_script_context
+def test_pending_user_key_starts_working_once_approved(ctx):
+    # type: (ScriptContext) -> None
+    req = create_user_key_link_request(ctx.db.get_app_db(), 1, "nas")
+    assert_raises(
+        errors.InvalidUserAPIKeyError,
+        LookupHandlerParams(ctx.config).parse,
+        lookup_values(user=req.apikey),
+        ctx.db,
+    )
+    approve_user_key_link_request(ctx.db.get_app_db(), req.link_code, 2)
+    params = LookupHandlerParams(ctx.config)
+    params.parse(lookup_values(user=req.apikey), ctx.db)
+    assert params.account_id == 2
 
 
 @with_script_context

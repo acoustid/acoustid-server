@@ -1,11 +1,16 @@
 # Copyright (C) 2011 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import datetime
 import logging
-from typing import Any
+import re
+import secrets
+from typing import Any, NamedTuple
 
-from sqlalchemy import sql
+from sqlalchemy import String, sql
+from sqlalchemy.dialects.postgresql import insert
 
+from acoustid import const
 from acoustid import tables as schema
 from acoustid.db import AppDB
 from acoustid.utils import generate_api_key
@@ -102,3 +107,146 @@ def reset_account_apikey(conn: AppDB, id: int) -> None:
 def is_moderator(conn: AppDB, id: int) -> bool:
     query = sql.select(schema.account.c.mbuser).where(schema.account.c.id == id)
     return bool(conn.execute(query).scalar())
+
+
+USER_KEY_PENDING = "pending"
+USER_KEY_APPROVED = "approved"
+USER_KEY_DECLINED = "declined"
+USER_KEY_EXPIRED = "expired"
+USER_KEY_REVOKED = "revoked"
+
+
+class UserKey(NamedTuple):
+    account_id: int | None
+    # None for account.apikey, which works with any application.
+    application_id: int | None
+    state: str
+
+
+def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
+    """Resolve a user key, either account.apikey or one from the link flow."""
+    account = schema.account
+    key = schema.account_application_key
+    query = (
+        sql.union_all(
+            sql.select(
+                sql.literal(0).label("priority"),
+                account.c.id.label("account_id"),
+                sql.null().label("application_id"),
+                sql.literal(USER_KEY_APPROVED).label("state"),
+            ).where(account.c.apikey == apikey),
+            sql.select(
+                sql.literal(1).label("priority"),
+                key.c.account_id,
+                key.c.application_id,
+                sql.case(
+                    (key.c.revoked.is_not(None), USER_KEY_REVOKED),
+                    (key.c.declined.is_not(None), USER_KEY_DECLINED),
+                    (key.c.approved.is_not(None), USER_KEY_APPROVED),
+                    (key.c.link_expires <= sql.func.now(), USER_KEY_EXPIRED),
+                    else_=USER_KEY_PENDING,
+                ),
+            ).where(key.c.apikey == apikey),
+        )
+        .order_by("priority")
+        .limit(1)
+    )
+    row = conn.execute(query).fetchone()
+    if row is None:
+        return None
+    return UserKey(row.account_id, row.application_id, row.state)
+
+
+# Crockford base32: no I, L, O or U, so a code survives being read aloud.
+LINK_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+LINK_CODE_LENGTH = 8
+
+
+def generate_link_code() -> str:
+    return "".join(secrets.choice(LINK_CODE_ALPHABET) for _ in range(LINK_CODE_LENGTH))
+
+
+def format_link_code(code: str) -> str:
+    return code[:4] + "-" + code[4:]
+
+
+def normalize_link_code(code: str) -> str:
+    code = re.sub(r"[\s-]", "", code).upper()
+    return code.replace("O", "0").replace("I", "1").replace("L", "1")
+
+
+class LinkRequest(NamedTuple):
+    id: int
+    apikey: str
+    link_code: str
+    link_expires: datetime.datetime
+
+
+def create_user_key_link_request(
+    conn: AppDB, application_id: int, device: str | None
+) -> LinkRequest:
+    key = schema.account_application_key
+    for _ in range(5):
+        apikey = generate_api_key()
+        values = sql.select(
+            sql.literal(apikey),
+            sql.literal(application_id),
+            sql.literal(device, String),
+            sql.literal(generate_link_code()),
+            sql.func.now() + const.USER_KEY_LINK_TTL,
+        ).where(
+            ~sql.exists().where(schema.account.c.apikey == apikey),
+        )
+        stmt = (
+            insert(key)
+            .from_select(
+                ["apikey", "application_id", "device", "link_code", "link_expires"],
+                values,
+            )
+            .on_conflict_do_nothing()
+            .returning(key.c.id, key.c.apikey, key.c.link_code, key.c.link_expires)
+        )
+        row = conn.execute(stmt).fetchone()
+        if row is not None:
+            return LinkRequest(row.id, row.apikey, row.link_code, row.link_expires)
+    raise Exception("Failed to generate a unique user key")
+
+
+def _update_pending_link(code: str) -> Any:
+    key = schema.account_application_key
+    return (
+        key.update()
+        .where(key.c.link_code == normalize_link_code(code))
+        .where(key.c.account_id.is_(None))
+        .where(key.c.declined.is_(None))
+        .where(key.c.link_expires > sql.func.now())
+        .returning(key.c.id)
+    )
+
+
+def approve_user_key_link_request(
+    conn: AppDB, code: str, account_id: int
+) -> int | None:
+    """Bind the pending key to the account. Returns its id, or None if the code
+    does not name a pending request."""
+    stmt = _update_pending_link(code).values(
+        account_id=account_id, approved=sql.func.now(), link_code=None
+    )
+    return conn.execute(stmt).scalar()
+
+
+def decline_user_key_link_request(conn: AppDB, code: str) -> int | None:
+    stmt = _update_pending_link(code).values(declined=sql.func.now(), link_code=None)
+    return conn.execute(stmt).scalar()
+
+
+def revoke_user_application_key(conn: AppDB, id: int, account_id: int) -> bool:
+    key = schema.account_application_key
+    stmt = (
+        key.update()
+        .where(key.c.id == id)
+        .where(key.c.account_id == account_id)
+        .where(key.c.revoked.is_(None))
+        .values(revoked=sql.func.now())
+    )
+    return conn.execute(stmt).rowcount == 1

@@ -32,7 +32,12 @@ from werkzeug.wrappers import Request, Response
 from acoustid import const
 from acoustid.api import errors, serialize_response
 from acoustid.const import MAX_REQUESTS_PER_SECOND
-from acoustid.data.account import lookup_account_id_by_apikey
+from acoustid.data.account import (
+    USER_KEY_APPROVED,
+    USER_KEY_PENDING,
+    UserKey,
+    lookup_user_api_key,
+)
 from acoustid.data.application import (
     lookup_application_id_by_apikey,
     lookup_application_requires_user_key,
@@ -158,14 +163,18 @@ def check_app_api_key(
     return application_id
 
 
-def user_api_key_cache_key(config, db, user_apikey):
-    return user_apikey
-
-
-@cachetools.cached(user_api_key_cache, key=user_api_key_cache_key)
 def check_user_api_key(config, db, user_apikey):
-    app_db = db.get_app_db(read_only=True)
-    return lookup_account_id_by_apikey(app_db, user_apikey)
+    # type: (Config, DatabaseContext, str) -> UserKey | None
+    try:
+        return user_api_key_cache[user_apikey]
+    except KeyError:
+        pass
+    key = lookup_user_api_key(db.get_app_db(read_only=True), user_apikey)
+    # A pending key can be approved at any moment, and the user who just
+    # approved it is watching the client.
+    if key is None or key.state != USER_KEY_PENDING:
+        user_api_key_cache[user_apikey] = key
+    return key
 
 
 # Credentials may arrive as request headers instead of query parameters. A
@@ -263,9 +272,14 @@ class APIHandlerParams(object):
             if required:
                 raise errors.MissingParameterError("user")
             return
-        self.account_id = check_user_api_key(self.config, db, account_apikey)
-        if not self.account_id:
+        key = check_user_api_key(self.config, db, account_apikey)
+        if key is None or key.state != USER_KEY_APPROVED:
             raise errors.InvalidUserAPIKeyError()
+        # Checked here rather than inside the cached function, which is keyed
+        # on the user key alone.
+        if key.application_id is not None and key.application_id != self.application_id:
+            raise errors.InvalidUserAPIKeyError()
+        self.account_id = key.account_id
 
     def _parse_format(self, values):
         self.format = values.get("format", DEFAULT_FORMAT)
