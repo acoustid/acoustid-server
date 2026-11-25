@@ -136,9 +136,10 @@ def delete_expired_email_confirmations(conn: AppDB) -> int:
     return conn.execute(stmt).rowcount
 
 
-def within_hourly_limits(redis: Redis, limits: list[tuple[str, int]]) -> bool:
-    """Count one email against each (name, limit). False if any limit is
-    reached, in which case the email must not be sent.
+def check_hourly_limits(redis: Redis, limits: list[tuple[str, int]]) -> str | None:
+    """Count one email against each (name, limit). Returns the kind of the
+    first limit reached (the part of its name before ":"), in which case the
+    email must not be sent, or None.
 
     The counts are only a brake. If redis is unavailable, or loses them, more
     emails get through for a while, so this allows the email rather than fail.
@@ -149,7 +150,7 @@ def within_hourly_limits(redis: Redis, limits: list[tuple[str, int]]) -> bool:
     that missed its EXPIRE still stops counting when the hour ends.
     """
     hour = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H")
-    allowed = True
+    refused = None
     for name, limit in limits:
         key = "%s%s:%s" % (RATE_LIMIT_PREFIX, name, hour)
         try:
@@ -160,9 +161,46 @@ def within_hourly_limits(redis: Redis, limits: list[tuple[str, int]]) -> bool:
         except RedisError:
             logger.warning("Failed to count emails", exc_info=True)
             continue
+        if count > limit and refused is None:
+            refused = name.split(":", 1)[0]
+    return refused
+
+
+def check_global_limits(
+    redis: Redis, max_per_hour: int, max_per_day: int
+) -> str | None:
+    """Count one email against the site-wide caps (0 for none). Returns
+    "global_hour" or "global_day" if that cap is reached, in which case the
+    email must not be sent, or None.
+
+    Call it last, once nothing else stops the email: only emails that would
+    really go out may count, or refused requests could use the cap up for
+    everyone. Like the other limits, this fails open without redis.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    caps = [
+        ("global_hour", "global:hour:" + now.strftime("%Y%m%d%H"), max_per_hour, 3600),
+        ("global_day", "global:day:" + now.strftime("%Y%m%d"), max_per_day, 86400),
+    ]
+    # Stops at the first cap that refuses, so the emails the hourly cap
+    # turns away do not count towards the day's.
+    for kind, name, limit, ttl in caps:
+        if not limit:
+            continue
+        key = RATE_LIMIT_PREFIX + name
+        try:
+            pipe = redis.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, ttl)
+            count = pipe.execute()[0]
+        except RedisError:
+            logger.warning("Failed to count emails", exc_info=True)
+            continue
         if count > limit:
-            allowed = False
-    return allowed
+            if count == limit + 1:
+                logger.warning("Site-wide email cap reached: %s (%d)", name, limit)
+            return kind
+    return None
 
 
 def address_limit(secret: str, email: str) -> tuple[str, int]:
@@ -177,11 +215,11 @@ def ip_limit(ip: str) -> tuple[str, int]:
     return ("ip:" + ip, MAX_EMAILS_PER_IP_PER_HOUR)
 
 
-def count_email_sent(
+def check_confirmation_email_limits(
     redis: Redis, secret: str, account_id: int, email: str, ip: str
-) -> bool:
-    """Count one confirmation email, see within_hourly_limits."""
-    return within_hourly_limits(
+) -> str | None:
+    """Count one confirmation email, see check_hourly_limits."""
+    return check_hourly_limits(
         redis,
         [
             ("account:%d" % account_id, MAX_EMAILS_PER_ACCOUNT_PER_HOUR),
@@ -191,9 +229,11 @@ def count_email_sent(
     )
 
 
-def count_signin_email_sent(redis: Redis, secret: str, email: str, ip: str) -> bool:
-    """Count one sign-in email, see within_hourly_limits."""
-    return within_hourly_limits(redis, [address_limit(secret, email), ip_limit(ip)])
+def check_signin_email_limits(
+    redis: Redis, secret: str, email: str, ip: str
+) -> str | None:
+    """Count one sign-in email, see check_hourly_limits."""
+    return check_hourly_limits(redis, [address_limit(secret, email), ip_limit(ip)])
 
 
 def find_account_by_email(conn: AppDB, email: str) -> int | None:

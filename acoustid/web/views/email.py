@@ -21,8 +21,9 @@ from werkzeug.wrappers import Response
 
 from acoustid.data.email import (
     CONFIRMATION_TTL,
+    check_confirmation_email_limits,
+    check_global_limits,
     consume_email_confirmation,
-    count_email_sent,
     create_email_confirmation,
     get_email_confirmation,
     mask_email,
@@ -32,7 +33,7 @@ from acoustid.data.email import (
 from acoustid.mail import MailError, send_mail
 from acoustid.models import Account
 from acoustid.web import db
-from acoustid.web.utils import require_user
+from acoustid.web.utils import count_mail, require_user
 from acoustid.web.views.user import (
     account_csrf_token,
     check_account_csrf_token,
@@ -90,9 +91,15 @@ def change_email() -> Any:
     # registered. Confirming the link is where it fails.
     secret = current_app.config["SECRET_KEY"]
     ip = request.remote_addr or ""
-    if not count_email_sent(db.get_redis(), secret, user.id, email, ip):
+    mail_config = current_app.acoustid_config.mail  # type: ignore
+    redis = db.get_redis()
+    refused = check_confirmation_email_limits(
+        redis, secret, user.id, email, ip
+    ) or check_global_limits(redis, mail_config.max_per_hour, mail_config.max_per_day)
+    if refused:
+        count_mail("refused_total", kind="confirmation", limit=refused)
         return account_page_with_error(
-            user, entered, "Too many emails sent. Try again in an hour."
+            user, entered, "Too many emails sent. Try again later."
         )
     token = create_email_confirmation(db.get_app_db(), user.id, email)
     # Committed before sending: a link that arrives must work.
@@ -111,12 +118,14 @@ def change_email() -> Any:
             render_template("mail/confirm_email.html", **context),
         )
     except MailError:
+        count_mail("send_failures_total", kind="confirmation")
         # Caught here so the address never reaches an error report.
         return account_page_with_error(
             user,
             entered,
             "We could not send the email right now. Please try again later.",
         )
+    count_mail("sent_total", kind="confirmation")
     set_notice("sent", email)
     return redirect(url_for("user.api_key"), code=303)
 

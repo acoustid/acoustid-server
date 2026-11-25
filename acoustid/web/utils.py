@@ -2,7 +2,7 @@ import logging
 import re
 import urllib.parse as urlparse
 
-from flask import abort, g, redirect, request, session, url_for
+from flask import abort, current_app, g, redirect, request, session, url_for
 
 from acoustid.data.account import is_moderator
 from acoustid.models import Account
@@ -60,3 +60,14 @@ def is_valid_url(s):
 def is_our_url(url):
     parsed = urlparse.urlparse(url)
     return parsed.netloc == request.host
+
+
+def count_mail(metric: str, **tags: str) -> None:
+    """Count an outgoing-mail event as mail.<metric> in statsd. Tags are
+    labels in Prometheus, so only ever low-cardinality values: never an
+    address, an IP or an account id."""
+    statsd = current_app.acoustid_script.statsd  # type: ignore
+    if statsd is None:
+        return
+    labels = "".join(",%s=%s" % item for item in sorted(tags.items()))
+    statsd.incr("mail." + metric + labels)

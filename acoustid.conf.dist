@@ -76,6 +76,9 @@ import_acoustid=http://data.acoustid.org/replication/acoustid-update-{seq}.xml.b
 #password=XXX
 #from_address=AcoustID <noreply@acoustid.org>
 #timeout=10
+# Site-wide caps on the emails the website sends; 0 or unset for none.
+#max_per_hour=200
+#max_per_day=2000
 
 [export]
 #directory=/var/lib/acoustid/data-export

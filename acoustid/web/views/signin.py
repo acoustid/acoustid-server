@@ -22,9 +22,10 @@ from acoustid.data.email import (
     SIGNIN_TTL,
     TooManyWrongCodes,
     UsedSignin,
+    check_global_limits,
+    check_signin_email_limits,
     consume_email_signin_by_code,
     consume_email_signin_by_token,
-    count_signin_email_sent,
     create_email_signin,
     find_or_create_email_account,
     get_email_signin_address,
@@ -36,7 +37,7 @@ from acoustid.data.email import (
 )
 from acoustid.mail import MailError, send_mail
 from acoustid.web import db
-from acoustid.web.utils import is_our_url
+from acoustid.web.utils import count_mail, is_our_url
 from acoustid.web.views.user import (
     account_csrf_token,
     check_account_csrf_token,
@@ -105,12 +106,20 @@ def request_signin() -> Any:
     # The same answer whether or not an account has the address, so this
     # cannot be used to find out which addresses are registered. The first
     # limit is in Postgres and holds without redis; see signin_allowed.
-    too_many = ["Too many emails sent. Try again in an hour."]
+    too_many = ["Too many emails sent. Try again later."]
+    mail_config = current_app.acoustid_config.mail  # type: ignore
+    redis = db.get_redis()
+    refused = None
     if not signin_allowed(db.get_app_db(), email):
-        return render_login_page(too_many, return_url, entered, 400)
-    if not count_signin_email_sent(
-        db.get_redis(), secret(), email, request.remote_addr or ""
-    ):
+        refused = "signin_requests"
+    else:
+        refused = check_signin_email_limits(
+            redis, secret(), email, request.remote_addr or ""
+        ) or check_global_limits(
+            redis, mail_config.max_per_hour, mail_config.max_per_day
+        )
+    if refused:
+        count_mail("refused_total", kind="signin", limit=refused)
         return render_login_page(too_many, return_url, entered, 400)
     signin = create_email_signin(db.get_app_db(), secret(), email, return_url)
     # Committed before sending: a link that arrives must work.
@@ -130,6 +139,7 @@ def request_signin() -> Any:
             render_template("mail/signin.html", **context),
         )
     except MailError:
+        count_mail("send_failures_total", kind="signin")
         return render_login_page(
             ["We could not send the email right now. Please try again later."],
             return_url,
@@ -138,6 +148,7 @@ def request_signin() -> Any:
         )
     # Earlier requests are kept only if they were for the same address.
     address = hash_token(email)
+    count_mail("sent_total", kind="signin")
     ids = signin_ids() if session.get(SIGNIN_ADDRESS_KEY) == address else []
     session[SIGNIN_SESSION_KEY] = (ids + [signin.id])[-MAX_SIGNINS_PER_SESSION:]
     session[SIGNIN_ADDRESS_KEY] = address
