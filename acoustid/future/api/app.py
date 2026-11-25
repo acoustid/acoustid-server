@@ -55,8 +55,8 @@ class ApiAuthBackend(AuthenticationBackend):
     async def authenticate(
         self, conn: HTTPConnection
     ) -> tuple[AuthCredentials, BaseUser] | None:
-        app_key = conn.headers.get("X-App-Key")
-        user_key = conn.headers.get("X-User-Key")
+        app_key = conn.headers.get("Acoustid-App-Key")
+        user_key = conn.headers.get("Acoustid-User-Key")
 
         if not app_key:
             return None

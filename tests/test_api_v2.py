@@ -10,7 +10,7 @@ from uuid import UUID
 
 import pytest
 from sqlalchemy import sql
-from werkzeug.datastructures import MultiDict
+from werkzeug.datastructures import CombinedMultiDict, Headers, MultiDict
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
@@ -28,10 +28,12 @@ from acoustid.api.v2 import (
     SubmitHandlerParams,
     app_api_key_cache,
     app_user_key_policy_cache,
+    credential_values,
 )
 from acoustid.api.v2.internal import (
     CheckApplicationHandler,
     CheckApplicationHandlerParams,
+    CreateAccountHandler,
     CreateApplicationHandler,
     CreateApplicationHandlerParams,
     UpdateApplicationStatusHandler,
@@ -39,6 +41,7 @@ from acoustid.api.v2.internal import (
 )
 from acoustid.api.v2.misc import UserCreateAnonymousHandler, UserLookupHandler
 from acoustid.script import ScriptContext
+from acoustid.utils import call_internal_api
 from tests import (
     TEST_1_FP,
     TEST_1_FP_RAW,
@@ -780,10 +783,15 @@ def test_user_lookup_handler_missing(ctx):
 
 def _cluster_secret_request(secret):
     # type: (Optional[str]) -> Request
-    values = {"format": "json"}
+    """A request authenticating with the cluster secret.
+
+    As `Authorization: Bearer`, not a query parameter -- a URL carrying a
+    secret ends up in access logs, proxy logs and error reports.
+    """
+    headers = Headers()
     if secret is not None:
-        values["secret"] = secret
-    builder = EnvironBuilder(method="POST", data=values)
+        headers["Authorization"] = "Bearer %s" % secret
+    builder = EnvironBuilder(method="POST", data={"format": "json"}, headers=headers)
     return Request(builder.get_environ())
 
 
@@ -1080,7 +1088,6 @@ def test_create_application_can_issue_an_exempt_key(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "name": "Commercial App",
                 "version": "1.0",
@@ -1103,7 +1110,6 @@ def test_create_application_requires_a_user_key_by_default(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "name": "Normal App",
                 "version": "1.0",
@@ -1129,7 +1135,6 @@ def test_update_application_status_can_exempt_an_existing_application(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "application_id": "1",
                 "active": "1",
@@ -1163,7 +1168,6 @@ def test_update_application_status_leaves_the_flag_alone_when_omitted(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "application_id": "1",
                 "active": "1",
@@ -1192,7 +1196,6 @@ def test_the_string_false_does_not_mean_false(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "application_id": "1",
                 "active": "1",
@@ -1207,7 +1210,6 @@ def test_the_string_false_does_not_mean_false(ctx):
     params.parse(
         MultiDict(
             {
-                "secret": "s3cr3t",
                 "account_id": "1",
                 "application_id": "1",
                 "active": "1",
@@ -1240,3 +1242,217 @@ def test_check_application_resolves_its_own_connection(ctx):
     )
 
     assert {"id": 2} == handler._handle_internal(params)
+
+
+def _internal_request(bearer, **params):
+    # type: (Optional[str], str) -> Request
+    """An internal request, authenticating with `bearer` if given.
+
+    `params` goes into the body, so a test can put `secret=...` there to check
+    that the query-parameter form is no longer accepted.
+    """
+    headers = Headers()
+    if bearer is not None:
+        headers["Authorization"] = "Bearer %s" % bearer
+    data = dict({"format": "json"}, **params)
+    return Request(
+        EnvironBuilder(method="POST", data=data, headers=headers).get_environ()
+    )
+
+
+@with_script_context
+def test_internal_endpoint_requires_the_cluster_secret(ctx):
+    # type: (ScriptContext) -> None
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = CreateAccountHandler(ctx)
+
+    for secret, label in ((None, "no header"), ("wrong", "wrong secret")):
+        body = json.loads(handler.handle(_internal_request(secret)).data)
+        assert body["status"] == "error", label
+        assert body["error"]["code"] == errors.ERROR_NOT_ALLOWED, label
+
+    body = json.loads(handler.handle(_internal_request("s3cr3t")).data)
+    assert body["status"] == "ok"
+
+
+@with_script_context
+def test_internal_endpoint_rejects_the_secret_as_a_query_parameter(ctx):
+    # type: (ScriptContext) -> None
+    """The point of the change: a secret in the URL is no longer accepted.
+
+    It ends up in access logs, proxy logs and error reports, none of which are
+    places for it.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = CreateAccountHandler(ctx)
+    body = json.loads(handler.handle(_internal_request(None, secret="s3cr3t")).data)
+    assert body["status"] == "error"
+    assert body["error"]["code"] == errors.ERROR_NOT_ALLOWED
+
+
+@with_script_context
+def test_unauthenticated_caller_cannot_probe_which_applications_exist(ctx):
+    # type: (ScriptContext) -> None
+    """The secret is checked before parse, not after.
+
+    Parsing an internal request touches the database: the application-status
+    handler looks the application up and raises if it is unknown. While the
+    secret was checked afterwards, a caller without it got
+    UnknownApplicationError for a missing application and a different error
+    for one that exists -- enough to enumerate them. Both must now answer
+    identically.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    handler = UpdateApplicationStatusHandler(ctx)
+
+    answers = set()
+    for application_id in ("1", "9999"):
+        response = handler.handle(
+            _internal_request(
+                "wrong", account_id="1", application_id=application_id, active="1"
+            )
+        )
+        body = json.loads(response.data)
+        answers.add((response.status, body["error"]["code"], body["error"]["message"]))
+
+    assert len(answers) == 1, "responses differ, so existence is still observable"
+    assert answers.pop()[1] == errors.ERROR_NOT_ALLOWED
+
+
+def _lookup_with_headers(**headers):
+    # type: (str) -> MultiDict
+    """The values a lookup handler would parse, given these headers."""
+    builder = EnvironBuilder(
+        method="POST",
+        data={
+            "format": "json",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+        },
+        headers=Headers(headers),
+    )
+    return credential_values(Request(builder.get_environ()))
+
+
+@with_script_context
+def test_credentials_may_be_sent_as_headers(ctx):
+    # type: (ScriptContext) -> None
+    """Keys in a URL end up in access logs and error reports; headers do not."""
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        params.parse(
+            _lookup_with_headers(
+                **{"Acoustid-App-Key": "app1key", "Acoustid-User-Key": "user1key"}
+            ),
+            ctx.db,
+        )
+    assert params.application_id == 1
+    assert params.account_id == 1
+
+
+@with_script_context
+def test_query_parameters_still_work(ctx):
+    # type: (ScriptContext) -> None
+    """The headers are an addition, not a replacement."""
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2000, 1, 1)):
+        params.parse(lookup_values(user="user1key"), ctx.db)
+    assert params.application_id == 1
+    assert params.account_id == 1
+
+
+@with_script_context
+def test_a_credential_header_beats_the_query_parameter(ctx):
+    # type: (ScriptContext) -> None
+    """A client sending both went out of its way to set the header."""
+    builder = EnvironBuilder(
+        method="POST",
+        data={
+            "format": "json",
+            "client": "app2key",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+        },
+        headers=Headers({"Acoustid-App-Key": "app1key"}),
+    )
+    params = LookupHandlerParams(ctx.config)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        params.parse(credential_values(Request(builder.get_environ())), ctx.db)
+    assert params.application_id == 1
+
+
+def test_credential_values_does_not_copy_the_request_body() -> None:
+    """A submission's fingerprints are large; the view must not duplicate them."""
+    builder = EnvironBuilder(method="POST", data={"fingerprint": "x" * 100000})
+    req = Request(builder.get_environ())
+    assert credential_values(req) is req.values
+
+    builder = EnvironBuilder(
+        method="POST",
+        data={"fingerprint": "x" * 100000},
+        headers=Headers({"Acoustid-App-Key": "app1key"}),
+    )
+    req = Request(builder.get_environ())
+    values = credential_values(req)
+    assert isinstance(values, CombinedMultiDict)
+    assert req.values in values.dicts
+
+
+@with_script_context
+def test_the_handler_reads_the_credential_headers(ctx):
+    # type: (ScriptContext) -> None
+    """Through handle(), so the wiring is covered and not just the helper.
+
+    The tests above call credential_values() themselves, which means they pass
+    whether or not the handler uses it -- confirmed by mutation. This one goes
+    through the real request path.
+    """
+    builder = EnvironBuilder(
+        method="POST",
+        data={
+            "format": "json",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+        },
+        headers=Headers({"Acoustid-App-Key": "app1key"}),
+    )
+    handler = LookupHandler(ctx)
+    with mock.patch.object(const, "LOOKUP_USER_REQUIRED_FROM", date(2099, 1, 1)):
+        response = handler.handle(Request(builder.get_environ()))
+    # No client parameter anywhere in the request, so a 200 can only mean the
+    # header was read.
+    assert json.loads(response.data)["status"] == "ok"
+
+
+@with_script_context
+def test_the_internal_api_client_is_accepted_by_the_internal_handler(ctx):
+    # type: (ScriptContext) -> None
+    """The in-repo client and the endpoints agree on where the secret goes.
+
+    Nothing coupled them before, which is how call_internal_api came to send
+    the secret in the body while the endpoints read it from a header -- a
+    break that would have shown up only as non-master stats silently failing
+    to forward. So this captures what the client actually sends and replays it
+    at the handler rather than asserting on either side alone.
+    """
+    ctx.config.cluster.secret = "s3cr3t"
+    ctx.config.cluster.base_master_url = "http://master"
+
+    sent = []  # type: list[Any]
+    with mock.patch("acoustid.utils.urlopen", side_effect=sent.append):
+        call_internal_api(ctx.config, "create_account")
+
+    assert len(sent) == 1
+    request = sent[0]
+    assert request.get_header("Authorization") == "Bearer s3cr3t"
+    assert b"secret" not in (request.data or b"")
+
+    replayed = EnvironBuilder(
+        method="POST",
+        data=request.data or b"",
+        content_type="application/x-www-form-urlencoded",
+        headers=Headers(dict(request.header_items())),
+    )
+    handler = CreateAccountHandler(ctx)
+    body = json.loads(handler.handle(Request(replayed.get_environ())).data)
+    assert body["status"] == "ok"

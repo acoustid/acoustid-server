@@ -5,7 +5,7 @@ def test_search(client: TestClient) -> None:
     response = client.post(
         "/v3/search",
         headers={
-            "X-App-Key": "test",
+            "Acoustid-App-Key": "test",
         },
         json={},
     )
