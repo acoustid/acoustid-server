@@ -18,7 +18,6 @@ from acoustid.data.stats import (
 )
 from acoustid.script import Script, ScriptContext
 from acoustid.tasks import enqueue_task
-from acoustid.utils import call_internal_api
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +68,7 @@ def run_update_lookup_stats(script: Script, partition: int):
         # counters with it.
         for application_id, group in groups.items():
             try:
-                write_lookup_stats(script, ctx, application_id, group)
+                write_lookup_stats(ctx, application_id, group)
                 ctx.db.session.commit()
             except IntegrityError as error:
                 if not _is_unknown_application(error):
@@ -89,7 +88,6 @@ def run_update_lookup_stats(script: Script, partition: int):
 
 
 def write_lookup_stats(
-    script: Script,
     ctx: ScriptContext,
     application_id: int,
     group: list[tuple[bytes, int, LookupStatsKey]],
@@ -113,23 +111,11 @@ def write_lookup_stats(
         if key.key_id is not None:
             key_dates[key.key_id] = max(key.date, key_dates.get(key.key_id, ""))
 
-    for (date, hour, type), count in app_counts.items():
-        if script.config.cluster.role == "master":
-            update_lookup_stats(db, application_id, date, hour, type, count)
-        else:
-            call_internal_api(
-                script.config,
-                "update_lookup_stats",
-                application_id=application_id,
-                date=date,
-                hour=hour,
-                type=type,
-                count=count,
-            )
-    if script.config.cluster.role != "master":
-        return
-
-    for date, account_id in {(d, a) for d, a, _ in user_counts}:
+    # Sorted, so flushes of different partitions running at the same time
+    # lock rows in the same order and cannot deadlock.
+    for (date, hour, type), count in sorted(app_counts.items()):
+        update_lookup_stats(db, application_id, date, hour, type, count)
+    for date, account_id in sorted({(d, a) for d, a, _ in user_counts}):
         update_user_lookup_stats(
             db,
             date,
@@ -138,5 +124,5 @@ def write_lookup_stats(
             hits=user_counts[date, account_id, "hit"],
             nohits=user_counts[date, account_id, "miss"],
         )
-    for key_id, date in key_dates.items():
+    for key_id, date in sorted(key_dates.items()):
         mark_user_key_used(db, key_id, datetime.date.fromisoformat(date))

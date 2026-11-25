@@ -274,6 +274,29 @@ def test_flush_writes_app_and_user_stats_and_last_used(ctx: ScriptContext) -> No
 
 
 @with_script_context
+def test_flush_keeps_the_latest_day_a_key_was_used(ctx: ScriptContext) -> None:
+    key = approved_key(ctx.db.get_app_db())
+    ctx.db.session.commit()
+    yesterday = (TODAY - datetime.timedelta(days=1)).isoformat()
+    for date in (TODAY.isoformat(), yesterday):
+        ctx.redis.hset("lookups:00", f"{date}:23:1:hit:2:{key.key_id}", 1)
+    try:
+        assert tests.script is not None
+        run_update_lookup_stats(tests.script, 0)
+        assert last_used(ctx.db.get_app_db(), key.key_id) == TODAY
+    finally:
+        cleanup_db(ctx)
+
+
+@with_script_context
+def test_flush_discards_invalid_counters(ctx: ScriptContext) -> None:
+    ctx.redis.hset("lookups:00", "garbage", 3)
+    assert tests.script is not None
+    run_update_lookup_stats(tests.script, 0)
+    assert ctx.redis.hget("lookups:00", "garbage") is None
+
+
+@with_script_context
 def test_cleanup_deletes_old_user_stats(ctx: ScriptContext) -> None:
     table = schema.stats_user_lookups
     old = TODAY - const.USER_LOOKUP_STATS_RETENTION - datetime.timedelta(days=1)
