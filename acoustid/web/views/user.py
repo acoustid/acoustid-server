@@ -83,9 +83,23 @@ def login():
             return google_login()
         elif login_method == "openid":
             return openid_login()
-    return render_template(
-        "login.html", errors=errors, return_url=request.values.get("return_url")
+    return render_login_page(errors, request.values.get("return_url"))
+
+
+def render_login_page(
+    errors: list[str],
+    return_url: str | None,
+    email_value: str = "",
+    status: int = 200,
+) -> Response:
+    body = render_template(
+        "login.html",
+        errors=errors,
+        return_url=return_url,
+        email_value=email_value,
+        csrf_token=account_csrf_token(),
     )
+    return make_response(body, status)
 
 
 def find_or_create_musicbrainz_user(mb_user_name):

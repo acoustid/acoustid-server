@@ -6,23 +6,35 @@
   <div class="auth-main">
     <div class="page-head">
       <h1>Sign in</h1>
-      <div class="sub"><span>Use an account you already have, there is no separate AcoustID password.</span></div>
+      <div class="sub"><span>There is no separate AcoustID password. Use an account you already have, or your email.</span></div>
     </div>
 
     {% if errors %}
     <div class="alert">{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div>
     {% endif %}
 
-    <form action="{{ url_for('.login') }}" method="POST" class="auth-providers">
+    <form action="{{ url_for('user.login') }}" method="POST" class="auth-providers">
       <input type="hidden" name="return_url" value="{{ return_url or '' }}">
       <button type="submit" name="login" value="musicbrainz" class="btn primary provider">Continue with MusicBrainz</button>
       <p class="small muted">Recommended. A MusicBrainz account also lets you fix wrong links between AcoustIDs and recordings.</p>
       <button type="submit" name="login" value="google" class="btn provider">Continue with Google</button>
     </form>
 
+    <form action="{{ url_for('signin.request_signin') }}" method="POST" class="auth-email">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="return_url" value="{{ return_url or '' }}">
+      <label for="signin_email">Or sign in with your email address</label>
+      <div class="email-form">
+        <input type="email" name="email" id="signin_email" value="{{ email_value }}" required maxlength="254"
+               autocomplete="email" placeholder="you@example.com">
+        <button type="submit" class="btn">Email me a sign-in link</button>
+      </div>
+      <p class="small muted">We will send you a link and a code. If no account has this address, signing in makes one.</p>
+    </form>
+
     <details class="auth-openid"{% if errors %} open{% endif %}>
       <summary>Signed in with OpenID before?</summary>
-      <form action="{{ url_for('.login') }}" method="POST" class="openid-form">
+      <form action="{{ url_for('user.login') }}" method="POST" class="openid-form">
         <input type="hidden" name="return_url" value="{{ return_url or '' }}">
         <input type="hidden" name="login" value="openid">
         <label for="openid_identifier" class="small muted">Your OpenID URL</label>
