@@ -53,6 +53,15 @@ jobs:
         ports:
           - 6080/tcp
 
+      mailpit:
+        image: axllent/mailpit:v1.33.1
+        ports:
+          - 1025/tcp
+          - 8025/tcp
+        env:
+          MP_SMTP_AUTH_ACCEPT_ANY: "1"
+          MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -147,6 +156,9 @@ jobs:
           ACOUSTID_TEST_REDIS_PORT: ${{ job.services.redis.ports['6379'] }}
           ACOUSTID_TEST_INDEX_HOST: localhost
           ACOUSTID_TEST_INDEX_PORT: ${{ job.services.index.ports['6080'] }}
+          ACOUSTID_TEST_MAIL_HOST: localhost
+          ACOUSTID_TEST_MAIL_PORT: ${{ job.services.mailpit.ports['1025'] }}
+          ACOUSTID_TEST_MAILPIT_URL: http://localhost:${{ job.services.mailpit.ports['8025'] }}
 
   build:
     runs-on: ubuntu-24.04

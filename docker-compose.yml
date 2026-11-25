@@ -27,6 +27,14 @@ services:
   index:
     image: ghcr.io/acoustid/acoustid-index:v2022.02.03
 
+  # Catches outgoing mail in development and tests. The web UI and API are on
+  # port 8025. Any SMTP login is accepted, without TLS.
+  mailpit:
+    image: axllent/mailpit:v1.33.1
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+
   init-db:
     image: quay.io/acoustid/acoustid-server:latest
     build: .
@@ -49,6 +57,7 @@ services:
       - redis
       - postgres
       - index
+      - mailpit
     command:
       - /opt/acoustid/server/admin/docker/run-api.sh
     env_file:
@@ -63,6 +72,7 @@ services:
       - redis
       - postgres
       - index
+      - mailpit
     command:
       - /opt/acoustid/server/admin/docker/run-web.sh
     env_file:
@@ -77,6 +87,7 @@ services:
       - redis
       - postgres
       - index
+      - mailpit
     command:
       - /opt/acoustid/server/admin/docker/run-cron.sh
     env_file:
@@ -91,6 +102,7 @@ services:
       - redis
       - postgres
       - index
+      - mailpit
     command:
       - /opt/acoustid/server/admin/docker/run-worker.sh
     env_file:

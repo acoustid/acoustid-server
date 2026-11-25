@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import math
 import os.path
 from configparser import RawConfigParser
 from typing import Any, Callable, Dict, List, Optional
@@ -653,6 +654,59 @@ class ExportConfig(BaseConfig):
         read_env_item(self, "max_days", prefix + "EXPORT_MAX_DAYS", convert=int)
 
 
+class MailConfig(BaseConfig):
+    """SMTP server for outgoing mail. Mail is not sent unless host is set."""
+
+    SECURITY_MODES = ("starttls", "tls", "none")
+
+    def __init__(self) -> None:
+        self.host = ""
+        self.port = 587
+        # "starttls" upgrades a plain connection and refuses to go on if the
+        # server does not offer it, "tls" connects over TLS from the start
+        # (usually port 465), "none" is for a local test server only.
+        self.security = "starttls"
+        self.username: str | None = None
+        self.password: str | None = None
+        self.from_address = ""
+        self.timeout = 10.0
+
+    def validate(self) -> None:
+        if self.security not in self.SECURITY_MODES:
+            raise ValueError(
+                "mail security must be one of %s, not %r"
+                % (", ".join(self.SECURITY_MODES), self.security)
+            )
+        if not 0 < self.port < 65536:
+            raise ValueError("mail port must be between 1 and 65535")
+        if not (self.timeout > 0 and math.isfinite(self.timeout)):
+            raise ValueError("mail timeout must be positive")
+        if self.security == "none" and self.username:
+            logger.warning(
+                "Mail security is none, SMTP credentials will be sent unencrypted"
+            )
+
+    def read_section(self, parser: RawConfigParser, section: str) -> None:
+        read_config_str_option(parser, section, self, "host", "host")
+        if parser.has_option(section, "port"):
+            self.port = parser.getint(section, "port")
+        read_config_str_option(parser, section, self, "security", "security")
+        read_config_secret_str_option(parser, section, self, "username", "username")
+        read_config_secret_str_option(parser, section, self, "password", "password")
+        read_config_str_option(parser, section, self, "from_address", "from_address")
+        if parser.has_option(section, "timeout"):
+            self.timeout = parser.getfloat(section, "timeout")
+
+    def read_env(self, prefix: str) -> None:
+        read_env_item(self, "host", prefix + "MAIL_HOST")
+        read_env_item(self, "port", prefix + "MAIL_PORT", convert=int)
+        read_env_item(self, "security", prefix + "MAIL_SECURITY")
+        read_env_item(self, "username", prefix + "MAIL_USERNAME")
+        read_env_item(self, "password", prefix + "MAIL_PASSWORD")
+        read_env_item(self, "from_address", prefix + "MAIL_FROM_ADDRESS")
+        read_env_item(self, "timeout", prefix + "MAIL_TIMEOUT", convert=float)
+
+
 class Config(object):
     def __init__(self) -> None:
         self.databases = DatabasesConfig()
@@ -668,6 +722,7 @@ class Config(object):
         self.statsd = StatsdConfig()
         self.sentry = SentryConfig()
         self.export = ExportConfig()
+        self.mail = MailConfig()
 
     @classmethod
     def load(cls, path: str | None = None, tests: bool = False) -> "Config":
@@ -696,6 +751,7 @@ class Config(object):
         self.statsd.read(parser, "statsd")
         self.sentry.read(parser, "sentry")
         self.export.read(parser, "export")
+        self.mail.read(parser, "mail")
 
     def read_env(self, tests: bool = False) -> None:
         if tests:
@@ -715,3 +771,6 @@ class Config(object):
         self.statsd.read_env(prefix)
         self.sentry.read_env(prefix)
         self.export.read_env(prefix)
+        self.mail.read_env(prefix)
+        # After the environment, so it can override a bad value in the file.
+        self.mail.validate()
