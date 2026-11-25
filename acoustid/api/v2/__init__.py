@@ -34,7 +34,6 @@ from acoustid.api import errors, serialize_response
 from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.data.account import (
     USER_KEY_APPROVED,
-    USER_KEY_PENDING,
     UserKey,
     lookup_user_api_key,
 )
@@ -115,6 +114,12 @@ app_api_key_cache = cachetools.TTLCache(
 user_api_key_cache = cachetools.TTLCache(
     maxsize=65536, ttl=60.0
 )  # type: cachetools.Cache
+# Briefly, so a burst of requests with a bad key does not each reach the
+# database, while a key issued moments ago becomes visible soon after it
+# reaches the replica.
+unknown_user_api_key_cache = cachetools.TTLCache(
+    maxsize=65536, ttl=5.0
+)  # type: cachetools.Cache
 # Keyed on application id, of which there are few, so this one does not have
 # the working-set problem the user key cache has.
 app_user_key_policy_cache = cachetools.TTLCache(
@@ -169,10 +174,13 @@ def check_user_api_key(config, db, user_apikey):
         return user_api_key_cache[user_apikey]
     except KeyError:
         pass
+    if user_apikey in unknown_user_api_key_cache:
+        return None
     key = lookup_user_api_key(db.get_app_db(read_only=True), user_apikey)
-    # A pending key can be approved at any moment, and the user who just
-    # approved it is watching the client.
-    if key is None or key.state != USER_KEY_PENDING:
+    # A pending key is not cached, since it can be approved at any moment.
+    if key is None:
+        unknown_user_api_key_cache[user_apikey] = True
+    elif key.state == USER_KEY_APPROVED:
         user_api_key_cache[user_apikey] = key
     return key
 

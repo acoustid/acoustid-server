@@ -124,3 +124,21 @@ def test_pending_user_key_is_not_cached(monkeypatch: pytest.MonkeyPatch) -> None
     assert check_user(db).state == USER_KEY_PENDING
     state["value"] = USER_KEY_APPROVED
     assert check_user(db).state == USER_KEY_APPROVED
+
+
+def test_unknown_user_key_is_cached_briefly(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Long enough to absorb a burst, short enough that a key issued moments
+    ago, which may not have reached the replica yet, soon starts working."""
+    calls = {"user": 0}
+
+    def lookup_user_api_key(db: Any, apikey: str) -> UserKey | None:
+        calls["user"] += 1
+        return None
+
+    monkeypatch.setattr(v2, "lookup_user_api_key", lookup_user_api_key)
+
+    db = FakeDB()
+    for _ in range(3):
+        assert v2.check_user_api_key(cast(Any, None), cast(Any, db), SHARED_KEY) is None
+    assert calls["user"] == 1
+    assert v2.unknown_user_api_key_cache.ttl <= 10
