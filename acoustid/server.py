@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional, Tuple
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 from six import BytesIO
 from werkzeug.exceptions import BadRequest, ClientDisconnected, HTTPException
-from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.routing import Map, Rule, RuleFactory, Submount
 from werkzeug.wrappers import Request
 from werkzeug.wsgi import get_content_length, get_input_stream
@@ -21,6 +20,7 @@ import acoustid.api.v2
 import acoustid.api.v2.internal
 import acoustid.api.v2.misc
 from acoustid.script import Script
+from acoustid.wsgi_utils import apply_proxy_fix
 
 if TYPE_CHECKING:
     from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
@@ -220,5 +220,5 @@ def make_application(config_path=None):
     server.wsgi_app = GzipRequestMiddleware(server.wsgi_app)  # type: ignore
     server.wsgi_app = replace_double_slashes(server.wsgi_app)  # type: ignore
     server.wsgi_app = add_cors_headers(server.wsgi_app)  # type: ignore
-    server.wsgi_app = ProxyFix(server.wsgi_app)  # type: ignore
+    server.wsgi_app = apply_proxy_fix(server.wsgi_app, server.config)  # type: ignore
     return server

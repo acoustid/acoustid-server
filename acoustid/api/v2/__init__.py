@@ -430,10 +430,10 @@ class APIHandler(Handler):
         initialize_trace_id()
         params = self.params_class(self.ctx.config)
         params.redis = self.ctx.redis
-        if req.access_route:
-            self.user_ip = req.access_route[0]
-        else:
-            self.user_ip = req.remote_addr or "0.0.0.0"
+        # Not access_route[0]: that is the leftmost X-Forwarded-For entry,
+        # which the client chooses. apply_proxy_fix has already put the
+        # address the trusted proxies saw into REMOTE_ADDR.
+        self.user_ip = req.remote_addr or "0.0.0.0"
         self.is_secure = req.is_secure
         self.user_agent = req.user_agent
         self.rate_limiter = RateLimiter(self.ctx.redis, "rl")

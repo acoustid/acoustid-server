@@ -772,6 +772,23 @@ def test_user_lookup_handler(ctx):
 
 
 @with_script_context
+def test_api_takes_the_client_ip_from_remote_addr(ctx: ScriptContext) -> None:
+    """X-Forwarded-For is resolved by apply_proxy_fix before the handler; the
+    leftmost entry is whatever the client sent, so it must not be used."""
+    builder = EnvironBuilder(
+        method="POST",
+        data={"format": "json", "client": "app1key", "user": "user1key"},
+        headers=[("X-Forwarded-For", "1.2.3.4")],
+        environ_base={"REMOTE_ADDR": "203.0.113.7"},
+    )
+    handler = UserLookupHandler(ctx)
+    with mock.patch.object(handler, "_rate_limit") as rate_limit:
+        handler.handle(Request(builder.get_environ()))
+    assert handler.user_ip == "203.0.113.7"
+    rate_limit.assert_called_once_with("203.0.113.7", mock.ANY)
+
+
+@with_script_context
 def test_user_lookup_handler_missing(ctx):
     # type: (ScriptContext) -> None
     values = {"format": "json", "client": "app1key", "user": "xxx"}
