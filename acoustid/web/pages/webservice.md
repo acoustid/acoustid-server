@@ -651,6 +651,9 @@ having to start again. A key from [Request a user key link](#request_link) is re
 other methods until it is approved, with the same error as a wrong key. When that happens,
 check its status here before you discard the key.
 
+It works with any user key, not only linked ones. A key the user copied from this website is
+always <code>approved</code>, or <code>unknown</code> once they have replaced it with a new one.
+
 #### URL
 
     https://api.acoustid.org/v2/user/link_status
