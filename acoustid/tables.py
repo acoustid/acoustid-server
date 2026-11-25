@@ -122,6 +122,31 @@ account_email_confirmation = Table(
     info={"bind_key": "app"},
 )
 
+# Requests to sign in by email. The email carries a link and a code, and using
+# either deletes the row. Expired rows go in the daily cleanup.
+account_email_signin = Table(
+    "account_email_signin",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    # SHA-256 of the token in the link, hex. The token itself is not stored.
+    Column("token_hash", String, nullable=False),
+    # HMAC of the six-digit code, keyed with the app secret and the token hash.
+    Column("code_hash", String, nullable=False),
+    Column("email", String, nullable=False),
+    # Where to go after signing in, if the login page had one.
+    Column("return_url", String),
+    Column("code_attempts", Integer, nullable=False, server_default=sql.literal(0)),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.func.current_timestamp(),
+        nullable=False,
+    ),
+    Column("expires", DateTime(timezone=True), nullable=False),
+    Index("account_email_signin_idx_token_hash", "token_hash", unique=True),
+    info={"bind_key": "app"},
+)
+
 # User keys issued to one application through the link flow. The key is handed
 # to the client before anyone approves it; approval sets account_id.
 account_application_key = Table(

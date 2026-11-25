@@ -24,6 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from acoustid import tables as schema
 from acoustid.db import AppDB
 from acoustid.mail import check_recipient
+from acoustid.utils import generate_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -135,11 +136,9 @@ def delete_expired_email_confirmations(conn: AppDB) -> int:
     return conn.execute(stmt).rowcount
 
 
-def count_email_sent(
-    redis: Redis, secret: str, account_id: int, email: str, ip: str
-) -> bool:
-    """Count one confirmation email. False if an hourly limit is reached, in
-    which case the email must not be sent.
+def within_hourly_limits(redis: Redis, limits: list[tuple[str, int]]) -> bool:
+    """Count one email against each (name, limit). False if any limit is
+    reached, in which case the email must not be sent.
 
     The counts are only a brake. If redis is unavailable, or loses them, more
     emails get through for a while, so this allows the email rather than fail.
@@ -150,14 +149,6 @@ def count_email_sent(
     that missed its EXPIRE still stops counting when the hour ends.
     """
     hour = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H")
-    # The address is keyed by an HMAC, so the key does not reveal it, even to
-    # someone hashing a list of candidate addresses.
-    address = hmac.new(secret.encode(), email.encode(), hashlib.sha256).hexdigest()
-    limits = [
-        ("account:%d" % account_id, MAX_EMAILS_PER_ACCOUNT_PER_HOUR),
-        ("address:" + address, MAX_EMAILS_PER_ADDRESS_PER_HOUR),
-        ("ip:" + ip, MAX_EMAILS_PER_IP_PER_HOUR),
-    ]
     allowed = True
     for name, limit in limits:
         key = "%s%s:%s" % (RATE_LIMIT_PREFIX, name, hour)
@@ -167,11 +158,42 @@ def count_email_sent(
             pipe.expire(key, 3600)
             count = pipe.execute()[0]
         except RedisError:
-            logger.warning("Failed to count confirmation emails", exc_info=True)
+            logger.warning("Failed to count emails", exc_info=True)
             continue
         if count > limit:
             allowed = False
     return allowed
+
+
+def address_limit(secret: str, email: str) -> tuple[str, int]:
+    # Keyed by an HMAC, so the key does not reveal the address, even to
+    # someone hashing a list of candidate addresses. Shared by every kind of
+    # email, since the point is the recipient's inbox.
+    address = hmac.new(secret.encode(), email.encode(), hashlib.sha256).hexdigest()
+    return ("address:" + address, MAX_EMAILS_PER_ADDRESS_PER_HOUR)
+
+
+def ip_limit(ip: str) -> tuple[str, int]:
+    return ("ip:" + ip, MAX_EMAILS_PER_IP_PER_HOUR)
+
+
+def count_email_sent(
+    redis: Redis, secret: str, account_id: int, email: str, ip: str
+) -> bool:
+    """Count one confirmation email, see within_hourly_limits."""
+    return within_hourly_limits(
+        redis,
+        [
+            ("account:%d" % account_id, MAX_EMAILS_PER_ACCOUNT_PER_HOUR),
+            address_limit(secret, email),
+            ip_limit(ip),
+        ],
+    )
+
+
+def count_signin_email_sent(redis: Redis, secret: str, email: str, ip: str) -> bool:
+    """Count one sign-in email, see within_hourly_limits."""
+    return within_hourly_limits(redis, [address_limit(secret, email), ip_limit(ip)])
 
 
 def find_account_by_email(conn: AppDB, email: str) -> int | None:
@@ -203,3 +225,177 @@ def set_account_email(conn: AppDB, account_id: int, email: str) -> bool:
     except IntegrityError:
         return False
     return True
+
+
+SIGNIN_TTL = datetime.timedelta(minutes=15)
+
+# Wrong codes one sign-in request takes before it is dead, link included.
+# Guessing one of a million codes in five tries, with at most a few emails
+# an hour to an address, is not a practical attack.
+MAX_CODE_ATTEMPTS = 5
+
+
+def hash_code(secret: str, token_hash: str, code: str) -> str:
+    message = (token_hash + ":" + code).encode()
+    return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
+
+
+def normalize_code(value: str) -> str:
+    return "".join(c for c in value if c.isdigit())
+
+
+@dataclass(frozen=True)
+class EmailSignin:
+    id: int
+    token: str
+    code: str
+
+
+def create_email_signin(
+    conn: AppDB, secret: str, email: str, return_url: str | None
+) -> EmailSignin:
+    token = secrets.token_urlsafe(32)
+    code = "%06d" % secrets.randbelow(1000000)
+    token_hash = hash_token(token)
+    table = schema.account_email_signin
+    stmt = (
+        table.insert()
+        .values(
+            token_hash=token_hash,
+            code_hash=hash_code(secret, token_hash, code),
+            email=email,
+            return_url=return_url,
+            expires=sql.func.now() + SIGNIN_TTL,
+        )
+        .returning(table.c.id)
+    )
+    return EmailSignin(id=conn.execute(stmt).scalar_one(), token=token, code=code)
+
+
+def live_signin(table: sql.TableClause) -> sql.ColumnElement[bool]:
+    return sql.and_(
+        table.c.expires > sql.func.now(),
+        table.c.code_attempts < MAX_CODE_ATTEMPTS,
+    )
+
+
+def get_email_signin_by_token(conn: AppDB, token: str) -> str | None:
+    """The address of a live sign-in link, without using it up."""
+    if not token:
+        return None
+    table = schema.account_email_signin
+    stmt = (
+        sql.select(table.c.email)
+        .where(table.c.token_hash == hash_token(token))
+        .where(live_signin(table))
+    )
+    return conn.execute(stmt).scalar()
+
+
+@dataclass(frozen=True)
+class UsedSignin:
+    email: str
+    return_url: str | None
+
+
+def consume_email_signin_by_token(conn: AppDB, token: str) -> UsedSignin | None:
+    """Use a sign-in link up, and with it the code."""
+    if not token:
+        return None
+    table = schema.account_email_signin
+    stmt = (
+        table.delete()
+        .where(table.c.token_hash == hash_token(token))
+        .where(live_signin(table))
+        .returning(table.c.email, table.c.return_url)
+    )
+    row = conn.execute(stmt).first()
+    if row is None:
+        return None
+    return UsedSignin(email=row.email, return_url=row.return_url)
+
+
+def get_email_signin_address(conn: AppDB, id: int) -> str | None:
+    """The address of a live sign-in request, for the page asking for its code."""
+    table = schema.account_email_signin
+    stmt = sql.select(table.c.email).where(table.c.id == id).where(live_signin(table))
+    return conn.execute(stmt).scalar()
+
+
+def consume_email_signin_by_code(
+    conn: AppDB, secret: str, id: int, code: str
+) -> UsedSignin | None:
+    """Use a sign-in request up by its code, and with it the link.
+
+    A wrong code counts against the request, and the caller must commit even
+    then, or the count is lost. The row is locked while it is checked, so
+    concurrent guesses are counted one after another.
+    """
+    table = schema.account_email_signin
+    stmt = (
+        sql.select(table.c.token_hash, table.c.code_hash)
+        .where(table.c.id == id)
+        .where(live_signin(table))
+        .with_for_update()
+    )
+    row = conn.execute(stmt).first()
+    if row is None:
+        return None
+    expected = hash_code(secret, row.token_hash, normalize_code(code))
+    if not hmac.compare_digest(expected, row.code_hash):
+        conn.execute(
+            table.update()
+            .where(table.c.id == id)
+            .values(code_attempts=table.c.code_attempts + 1)
+        )
+        return None
+    delete = (
+        table.delete()
+        .where(table.c.id == id)
+        .returning(table.c.email, table.c.return_url)
+    )
+    used = conn.execute(delete).one()
+    return UsedSignin(email=used.email, return_url=used.return_url)
+
+
+def delete_expired_email_signins(conn: AppDB) -> int:
+    table = schema.account_email_signin
+    stmt = table.delete().where(table.c.expires < sql.func.now())
+    return conn.execute(stmt).rowcount
+
+
+# The name of an account made by signing in by email. Accounts are shown by
+# their MusicBrainz name or as user<id>, not by this.
+EMAIL_ACCOUNT_NAME = "Email Account"
+
+
+def find_or_create_email_account(conn: AppDB, email: str, ip: str | None) -> int:
+    """The account with this verified address, made if there is none.
+
+    The address is verified: whoever calls this has just used a link or code
+    sent to it.
+    """
+    account_id = find_account_by_email(conn, email)
+    if account_id is not None:
+        return account_id
+    account = schema.account
+    stmt = (
+        account.insert()
+        .values(
+            name=EMAIL_ACCOUNT_NAME,
+            apikey=generate_api_key(),
+            created_from=ip or None,
+            lastlogin=sql.func.now(),
+        )
+        .returning(account.c.id)
+    )
+    savepoint = conn.begin_nested()
+    account_id = conn.execute(stmt).scalar_one()
+    if set_account_email(conn, account_id, email):
+        savepoint.commit()
+        return account_id
+    # Another request made an account with the address first. Drop ours.
+    savepoint.rollback()
+    account_id = find_account_by_email(conn, email)
+    assert account_id is not None
+    return account_id

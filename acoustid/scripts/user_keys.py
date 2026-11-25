@@ -4,7 +4,10 @@
 import logging
 
 from acoustid.data.account import delete_abandoned_link_requests
-from acoustid.data.email import delete_expired_email_confirmations
+from acoustid.data.email import (
+    delete_expired_email_confirmations,
+    delete_expired_email_signins,
+)
 from acoustid.data.stats import delete_old_user_lookup_stats
 from acoustid.script import Script
 
@@ -17,10 +20,11 @@ def run_cleanup_user_keys(script: Script) -> None:
         requests = delete_abandoned_link_requests(db)
         stats = delete_old_user_lookup_stats(db)
         confirmations = delete_expired_email_confirmations(db)
+        confirmations += delete_expired_email_signins(db)
         ctx.db.session.commit()
         logger.info(
             "Deleted %d abandoned link requests, %d old user stats rows "
-            "and %d expired email confirmations",
+            "and %d expired email confirmations and sign-ins",
             requests,
             stats,
             confirmations,

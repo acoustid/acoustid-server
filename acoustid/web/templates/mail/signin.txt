@@ -1,0 +1,17 @@
+Someone, hopefully you, asked to sign in to AcoustID with this address.
+
+Your code is: {{ code }}
+
+Type it on the page where you asked to sign in, or open this link:
+
+{{ link }}
+
+The code and the link work once, for {{ minutes }} minutes. If there is no
+AcoustID account with this address yet, signing in makes one.
+
+If you did not ask for this, ignore this email. Nobody can sign in without
+the code or the link.
+
+--
+AcoustID
+https://acoustid.org/

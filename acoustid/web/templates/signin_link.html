@@ -1,0 +1,23 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<div class="account">
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+  </div>
+
+  {% if error %}
+  <div class="alert"><p>{{ error }}</p></div>
+  <p class="links"><a href="{{ url_for('user.login') }}">Sign in</a></p>
+  {% else %}
+  <p>Sign in to AcoustID with <b>{{ masked_email }}</b>?</p>
+  <form method="POST" action="{{ url_for('signin.signin_link_post') }}" class="signin-link-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button type="submit" class="btn primary">Sign in</button>
+  </form>
+  <p class="small muted">If there is no account with this address yet, signing in makes one.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

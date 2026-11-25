@@ -1,0 +1,30 @@
+{% extends "_base.html" %}
+{% block content %}
+
+<div class="auth">
+  <div class="auth-main">
+    <div class="page-head">
+      <h1>{{ title }}</h1>
+      <div class="sub"><span>We sent an email to {{ masked_email }}.</span></div>
+    </div>
+
+    <p>Open the link in the email, or type the six-digit code from it here.</p>
+
+    {% if error %}<div class="alert"><p>{{ error }}</p></div>{% endif %}
+
+    <form method="POST" action="{{ url_for('signin.signin_code_post') }}" class="email-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+             pattern="[0-9 ]*" maxlength="7" required autofocus
+             aria-label="Code" placeholder="123456" class="code-input">
+      <button type="submit" class="btn primary">Sign in</button>
+    </form>
+
+    <p class="small muted">
+      The link and the code work for {{ minutes }} minutes. Nothing arrived? Check your spam folder,
+      or <a href="{{ url_for('user.login') }}">ask for a new email</a>.
+    </p>
+  </div>
+</div>
+
+{% endblock %}

@@ -411,6 +411,10 @@ textarea.form-control { min-height: 6em; }
 .auth-providers { display: flex; flex-direction: column; gap: 10px; }
 .auth-providers p { margin: -2px 0 8px; }
 .btn.provider { justify-content: center; padding: 10px 16px; font-size: 16px; }
+.auth-email { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
+.auth-email label { font-weight: 600; }
+.auth-email p { margin: 0; }
+.code-input { font-family: var(--mono, monospace); font-size: 20px !important; letter-spacing: 4px; width: 9em; }
 .auth-openid { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; font-size: 14px; }
 .auth-openid summary { cursor: pointer; color: var(--muted); }
 .auth-openid summary:hover { color: var(--ink); }
@@ -514,3 +518,4 @@ table.my-keys form { margin: 0; }
 .matrix th .letter { font-size: 12px; }
 tr.is-highlighted td { background: #e3ebf7; }
 th.is-highlighted .letter, tr.is-highlighted .letter { background: var(--link); color: #fff; }
+.signin-link-form { margin: 12px 0 14px; }
