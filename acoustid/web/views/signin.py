@@ -33,6 +33,7 @@ from acoustid.data.email import (
     mask_email,
     normalize_email,
     signin_allowed,
+    within_global_limits,
 )
 from acoustid.mail import MailError, send_mail
 from acoustid.web import db
@@ -108,8 +109,12 @@ def request_signin() -> Any:
     too_many = ["Too many emails sent. Try again in an hour."]
     if not signin_allowed(db.get_app_db(), email):
         return render_login_page(too_many, return_url, entered, 400)
+    mail_config = current_app.acoustid_config.mail  # type: ignore
+    redis = db.get_redis()
     if not count_signin_email_sent(
-        db.get_redis(), secret(), email, request.remote_addr or ""
+        redis, secret(), email, request.remote_addr or ""
+    ) or not within_global_limits(
+        redis, mail_config.max_per_hour, mail_config.max_per_day
     ):
         return render_login_page(too_many, return_url, entered, 400)
     signin = create_email_signin(db.get_app_db(), secret(), email, return_url)

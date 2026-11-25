@@ -28,6 +28,7 @@ from acoustid.data.email import (
     mask_email,
     normalize_email,
     set_account_email,
+    within_global_limits,
 )
 from acoustid.mail import MailError, send_mail
 from acoustid.models import Account
@@ -90,7 +91,11 @@ def change_email() -> Any:
     # registered. Confirming the link is where it fails.
     secret = current_app.config["SECRET_KEY"]
     ip = request.remote_addr or ""
-    if not count_email_sent(db.get_redis(), secret, user.id, email, ip):
+    mail_config = current_app.acoustid_config.mail  # type: ignore
+    redis = db.get_redis()
+    if not count_email_sent(redis, secret, user.id, email, ip) or not (
+        within_global_limits(redis, mail_config.max_per_hour, mail_config.max_per_day)
+    ):
         return account_page_with_error(
             user, entered, "Too many emails sent. Try again in an hour."
         )

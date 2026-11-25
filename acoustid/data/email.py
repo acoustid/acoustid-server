@@ -165,6 +165,39 @@ def within_hourly_limits(redis: Redis, limits: list[tuple[str, int]]) -> bool:
     return allowed
 
 
+def within_global_limits(redis: Redis, max_per_hour: int, max_per_day: int) -> bool:
+    """Count one email against the site-wide caps (0 for none). False if one
+    is reached, in which case the email must not be sent.
+
+    Call it last, once nothing else stops the email: only emails that would
+    really go out may count, or refused requests could use the cap up for
+    everyone. Like the other limits, this fails open without redis.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    caps = [
+        ("global:hour:" + now.strftime("%Y%m%d%H"), max_per_hour, 3600),
+        ("global:day:" + now.strftime("%Y%m%d"), max_per_day, 86400),
+    ]
+    allowed = True
+    for name, limit, ttl in caps:
+        if not limit:
+            continue
+        key = RATE_LIMIT_PREFIX + name
+        try:
+            pipe = redis.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, ttl)
+            count = pipe.execute()[0]
+        except RedisError:
+            logger.warning("Failed to count emails", exc_info=True)
+            continue
+        if count > limit:
+            allowed = False
+            if count == limit + 1:
+                logger.warning("Site-wide email cap reached: %s (%d)", name, limit)
+    return allowed
+
+
 def address_limit(secret: str, email: str) -> tuple[str, int]:
     # Keyed by an HMAC, so the key does not reveal the address, even to
     # someone hashing a list of candidate addresses. Shared by every kind of

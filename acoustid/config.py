@@ -670,6 +670,10 @@ class MailConfig(BaseConfig):
         self.password: str | None = None
         self.from_address = ""
         self.timeout = 10.0
+        # Site-wide caps on the emails the website sends, 0 for none. They
+        # bound what someone with many IP addresses can make us send.
+        self.max_per_hour = 0
+        self.max_per_day = 0
 
     def validate(self) -> None:
         if self.security not in self.SECURITY_MODES:
@@ -681,6 +685,8 @@ class MailConfig(BaseConfig):
             raise ValueError("mail port must be between 1 and 65535")
         if not (self.timeout > 0 and math.isfinite(self.timeout)):
             raise ValueError("mail timeout must be positive")
+        if self.max_per_hour < 0 or self.max_per_day < 0:
+            raise ValueError("mail max_per_hour and max_per_day must not be negative")
         if self.security == "none" and self.username:
             logger.warning(
                 "Mail security is none, SMTP credentials will be sent unencrypted"
@@ -696,6 +702,10 @@ class MailConfig(BaseConfig):
         read_config_str_option(parser, section, self, "from_address", "from_address")
         if parser.has_option(section, "timeout"):
             self.timeout = parser.getfloat(section, "timeout")
+        if parser.has_option(section, "max_per_hour"):
+            self.max_per_hour = parser.getint(section, "max_per_hour")
+        if parser.has_option(section, "max_per_day"):
+            self.max_per_day = parser.getint(section, "max_per_day")
 
     def read_env(self, prefix: str) -> None:
         read_env_item(self, "host", prefix + "MAIL_HOST")
@@ -705,6 +715,8 @@ class MailConfig(BaseConfig):
         read_env_item(self, "password", prefix + "MAIL_PASSWORD")
         read_env_item(self, "from_address", prefix + "MAIL_FROM_ADDRESS")
         read_env_item(self, "timeout", prefix + "MAIL_TIMEOUT", convert=float)
+        read_env_item(self, "max_per_hour", prefix + "MAIL_MAX_PER_HOUR", convert=int)
+        read_env_item(self, "max_per_day", prefix + "MAIL_MAX_PER_DAY", convert=int)
 
 
 class Config(object):
