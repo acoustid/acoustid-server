@@ -36,3 +36,6 @@ EXPORT_MAX_DAYS = 30
 # in 2027. Announced at
 # https://blog.acoustid.org/posts/2026-11-19-user-api-keys-required-for-lookups/
 LOOKUP_USER_REQUIRED_FROM = datetime.date(2027, 1, 1)
+
+# How long a link code from the user key link flow stays usable.
+USER_KEY_LINK_TTL = datetime.timedelta(minutes=15)

@@ -89,6 +89,38 @@ account_google = Table(
     info={"bind_key": "app"},
 )
 
+# User keys issued to one application through the link flow. The key is handed
+# to the client before anyone approves it; approval sets account_id.
+account_application_key = Table(
+    "account_application_key",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("apikey", String, nullable=False),
+    Column("application_id", Integer, ForeignKey("application.id"), nullable=False),
+    Column("account_id", Integer, ForeignKey("account.id")),
+    Column("device", String),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.func.current_timestamp(),
+        nullable=False,
+    ),
+    Column("link_code", String),
+    Column("link_expires", DateTime(timezone=True), nullable=False),
+    Column("approved", DateTime(timezone=True)),
+    Column("declined", DateTime(timezone=True)),
+    Column("revoked", DateTime(timezone=True)),
+    Column("last_used", Date),
+    CheckConstraint(
+        "(account_id IS NULL) = (approved IS NULL)",
+        name="account_application_key_check_approved",
+    ),
+    Index("account_application_key_idx_apikey", "apikey", unique=True),
+    Index("account_application_key_idx_link_code", "link_code", unique=True),
+    Index("account_application_key_idx_account_id", "account_id"),
+    info={"bind_key": "app"},
+)
+
 application = Table(
     "application",
     metadata,
