@@ -1313,8 +1313,9 @@ class SubmitHandler(APIHandler):
         self.ctx.db.session.flush()
         self.ctx.db.session.commit()
 
-        # Counted for the expiry of linked keys, not as lookup stats.
-        if params.account_id is not None:
+        # Counted only to mark a linked key as used, for its expiry; it is not a
+        # lookup, and account.apikey does not expire.
+        if params.account_id is not None and params.user_key_id is not None:
             update_user_counter(
                 self.ctx.redis,
                 params.account_id,
