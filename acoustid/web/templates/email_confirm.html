@@ -1,11 +1,12 @@
 {% extends "_base.html" %}
+{% from "_macros.html" import account_name %}
 {% set nav = 'account' %}
 {% block content %}
 
 <div class="account">
   <div class="page-head">
     <h1>{{ title }}</h1>
-    <div class="sub"><span>Signed in as {{ g.user.name }}</span></div>
+    <div class="sub"><span>Signed in as {{ account_name(g.user) }}</span></div>
   </div>
 
   {% if error %}

@@ -135,6 +135,12 @@ section { margin-top: 52px; }
 .section-head .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 .muted { color: var(--muted); }
+.account-name.mb { white-space: nowrap; }
+.mb-badge {
+  display: inline-block; margin-right: 3px; padding: 0 3px; border-radius: 3px;
+  font-size: 0.7em; font-weight: 700; line-height: 1.4; vertical-align: 0.1em;
+  color: #fff; background: #ba478f;
+}
 .small { font-size: 14px; }
 
 /* Facts row */

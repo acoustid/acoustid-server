@@ -1,4 +1,5 @@
 {% extends "_base.html" %}
+{% from "_macros.html" import account_name %}
 {% block content %}
 
 <section>
@@ -37,13 +38,7 @@
         <tr>
           <td class="small muted">{{ edit.created.strftime("%Y-%m-%d %H:%M:%S") }}</td>
           <td>
-            {% if edit.account and edit.account.mbuser %}
-            <a href="https://musicbrainz.org/user/{{ edit.account.mbuser }}">{{ edit.account.name }}</a>
-            {% elif edit.account %}
-            {{ edit.account.name }}
-            {% else %}
-            <span class="muted">(deleted account)</span>
-            {% endif %}
+            {{ account_name(edit.account) }}
           </td>
           <td>{{ 'disabled' if edit.disabled else 'enabled' }}</td>
           <td>

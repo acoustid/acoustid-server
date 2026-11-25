@@ -574,7 +574,7 @@ def attach_edit_details(edits: list[Any]) -> None:
     accounts_by_id = {
         account.id: account
         for account in db.session.query(Account)
-        .options(load_only(Account.mbuser, Account.name))
+        .options(load_only(Account.mbuser))
         .filter(Account.id.in_({e.account_id for e in edits}))
         .all()
     }

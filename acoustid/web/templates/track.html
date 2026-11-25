@@ -1,5 +1,5 @@
 {% extends "_base.html" %}
-{% from "_macros.html" import fp_mode_switch %}
+{% from "_macros.html" import account_name, fp_mode_switch %}
 
 {% macro bar(value, maximum) %}
 <div class="bar-cell">
@@ -243,13 +243,7 @@
     <li>
       <span class="small muted">{{ edit.created.strftime("%b %d, %Y %H:%M:%S") }}</span><br>
       User
-      {% if edit.account and edit.account.mbuser %}
-      <a href="https://musicbrainz.org/user/{{ edit.account.mbuser }}">{{ edit.account.name }}</a>
-      {% elif edit.account %}
-      {{ edit.account.name }}
-      {% else %}
-      <span class="muted">(deleted account)</span>
-      {% endif %}
+      {{ account_name(edit.account) }}
       {{ 'disabled' if edit.disabled else 'enabled' }}
       {% if edit.mbid %}<a href="#{{ edit.mbid }}">{{ edit.mbid }}</a>{% else %}<span class="muted">unknown</span>{% endif %}
     </li>

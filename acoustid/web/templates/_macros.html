@@ -9,3 +9,17 @@
   <button type="button" data-order="color" aria-pressed="false" title="The first one, then always the one closest in color to those before it, so similar songs end up together and odd ones last">By color</button>
 </span>
 {% endmacro %}
+
+{# How an account is shown, everywhere. The stored name is not used: it is
+   whatever a login provider gave, often a placeholder like "Google Account".
+   A MusicBrainz account shows its MusicBrainz username, marked and linked so
+   it cannot pass for user<id>; any other account shows as user<id>. #}
+{% macro account_name(account) -%}
+{% if account is none -%}
+<span class="muted">(deleted account)</span>
+{%- elif account.mbuser -%}
+<a class="account-name mb" href="https://musicbrainz.org/user/{{ account.mbuser|urlencode }}" title="MusicBrainz user {{ account.mbuser }}"><span class="mb-badge" aria-label="MusicBrainz">MB</span>{{ account.mbuser }}</a>
+{%- else -%}
+<span class="account-name muted">user{{ account.id }}</span>
+{%- endif %}
+{%- endmacro %}
