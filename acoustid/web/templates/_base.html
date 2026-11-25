@@ -39,7 +39,6 @@
       <a href="{{ url_for('stats.stats') }}"{% if nav == 'stats' %} class="active"{% endif %}>Statistics</a>
       {% if account_id %}
       <a href="{{ url_for('user.api_key') }}"{% if nav == 'account' %} class="active"{% endif %}>Your account</a>
-      <a href="{{ url_for('user.logout') }}">Sign out</a>
       {% else %}
       <a href="{{ url_for('user.login') }}">Sign in</a>
       {% endif %}
