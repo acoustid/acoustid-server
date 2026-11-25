@@ -106,26 +106,16 @@ def iter_args_suffixes(args: dict, *prefixes: str) -> Iterable[str]:
 app_api_key_cache = cachetools.TTLCache(
     maxsize=1000, ttl=60.0
 )  # type: cachetools.Cache
-# Sized for lookups rather than submissions. While `user` was only sent on
-# submissions the working set was the distinct accounts submitting per hour --
-# measured at 103 to 351 -- and 1000 was ample. Once lookups carry a user key
-# the working set becomes distinct lookup clients, and distinct lookup IPs per
-# day measure at least 54,000 (a lower bound: the sample covers about 63% of
-# traffic). At roughly 19,000 lookups a minute, a 1000-entry cache would
-# thrash and put an app-database round trip on most lookups. Sized to cover
-# observed daily distinct clients rather than guessing at a per-minute figure,
-# which is not measurable until the parameter is actually being sent.
-user_api_key_cache = cachetools.TTLCache(
-    maxsize=65536, ttl=60.0
-)  # type: cachetools.Cache
-# Briefly, so a burst of requests with a bad key does not each reach the
-# database, while a key issued moments ago becomes visible soon after it
-# reaches the replica.
-unknown_user_api_key_cache = cachetools.TTLCache(
-    maxsize=65536, ttl=5.0
-)  # type: cachetools.Cache
-# Keyed on application id, of which there are few, so this one does not have
-# the working-set problem the user key cache has.
+# In front of the redis cache, which every process shares; a miss here costs
+# a redis round trip, not a database query. Approved keys only.
+user_api_key_cache: cachetools.Cache = cachetools.TTLCache(maxsize=10000, ttl=60.0)
+# Briefly, so a burst of requests with a bad key does not each reach redis,
+# while a key issued moments ago becomes visible soon after it reaches the
+# replica.
+unknown_user_api_key_cache: cachetools.Cache = cachetools.TTLCache(
+    maxsize=1000, ttl=5.0
+)
+# Keyed on application id, of which there are few.
 app_user_key_policy_cache = cachetools.TTLCache(
     maxsize=10000, ttl=60.0
 )  # type: cachetools.Cache
