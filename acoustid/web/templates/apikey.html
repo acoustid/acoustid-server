@@ -1,4 +1,5 @@
 {% extends "_base.html" %}
+{% from "_macros.html" import account_name %}
 {% set nav = 'account' %}
 {% block content %}
 
@@ -6,8 +7,7 @@
   <div class="page-head">
     <h1>{{ title }}</h1>
     <div class="sub">
-      <span>Signed in as {{ user.name }}</span>
-      {% if user.mbuser %}<span>MusicBrainz account <a href="https://musicbrainz.org/user/{{ user.mbuser }}">{{ user.mbuser }}</a></span>{% endif %}
+      <span>Signed in as {{ account_name(user) }}</span>
       <span><a href="{{ url_for('user.logout') }}">Sign out</a></span>
     </div>
   </div>

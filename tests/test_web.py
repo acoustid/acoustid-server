@@ -1544,6 +1544,48 @@ def test_audit_page_lists_edits_with_their_notes(app: Flask, edit_history: int) 
     assert TRACK_1_GID in rv.text
 
 
+def test_edit_history_shows_accounts_by_musicbrainz_name_or_id(
+    app: Flask, edit_history: int
+) -> None:
+    from acoustid import tables as schema
+
+    script = app.acoustid_script  # type: ignore
+    with script.context() as ctx:
+        link_id = (
+            ctx.db.get_fingerprint_db()
+            .execute(
+                sql.select(schema.track_mbid.c.id).where(
+                    sql.and_(
+                        schema.track_mbid.c.track_id == 1,
+                        schema.track_mbid.c.mbid == MODERATED_MBID,
+                    )
+                )
+            )
+            .scalar_one()
+        )
+        # An older edit by an account without MusicBrainz.
+        ctx.db.get_ingest_db().execute(
+            schema.track_mbid_change.insert().values(
+                track_mbid_id=link_id, account_id=2, disabled=False
+            )
+        )
+        ctx.db.session.commit()
+
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+    for url in (
+        "/edits",
+        "/mbid/%s" % MODERATED_MBID,
+        "/track/%s" % TRACK_1_GID,
+    ):
+        page = client.get(url).text
+        assert 'href="https://musicbrainz.org/user/moderator"' in page, url
+        assert 'class="mb-icon"' in page, url
+        assert '<span class="account-name muted">user2</span>' in page, url
+        assert "User 2" not in page, url
+
+
 def test_audit_page_filters_by_recording(app: Flask, edit_history: int) -> None:
     client = app.test_client()
     with client.session_transaction() as flask_session:
