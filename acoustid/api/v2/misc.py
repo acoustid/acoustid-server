@@ -141,15 +141,22 @@ class UserCreateMusicBrainzHandler(APIHandler):
 
 
 class UserCreateAnonymousHandlerParams(APIHandlerParams):
-    def parse(self, values, db):
-        super(UserCreateAnonymousHandlerParams, self).parse(values, db)
+    def parse(self, values: MultiDict, db: DatabaseContext) -> None:
+        super().parse(values, db)
         self._parse_client(values, db)
+        # An application that has to send user keys gets them from its users,
+        # by copying or by linking. Minting an account per install would put
+        # every user behind a key nobody can sign in to, and defeat the point
+        # of requiring one.
+        if self.application_requires_user_key:
+            raise errors.NotAllowedError()
 
 
 class UserCreateAnonymousHandler(APIHandler):
     params_class = UserCreateAnonymousHandlerParams
 
-    def _handle_internal(self, params):
+    def _handle_internal(self, params: APIHandlerParams) -> dict[str, Any]:
+        assert isinstance(params, UserCreateAnonymousHandlerParams)
         id, api_key = insert_account(
             self.ctx.db.get_app_db(),
             {
