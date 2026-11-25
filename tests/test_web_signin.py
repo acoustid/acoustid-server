@@ -23,6 +23,8 @@ from acoustid.data.email import (
     MAX_SIGNINS_PER_ADDRESS_PER_HOUR,
     MAX_WRONG_CODES_PER_ADDRESS_PER_DAY,
     RATE_LIMIT_PREFIX,
+    TooManyWrongCodes,
+    consume_email_signin_by_code,
     create_email_signin,
     find_account_by_email,
     find_or_create_email_account,
@@ -646,3 +648,59 @@ def test_concurrent_requests_cannot_both_pass_the_limit(app: Flask) -> None:
     for thread in threads:
         thread.join(10)
     assert results == {"first": True, "second": False}
+
+
+def test_concurrent_guesses_see_each_others_counts(app: Flask) -> None:
+    # Two browsers with their own requests for one address, guessing at once.
+    email = unique_address()
+    ids = []
+    for _ in range(3):
+        with app.acoustid_script.context() as ctx:  # type: ignore
+            ids.append(create_email_signin(ctx.db.get_app_db(), "s", email, None).id)
+            ctx.db.session.commit()
+    # An earlier, dead request brings the address to one short of the limit.
+    dead = ids.pop(0)
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        table = schema.account_email_signin
+        ctx.db.get_app_db().execute(
+            table.update()
+            .where(table.c.id == dead)
+            .values(code_attempts=MAX_WRONG_CODES_PER_ADDRESS_PER_DAY - 1)
+        )
+        ctx.db.session.commit()
+    script = app.acoustid_script  # type: ignore
+    first_guessed = threading.Event()
+    results: dict[str, str] = {}
+
+    def guess(name: str, signin_id: int, hold: bool) -> None:
+        with script.context() as ctx:
+            try:
+                consume_email_signin_by_code(
+                    ctx.db.get_app_db(), "s", [signin_id], "000000"
+                )
+                results[name] = "counted"
+            except TooManyWrongCodes:
+                results[name] = "refused"
+            if hold:
+                first_guessed.set()
+                time.sleep(0.5)
+            ctx.db.session.commit()
+
+    def second() -> None:
+        first_guessed.wait()
+        guess("second", ids[1], hold=False)
+
+    threads = [
+        threading.Thread(target=guess, args=("first", ids[0], True)),
+        threading.Thread(target=second),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(10)
+    assert results == {"first": "counted", "second": "refused"}
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        assert (
+            wrong_codes_today(ctx.db.get_app_db(), email)
+            == MAX_WRONG_CODES_PER_ADDRESS_PER_DAY
+        )

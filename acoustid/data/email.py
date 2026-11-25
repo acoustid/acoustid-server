@@ -383,6 +383,20 @@ def consume_email_signin_by_code(
     if not ids:
         return None
     table = schema.account_email_signin
+    newest_email = conn.execute(
+        sql.select(table.c.email)
+        .where(table.c.id.in_(ids))
+        .where(live_signin(table))
+        .order_by(table.c.id.desc())
+        .limit(1)
+    ).scalar()
+    if newest_email is None:
+        return None
+    # Other browsers may hold requests for the same address. The address
+    # lock, held until the caller commits, makes their guesses see each
+    # other's counts. It is taken before the row locks; the link path takes
+    # only row locks, so the two cannot deadlock.
+    pg_advisory_xact_lock(conn, "account_email_signin", newest_email)
     stmt = (
         sql.select(
             table.c.id,
@@ -392,6 +406,7 @@ def consume_email_signin_by_code(
             table.c.return_url,
         )
         .where(table.c.id.in_(ids))
+        .where(table.c.email == newest_email)
         .where(live_signin(table))
         .order_by(table.c.id)
         .with_for_update()
@@ -400,7 +415,6 @@ def consume_email_signin_by_code(
     if not rows:
         return None
     newest = rows[-1]
-    rows = [row for row in rows if row.email == newest.email]
     if wrong_codes_today(conn, newest.email) >= MAX_WRONG_CODES_PER_ADDRESS_PER_DAY:
         raise TooManyWrongCodes()
     code = normalize_code(code)
