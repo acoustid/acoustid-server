@@ -185,7 +185,8 @@ def test_wrong_codes_are_limited_per_account(app: Flask, client: FlaskClient) ->
 
 
 def test_my_keys_and_revoke(app: Flask, client: FlaskClient) -> None:
-    reqs = [new_request(app, device=device) for device in ("nas", "laptop", "pi")]
+    devices = ("device-alpha", "device-bravo", "device-charlie")
+    reqs = [new_request(app, device=device) for device in devices]
     with app.acoustid_script.context() as ctx:  # type: ignore
         for req in reqs:
             approve_user_key_link_request(
@@ -196,7 +197,8 @@ def test_my_keys_and_revoke(app: Flask, client: FlaskClient) -> None:
 
     rv = client.get("/my-keys")
     assert rv.status_code == 200
-    assert "laptop" in rv.text and "pi" in rv.text
+    for device in devices:
+        assert rv.text.count(device) == 1
     assert rv.headers["X-Frame-Options"] == "DENY"
     token = csrf_token(client)
 
@@ -241,3 +243,74 @@ def id_of(app: Flask, apikey: str) -> int:
             .execute(sql.select(table.c.id).where(table.c.apikey == apikey))
             .scalar_one()
         )
+
+
+def test_wrong_codes_posted_directly_are_limited_too(
+    app: Flask, client: FlaskClient
+) -> None:
+    """Approve and decline look the code up themselves, so guessing there must
+    count against the same limit as guessing on the consent page."""
+    client.get("/my-keys")
+    token = csrf_token(client)
+    for _ in range(MAX_FAILED_CODES_PER_HOUR):
+        rv = client.post(
+            "/link/approve", data={"code": "ZZZZ-ZZZZ", "csrf_token": token}
+        )
+        assert "That code is not valid" in rv.text
+    req = new_request(app)
+    rv = client.post("/link/approve", data={"code": req.link_code, "csrf_token": token})
+    assert "Too many wrong codes" in rv.text
+    assert key_state(app, req.apikey) == UserKey(None, 1, "pending")
+
+
+def test_approving_an_expired_code(app: Flask, client: FlaskClient) -> None:
+    req = new_request(app)
+    client.get("/link?code=" + req.link_code)
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        ctx.db.get_app_db().execute(
+            schema.account_application_key.update().values(
+                link_expires=sql.func.now() - sql.text("interval '1 second'")
+            )
+        )
+        ctx.db.session.commit()
+    rv = client.post(
+        "/link/approve",
+        data={"code": req.link_code, "csrf_token": csrf_token(client)},
+    )
+    assert "That code is not valid" in rv.text
+    assert rv.headers["X-Frame-Options"] == "DENY"
+    assert key_state(app, req.apikey) == UserKey(None, 1, "expired")
+
+
+def test_decline_redirects_back_too(app: Flask, client: FlaskClient) -> None:
+    req = new_request(app, return_url="http://192.168.1.10:8095/")
+    client.get("/link?code=" + req.link_code)
+    rv = client.post(
+        "/link/decline",
+        data={"code": req.link_code, "csrf_token": csrf_token(client)},
+    )
+    assert rv.status_code == 303
+    assert rv.headers["Location"] == "http://192.168.1.10:8095/"
+
+
+def test_signing_in_again_returns_to_the_consent_page(app: Flask) -> None:
+    """A session that lapsed before the click must not send the user, after
+    signing in, to a URL that only accepts POST."""
+    rv = app.test_client().post("/link/approve", data={"code": "ABCD-EFGH"})
+    assert rv.status_code == 302
+    login = rv.headers["Location"]
+    assert login.startswith("/login?return_url=http://localhost/link?code%3DABCD-EFGH")
+
+
+def test_revoke_all_leaves_other_accounts_alone(
+    app: Flask, client: FlaskClient
+) -> None:
+    mine, theirs = new_request(app), new_request(app)
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        approve_user_key_link_request(ctx.db.get_app_db(), mine.link_code, ACCOUNT_ID)
+        approve_user_key_link_request(ctx.db.get_app_db(), theirs.link_code, 1)
+        ctx.db.session.commit()
+    client.get("/my-keys")
+    client.post("/my-keys/revoke-all", data={"csrf_token": csrf_token(client)})
+    assert key_state(app, mine.apikey) == UserKey(ACCOUNT_ID, 1, USER_KEY_REVOKED)
+    assert key_state(app, theirs.apikey) == UserKey(1, 1, USER_KEY_APPROVED)

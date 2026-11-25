@@ -33,6 +33,7 @@ from acoustid.data.account import (
     revoke_all_user_application_keys,
     revoke_user_application_key,
 )
+from acoustid.models import Account
 from acoustid.web import db
 from acoustid.web.utils import require_user
 
@@ -73,6 +74,9 @@ def no_framing(body: str) -> Response:
 
 
 def failed_code_attempts(account_id: int, increment: bool) -> int:
+    """Counted in redis. If redis is down the count reads as zero: guessing
+    an 8-character code stays impractical without it, and failing closed
+    would stop everyone linking."""
     key = "linkcode:fail:%d" % account_id
     redis = db.get_redis()
     try:
@@ -102,18 +106,35 @@ def code_form(code: str = "", error: str | None = None) -> Response:
     )
 
 
+def signed_in_user(return_url: str) -> Account:
+    """require_user, but returning somewhere a GET can go: after signing in,
+    the browser would otherwise land on a POST-only URL."""
+    if "id" not in session:
+        abort(redirect(url_for("user.login", return_url=return_url)))
+    return require_user()
+
+
+def find_pending_request(account_id: int, code: str) -> tuple[Any, str | None]:
+    """The pending request for a code, or an error to show, counting wrong
+    codes against the account however they arrive."""
+    if failed_code_attempts(account_id, increment=False) >= MAX_FAILED_CODES_PER_HOUR:
+        return None, "Too many wrong codes. Try again in an hour."
+    pending = get_pending_link_request(db.get_app_db(), code)
+    if pending is None:
+        failed_code_attempts(account_id, increment=True)
+        return None, INVALID_CODE
+    return pending, None
+
+
 @link_page.route("/link")
 def link() -> Response:
     user = require_user()
     code = request.args.get("code", "").strip()
     if not code:
         return code_form()
-    if failed_code_attempts(user.id, increment=False) >= MAX_FAILED_CODES_PER_HOUR:
-        return code_form(code, "Too many wrong codes. Try again in an hour.")
-    pending = get_pending_link_request(db.get_app_db(), code)
+    pending, error = find_pending_request(user.id, code)
     if pending is None:
-        failed_code_attempts(user.id, increment=True)
-        return code_form(code, INVALID_CODE)
+        return code_form(code, error)
     entered = request.args.get("entered") == "1"
     return no_framing(
         render_template(
@@ -129,14 +150,14 @@ def link() -> Response:
 
 
 def decide(approve: bool) -> Any:
-    user = require_user()
-    check_csrf_token()
     code = request.form.get("code", "")
+    user = signed_in_user(url_for(".link", code=code, _external=True))
+    check_csrf_token()
     entered = request.form.get("entered") == "1"
     app_db = db.get_app_db()
-    pending = get_pending_link_request(app_db, code)
+    pending, error = find_pending_request(user.id, code)
     if pending is None:
-        return code_form(code, INVALID_CODE)
+        return code_form(code, error)
     if approve:
         apikey = approve_user_key_link_request(app_db, code, user.id)
     else:
@@ -183,7 +204,7 @@ def my_keys() -> Response:
 
 @link_page.route("/my-keys/revoke", methods=["POST"])
 def revoke() -> Any:
-    user = require_user()
+    user = signed_in_user(url_for(".my_keys", _external=True))
     check_csrf_token()
     key_id = request.form.get("id", type=int)
     if key_id is None:
@@ -197,7 +218,7 @@ def revoke() -> Any:
 
 @link_page.route("/my-keys/revoke-all", methods=["POST"])
 def revoke_all() -> Any:
-    user = require_user()
+    user = signed_in_user(url_for(".my_keys", _external=True))
     check_csrf_token()
     apikeys = revoke_all_user_application_keys(db.get_app_db(), user.id)
     db.session.commit()
