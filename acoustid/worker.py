@@ -21,6 +21,7 @@ from acoustid.scripts.update_user_agent_stats import (
     run_update_all_user_agent_stats,
     run_update_user_agent_stats,
 )
+from acoustid.scripts.user_keys import run_cleanup_user_keys
 from acoustid.tasks import dequeue_task
 from acoustid.tracing import initialize_trace_id
 
@@ -37,6 +38,7 @@ TASKS: Dict[str, TaskFunc] = {
     "update_all_user_agent_stats": run_update_all_user_agent_stats,
     "merge_missing_mbid": run_merge_missing_mbid,
     "manage_fpindex_changelog": run_manage_fpindex_changelog,
+    "cleanup_user_keys": run_cleanup_user_keys,
 }
 
 

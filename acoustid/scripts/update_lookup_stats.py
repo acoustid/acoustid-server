@@ -1,19 +1,24 @@
 # Copyright (C) 2012 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import datetime
 import logging
 import time
+from collections import Counter, defaultdict
 
+from redis import Redis
 from sqlalchemy.exc import IntegrityError
 
+from acoustid.data.account import mark_user_key_used
 from acoustid.data.stats import (
     NUM_PARTITIONS,
+    LookupStatsKey,
     unpack_lookup_stats_key,
     update_lookup_stats,
+    update_user_lookup_stats,
 )
-from acoustid.script import Script
+from acoustid.script import Script, ScriptContext
 from acoustid.tasks import enqueue_task
-from acoustid.utils import call_internal_api
 
 logger = logging.getLogger(__name__)
 
@@ -43,40 +48,103 @@ def run_update_lookup_stats(script: Script, partition: int):
     logger.debug("Updating lookup stats (key %s)", root_key)
     with script.context() as ctx:
         redis = ctx.redis
-        for key, count in redis.hgetall(root_key).items():
-            db = ctx.db.get_app_db()
-            count = int(count)
-            date, hour, application_id, type = unpack_lookup_stats_key(key)
+        groups: dict[int, list[tuple[bytes, int, LookupStatsKey]]] = defaultdict(list)
+        for raw_key, raw_count in redis.hgetall(root_key).items():
+            count = int(raw_count)
             if not count:
                 # the only way this could be 0 is if we already processed it and
                 # nothing touched it since then, so it's safe to delete
-                redis.hdel(root_key, key)
-            else:
-                try:
-                    if script.config.cluster.role == "master":
-                        update_lookup_stats(db, application_id, date, hour, type, count)
-                    else:
-                        call_internal_api(
-                            script.config,
-                            "update_lookup_stats",
-                            application_id=application_id,
-                            date=date,
-                            hour=hour,
-                            type=type,
-                            count=count,
-                        )
-                except IntegrityError as error:
-                    if not _is_unknown_application(error):
-                        raise
-                    # Left in place it fails the same way on every run, and
-                    # takes every counter behind it in this partition with it.
-                    ctx.db.session.rollback()
-                    logger.warning(
-                        "Discarding lookup stats for unknown application %s (key %s)",
-                        application_id,
-                        key,
-                    )
-                    redis.hdel(root_key, key)
-                    continue
-                redis.hincrby(root_key, key, -count)
-            ctx.db.session.commit()
+                redis.hdel(root_key, raw_key)
+                continue
+            try:
+                key = unpack_lookup_stats_key(raw_key)
+            except ValueError:
+                logger.warning("Discarding invalid lookup stats key %r", raw_key)
+                redis.hdel(root_key, raw_key)
+                continue
+            groups[key.application_id].append((raw_key, count, key))
+
+        # One application at a time, each in its own transaction, so a
+        # counter that can never be written only takes its own application's
+        # counters with it.
+        #
+        # The counts are taken out of redis before they are written, and put
+        # back if the write fails. A crash in between loses them, which is
+        # the better failure: the other order, write then decrement, counts
+        # them twice when the decrement does not happen, and nothing could
+        # later tell which totals are inflated.
+        for application_id, group in groups.items():
+            adjust_counters(redis, root_key, group, -1)
+            try:
+                write_lookup_stats(ctx, application_id, group)
+                ctx.db.session.commit()
+            except IntegrityError as error:
+                ctx.db.session.rollback()
+                if not _is_unknown_application(error):
+                    adjust_counters(redis, root_key, group, +1)
+                    raise
+                # Left in place it fails the same way on every run, and
+                # takes every counter behind it in this partition with it.
+                logger.warning(
+                    "Discarding lookup stats for unknown application %s",
+                    application_id,
+                )
+                for raw_key, _, _ in group:
+                    redis.hdel(root_key, raw_key)
+            except BaseException:
+                ctx.db.session.rollback()
+                adjust_counters(redis, root_key, group, +1)
+                raise
+
+
+def adjust_counters(
+    redis: Redis,
+    root_key: str,
+    group: list[tuple[bytes, int, LookupStatsKey]],
+    sign: int,
+) -> None:
+    pipe = redis.pipeline(transaction=True)
+    for raw_key, count, _ in group:
+        pipe.hincrby(root_key, raw_key, sign * count)
+    pipe.execute()
+
+
+def write_lookup_stats(
+    ctx: ScriptContext,
+    application_id: int,
+    group: list[tuple[bytes, int, LookupStatsKey]],
+) -> None:
+    """Sum one application's counters and write them: per hour to
+    stats_lookups, per account and day to stats_user_lookups, and the day a
+    linked key was used to its last_used.
+
+    Summed first because the counters are per user: written one by one, a
+    popular application's stats_lookups row would be updated thousands of
+    times a minute.
+    """
+    db = ctx.db.get_app_db()
+    app_counts: Counter[tuple[str, str, str]] = Counter()
+    user_counts: Counter[tuple[str, int, str]] = Counter()
+    key_dates: dict[int, str] = {}
+    for _, count, key in group:
+        app_counts[key.date, key.hour, key.type] += count
+        if key.account_id is not None:
+            user_counts[key.date, key.account_id, key.type] += count
+        if key.key_id is not None:
+            key_dates[key.key_id] = max(key.date, key_dates.get(key.key_id, ""))
+
+    # Sorted, so flushes of different partitions running at the same time
+    # lock rows in the same order and cannot deadlock.
+    for (date, hour, type), count in sorted(app_counts.items()):
+        update_lookup_stats(db, application_id, date, hour, type, count)
+    for date, account_id in sorted({(d, a) for d, a, _ in user_counts}):
+        update_user_lookup_stats(
+            db,
+            date,
+            account_id,
+            application_id,
+            hits=user_counts[date, account_id, "hit"],
+            nohits=user_counts[date, account_id, "miss"],
+        )
+    for key_id, date in sorted(key_dates.items()):
+        mark_user_key_used(db, key_id, datetime.date.fromisoformat(date))

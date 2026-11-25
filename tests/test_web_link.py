@@ -142,14 +142,14 @@ def test_approve_redirects_back_and_publishes_the_key(
 
     # Without the token from the consent page, nothing happens.
     assert client.post("/link/approve", data={"code": code}).status_code == 400
-    assert key_state(app, req.apikey) == UserKey(None, 1, "pending")
+    assert key_state(app, req.apikey) == UserKey(None, 1, "pending", req.id)
 
     rv = client.post(
         "/link/approve", data={"code": code, "csrf_token": csrf_token(client)}
     )
     assert rv.status_code == 303
     assert rv.headers["Location"] == "http://192.168.1.10:8095/settings"
-    approved = UserKey(ACCOUNT_ID, 1, USER_KEY_APPROVED)
+    approved = UserKey(ACCOUNT_ID, 1, USER_KEY_APPROVED, req.id)
     assert key_state(app, req.apikey) == approved
     assert cached_key(app, req.apikey) == (True, approved)
 
@@ -169,7 +169,7 @@ def test_decline(app: Flask, client: FlaskClient) -> None:
     )
     assert rv.status_code == 200
     assert "was not connected" in rv.text
-    declined = UserKey(None, 1, USER_KEY_DECLINED)
+    declined = UserKey(None, 1, USER_KEY_DECLINED, req.id)
     assert key_state(app, req.apikey) == declined
     assert cached_key(app, req.apikey) == (True, declined)
 
@@ -210,14 +210,17 @@ def test_my_keys_and_revoke(app: Flask, client: FlaskClient) -> None:
         "/my-keys/revoke", data={"id": ids[reqs[0].apikey], "csrf_token": token}
     )
     assert rv.status_code == 303
-    revoked = UserKey(ACCOUNT_ID, 1, USER_KEY_REVOKED)
+    revoked = UserKey(ACCOUNT_ID, 1, USER_KEY_REVOKED, reqs[0].id)
     assert key_state(app, reqs[0].apikey) == revoked
     assert cached_key(app, reqs[0].apikey) == (True, revoked)
-    assert key_state(app, reqs[1].apikey) == UserKey(ACCOUNT_ID, 1, USER_KEY_APPROVED)
+    assert key_state(app, reqs[1].apikey) == UserKey(
+        ACCOUNT_ID, 1, USER_KEY_APPROVED, reqs[1].id
+    )
 
     rv = client.post("/my-keys/revoke-all", data={"csrf_token": token})
     assert rv.status_code == 303
     for req in reqs:
+        revoked = UserKey(ACCOUNT_ID, 1, USER_KEY_REVOKED, req.id)
         assert key_state(app, req.apikey) == revoked
         assert cached_key(app, req.apikey) == (True, revoked)
 
@@ -232,7 +235,7 @@ def test_cannot_revoke_another_accounts_key(app: Flask, client: FlaskClient) -> 
         "/my-keys/revoke",
         data={"id": id_of(app, req.apikey), "csrf_token": csrf_token(client)},
     )
-    assert key_state(app, req.apikey) == UserKey(1, 1, USER_KEY_APPROVED)
+    assert key_state(app, req.apikey) == UserKey(1, 1, USER_KEY_APPROVED, req.id)
 
 
 def id_of(app: Flask, apikey: str) -> int:
@@ -260,7 +263,7 @@ def test_wrong_codes_posted_directly_are_limited_too(
     req = new_request(app)
     rv = client.post("/link/approve", data={"code": req.link_code, "csrf_token": token})
     assert "Too many wrong codes" in rv.text
-    assert key_state(app, req.apikey) == UserKey(None, 1, "pending")
+    assert key_state(app, req.apikey) == UserKey(None, 1, "pending", req.id)
 
 
 def test_approving_an_expired_code(app: Flask, client: FlaskClient) -> None:
@@ -279,7 +282,7 @@ def test_approving_an_expired_code(app: Flask, client: FlaskClient) -> None:
     )
     assert "That code is not valid" in rv.text
     assert rv.headers["X-Frame-Options"] == "DENY"
-    assert key_state(app, req.apikey) == UserKey(None, 1, "expired")
+    assert key_state(app, req.apikey) == UserKey(None, 1, "expired", req.id)
 
 
 def test_decline_redirects_back_too(app: Flask, client: FlaskClient) -> None:
@@ -312,5 +315,7 @@ def test_revoke_all_leaves_other_accounts_alone(
         ctx.db.session.commit()
     client.get("/my-keys")
     client.post("/my-keys/revoke-all", data={"csrf_token": csrf_token(client)})
-    assert key_state(app, mine.apikey) == UserKey(ACCOUNT_ID, 1, USER_KEY_REVOKED)
-    assert key_state(app, theirs.apikey) == UserKey(1, 1, USER_KEY_APPROVED)
+    assert key_state(app, mine.apikey) == UserKey(
+        ACCOUNT_ID, 1, USER_KEY_REVOKED, mine.id
+    )
+    assert key_state(app, theirs.apikey) == UserKey(1, 1, USER_KEY_APPROVED, theirs.id)

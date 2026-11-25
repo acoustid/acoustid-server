@@ -95,7 +95,7 @@ def test_request_link(ctx: ScriptContext) -> None:
     # before the new row does is not remembered as an unknown key.
     assert read_cached_user_key(ctx.redis, apikey) == (
         True,
-        UserKey(None, 1, USER_KEY_PENDING),
+        UserKey(None, 1, USER_KEY_PENDING, row.id),
     )
 
 

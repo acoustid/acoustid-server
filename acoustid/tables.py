@@ -301,6 +301,35 @@ stats_lookups = Table(
         "count_hits", Integer, default=0, server_default=sql.literal(0), nullable=False
     ),
     Index("stats_lookups_idx_date", "date"),
+    # The upsert in update_lookup_stats depends on it.
+    Index(
+        "stats_lookups_idx_date_hour_application_id",
+        "date",
+        "hour",
+        "application_id",
+        unique=True,
+    ),
+    info={"bind_key": "app"},
+)
+
+# Lookups per user and application per day, for spotting outliers. Kept for
+# USER_LOOKUP_STATS_RETENTION, unlike stats_lookups.
+stats_user_lookups = Table(
+    "stats_user_lookups",
+    metadata,
+    Column("date", Date, primary_key=True),
+    Column("account_id", Integer, ForeignKey("account.id"), primary_key=True),
+    Column("application_id", Integer, ForeignKey("application.id"), primary_key=True),
+    Column(
+        "count_hits", Integer, default=0, server_default=sql.literal(0), nullable=False
+    ),
+    Column(
+        "count_nohits",
+        Integer,
+        default=0,
+        server_default=sql.literal(0),
+        nullable=False,
+    ),
     info={"bind_key": "app"},
 )
 

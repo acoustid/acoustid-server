@@ -196,7 +196,7 @@ def my_keys() -> Response:
             "my_keys.html",
             title="Connected applications",
             keys=keys,
-            has_live_keys=any(k["revoked"] is None for k in keys),
+            has_live_keys=any(k["revoked"] is None and not k["lapsed"] for k in keys),
             csrf_token=csrf_token(),
         )
     )

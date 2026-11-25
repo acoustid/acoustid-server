@@ -9,7 +9,7 @@ import secrets
 from typing import Any, NamedTuple
 
 from redis import Redis
-from sqlalchemy import String, sql
+from sqlalchemy import Date, String, sql
 from sqlalchemy.dialects.postgresql import insert
 
 from acoustid import const
@@ -123,6 +123,8 @@ class UserKey(NamedTuple):
     # None for account.apikey, which works with any application.
     application_id: int | None
     state: str
+    # The account_application_key row, for a key from the link flow.
+    key_id: int | None = None
 
 
 def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
@@ -136,6 +138,7 @@ def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
                 account.c.id.label("account_id"),
                 sql.null().label("application_id"),
                 sql.literal(USER_KEY_APPROVED).label("state"),
+                sql.null().label("key_id"),
             ).where(account.c.apikey == apikey),
             sql.select(
                 sql.literal(1).label("priority"),
@@ -144,6 +147,13 @@ def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
                 sql.case(
                     (key.c.revoked.is_not(None), USER_KEY_REVOKED),
                     (key.c.declined.is_not(None), USER_KEY_DECLINED),
+                    (
+                        sql.func.coalesce(
+                            key.c.last_used, sql.cast(key.c.approved, Date)
+                        )
+                        < sql.func.current_date() - const.USER_KEY_LIFETIME_DAYS,
+                        USER_KEY_EXPIRED,
+                    ),
                     (key.c.approved.is_not(None), USER_KEY_APPROVED),
                     (
                         key.c.link_expires <= sql.func.clock_timestamp(),
@@ -151,6 +161,7 @@ def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
                     ),
                     else_=USER_KEY_PENDING,
                 ),
+                key.c.id.label("key_id"),
             ).where(key.c.apikey == apikey),
         )
         .order_by("priority")
@@ -159,7 +170,7 @@ def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
     row = conn.execute(query).fetchone()
     if row is None:
         return None
-    return UserKey(row.account_id, row.application_id, row.state)
+    return UserKey(row.account_id, row.application_id, row.state, row.key_id)
 
 
 # Crockford base32: no I, L, O or U, so a code survives being read aloud.
@@ -388,6 +399,10 @@ def list_user_application_keys(conn: AppDB, account_id: int) -> list[dict[str, A
             key.c.approved,
             key.c.revoked,
             key.c.last_used,
+            (
+                sql.func.coalesce(key.c.last_used, sql.cast(key.c.approved, Date))
+                < sql.func.current_date() - const.USER_KEY_LIFETIME_DAYS
+            ).label("lapsed"),
             app.c.id.label("application_id"),
             app.c.name.label("application_name"),
         )
@@ -409,3 +424,26 @@ def revoke_all_user_application_keys(conn: AppDB, account_id: int) -> list[str]:
         .returning(key.c.apikey)
     )
     return list(conn.execute(stmt).scalars())
+
+
+def mark_user_key_used(conn: AppDB, key_id: int, date: datetime.date) -> None:
+    key = schema.account_application_key
+    stmt = (
+        key.update()
+        .where(key.c.id == key_id)
+        .where(sql.or_(key.c.last_used.is_(None), key.c.last_used < date))
+        .values(last_used=date)
+    )
+    conn.execute(stmt)
+
+
+def delete_abandoned_link_requests(conn: AppDB) -> int:
+    key = schema.account_application_key
+    stmt = (
+        key.delete()
+        .where(key.c.account_id.is_(None))
+        .where(
+            key.c.link_expires < sql.func.now() - const.ABANDONED_LINK_REQUEST_RETENTION
+        )
+    )
+    return conn.execute(stmt).rowcount
