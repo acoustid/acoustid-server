@@ -739,13 +739,40 @@ def test_submit_handler_foreignid(ctx):
     assert TEST_1_LENGTH == submission["length"]
 
 
-@with_script_context
-def test_user_create_anonumous_handler(ctx):
-    # type: (ScriptContext) -> None
+def create_anonymous(ctx: ScriptContext) -> Any:
     values = {"format": "json", "client": "app1key"}
     builder = EnvironBuilder(method="POST", data=values)
-    handler = UserCreateAnonymousHandler(ctx)
-    resp = handler.handle(Request(builder.get_environ()))
+    return UserCreateAnonymousHandler(ctx).handle(Request(builder.get_environ()))
+
+
+@with_script_context
+def test_user_create_anonymous_is_not_allowed_for_most_applications(
+    ctx: ScriptContext,
+) -> None:
+    """An application that has to send user keys gets them from its users."""
+    app_user_key_policy_cache.clear()
+    count = sql.select(sql.func.count()).select_from(tables.account)
+    before = ctx.db.get_app_db().execute(count).scalar()
+    resp = create_anonymous(ctx)
+    assert resp.status_code == 400, resp.data
+    assert json.loads(resp.data)["error"]["code"] == errors.ERROR_NOT_ALLOWED
+    assert ctx.db.get_app_db().execute(count).scalar() == before
+
+
+@with_script_context
+def test_user_create_anonumous_handler(ctx: ScriptContext) -> None:
+    """Allowed for an application exempt from sending user keys."""
+    app = schema.application
+    exempt = app.update().where(app.c.apikey == "app1key")
+    ctx.db.get_app_db().execute(exempt.values(requires_user_key=False))
+    ctx.db.session.commit()
+    app_user_key_policy_cache.clear()
+    try:
+        resp = create_anonymous(ctx)
+    finally:
+        ctx.db.get_app_db().execute(exempt.values(requires_user_key=True))
+        ctx.db.session.commit()
+        app_user_key_policy_cache.clear()
     assert "application/json; charset=UTF-8" == resp.content_type
     assert "200 OK" == resp.status
     data = json.loads(resp.data)
