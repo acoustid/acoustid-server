@@ -3,6 +3,7 @@
 
 import datetime
 from typing import Any, Iterator, NamedTuple
+from unittest import mock
 
 import pytest
 from sqlalchemy import sql
@@ -203,7 +204,11 @@ def test_lookups_are_counted_per_user(ctx: ScriptContext) -> None:
     for user, hit in ((key.apikey, True), ("user1key", False), (None, True)):
         params = LookupHandlerParams(ctx.config)
         values = lookup_values() if user is None else lookup_values(user=user)
-        params.parse(values, ctx.db)
+        # Before the date lookups need a user key, or the anonymous one fails.
+        with mock.patch.object(
+            const, "LOOKUP_USER_REQUIRED_FROM", datetime.date(2099, 1, 1)
+        ):
+            params.parse(values, ctx.db)
         handler._count_lookup(params, hit)
     counted = {
         (k.application_id, k.type, k.account_id, k.key_id): c
@@ -314,3 +319,19 @@ def test_cleanup_deletes_old_user_stats(ctx: ScriptContext) -> None:
         assert [row[0] for row in user_stats(ctx)] == [TODAY]
     finally:
         cleanup_db(ctx)
+
+
+@with_script_context
+def test_flush_puts_counts_back_when_the_write_fails(ctx: ScriptContext) -> None:
+    """A failed write must leave the counts for the next run, without the
+    successful parts of the run being counted again."""
+    from acoustid.scripts import update_lookup_stats as script_module
+
+    ctx.redis.hset("lookups:00", f"{TODAY.isoformat()}:10:1:hit", 4)
+    assert tests.script is not None
+    with mock.patch.object(
+        script_module, "update_lookup_stats", side_effect=RuntimeError("db down")
+    ):
+        with pytest.raises(RuntimeError):
+            run_update_lookup_stats(tests.script, 0)
+    assert ctx.redis.hget("lookups:00", f"{TODAY.isoformat()}:10:1:hit") == b"4"

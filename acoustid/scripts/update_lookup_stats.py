@@ -6,6 +6,7 @@ import logging
 import time
 from collections import Counter, defaultdict
 
+from redis import Redis
 from sqlalchemy.exc import IntegrityError
 
 from acoustid.data.account import mark_user_key_used
@@ -66,25 +67,46 @@ def run_update_lookup_stats(script: Script, partition: int):
         # One application at a time, each in its own transaction, so a
         # counter that can never be written only takes its own application's
         # counters with it.
+        #
+        # The counts are taken out of redis before they are written, and put
+        # back if the write fails. A crash in between loses them, which is
+        # the better failure: the other order, write then decrement, counts
+        # them twice when the decrement does not happen, and nothing could
+        # later tell which totals are inflated.
         for application_id, group in groups.items():
+            adjust_counters(redis, root_key, group, -1)
             try:
                 write_lookup_stats(ctx, application_id, group)
                 ctx.db.session.commit()
             except IntegrityError as error:
+                ctx.db.session.rollback()
                 if not _is_unknown_application(error):
+                    adjust_counters(redis, root_key, group, +1)
                     raise
                 # Left in place it fails the same way on every run, and
                 # takes every counter behind it in this partition with it.
-                ctx.db.session.rollback()
                 logger.warning(
                     "Discarding lookup stats for unknown application %s",
                     application_id,
                 )
                 for raw_key, _, _ in group:
                     redis.hdel(root_key, raw_key)
-                continue
-            for raw_key, count, _ in group:
-                redis.hincrby(root_key, raw_key, -count)
+            except BaseException:
+                ctx.db.session.rollback()
+                adjust_counters(redis, root_key, group, +1)
+                raise
+
+
+def adjust_counters(
+    redis: Redis,
+    root_key: str,
+    group: list[tuple[bytes, int, LookupStatsKey]],
+    sign: int,
+) -> None:
+    pipe = redis.pipeline(transaction=True)
+    for raw_key, count, _ in group:
+        pipe.hincrby(root_key, raw_key, sign * count)
+    pipe.execute()
 
 
 def write_lookup_stats(
