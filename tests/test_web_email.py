@@ -1,16 +1,18 @@
 # Copyright (C) 2026 Lukas Lalinsky
 # Distributed under the MIT license, see the LICENSE file for details.
 
+import datetime
 import hashlib
 import re
 import uuid
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator, cast
 from unittest import mock
 from urllib.parse import urlparse
 
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
+from redis.client import Pipeline
 from redis.exceptions import RedisError
 from sqlalchemy import sql
 
@@ -24,8 +26,12 @@ from acoustid.data.email import (
     normalize_email,
     set_account_email,
 )
+from acoustid.script import make_event_scrubber
 from acoustid.scripts.user_keys import run_cleanup_user_keys
 from tests import make_web_application
+
+if TYPE_CHECKING:
+    from sentry_sdk._types import Event
 from tests.test_mail import find_messages, get_message
 
 ACCOUNT_ID = 2
@@ -129,6 +135,8 @@ def confirm(client: FlaskClient, link: str) -> Any:
         ("Name <user@example.com>", None),
         ("x" * 65 + "@example.com", None),
         ("user@" + "x" * 250 + ".com", None),
+        ("j\u00fcrgen@example.com", None),
+        ("user@ex\u00e4mple.com", None),
     ],
 )
 def test_normalize_email(value: str, expected: str | None) -> None:
@@ -188,7 +196,7 @@ def test_confirm_email(app: Flask, client: FlaskClient) -> None:
         # does not use it up.
         rv = client.get(link)
         assert rv.status_code == 200
-        assert email in rv.data.decode()
+        assert mask_email(email) in rv.data.decode()
         assert b"Confirm this address" in rv.data
         assert rv.headers["Referrer-Policy"] == "no-referrer"
         assert rv.headers["X-Frame-Options"] == "DENY"
@@ -405,3 +413,103 @@ def test_rate_limit_allows_when_redis_fails(app: Flask, client: FlaskClient) -> 
     assert rv.status_code == 303
     assert confirm(client, link_from_mail(email)).status_code == 303
     assert account_email(app, ACCOUNT_ID)[0] == email
+
+
+def test_emails_per_ip_are_limited(client: FlaskClient) -> None:
+    # Below the per-account limit, so only the per-IP one can refuse.
+    limit = MAX_EMAILS_PER_ACCOUNT_PER_HOUR - 2
+    with mock.patch("acoustid.data.email.MAX_EMAILS_PER_IP_PER_HOUR", limit):
+        for _ in range(limit):
+            assert request_link(client, unique_address()).status_code == 303
+        email = unique_address()
+        rv = request_link(client, email)
+    assert rv.status_code == 400
+    assert b"Too many emails" in rv.data
+    assert find_messages(email) == []
+
+
+def test_rate_limit_keys(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_link(client, email)
+    redis = app.acoustid_script.get_redis()  # type: ignore
+    keys = sorted(k.decode() for k in redis.scan_iter(RATE_LIMIT_PREFIX + "*"))
+    assert len(keys) == 3
+    hour = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H")
+    for key in keys:
+        # A fixed clock-hour window, so attempts cannot keep extending it.
+        assert key.endswith(":" + hour)
+        assert 0 < redis.ttl(key) <= 3600
+        # Neither the address nor its plain hash is in the key.
+        assert email not in key
+        assert hashlib.sha256(email.encode()).hexdigest() not in key
+
+
+def test_rate_limit_counts_each_key_without_a_transaction_across_keys(
+    app: Flask, client: FlaskClient
+) -> None:
+    # Redis is sharded behind a proxy, so one pipeline may only touch one key.
+    pipelines: list[list[str]] = []
+    real_execute = Pipeline.execute
+
+    def execute(self: Pipeline, *args: Any, **kwargs: Any) -> Any:
+        pipelines.append(sorted({str(cmd[0][1]) for cmd in self.command_stack}))
+        return real_execute(self, *args, **kwargs)
+
+    with mock.patch.object(Pipeline, "execute", execute):
+        assert request_link(client, unique_address()).status_code == 303
+    assert len(pipelines) == 3
+    assert all(len(keys) == 1 for keys in pipelines)
+
+
+def test_confirm_requires_sign_in(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_link(client, email)
+    link = link_from_mail(email)
+    anonymous = app.test_client()
+    rv = anonymous.post("/account/email/confirm", data={"token": token_of(link)})
+    assert rv.status_code == 302
+    assert "/login" in rv.headers["Location"]
+    assert confirm(client, link).status_code == 303
+
+
+def test_conflict_leaves_the_link_usable(app: Flask, client: FlaskClient) -> None:
+    email = unique_address()
+    request_link(client, email)
+    link = link_from_mail(email)
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        assert set_account_email(ctx.db.get_app_db(), OTHER_ACCOUNT_ID, email)
+        ctx.db.session.commit()
+    assert confirm(client, link).status_code == 400
+    assert len(confirmation_rows(app)) == 1
+
+
+def test_confirm_page_masks_the_address(client: FlaskClient) -> None:
+    email = unique_address()
+    request_link(client, email)
+    page = client.get(link_from_mail(email)).data.decode()
+    assert mask_email(email) in page
+    assert email not in page
+
+
+def test_sentry_scrubs_email_addresses() -> None:
+    event: dict[str, Any] = {
+        "request": {"data": {"email": "a@example.com", "csrf_token": "x"}},
+        "exception": {
+            "values": [
+                {
+                    "stacktrace": {
+                        "frames": [
+                            {
+                                "vars": {
+                                    "email": "a@example.com",
+                                    "entered": "A@example.com",
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+    }
+    make_event_scrubber().scrub_event(cast("Event", event))
+    assert "a@example.com" not in str(event).lower()

@@ -11,6 +11,7 @@ link's token, for CONFIRMATION_TTL; the link works once.
 
 import datetime
 import hashlib
+import hmac
 import logging
 import secrets
 from dataclasses import dataclass
@@ -32,6 +33,8 @@ CONFIRMATION_TTL = datetime.timedelta(minutes=15)
 # is what stops someone flooding an inbox that is not theirs.
 MAX_EMAILS_PER_ACCOUNT_PER_HOUR = 5
 MAX_EMAILS_PER_ADDRESS_PER_HOUR = 3
+# Accounts are free to make, so per account alone is not much of a limit.
+MAX_EMAILS_PER_IP_PER_HOUR = 10
 RATE_LIMIT_PREFIX = "emailrate:"
 
 
@@ -43,7 +46,9 @@ def normalize_email(value: str) -> str | None:
     lets the unique index mean one account per address.
     """
     email = value.strip().lower()
-    if len(email) > 254:
+    # Non-ASCII addresses need SMTPUTF8 from every server on the way, and
+    # have several spellings that would each pass the unique index.
+    if len(email) > 254 or not email.isascii():
         return None
     try:
         check_recipient(email)
@@ -130,36 +135,43 @@ def delete_expired_email_confirmations(conn: AppDB) -> int:
     return conn.execute(stmt).rowcount
 
 
-def count_email_sent(redis: Redis, account_id: int, email: str) -> bool:
-    """Count one confirmation email. False if either hourly limit is reached,
-    in which case the email must not be sent.
+def count_email_sent(
+    redis: Redis, secret: str, account_id: int, email: str, ip: str
+) -> bool:
+    """Count one confirmation email. False if an hourly limit is reached, in
+    which case the email must not be sent.
 
     The counts are only a brake. If redis is unavailable, or loses them, more
     emails get through for a while, so this allows the email rather than fail.
+
+    Each key is counted on its own: redis sits behind a proxy that shards
+    keys, so nothing here may span two keys. The window is the clock hour,
+    in the key name, so repeated attempts cannot keep extending it, and a key
+    that missed its EXPIRE still stops counting when the hour ends.
     """
-    # The address is hashed so the key does not hold it.
-    keys = [
-        (
-            RATE_LIMIT_PREFIX + "account:%d" % account_id,
-            MAX_EMAILS_PER_ACCOUNT_PER_HOUR,
-        ),
-        (
-            RATE_LIMIT_PREFIX + "address:" + hash_token(email),
-            MAX_EMAILS_PER_ADDRESS_PER_HOUR,
-        ),
+    hour = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H")
+    # The address is keyed by an HMAC, so the key does not reveal it, even to
+    # someone hashing a list of candidate addresses.
+    address = hmac.new(secret.encode(), email.encode(), hashlib.sha256).hexdigest()
+    limits = [
+        ("account:%d" % account_id, MAX_EMAILS_PER_ACCOUNT_PER_HOUR),
+        ("address:" + address, MAX_EMAILS_PER_ADDRESS_PER_HOUR),
+        ("ip:" + ip, MAX_EMAILS_PER_IP_PER_HOUR),
     ]
-    try:
-        pipe = redis.pipeline()
-        for key, _ in keys:
+    allowed = True
+    for name, limit in limits:
+        key = "%s%s:%s" % (RATE_LIMIT_PREFIX, name, hour)
+        try:
+            pipe = redis.pipeline()
             pipe.incr(key)
-            # Without NX, which needs redis 7: each email restarts the hour,
-            # as the link code limiter does.
             pipe.expire(key, 3600)
-        counts = pipe.execute()[::2]
-    except RedisError:
-        logger.warning("Failed to count confirmation emails", exc_info=True)
-        return True
-    return all(count <= limit for count, (_, limit) in zip(counts, keys))
+            count = pipe.execute()[0]
+        except RedisError:
+            logger.warning("Failed to count confirmation emails", exc_info=True)
+            continue
+        if count > limit:
+            allowed = False
+    return allowed
 
 
 def find_account_by_email(conn: AppDB, email: str) -> int | None:

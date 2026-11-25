@@ -25,6 +25,7 @@ from acoustid.data.email import (
     count_email_sent,
     create_email_confirmation,
     get_email_confirmation,
+    mask_email,
     normalize_email,
     set_account_email,
 )
@@ -87,7 +88,9 @@ def change_email() -> Any:
     # Whether another account already has the address is not checked here:
     # saying so would tell anyone with an account which addresses are
     # registered. Confirming the link is where it fails.
-    if not count_email_sent(db.get_redis(), user.id, email):
+    secret = current_app.config["SECRET_KEY"]
+    ip = request.remote_addr or ""
+    if not count_email_sent(db.get_redis(), secret, user.id, email, ip):
         return account_page_with_error(
             user, entered, "Too many emails sent. Try again in an hour."
         )
@@ -142,7 +145,7 @@ def confirm_email() -> Response:
             "This link was sent for a different AcoustID account. Sign out, "
             "and sign in with the account you asked for it from."
         )
-    return confirm_page(token=token, email=confirmation.email)
+    return confirm_page(token=token, email=mask_email(confirmation.email))
 
 
 @email_page.route("/account/email/confirm", methods=["POST"])

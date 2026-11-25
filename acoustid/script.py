@@ -11,6 +11,7 @@ import redis.retry
 import sentry_sdk
 from redis import Redis
 from redis.sentinel import Sentinel as RedisSentinel
+from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 from statsd import StatsClient
 
 from acoustid._release import GIT_RELEASE
@@ -21,6 +22,14 @@ from acoustid.indexclient import IndexClientPool
 from acoustid.logging import JsonLogFormatter
 
 logger = logging.getLogger(__name__)
+
+
+def make_event_scrubber() -> EventScrubber:
+    """Email addresses are personal data the error reports do not need:
+    scrub them from request forms and captured local variables."""
+    return EventScrubber(
+        denylist=DEFAULT_DENYLIST + ["email", "entered"], recursive=True
+    )
 
 
 class ScriptContext(object):
@@ -143,6 +152,7 @@ class Script(object):
             # sample rate of 1.0. Flip this back if the backend ever supports
             # sessions again.
             auto_session_tracking=False,
+            event_scrubber=make_event_scrubber(),
         )
         sentry_sdk.set_tag("component", component)
 

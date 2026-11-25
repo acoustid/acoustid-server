@@ -67,7 +67,7 @@ account = Table(
         "is_admin", Boolean, default=False, server_default=sql.false(), nullable=False
     ),
     # Lowercased. Only ever set to an address the account has confirmed;
-    # a pending change lives in redis until then.
+    # a pending change is in account_email_confirmation until then.
     Column("email", String),
     Column("email_verified", DateTime(timezone=True)),
     Index("account_idx_mbuser", "mbuser", unique=True),
@@ -100,8 +100,6 @@ account_google = Table(
     info={"bind_key": "app"},
 )
 
-# User keys issued to one application through the link flow. The key is handed
-# to the client before anyone approves it; approval sets account_id.
 # Links sent to confirm an email address for an account. A row is deleted when
 # its link is used, and expired rows by the daily cleanup.
 account_email_confirmation = Table(
@@ -124,6 +122,8 @@ account_email_confirmation = Table(
     info={"bind_key": "app"},
 )
 
+# User keys issued to one application through the link flow. The key is handed
+# to the client before anyone approves it; approval sets account_id.
 account_application_key = Table(
     "account_application_key",
     metadata,
