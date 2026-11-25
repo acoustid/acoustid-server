@@ -40,6 +40,7 @@ from acoustid.data.account import (
     cache_user_key,
     lookup_user_api_key,
     read_cached_user_key,
+    record_user_key_use,
 )
 from acoustid.data.application import (
     lookup_application_id_by_apikey,
@@ -304,6 +305,10 @@ class APIHandlerParams(object):
         if key.application_id is not None and key.application_id != self.application_id:
             raise errors.InvalidUserAPIKeyError()
         self.account_id = key.account_id
+        # Linked keys lapse when unused, so their use is recorded.
+        # account.apikey does not lapse.
+        if key.application_id is not None and self.redis is not None:
+            record_user_key_use(self.redis, account_apikey, datetime.date.today())
 
     def _parse_format(self, values):
         self.format = values.get("format", DEFAULT_FORMAT)

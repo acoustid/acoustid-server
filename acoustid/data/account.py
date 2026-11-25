@@ -8,8 +8,9 @@ import re
 import secrets
 from typing import Any, NamedTuple
 
+import cachetools
 from redis import Redis
-from sqlalchemy import String, sql
+from sqlalchemy import Date, String, sql
 from sqlalchemy.dialects.postgresql import insert
 
 from acoustid import const
@@ -144,6 +145,13 @@ def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
                 sql.case(
                     (key.c.revoked.is_not(None), USER_KEY_REVOKED),
                     (key.c.declined.is_not(None), USER_KEY_DECLINED),
+                    (
+                        sql.func.coalesce(
+                            key.c.last_used, sql.cast(key.c.approved, Date)
+                        )
+                        < sql.func.current_date() - const.USER_KEY_LIFETIME_DAYS,
+                        USER_KEY_EXPIRED,
+                    ),
                     (key.c.approved.is_not(None), USER_KEY_APPROVED),
                     (
                         key.c.link_expires <= sql.func.clock_timestamp(),
@@ -409,3 +417,49 @@ def revoke_all_user_application_keys(conn: AppDB, account_id: int) -> list[str]:
         .returning(key.c.apikey)
     )
     return list(conn.execute(stmt).scalars())
+
+
+USER_KEY_USED_PREFIX = "userkeyused:"
+# The dates a process has already recorded each key for, so a busy key costs
+# one redis write per process per day rather than one per request.
+_recorded_user_key_use: cachetools.Cache = cachetools.TTLCache(maxsize=10000, ttl=3600)
+
+
+def record_user_key_use(redis: Redis, apikey: str, today: datetime.date) -> None:
+    """Note that a linked key was used today, for flush_user_key_use to write
+    to the database. Never fails the request."""
+    if _recorded_user_key_use.get(apikey) == today:
+        return
+    key = USER_KEY_USED_PREFIX + today.isoformat()
+    try:
+        pipe = redis.pipeline()
+        pipe.sadd(key, apikey)
+        pipe.expire(key, 7 * 24 * 3600)
+        pipe.execute()
+    except Exception:
+        logger.warning("Failed to record user key use", exc_info=True)
+        return
+    _recorded_user_key_use[apikey] = today
+
+
+def mark_user_keys_used(conn: AppDB, apikeys: list[str], date: datetime.date) -> None:
+    key = schema.account_application_key
+    stmt = (
+        key.update()
+        .where(key.c.apikey.in_(apikeys))
+        .where(sql.or_(key.c.last_used.is_(None), key.c.last_used < date))
+        .values(last_used=date)
+    )
+    conn.execute(stmt)
+
+
+def delete_abandoned_link_requests(conn: AppDB) -> int:
+    key = schema.account_application_key
+    stmt = (
+        key.delete()
+        .where(key.c.account_id.is_(None))
+        .where(
+            key.c.link_expires < sql.func.now() - const.ABANDONED_LINK_REQUEST_RETENTION
+        )
+    )
+    return conn.execute(stmt).rowcount

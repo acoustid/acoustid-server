@@ -45,3 +45,10 @@ USER_KEY_LINK_TTL = datetime.timedelta(minutes=15)
 # users from linking, which is what the per-IP limit is there to prevent.
 USER_KEY_LINK_REQUESTS_PER_IP_PER_HOUR = 10
 USER_KEY_MAX_PENDING_LINKS_PER_APPLICATION = 10000
+
+# An approved key stops working this long after it was last used, so keys
+# for machines that no longer exist lapse while working ones never do.
+USER_KEY_LIFETIME_DAYS = 365
+# Link requests nobody approved are kept this long after their code expired,
+# so link_status can still say "declined" or "expired", then deleted.
+ABANDONED_LINK_REQUEST_RETENTION = datetime.timedelta(days=30)
