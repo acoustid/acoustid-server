@@ -577,5 +577,6 @@ def new_api_key():
     old_apikey = user.apikey
     user.apikey = generate_api_key()
     db.session.commit()
-    refresh_cached_user_key(db.get_redis(), db.get_app_db(), old_apikey)
+    for apikey in (old_apikey, user.apikey):
+        refresh_cached_user_key(db.get_redis(), db.get_app_db(), apikey)
     return redirect(url_for(".api_key"))

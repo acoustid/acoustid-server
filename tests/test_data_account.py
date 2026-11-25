@@ -151,7 +151,7 @@ def test_user_key_cache_round_trip(redis: Redis) -> None:
 
     cache_user_key(redis, "test-unknown", None)
     assert read_cached_user_key(redis, "test-unknown") == (True, None)
-    assert redis.ttl(USER_KEY_CACHE_PREFIX + "test-unknown") <= 60
+    assert redis.ttl(USER_KEY_CACHE_PREFIX + "test-unknown") <= 5
 
     key = UserKey(1, 2, USER_KEY_APPROVED)
     cache_user_key(redis, "test-key", key)
@@ -181,3 +181,11 @@ def test_refresh_cached_user_key_after_approval(conn: AppDB) -> None:
         )
     finally:
         redis.delete(USER_KEY_CACHE_PREFIX + req.apikey)
+
+
+def test_undecodable_cached_user_key_is_a_miss(redis: Redis) -> None:
+    """An entry from a version with a different UserKey must not fail lookups."""
+    redis.set(USER_KEY_CACHE_PREFIX + "test-old", "[1, 2]")
+    redis.set(USER_KEY_CACHE_PREFIX + "test-junk", "{")
+    assert read_cached_user_key(redis, "test-old") == (False, None)
+    assert read_cached_user_key(redis, "test-junk") == (False, None)

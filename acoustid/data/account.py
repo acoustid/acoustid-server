@@ -9,7 +9,6 @@ import secrets
 from typing import Any, NamedTuple
 
 from redis import Redis
-from redis.exceptions import RedisError
 from sqlalchemy import String, sql
 from sqlalchemy.dialects.postgresql import insert
 
@@ -266,7 +265,9 @@ def revoke_user_application_key(conn: AppDB, id: int, account_id: int) -> str | 
 # from a replica cannot undo the change.
 USER_KEY_CACHE_PREFIX = "userkey:"
 USER_KEY_CACHE_TTL = 600
-UNKNOWN_USER_KEY_CACHE_TTL = 60
+# Short, because a key just issued may not have reached the replica the API
+# reads, and nothing overwrites an entry saying it does not exist.
+UNKNOWN_USER_KEY_CACHE_TTL = 5
 
 
 def read_cached_user_key(redis: Redis, apikey: str) -> tuple[bool, UserKey | None]:
@@ -274,10 +275,12 @@ def read_cached_user_key(redis: Redis, apikey: str) -> tuple[bool, UserKey | Non
     value = redis.get(USER_KEY_CACHE_PREFIX + apikey)
     if value is None:
         return False, None
-    data = json.loads(value)
-    if data is None:
-        return True, None
-    return True, UserKey(*data)
+    try:
+        data = json.loads(value)
+        return True, None if data is None else UserKey(*data)
+    except (ValueError, TypeError):
+        # Written by a version with a different UserKey, say.
+        return False, None
 
 
 def cache_user_key(
@@ -300,5 +303,5 @@ def refresh_cached_user_key(redis: Redis, conn: AppDB, apikey: str) -> None:
     """
     try:
         cache_user_key(redis, apikey, lookup_user_api_key(conn, apikey), replace=True)
-    except RedisError:
+    except Exception:
         logger.error("Failed to update cached user key", exc_info=True)
