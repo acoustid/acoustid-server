@@ -4,6 +4,7 @@ import json
 import logging
 import secrets
 import urllib.request as urllib2
+from typing import Any
 from urllib.parse import urlparse
 
 from flask import (
@@ -29,7 +30,12 @@ from acoustid.data.account import (
     lookup_account_id_by_openid,
     refresh_cached_user_key,
 )
-from acoustid.data.email import CONFIRMATION_TTL, mask_email
+from acoustid.data.email import (
+    CONFIRMATION_TTL,
+    mask_email,
+    normalize_email,
+    set_account_email,
+)
 from acoustid.models import Account, AccountGoogle, AccountOpenID
 from acoustid.utils import generate_api_key
 from acoustid.web import db
@@ -490,7 +496,7 @@ def handle_google_oauth2_login():
             **{
                 "response_type": "code",
                 "access_type": "online",
-                "scope": "openid",
+                "scope": "openid email",
                 "redirect_uri": url_for(".google_login", _external=True),
                 "openid.realm": get_openid_realm(),
                 "state": generate_login_token("google_login_token"),
@@ -535,8 +541,28 @@ def handle_google_oauth2_login():
 
     user = find_or_create_google_user(id_token["sub"], id_token.get("openid_id"))
     logger.info('Google user %s "%s" logged in', user.id, user.name)
+    store_google_email(user, id_token)
 
     return login_user_and_redirect(user.id)
+
+
+def store_google_email(user: Account, id_token: dict[str, Any]) -> None:
+    """Give the account the address from Google's ID token, if Google has
+    verified it and the account has none yet.
+
+    An address another account has already verified is left alone: accounts
+    are never merged, and the unique index would refuse it anyway.
+    """
+    if user.email is not None:
+        return
+    # A JSON boolean, though older tokens had the string "true".
+    if id_token.get("email_verified") not in (True, "true"):
+        return
+    email = normalize_email(str(id_token.get("email") or ""))
+    if email is None:
+        return
+    if set_account_email(db.get_app_db(), user.id, email):
+        logger.info("Stored the email address from Google for user %s", user.id)
 
 
 @user_page.route("/login/google")
