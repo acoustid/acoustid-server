@@ -65,9 +65,35 @@ There are two ways to get one:
    on a NAS that is managed through a web interface. A key linked this way works only with
    the application that requested it, and stops working after a year without being used.
 
-Instead of the <code>client</code> and <code>user</code> parameters, the keys can be sent in
-the <code>Acoustid-App-Key</code> and <code>Acoustid-User-Key</code> HTTP headers, which keeps
-them out of URLs and the logs that record them.
+<span id="key_headers"></span>
+### Sending API Keys in Headers
+
+Every method that takes the <code>client</code> or <code>user</code> parameter also accepts the
+key in an HTTP header instead:
+
+<table class="table">
+	<tr>
+		<th>Parameter</th>
+		<th>Header</th>
+	</tr>
+	<tr>
+		<td>client</td>
+		<td>Acoustid-App-Key</td>
+	</tr>
+	<tr>
+		<td>user</td>
+		<td>Acoustid-User-Key</td>
+	</tr>
+</table>
+
+Prefer the headers in new code: a key in a URL ends up in server and proxy logs, browser
+history and error reports, while a header does not. If a request carries both, the header is
+used. The parameters keep working.
+
+<pre><code>curl https://api.acoustid.org/v2/lookup \
+    -H "Acoustid-App-Key: {{ client_api_key }}" \
+    -H "Acoustid-User-Key: XXX" \
+    -d meta=recordings -d duration=641 -d fingerprint=XXX</code></pre>
 
 ### Methods
 
@@ -114,13 +140,13 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 		<td>client</td>
 		<td>yes</td>
 		<td>{{ client_api_key }}</td>
-		<td>application's API key</td>
+		<td>application's API key, or the <a href="#key_headers">Acoustid-App-Key</a> header</td>
 	</tr>
 	<tr>
 		<td>user</td>
 		<td>from 2027</td>
 		<td>XXX</td>
-		<td>user's API key, see <a href="#api_keys">API keys</a></td>
+		<td>user's API key, or the <a href="#key_headers">Acoustid-User-Key</a> header; see <a href="#api_keys">API keys</a></td>
 	</tr>
 	<tr>
 		<td>duration</td>
@@ -232,13 +258,13 @@ wich is a cluster of fingerprints.
 		<td>client</td>
 		<td>yes</td>
 		<td>{{ client_api_key }}</td>
-		<td>application's API key</td>
+		<td>application's API key, or the <a href="#key_headers">Acoustid-App-Key</a> header</td>
 	</tr>
 	<tr>
 		<td>user</td>
 		<td>from 2027</td>
 		<td>XXX</td>
-		<td>user's API key, see <a href="#api_keys">API keys</a></td>
+		<td>user's API key, or the <a href="#key_headers">Acoustid-User-Key</a> header; see <a href="#api_keys">API keys</a></td>
 	</tr>
 	<tr>
 		<td>trackid</td>
@@ -309,7 +335,7 @@ recording ID. Otherwise you can send the textual metadata.
 		<td>client</td>
 		<td>yes</td>
 		<td>{{ client_api_key }}</td>
-		<td>application's API key</td>
+		<td>application's API key, or the <a href="#key_headers">Acoustid-App-Key</a> header</td>
 	</tr>
 	<tr>
 		<td>clientversion</td>
@@ -457,7 +483,7 @@ the status of the submission by looking up the ID from the `/v2/submit` call.
 		<td>client</td>
 		<td>yes</td>
 		<td>{{ client_api_key }}</td>
-		<td>application's API key</td>
+		<td>application's API key, or the <a href="#key_headers">Acoustid-App-Key</a> header</td>
 	</tr>
 	<tr>
 		<td>clientversion</td>
@@ -572,7 +598,7 @@ Show the user the link, and the code for typing in on another device. While you 
 		<td>client</td>
 		<td>yes</td>
 		<td>{{ client_api_key }}</td>
-		<td>application's API key</td>
+		<td>application's API key, or the <a href="#key_headers">Acoustid-App-Key</a> header</td>
 	</tr>
 	<tr>
 		<td>device</td>
@@ -639,13 +665,13 @@ check its status here before you discard the key.
 		<td>client</td>
 		<td>yes</td>
 		<td>{{ client_api_key }}</td>
-		<td>application's API key</td>
+		<td>application's API key, or the <a href="#key_headers">Acoustid-App-Key</a> header</td>
 	</tr>
 	<tr>
 		<td>user</td>
 		<td>yes</td>
 		<td>XXX</td>
-		<td>the user key to check</td>
+		<td>the user key to check, or the <a href="#key_headers">Acoustid-User-Key</a> header</td>
 	</tr>
 </table>
 
