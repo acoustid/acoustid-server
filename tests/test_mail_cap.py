@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import os
+import re
 from configparser import RawConfigParser
 from typing import Any, Iterator
 from unittest import mock
@@ -12,9 +13,10 @@ from flask import Flask
 from acoustid import tables as schema
 from acoustid.config import MailConfig
 from acoustid.data.email import (
+    MAX_EMAILS_PER_ACCOUNT_PER_HOUR,
     MAX_EMAILS_PER_IP_PER_HOUR,
     RATE_LIMIT_PREFIX,
-    within_global_limits,
+    check_global_limits,
 )
 from tests.test_mail import find_messages
 from tests.test_web_signin import request_signin, unique_address
@@ -104,7 +106,7 @@ def test_no_cap_by_default(app: Flask) -> None:
 
 def test_cap_keys_expire(app: Flask) -> None:
     redis = app.acoustid_script.get_redis()  # type: ignore
-    assert within_global_limits(redis, 10, 100)
+    assert check_global_limits(redis, 10, 100) is None
     ttls = {
         key.decode().split(":")[2]: redis.ttl(key)
         for key in redis.scan_iter(RATE_LIMIT_PREFIX + "global:*")
@@ -158,8 +160,88 @@ def test_hourly_refusals_do_not_count_towards_the_day(
     app: Flask, caplog: pytest.LogCaptureFixture
 ) -> None:
     redis = app.acoustid_script.get_redis()  # type: ignore
-    results = [within_global_limits(redis, 2, 5) for _ in range(6)]
-    assert results == [True, True, False, False, False, False]
+    results = [check_global_limits(redis, 2, 5) for _ in range(6)]
+    assert results == [None, None] + ["global_hour"] * 4
     [day_key] = redis.scan_iter(RATE_LIMIT_PREFIX + "global:day:*")
     assert int(redis.get(day_key)) == 2
     assert "global:day" not in caplog.text
+
+
+@pytest.fixture()
+def metrics(app: Flask) -> Iterator[list[str]]:
+    names: list[str] = []
+    statsd = mock.Mock()
+    statsd.incr.side_effect = lambda name, *args, **kwargs: names.append(name)
+    with mock.patch.object(app.acoustid_script, "statsd", statsd):  # type: ignore
+        yield names
+
+
+def test_metrics_for_sent_mail(app: Flask, metrics: list[str]) -> None:
+    assert request_signin(app.test_client(), unique_address()).status_code == 303
+    assert confirm_request(app, unique_address()) == 303
+    assert metrics == [
+        "mail.sent_total,kind=signin",
+        "mail.sent_total,kind=confirmation",
+    ]
+
+
+def test_metrics_for_failed_mail(app: Flask, metrics: list[str]) -> None:
+    with mock.patch.object(app.acoustid_config.mail, "host", ""):  # type: ignore
+        assert request_signin(app.test_client(), unique_address()).status_code == 400
+        assert confirm_request(app, unique_address()) == 400
+    assert metrics == [
+        "mail.send_failures_total,kind=signin",
+        "mail.send_failures_total,kind=confirmation",
+    ]
+
+
+def refusals(metrics: list[str]) -> list[str]:
+    return [name for name in metrics if name.startswith("mail.refused_total")]
+
+
+def test_metrics_for_refusals(app: Flask, metrics: list[str]) -> None:
+    # The Postgres per-address check on sign-in requests.
+    email = unique_address()
+    for _ in range(4):
+        request_signin(app.test_client(), email)
+    assert refusals(metrics) == ["mail.refused_total,kind=signin,limit=signin_requests"]
+
+    # The redis per-address limit, shared with sign-in emails, on confirmations.
+    metrics.clear()
+    assert confirm_request(app, email) == 400
+    assert refusals(metrics) == ["mail.refused_total,kind=confirmation,limit=address"]
+
+    # Per account.
+    metrics.clear()
+    for _ in range(MAX_EMAILS_PER_ACCOUNT_PER_HOUR):
+        confirm_request(app, unique_address())
+    assert refusals(metrics) == ["mail.refused_total,kind=confirmation,limit=account"]
+
+
+def test_metrics_for_ip_and_global_refusals(app: Flask, metrics: list[str]) -> None:
+    for _ in range(MAX_EMAILS_PER_IP_PER_HOUR + 1):
+        signin_from(app, "192.0.2.1", unique_address())
+    assert refusals(metrics) == ["mail.refused_total,kind=signin,limit=ip"]
+
+    metrics.clear()
+    with caps(app, per_hour=1):
+        signin_from(app, "192.0.2.2", unique_address())
+        signin_from(app, "192.0.2.3", unique_address())
+    assert refusals(metrics) == ["mail.refused_total,kind=signin,limit=global_hour"]
+
+    metrics.clear()
+    with caps(app, per_day=1):
+        # A cap only counts while it is set, so this needs two.
+        signin_from(app, "192.0.2.4", unique_address())
+        signin_from(app, "192.0.2.5", unique_address())
+    assert refusals(metrics) == ["mail.refused_total,kind=signin,limit=global_day"]
+
+
+def test_metric_names_carry_no_personal_data(app: Flask, metrics: list[str]) -> None:
+    email = unique_address()
+    for _ in range(5):
+        request_signin(app.test_client(), email)
+    confirm_request(app, email)
+    assert metrics
+    for name in metrics:
+        assert re.fullmatch(r"mail\.[a-z_]+(,[a-z]+=[a-z_]+)+", name), name
