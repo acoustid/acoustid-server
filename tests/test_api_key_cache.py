@@ -5,9 +5,15 @@ from typing import Any, Iterator, cast
 
 import cachetools
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from acoustid.api import v2
-from acoustid.data.account import USER_KEY_APPROVED, USER_KEY_PENDING, UserKey
+from acoustid.data.account import (
+    USER_KEY_APPROVED,
+    USER_KEY_PENDING,
+    UserKey,
+    cache_user_key,
+)
 
 APPLICATION_ID = 111
 ACCOUNT_ID = 222
@@ -142,3 +148,67 @@ def test_unknown_user_key_is_cached_briefly(monkeypatch: pytest.MonkeyPatch) -> 
         assert v2.check_user_api_key(cast(Any, None), cast(Any, db), SHARED_KEY) is None
     assert calls["user"] == 1
     assert v2.unknown_user_api_key_cache.ttl <= 10
+
+
+class FakeRedis(object):
+    def __init__(self) -> None:
+        self.data: dict[str, bytes] = {}
+
+    def get(self, name: str) -> bytes | None:
+        return self.data.get(name)
+
+    def set(
+        self, name: str, value: str, ex: int | None = None, nx: bool = False
+    ) -> None:
+        if nx and name in self.data:
+            return
+        self.data[name] = value.encode()
+
+
+class BrokenRedis(object):
+    def get(self, name: str) -> bytes | None:
+        raise RedisConnectionError()
+
+    def set(self, *args: Any, **kwargs: Any) -> None:
+        raise RedisConnectionError()
+
+
+def test_user_key_is_shared_through_redis(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pending key is cached in redis, where approval overwrites it, so a
+    process that has seen it pending sees the approval without the database."""
+    calls = {"user": 0}
+
+    def lookup_user_api_key(db: Any, apikey: str) -> UserKey:
+        calls["user"] += 1
+        return UserKey(None, APPLICATION_ID, USER_KEY_PENDING)
+
+    monkeypatch.setattr(v2, "lookup_user_api_key", lookup_user_api_key)
+    redis = FakeRedis()
+    db = FakeDB()
+
+    def check() -> UserKey | None:
+        return v2.check_user_api_key(
+            cast(Any, None), cast(Any, db), SHARED_KEY, cast(Any, redis)
+        )
+
+    assert check() == UserKey(None, APPLICATION_ID, USER_KEY_PENDING)
+    assert check() == UserKey(None, APPLICATION_ID, USER_KEY_PENDING)
+    assert calls["user"] == 1
+
+    approved = UserKey(ACCOUNT_ID, APPLICATION_ID, USER_KEY_APPROVED)
+    cache_user_key(cast(Any, redis), SHARED_KEY, approved, replace=True)
+    assert check() == approved
+    assert calls["user"] == 1
+
+
+def test_user_key_falls_back_to_the_database_without_redis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def lookup_user_api_key(db: Any, apikey: str) -> UserKey:
+        return UserKey(ACCOUNT_ID, None, USER_KEY_APPROVED)
+
+    monkeypatch.setattr(v2, "lookup_user_api_key", lookup_user_api_key)
+    key = v2.check_user_api_key(
+        cast(Any, None), cast(Any, FakeDB()), SHARED_KEY, cast(Any, BrokenRedis())
+    )
+    assert key == UserKey(ACCOUNT_ID, None, USER_KEY_APPROVED)

@@ -2,11 +2,14 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import datetime
+import json
 import logging
 import re
 import secrets
 from typing import Any, NamedTuple
 
+from redis import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import String, sql
 from sqlalchemy.dialects.postgresql import insert
 
@@ -223,14 +226,14 @@ def _update_pending_link(code: str) -> Any:
         .where(key.c.account_id.is_(None))
         .where(key.c.declined.is_(None))
         .where(key.c.link_expires > sql.func.clock_timestamp())
-        .returning(key.c.id)
+        .returning(key.c.apikey)
     )
 
 
 def approve_user_key_link_request(
     conn: AppDB, code: str, account_id: int
-) -> int | None:
-    """Bind the pending key to the account. Returns its id, or None if the code
+) -> str | None:
+    """Bind the pending key to the account. Returns the key, or None if the code
     does not name a pending request."""
     stmt = _update_pending_link(code).values(
         account_id=account_id, approved=sql.func.now(), link_code=None
@@ -238,12 +241,13 @@ def approve_user_key_link_request(
     return conn.execute(stmt).scalar()
 
 
-def decline_user_key_link_request(conn: AppDB, code: str) -> int | None:
+def decline_user_key_link_request(conn: AppDB, code: str) -> str | None:
     stmt = _update_pending_link(code).values(declined=sql.func.now(), link_code=None)
     return conn.execute(stmt).scalar()
 
 
-def revoke_user_application_key(conn: AppDB, id: int, account_id: int) -> bool:
+def revoke_user_application_key(conn: AppDB, id: int, account_id: int) -> str | None:
+    """Returns the revoked key, or None if the account has no such live key."""
     key = schema.account_application_key
     stmt = (
         key.update()
@@ -251,5 +255,50 @@ def revoke_user_application_key(conn: AppDB, id: int, account_id: int) -> bool:
         .where(key.c.account_id == account_id)
         .where(key.c.revoked.is_(None))
         .values(revoked=sql.func.now())
+        .returning(key.c.apikey)
     )
-    return conn.execute(stmt).rowcount == 1
+    return conn.execute(stmt).scalar()
+
+
+# User keys are cached in Redis, shared by every API process. The API fills
+# the cache only where it is empty (SET NX); whatever changes a key's state
+# overwrites the entry after committing, so a process holding a stale read
+# from a replica cannot undo the change.
+USER_KEY_CACHE_PREFIX = "userkey:"
+USER_KEY_CACHE_TTL = 600
+UNKNOWN_USER_KEY_CACHE_TTL = 60
+
+
+def read_cached_user_key(redis: Redis, apikey: str) -> tuple[bool, UserKey | None]:
+    """(found, key). A found entry can be None, meaning the key is unknown."""
+    value = redis.get(USER_KEY_CACHE_PREFIX + apikey)
+    if value is None:
+        return False, None
+    data = json.loads(value)
+    if data is None:
+        return True, None
+    return True, UserKey(*data)
+
+
+def cache_user_key(
+    redis: Redis, apikey: str, key: UserKey | None, replace: bool = False
+) -> None:
+    redis.set(
+        USER_KEY_CACHE_PREFIX + apikey,
+        json.dumps(None if key is None else list(key)),
+        ex=UNKNOWN_USER_KEY_CACHE_TTL if key is None else USER_KEY_CACHE_TTL,
+        nx=not replace,
+    )
+
+
+def refresh_cached_user_key(redis: Redis, conn: AppDB, apikey: str) -> None:
+    """Overwrite the cached state of a key that has just changed. Call after
+    committing, with a connection to the primary.
+
+    A failure is logged rather than raised: the change is already committed,
+    and the stale entry expires within USER_KEY_CACHE_TTL.
+    """
+    try:
+        cache_user_key(redis, apikey, lookup_user_api_key(conn, apikey), replace=True)
+    except RedisError:
+        logger.error("Failed to update cached user key", exc_info=True)

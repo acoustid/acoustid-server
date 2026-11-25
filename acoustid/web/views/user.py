@@ -22,7 +22,11 @@ from openid.consumer import consumer as openid
 from openid.extensions import ax
 from rauth import OAuth2Service
 
-from acoustid.data.account import insert_account, lookup_account_id_by_openid
+from acoustid.data.account import (
+    insert_account,
+    lookup_account_id_by_openid,
+    refresh_cached_user_key,
+)
 from acoustid.models import Account, AccountGoogle, AccountOpenID
 from acoustid.utils import generate_api_key
 from acoustid.web import db
@@ -570,6 +574,8 @@ def new_api_key():
     sent = request.form.get("csrf_token", "")
     if not token or not hmac.compare_digest(token, sent):
         abort(400)
+    old_apikey = user.apikey
     user.apikey = generate_api_key()
     db.session.commit()
+    refresh_cached_user_key(db.get_redis(), db.get_app_db(), old_apikey)
     return redirect(url_for(".api_key"))

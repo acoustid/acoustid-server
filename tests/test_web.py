@@ -12,6 +12,7 @@ from itsdangerous import URLSafeSerializer
 from rauth import OAuth2Service
 from sqlalchemy import sql
 
+from acoustid.data.account import read_cached_user_key
 from acoustid.web import db
 from acoustid.web.views import general
 from acoustid.web.views.user import LoginError, validate_openid_identifier
@@ -1127,6 +1128,9 @@ def test_replacing_the_api_key_requires_post_and_a_token(app: Flask) -> None:
         rv = client.post("/new-api-key", data={"csrf_token": token})
         assert rv.status_code == 302
         assert "user2key" not in client.get("/api-key").text
+        # The old key stops working for the API too, not when its cache
+        # entry happens to expire.
+        assert read_cached_user_key(db.get_redis(), "user2key") == (True, None)
     finally:
         from acoustid import tables as schema
 

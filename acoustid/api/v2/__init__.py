@@ -25,6 +25,8 @@ from typing import (
 
 import attr
 import cachetools
+from redis import Redis
+from redis.exceptions import RedisError
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.wrappers import Request, Response
@@ -35,7 +37,9 @@ from acoustid.const import MAX_REQUESTS_PER_SECOND
 from acoustid.data.account import (
     USER_KEY_APPROVED,
     UserKey,
+    cache_user_key,
     lookup_user_api_key,
+    read_cached_user_key,
 )
 from acoustid.data.application import (
     lookup_application_id_by_apikey,
@@ -169,7 +173,10 @@ def check_app_api_key(
 
 
 def check_user_api_key(
-    config: "Config", db: DatabaseContext, user_apikey: str
+    config: "Config",
+    db: DatabaseContext,
+    user_apikey: str,
+    redis: Redis | None = None,
 ) -> UserKey | None:
     try:
         return user_api_key_cache[user_apikey]
@@ -177,8 +184,22 @@ def check_user_api_key(
         pass
     if user_apikey in unknown_user_api_key_cache:
         return None
-    key = lookup_user_api_key(db.get_app_db(read_only=True), user_apikey)
-    # A pending key is not cached, since it can be approved at any moment.
+    key = None
+    found = False
+    if redis is not None:
+        try:
+            found, key = read_cached_user_key(redis, user_apikey)
+        except RedisError:
+            logger.warning("Failed to read user key from redis", exc_info=True)
+    if not found:
+        key = lookup_user_api_key(db.get_app_db(read_only=True), user_apikey)
+        if redis is not None:
+            try:
+                cache_user_key(redis, user_apikey, key)
+            except RedisError:
+                logger.warning("Failed to cache user key in redis", exc_info=True)
+    # In this process, only approved keys (and unknown ones briefly): a
+    # pending key can be approved at any moment.
     if key is None:
         unknown_user_api_key_cache[user_apikey] = True
     elif key.state == USER_KEY_APPROVED:
@@ -249,6 +270,9 @@ class APIHandlerParams(object):
         # request carried none, which lookups still allow until
         # const.LOOKUP_USER_REQUIRED_FROM.
         self.account_id = None  # type: int | None
+        # Set by the handler. Without it user keys are cached in this process
+        # only.
+        self.redis: Redis | None = None
         # Set by _parse_client. True unless the application is exempt from
         # carrying a user key on lookups.
         self.application_requires_user_key = True
@@ -282,7 +306,7 @@ class APIHandlerParams(object):
             if required:
                 raise errors.MissingParameterError("user")
             return
-        key = check_user_api_key(self.config, db, account_apikey)
+        key = check_user_api_key(self.config, db, account_apikey, self.redis)
         if key is None or key.state != USER_KEY_APPROVED:
             raise errors.InvalidUserAPIKeyError()
         # Checked here rather than inside the cached function, which is keyed
@@ -415,6 +439,7 @@ class APIHandler(Handler):
     def _handle_inside_context(self, req: Request) -> Response:
         initialize_trace_id()
         params = self.params_class(self.ctx.config)
+        params.redis = self.ctx.redis
         if req.access_route:
             self.user_ip = req.access_route[0]
         else:
