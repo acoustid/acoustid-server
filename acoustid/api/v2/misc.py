@@ -3,6 +3,7 @@
 
 import datetime
 import logging
+import unicodedata
 from typing import Any
 from urllib.parse import urlparse
 
@@ -167,27 +168,51 @@ MAX_DEVICE_LENGTH = 100
 MAX_RETURN_URL_LENGTH = 2000
 
 
+def has_unsafe_characters(value: str) -> bool:
+    """Control and formatting characters, bidi overrides among them, which
+    could make a string shown on the consent page read as something else."""
+    return any(unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in value)
+
+
 class UserRequestLinkHandlerParams(APIHandlerParams):
     def parse(self, values: MultiDict, db: DatabaseContext) -> None:
         super().parse(values, db)
         self._parse_client(values, db)
         self.device: str | None = values.get("device", "").strip() or None
-        if self.device is not None and len(self.device) > MAX_DEVICE_LENGTH:
-            raise errors.InvalidParameterError(
-                "device", "must be at most %d characters" % MAX_DEVICE_LENGTH
-            )
+        if self.device is not None:
+            if len(self.device) > MAX_DEVICE_LENGTH:
+                raise errors.InvalidParameterError(
+                    "device", "must be at most %d characters" % MAX_DEVICE_LENGTH
+                )
+            if has_unsafe_characters(self.device):
+                raise errors.InvalidParameterError(
+                    "device", "must not contain control characters"
+                )
         self.return_url: str | None = values.get("return_url", "").strip() or None
         if self.return_url is not None:
-            url = urlparse(self.return_url)
-            if url.scheme not in ("http", "https") or not url.netloc:
-                raise errors.InvalidParameterError(
-                    "return_url", "must be an http or https URL"
-                )
-            if len(self.return_url) > MAX_RETURN_URL_LENGTH:
-                raise errors.InvalidParameterError(
-                    "return_url",
-                    "must be at most %d characters" % MAX_RETURN_URL_LENGTH,
-                )
+            self._check_return_url(self.return_url)
+
+    def _check_return_url(self, value: str) -> None:
+        if len(value) > MAX_RETURN_URL_LENGTH:
+            raise errors.InvalidParameterError(
+                "return_url", "must be at most %d characters" % MAX_RETURN_URL_LENGTH
+            )
+        # Printable ASCII only, and no backslash, which browsers read as a
+        # slash where urlparse does not, so the host the user is shown would
+        # not be the host they are sent to.
+        if not all(0x21 <= ord(c) <= 0x7E for c in value) or "\\" in value:
+            raise errors.InvalidParameterError(
+                "return_url", "must not contain spaces or special characters"
+            )
+        url = urlparse(value)
+        if url.scheme not in ("http", "https") or not url.hostname:
+            raise errors.InvalidParameterError(
+                "return_url", "must be an http or https URL"
+            )
+        if "@" in url.netloc:
+            raise errors.InvalidParameterError(
+                "return_url", "must not contain a user name or password"
+            )
 
 
 class UserRequestLinkHandler(APIHandler):
@@ -200,10 +225,8 @@ class UserRequestLinkHandler(APIHandler):
         assert isinstance(params, UserRequestLinkHandlerParams)
         self._check_link_request_limit()
         app_db = self.ctx.db.get_app_db()
-        if (
-            count_pending_link_requests(app_db, params.application_id)
-            >= const.USER_KEY_MAX_PENDING_LINKS_PER_APPLICATION
-        ):
+        cap = const.USER_KEY_MAX_PENDING_LINKS_PER_APPLICATION
+        if count_pending_link_requests(app_db, params.application_id, cap) >= cap:
             logger.warning(
                 "Too many pending link requests for application %s",
                 params.application_id,
@@ -231,8 +254,10 @@ class UserRequestLinkHandler(APIHandler):
         hour = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H")
         key = "linkreq:%s:%s" % (self.user_ip, hour)
         try:
-            count = self.ctx.redis.incr(key)
-            self.ctx.redis.expire(key, 3600)
+            pipe = self.ctx.redis.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, 3600)
+            count = pipe.execute()[0]
         except RedisError:
             logger.warning("Failed to check link request limit", exc_info=True)
             return

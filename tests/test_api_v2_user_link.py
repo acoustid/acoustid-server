@@ -104,7 +104,15 @@ INVALID_LINK_PARAMETERS = [
     ("return_url", "ftp://example.com/"),
     ("return_url", "http:///no-host"),
     ("return_url", "http://example.com/" + "x" * 2000),
+    ("return_url", "http://evil.example\\@acoustid.org/"),
+    ("return_url", "http://acoustid.org@evil.example/"),
+    ("return_url", "http://user:pass@example.com/"),
+    ("return_url", "http://ex\nample.com/"),
+    ("return_url", "http://example.com/a b"),
+    ("return_url", "http://exa\u202emple.com/"),
     ("device", "x" * 101),
+    ("device", "nas\u202egnp.exe"),
+    ("device", "line\nbreak"),
 ]
 
 
@@ -115,6 +123,17 @@ def test_request_link_rejects_invalid_parameters(ctx: ScriptContext) -> None:
         assert status == 400, (name, value)
         assert data["error"]["code"] == 20
         assert name in data["error"]["message"]
+
+
+@with_script_context
+def test_request_link_accepts_local_addresses(ctx: ScriptContext) -> None:
+    for url in [
+        "http://192.168.1.10:8095/",
+        "http://[fd00::1]:8095/settings?tab=providers#acoustid",
+        "https://music.example.home/",
+    ]:
+        status, data = request_link(ctx, return_url=url, device="Kitchen NAS")
+        assert status == 200, (url, data)
 
 
 @with_script_context

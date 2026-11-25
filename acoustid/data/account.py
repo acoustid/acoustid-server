@@ -228,15 +228,18 @@ def create_user_key_link_request(
     raise Exception("Failed to generate a unique user key")
 
 
-def count_pending_link_requests(conn: AppDB, application_id: int) -> int:
+def count_pending_link_requests(conn: AppDB, application_id: int, limit: int) -> int:
+    """Live link codes for the application, counting no further than limit."""
     key = schema.account_application_key
-    query = (
-        sql.select(sql.func.count())
+    pending = (
+        sql.select(sql.literal(1))
         .where(key.c.application_id == application_id)
         .where(key.c.link_code.is_not(None))
         .where(key.c.link_expires > sql.func.clock_timestamp())
+        .limit(limit)
+        .subquery()
     )
-    return conn.execute(query).scalar_one()
+    return conn.execute(sql.select(sql.func.count()).select_from(pending)).scalar_one()
 
 
 class UserKeyStatus(NamedTuple):
