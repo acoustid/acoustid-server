@@ -41,6 +41,8 @@ endpoints = {
     "v2.user.lookup": acoustid.api.v2.misc.UserLookupHandler,
     "v2.user.create_anonymous": acoustid.api.v2.misc.UserCreateAnonymousHandler,
     "v2.user.create_musicbrainz": acoustid.api.v2.misc.UserCreateMusicBrainzHandler,
+    "v2.user.request_link": acoustid.api.v2.misc.UserRequestLinkHandler,
+    "v2.user.link_status": acoustid.api.v2.misc.UserLinkStatusHandler,
     "v2.internal.update_lookup_stats": acoustid.api.v2.internal.UpdateLookupStatsHandler,
     "v2.internal.update_user_agent_stats": acoustid.api.v2.internal.UpdateUserAgentStatsHandler,
     "v2.internal.lookup_stats": acoustid.api.v2.internal.LookupStatsHandler,
@@ -69,6 +71,8 @@ api_url_rules = [
             Rule("/user/lookup", endpoint="v2.user.lookup"),
             Rule("/user/create_anonymous", endpoint="v2.user.create_anonymous"),
             Rule("/user/create_musicbrainz", endpoint="v2.user.create_musicbrainz"),
+            Rule("/user/request_link", endpoint="v2.user.request_link"),
+            Rule("/user/link_status", endpoint="v2.user.link_status"),
             Submount(
                 "/internal",
                 [

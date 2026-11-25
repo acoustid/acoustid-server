@@ -188,7 +188,10 @@ class LinkRequest(NamedTuple):
 
 
 def create_user_key_link_request(
-    conn: AppDB, application_id: int, device: str | None
+    conn: AppDB,
+    application_id: int,
+    device: str | None,
+    return_url: str | None = None,
 ) -> LinkRequest:
     key = schema.account_application_key
     for _ in range(5):
@@ -197,6 +200,7 @@ def create_user_key_link_request(
             sql.literal(apikey),
             sql.literal(application_id),
             sql.literal(device, String),
+            sql.literal(return_url, String),
             sql.literal(generate_link_code()),
             sql.func.now() + const.USER_KEY_LINK_TTL,
         ).where(
@@ -205,7 +209,14 @@ def create_user_key_link_request(
         stmt = (
             insert(key)
             .from_select(
-                ["apikey", "application_id", "device", "link_code", "link_expires"],
+                [
+                    "apikey",
+                    "application_id",
+                    "device",
+                    "return_url",
+                    "link_code",
+                    "link_expires",
+                ],
                 values,
             )
             .on_conflict_do_nothing()
@@ -215,6 +226,35 @@ def create_user_key_link_request(
         if row is not None:
             return LinkRequest(row.id, row.apikey, row.link_code, row.link_expires)
     raise Exception("Failed to generate a unique user key")
+
+
+def count_pending_link_requests(conn: AppDB, application_id: int) -> int:
+    key = schema.account_application_key
+    query = (
+        sql.select(sql.func.count())
+        .where(key.c.application_id == application_id)
+        .where(key.c.link_code.is_not(None))
+        .where(key.c.link_expires > sql.func.clock_timestamp())
+    )
+    return conn.execute(query).scalar_one()
+
+
+class UserKeyStatus(NamedTuple):
+    state: str
+    # When the link code stops working, for a pending key only.
+    expires: datetime.datetime | None
+
+
+def get_user_key_status(conn: AppDB, apikey: str) -> UserKeyStatus | None:
+    key = lookup_user_api_key(conn, apikey)
+    if key is None:
+        return None
+    expires = None
+    if key.state == USER_KEY_PENDING:
+        table = schema.account_application_key
+        query = sql.select(table.c.link_expires).where(table.c.apikey == apikey)
+        expires = conn.execute(query).scalar_one()
+    return UserKeyStatus(key.state, expires)
 
 
 def _update_pending_link(code: str) -> Any:
