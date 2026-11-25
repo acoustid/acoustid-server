@@ -39,6 +39,7 @@ from acoustid.data.account import (
     UserKey,
     cache_user_key,
     lookup_user_api_key,
+    mark_user_key_used,
     read_cached_user_key,
 )
 from acoustid.data.application import (
@@ -55,7 +56,6 @@ from acoustid.data.musicbrainz import lookup_metadata
 from acoustid.data.stats import (
     update_lookup_counter,
     update_user_agent_counter,
-    update_user_counter,
 )
 from acoustid.data.submission import insert_submission, lookup_submission_status
 from acoustid.data.track import lookup_mbids, lookup_meta_ids, resolve_track_gid
@@ -609,15 +609,13 @@ class LookupHandler(APIHandler):
     recordings_name = "recordings"
 
     def _count_lookup(self, params: "LookupHandlerParams", hit: bool) -> None:
-        update_lookup_counter(self.ctx.redis, params.application_id, hit)
-        if params.account_id is not None:
-            update_user_counter(
-                self.ctx.redis,
-                params.account_id,
-                params.application_id,
-                params.user_key_id,
-                "hit" if hit else "miss",
-            )
+        update_lookup_counter(
+            self.ctx.redis,
+            params.application_id,
+            hit,
+            params.account_id,
+            params.user_key_id,
+        )
 
     def check_for_missing_recordings(
         self, expected_mbids: Iterable[str], meta: List[Dict[str, Any]]
@@ -1313,16 +1311,17 @@ class SubmitHandler(APIHandler):
         self.ctx.db.session.flush()
         self.ctx.db.session.commit()
 
-        # Counted only to mark a linked key as used, for its expiry; it is not a
-        # lookup, and account.apikey does not expire.
-        if params.account_id is not None and params.user_key_id is not None:
-            update_user_counter(
-                self.ctx.redis,
-                params.account_id,
-                params.application_id,
-                params.user_key_id,
-                "submit",
-            )
+        # Submissions are rare enough to note the use of a linked key directly,
+        # for its expiry. account.apikey does not expire.
+        if params.user_key_id is not None:
+            try:
+                mark_user_key_used(
+                    self.ctx.db.get_app_db(), params.user_key_id, datetime.date.today()
+                )
+                self.ctx.db.session.commit()
+            except Exception:
+                self.ctx.db.session.rollback()
+                logger.warning("Failed to mark user key as used", exc_info=True)
 
         if self.ctx.statsd is not None:
             self.ctx.statsd.incr("new_submissions", len(ids))

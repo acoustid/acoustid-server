@@ -301,6 +301,14 @@ stats_lookups = Table(
         "count_hits", Integer, default=0, server_default=sql.literal(0), nullable=False
     ),
     Index("stats_lookups_idx_date", "date"),
+    # The upsert in update_lookup_stats depends on it.
+    Index(
+        "stats_lookups_idx_date_hour_application_id",
+        "date",
+        "hour",
+        "application_id",
+        unique=True,
+    ),
     info={"bind_key": "app"},
 )
 

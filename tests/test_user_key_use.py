@@ -25,15 +25,15 @@ from acoustid.data.account import (
 )
 from acoustid.data.stats import (
     NUM_PARTITIONS,
-    USER_STATS_ROOT_KEY,
-    UserStatsKey,
-    pack_user_stats_key,
-    unpack_user_stats_key,
-    update_user_counter,
+    LookupStatsKey,
+    pack_lookup_stats_key,
+    unpack_lookup_stats_key,
+    update_lookup_counter,
 )
 from acoustid.db import AppDB
 from acoustid.script import ScriptContext
-from acoustid.scripts.user_keys import run_cleanup_user_keys, run_update_user_stats
+from acoustid.scripts.update_lookup_stats import run_update_lookup_stats
+from acoustid.scripts.user_keys import run_cleanup_user_keys
 from tests import with_database, with_script_context
 from tests.test_api_v2 import TEST_1_FP, TEST_1_LENGTH, lookup_values
 
@@ -46,7 +46,7 @@ def clean_redis() -> Iterator[None]:
     yield
     assert tests.script is not None
     redis = tests.script.get_redis()
-    for key in redis.scan_iter(USER_STATS_ROOT_KEY + ":*"):
+    for key in redis.scan_iter("lookups:*"):
         redis.delete(key)
 
 
@@ -77,19 +77,29 @@ def last_used(conn: AppDB, key_id: int) -> datetime.date | None:
     return conn.execute(query).scalar_one()
 
 
-def counters(ctx: ScriptContext) -> dict[UserStatsKey, int]:
+def counters(ctx: ScriptContext) -> dict[LookupStatsKey, int]:
     result = {}
-    for root in ctx.redis.scan_iter(USER_STATS_ROOT_KEY + ":*"):
+    for root in ctx.redis.scan_iter("lookups:*"):
         for key, count in ctx.redis.hgetall(root).items():
-            result[unpack_user_stats_key(key)] = int(count)
+            result[unpack_lookup_stats_key(key)] = int(count)
     return result
+
+
+def app_stats(ctx: ScriptContext) -> tuple[int, int]:
+    table = schema.stats_lookups
+    query = sql.select(
+        sql.func.coalesce(sql.func.sum(table.c.count_hits), 0),
+        sql.func.coalesce(sql.func.sum(table.c.count_nohits), 0),
+    ).where(table.c.date == TODAY)
+    row = ctx.db.get_app_db().execute(query).one()
+    return int(row[0]), int(row[1])
 
 
 def flush(ctx: ScriptContext) -> None:
     ctx.db.session.commit()
     assert tests.script is not None
     for partition in range(NUM_PARTITIONS):
-        run_update_user_stats(tests.script, partition)
+        run_update_lookup_stats(tests.script, partition)
 
 
 def user_stats(ctx: ScriptContext) -> list[tuple[Any, ...]]:
@@ -106,6 +116,7 @@ def user_stats(ctx: ScriptContext) -> list[tuple[Any, ...]]:
 
 def cleanup_db(ctx: ScriptContext) -> None:
     ctx.db.get_app_db().execute(schema.stats_user_lookups.delete())
+    ctx.db.get_app_db().execute(schema.stats_lookups.delete())
     ctx.db.get_app_db().execute(schema.account_application_key.delete())
     ctx.db.session.commit()
 
@@ -169,15 +180,20 @@ def test_delete_abandoned_link_requests(conn: AppDB) -> None:
 # Counting
 
 
-def test_user_stats_key_round_trip() -> None:
-    packed = pack_user_stats_key(12, 34, 56, "hit")
-    assert unpack_user_stats_key(packed) == UserStatsKey(TODAY, 12, 34, 56, "hit")
-    packed = pack_user_stats_key(12, 34, None, "submit")
-    assert unpack_user_stats_key(packed.encode()) == UserStatsKey(
-        TODAY, 12, 34, None, "submit"
+def test_lookup_stats_key_round_trip() -> None:
+    hour = datetime.datetime.now().strftime("%H")
+    packed = pack_lookup_stats_key(34, "hit", 12, 56)
+    assert unpack_lookup_stats_key(packed) == LookupStatsKey(
+        TODAY.isoformat(), hour, 34, "hit", 12, 56
+    )
+    packed = pack_lookup_stats_key(34, "miss", 12, None)
+    assert unpack_lookup_stats_key(packed.encode()).key_id is None
+    # Counters written before user keys were counted are still understood.
+    assert unpack_lookup_stats_key("2026-01-01:10:34:hit") == LookupStatsKey(
+        "2026-01-01", "10", 34, "hit"
     )
     with pytest.raises(ValueError):
-        unpack_user_stats_key("2026-01-01:1:2:0:bogus")
+        unpack_lookup_stats_key("2026-01-01:10:34:hit:12")
 
 
 @with_script_context
@@ -189,15 +205,20 @@ def test_lookups_are_counted_per_user(ctx: ScriptContext) -> None:
         values = lookup_values() if user is None else lookup_values(user=user)
         params.parse(values, ctx.db)
         handler._count_lookup(params, hit)
-    assert counters(ctx) == {
-        UserStatsKey(TODAY, 2, 1, key.key_id, "hit"): 1,
-        UserStatsKey(TODAY, 1, 1, None, "miss"): 1,
+    counted = {
+        (k.application_id, k.type, k.account_id, k.key_id): c
+        for k, c in counters(ctx).items()
+    }
+    assert counted == {
+        (1, "hit", 2, key.key_id): 1,
+        (1, "miss", 1, None): 1,
+        (1, "hit", None, None): 1,
     }
     cleanup_db(ctx)
 
 
 @with_script_context
-def test_submissions_are_counted_per_user(ctx: ScriptContext) -> None:
+def test_a_submission_marks_its_linked_key_used(ctx: ScriptContext) -> None:
     key = approved_key(ctx.db.get_app_db())
     ctx.db.session.commit()
     values = {
@@ -208,50 +229,48 @@ def test_submissions_are_counted_per_user(ctx: ScriptContext) -> None:
         "fingerprint": TEST_1_FP,
         "mbid": "b9c05616-1874-4d5d-b30e-6b959c922d28",
     }
-    resp = SubmitHandler(ctx).handle(
-        Request(EnvironBuilder(method="POST", data=values).get_environ())
-    )
-    assert resp.status_code == 200, resp.data
-    assert counters(ctx) == {UserStatsKey(TODAY, 2, 1, key.key_id, "submit"): 1}
-    cleanup_db(ctx)
+    try:
+        resp = SubmitHandler(ctx).handle(
+            Request(EnvironBuilder(method="POST", data=values).get_environ())
+        )
+        assert resp.status_code == 200, resp.data
+        assert last_used(ctx.db.get_app_db(), key.key_id) == TODAY
+        # Not a lookup, so not in the lookup counters.
+        assert counters(ctx) == {}
+    finally:
+        cleanup_db(ctx)
 
 
 # Flushing
 
 
 @with_script_context
-def test_flush_writes_stats_and_last_used(ctx: ScriptContext) -> None:
+def test_flush_writes_app_and_user_stats_and_last_used(ctx: ScriptContext) -> None:
     linked = approved_key(ctx.db.get_app_db())
-    submitter = approved_key(ctx.db.get_app_db())
+    other = approved_key(ctx.db.get_app_db())
     for _ in range(3):
-        update_user_counter(ctx.redis, 2, 1, linked.key_id, "hit")
-    update_user_counter(ctx.redis, 2, 1, linked.key_id, "miss")
-    update_user_counter(ctx.redis, 1, 1, None, "hit")
-    # A submission marks its key as used but is not a lookup.
-    update_user_counter(ctx.redis, 2, 1, submitter.key_id, "submit")
+        update_lookup_counter(ctx.redis, 1, True, 2, linked.key_id)
+    update_lookup_counter(ctx.redis, 1, False, 2, linked.key_id)
+    update_lookup_counter(ctx.redis, 1, True, 1, None)
+    update_lookup_counter(ctx.redis, 1, False)
+    # A counter for an account deleted since is dropped, not fatal.
+    update_lookup_counter(ctx.redis, 1, True, 999999, None)
     try:
         flush(ctx)
+        hits, nohits = app_stats(ctx)
+        assert (hits, nohits) == (5, 2)
         assert user_stats(ctx) == [(TODAY, 1, 1, 1, 0), (TODAY, 2, 1, 3, 1)]
         assert last_used(ctx.db.get_app_db(), linked.key_id) == TODAY
-        assert last_used(ctx.db.get_app_db(), submitter.key_id) == TODAY
+        assert last_used(ctx.db.get_app_db(), other.key_id) is None
 
         # Written counters are cleared, so nothing is counted twice.
         assert set(counters(ctx).values()) == {0}
         flush(ctx)
+        assert app_stats(ctx) == (5, 2)
         assert user_stats(ctx) == [(TODAY, 1, 1, 1, 0), (TODAY, 2, 1, 3, 1)]
         assert counters(ctx) == {}
     finally:
         cleanup_db(ctx)
-
-
-@with_script_context
-def test_flush_discards_what_can_never_be_written(ctx: ScriptContext) -> None:
-    root = USER_STATS_ROOT_KEY + ":00"
-    ctx.redis.hset(root, "garbage", 1)
-    ctx.redis.hset(root, pack_user_stats_key(999999, 1, None, "hit"), 1)
-    assert tests.script is not None
-    run_update_user_stats(tests.script, 0)
-    assert ctx.redis.hgetall(root) == {}
 
 
 @with_script_context

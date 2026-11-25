@@ -34,7 +34,6 @@ def create_schedule(script: Script) -> Scheduler:
     # job that only gets one attempt a day turns a single missed run into a
     # day of lost headroom.
     schedule.every().hour.do(run_task("manage_fpindex_changelog"))
-    schedule.every().minute.do(run_task("update_all_user_stats"))
     schedule.every().day.at("00:40").do(run_task("cleanup_user_keys"))
     return schedule
 

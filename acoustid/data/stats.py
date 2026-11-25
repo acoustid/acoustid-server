@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from typing import Any, NamedTuple, Union
 
 from redis import Redis
-from sqlalchemy import sql
+from sqlalchemy import Date, sql
 from sqlalchemy.dialects.postgresql import insert
 
 from acoustid import const
@@ -85,30 +85,59 @@ def find_lookup_stats(conn: AppDB) -> list[dict[str, Any]]:
     return stats
 
 
-def pack_lookup_stats_key(application_id: int, type: str) -> str:
+class LookupStatsKey(NamedTuple):
+    date: str
+    hour: str
+    application_id: int
+    type: str
+    # Who looked up, when the request carried a user key. key_id is the
+    # account_application_key row for a linked key, None for account.apikey.
+    account_id: int | None = None
+    key_id: int | None = None
+
+
+def pack_lookup_stats_key(
+    application_id: int,
+    type: str,
+    account_id: int | None = None,
+    key_id: int | None = None,
+) -> str:
     parts = [
         datetime.datetime.now().strftime("%Y-%m-%d:%H"),
         str(application_id),
         str(type),
     ]
+    if account_id is not None:
+        parts += [str(account_id), str(key_id or 0)]
     return ":".join(parts)
 
 
-def unpack_lookup_stats_key(key: Union[str, bytes]) -> tuple[str, str, int, str]:
+def unpack_lookup_stats_key(key: Union[str, bytes]) -> LookupStatsKey:
     if isinstance(key, bytes):
         key = key.decode("utf8")
     parts = key.split(":")
-    if len(parts) >= 4:
-        date, hour, application_id, type = parts[:4]
-        return date, hour, int(application_id), type
+    if len(parts) == 4:
+        date, hour, application_id, type = parts
+        return LookupStatsKey(date, hour, int(application_id), type)
+    if len(parts) == 6:
+        date, hour, application_id, type, account_id, key_id = parts
+        return LookupStatsKey(
+            date, hour, int(application_id), type, int(account_id), int(key_id) or None
+        )
     raise ValueError("invalid lookup stats key")
 
 
-def update_lookup_counter(redis, application_id: int, hit: bool) -> None:
+def update_lookup_counter(
+    redis: Redis | None,
+    application_id: int,
+    hit: bool,
+    account_id: int | None = None,
+    key_id: int | None = None,
+) -> None:
     if redis is None:
         return
     type = "hit" if hit else "miss"
-    key = pack_lookup_stats_key(application_id, type)
+    key = pack_lookup_stats_key(application_id, type, account_id, key_id)
     root_key_index = hash(key) % NUM_PARTITIONS
     root_key = f"lookups:{root_key_index:02x}"
     try:
@@ -261,95 +290,36 @@ def find_application_lookup_stats(
     return find_application_lookup_stats_multi(conn, (application_id,))
 
 
-# Per-user counters, in redis like the lookup counters until a task writes
-# them to stats_user_lookups. Lookups count as "hit" or "miss"; a submission
-# counts as "submit", which only marks a linked key as used.
-USER_STATS_ROOT_KEY = "userstats"
-USER_STATS_TYPES = ("hit", "miss", "submit")
-
-
-class UserStatsKey(NamedTuple):
-    date: datetime.date
-    account_id: int
-    application_id: int
-    # The account_application_key row the request used, or None for
-    # account.apikey.
-    key_id: int | None
-    type: str
-
-
-def pack_user_stats_key(
-    account_id: int, application_id: int, key_id: int | None, type: str
-) -> str:
-    parts = [
-        datetime.date.today().isoformat(),
-        str(account_id),
-        str(application_id),
-        str(key_id or 0),
-        type,
-    ]
-    return ":".join(parts)
-
-
-def unpack_user_stats_key(key: Union[str, bytes]) -> UserStatsKey:
-    if isinstance(key, bytes):
-        key = key.decode("utf8")
-    date, account_id, application_id, key_id, type = key.split(":")
-    if type not in USER_STATS_TYPES:
-        raise ValueError("invalid user stats key")
-    return UserStatsKey(
-        datetime.date.fromisoformat(date),
-        int(account_id),
-        int(application_id),
-        int(key_id) or None,
-        type,
-    )
-
-
-def user_stats_root_key(partition: int) -> str:
-    return f"{USER_STATS_ROOT_KEY}:{partition:02x}"
-
-
-def update_user_counter(
-    redis: Redis | None,
-    account_id: int,
-    application_id: int,
-    key_id: int | None,
-    type: str,
-) -> None:
-    if redis is None:
-        return
-    key = pack_user_stats_key(account_id, application_id, key_id, type)
-    root_key = user_stats_root_key(hash(key) % NUM_PARTITIONS)
-    try:
-        redis.hincrby(root_key, key, 1)
-    except Exception:
-        logger.warning("Can't update user stats for %s", key, exc_info=True)
-
-
 def update_user_lookup_stats(
     db: AppDB,
-    date: datetime.date,
+    date: str,
     account_id: int,
     application_id: int,
-    type: str,
-    count: int,
+    hits: int,
+    nohits: int,
 ) -> None:
+    """Add to an account's lookup counts for the day. A count for an account
+    deleted since is dropped rather than failing the whole flush."""
     table = schema.stats_user_lookups
-    column = table.c.count_hits if type == "hit" else table.c.count_nohits
+    values = sql.select(
+        sql.literal(date).cast(Date),
+        sql.literal(account_id),
+        sql.literal(application_id),
+        sql.literal(hits),
+        sql.literal(nohits),
+    ).where(sql.exists().where(schema.account.c.id == account_id))
     stmt = (
         insert(table)
-        .values(
-            {
-                table.c.date: date,
-                table.c.account_id: account_id,
-                table.c.application_id: application_id,
-                column: count,
-            }
+        .from_select(
+            ["date", "account_id", "application_id", "count_hits", "count_nohits"],
+            values,
         )
         .on_conflict_do_update(
             index_elements=[table.c.date, table.c.account_id, table.c.application_id],
-            set_={column.name: column + count},
+            set_={
+                "count_hits": table.c.count_hits + hits,
+                "count_nohits": table.c.count_nohits + nohits,
+            },
         )
     )
     db.execute(stmt)
