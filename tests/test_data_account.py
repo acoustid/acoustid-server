@@ -25,6 +25,7 @@ from acoustid.data.account import (
     revoke_user_application_key,
     update_account_lastlogin,
 )
+from acoustid.db import AppDB
 from tests import with_database
 
 
@@ -57,7 +58,7 @@ def test_update_account_lastlogin(conn):
     assert info1["lastlogin"] < info2["lastlogin"]
 
 
-def expire_link_requests(conn):
+def expire_link_requests(conn: AppDB) -> None:
     conn.execute(
         sql.text(
             "UPDATE account_application_key SET link_expires = now() - interval '1 second'"
@@ -66,13 +67,13 @@ def expire_link_requests(conn):
 
 
 @with_database
-def test_lookup_user_api_key_account_key(conn):
+def test_lookup_user_api_key_account_key(conn: AppDB) -> None:
     assert lookup_user_api_key(conn, "user1key") == UserKey(1, None, USER_KEY_APPROVED)
     assert lookup_user_api_key(conn, "foooo") is None
 
 
 @with_database
-def test_link_request_lifecycle(conn):
+def test_link_request_lifecycle(conn: AppDB) -> None:
     req = create_user_key_link_request(conn, 1, "nas")
     assert lookup_user_api_key(conn, req.apikey) == UserKey(None, 1, USER_KEY_PENDING)
 
@@ -91,7 +92,7 @@ def test_link_request_lifecycle(conn):
 
 
 @with_database
-def test_declined_link_request(conn):
+def test_declined_link_request(conn: AppDB) -> None:
     req = create_user_key_link_request(conn, 1, None)
     assert decline_user_key_link_request(conn, req.link_code) == req.id
     assert approve_user_key_link_request(conn, req.link_code, 1) is None
@@ -99,7 +100,7 @@ def test_declined_link_request(conn):
 
 
 @with_database
-def test_expired_link_request(conn):
+def test_expired_link_request(conn: AppDB) -> None:
     req = create_user_key_link_request(conn, 1, None)
     expire_link_requests(conn)
     assert approve_user_key_link_request(conn, req.link_code, 1) is None
@@ -108,7 +109,7 @@ def test_expired_link_request(conn):
 
 
 @with_database
-def test_approved_key_does_not_expire_with_its_link(conn):
+def test_approved_key_does_not_expire_with_its_link(conn: AppDB) -> None:
     req = create_user_key_link_request(conn, 1, None)
     approve_user_key_link_request(conn, req.link_code, 1)
     expire_link_requests(conn)
@@ -116,13 +117,13 @@ def test_approved_key_does_not_expire_with_its_link(conn):
 
 
 @with_database
-def test_link_request_never_reuses_an_account_key(conn):
+def test_link_request_never_reuses_an_account_key(conn: AppDB) -> None:
     keys = iter(["user1key", "fresh-key"])
     with mock.patch.object(account_data, "generate_api_key", lambda: next(keys)):
         req = create_user_key_link_request(conn, 1, None)
     assert req.apikey == "fresh-key"
 
 
-def test_normalize_link_code():
+def test_normalize_link_code() -> None:
     assert normalize_link_code(" 4kmq-7t2x ") == "4KMQ7T2X"
     assert normalize_link_code("o1li") == "0111"

@@ -168,8 +168,9 @@ def check_app_api_key(
     return application_id
 
 
-def check_user_api_key(config, db, user_apikey):
-    # type: (Config, DatabaseContext, str) -> UserKey | None
+def check_user_api_key(
+    config: "Config", db: DatabaseContext, user_apikey: str
+) -> UserKey | None:
     try:
         return user_api_key_cache[user_apikey]
     except KeyError:
@@ -265,8 +266,9 @@ class APIHandlerParams(object):
         )
         self.application_version = values.get("clientversion")
 
-    def _parse_user(self, values, db, required=True):
-        # type: (MultiDict, DatabaseContext, bool) -> None
+    def _parse_user(
+        self, values: MultiDict, db: DatabaseContext, required: bool = True
+    ) -> None:
         """Validate the `user` parameter and resolve it to an account.
 
         `required` is what differs between callers: submissions have always

@@ -980,8 +980,9 @@ def test_lookup_treats_an_empty_user_key_as_absent(ctx):
     assert caught.value.parameter == "user"
 
 
-def linked_user_key(ctx, application_id=1, approve=True):
-    # type: (ScriptContext, int, bool) -> str
+def linked_user_key(
+    ctx: ScriptContext, application_id: int = 1, approve: bool = True
+) -> str:
     req = create_user_key_link_request(ctx.db.get_app_db(), application_id, "nas")
     if approve:
         approve_user_key_link_request(ctx.db.get_app_db(), req.link_code, 2)
@@ -989,8 +990,7 @@ def linked_user_key(ctx, application_id=1, approve=True):
 
 
 @with_script_context
-def test_linked_user_key_works_with_its_own_application(ctx):
-    # type: (ScriptContext) -> None
+def test_linked_user_key_works_with_its_own_application(ctx: ScriptContext) -> None:
     apikey = linked_user_key(ctx)
     params = LookupHandlerParams(ctx.config)
     params.parse(lookup_values(user=apikey), ctx.db)
@@ -1003,8 +1003,9 @@ def test_linked_user_key_works_with_its_own_application(ctx):
 
 
 @with_script_context
-def test_linked_user_key_is_rejected_with_another_application(ctx):
-    # type: (ScriptContext) -> None
+def test_linked_user_key_is_rejected_with_another_application(
+    ctx: ScriptContext,
+) -> None:
     apikey = linked_user_key(ctx)
     for handler in (LookupHandlerParams, SubmitHandlerParams):
         values = lookup_values(user=apikey, client="app2key", fileformat="MP3")
@@ -1017,8 +1018,7 @@ def test_linked_user_key_is_rejected_with_another_application(ctx):
 
 
 @with_script_context
-def test_pending_user_key_starts_working_once_approved(ctx):
-    # type: (ScriptContext) -> None
+def test_pending_user_key_starts_working_once_approved(ctx: ScriptContext) -> None:
     req = create_user_key_link_request(ctx.db.get_app_db(), 1, "nas")
     assert_raises(
         errors.InvalidUserAPIKeyError,
