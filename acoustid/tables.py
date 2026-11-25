@@ -304,6 +304,27 @@ stats_lookups = Table(
     info={"bind_key": "app"},
 )
 
+# Lookups per user and application per day, for spotting outliers. Kept for
+# USER_LOOKUP_STATS_RETENTION, unlike stats_lookups.
+stats_user_lookups = Table(
+    "stats_user_lookups",
+    metadata,
+    Column("date", Date, primary_key=True),
+    Column("account_id", Integer, ForeignKey("account.id"), primary_key=True),
+    Column("application_id", Integer, ForeignKey("application.id"), primary_key=True),
+    Column(
+        "count_hits", Integer, default=0, server_default=sql.literal(0), nullable=False
+    ),
+    Column(
+        "count_nohits",
+        Integer,
+        default=0,
+        server_default=sql.literal(0),
+        nullable=False,
+    ),
+    info={"bind_key": "app"},
+)
+
 stats_user_agents = Table(
     "stats_user_agents",
     metadata,

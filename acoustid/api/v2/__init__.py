@@ -52,7 +52,11 @@ from acoustid.data.fingerprint import (
 )
 from acoustid.data.meta import fix_meta, lookup_meta
 from acoustid.data.musicbrainz import lookup_metadata
-from acoustid.data.stats import update_lookup_counter, update_user_agent_counter
+from acoustid.data.stats import (
+    update_lookup_counter,
+    update_user_agent_counter,
+    update_user_counter,
+)
 from acoustid.data.submission import insert_submission, lookup_submission_status
 from acoustid.data.track import lookup_mbids, lookup_meta_ids, resolve_track_gid
 from acoustid.db import DatabaseContext
@@ -260,6 +264,8 @@ class APIHandlerParams(object):
         # request carried none, which lookups still allow until
         # const.LOOKUP_USER_REQUIRED_FROM.
         self.account_id = None  # type: int | None
+        # The linked key the request used, if it used one.
+        self.user_key_id: int | None = None
         # Set by the handler. Without it user keys are cached in this process
         # only.
         self.redis: Redis | None = None
@@ -304,6 +310,7 @@ class APIHandlerParams(object):
         if key.application_id is not None and key.application_id != self.application_id:
             raise errors.InvalidUserAPIKeyError()
         self.account_id = key.account_id
+        self.user_key_id = key.key_id
 
     def _parse_format(self, values):
         self.format = values.get("format", DEFAULT_FORMAT)
@@ -600,6 +607,17 @@ class LookupHandlerParams(APIHandlerParams):
 class LookupHandler(APIHandler):
     params_class = LookupHandlerParams
     recordings_name = "recordings"
+
+    def _count_lookup(self, params: "LookupHandlerParams", hit: bool) -> None:
+        update_lookup_counter(self.ctx.redis, params.application_id, hit)
+        if params.account_id is not None:
+            update_user_counter(
+                self.ctx.redis,
+                params.account_id,
+                params.application_id,
+                params.user_key_id,
+                "hit" if hit else "miss",
+            )
 
     def check_for_missing_recordings(
         self, expected_mbids: Iterable[str], meta: List[Dict[str, Any]]
@@ -1119,9 +1137,7 @@ class LookupHandler(APIHandler):
                 results = []  # type: ignore
                 fps.append({"index": p.index, "results": results})
                 track_ids = self._inject_results(results, result_map, matches)
-                update_lookup_counter(
-                    self.ctx.redis, params.application_id, bool(track_ids)
-                )
+                self._count_lookup(params, bool(track_ids))
                 logger.debug(
                     "Lookup from %s: %s", params.application_id, list(track_ids)
                 )
@@ -1129,9 +1145,7 @@ class LookupHandler(APIHandler):
             response["results"] = results = []
             result_map = {}
             self._inject_results(results, result_map, all_matches[0])
-            update_lookup_counter(
-                self.ctx.redis, params.application_id, bool(result_map)
-            )
+            self._count_lookup(params, bool(result_map))
             logger.debug("Lookup from %s: %s", params.application_id, result_map.keys())
 
         if self.ctx.config.website.search_return_metadata:
@@ -1298,6 +1312,16 @@ class SubmitHandler(APIHandler):
 
         self.ctx.db.session.flush()
         self.ctx.db.session.commit()
+
+        # Counted for the expiry of linked keys, not as lookup stats.
+        if params.account_id is not None:
+            update_user_counter(
+                self.ctx.redis,
+                params.account_id,
+                params.application_id,
+                params.user_key_id,
+                "submit",
+            )
 
         if self.ctx.statsd is not None:
             self.ctx.statsd.incr("new_submissions", len(ids))

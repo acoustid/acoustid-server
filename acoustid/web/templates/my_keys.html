@@ -11,17 +11,20 @@
   {% if keys %}
   <table class="data my-keys">
     <thead>
-      <tr><th>Application</th><th>Device</th><th>Approved</th><th></th></tr>
+      <tr><th>Application</th><th>Device</th><th>Approved</th><th>Last used</th><th></th></tr>
     </thead>
     <tbody>
       {% for key in keys %}
-      <tr{% if key.revoked %} class="muted"{% endif %}>
+      <tr{% if key.revoked or key.lapsed %} class="muted"{% endif %}>
         <td><span class="link-app-name">{{ key.application_name|truncate(60, True) }}</span></td>
         <td>{{ key.device or '' }}</td>
         <td class="shrink">{{ key.approved.strftime("%Y-%m-%d") }}</td>
+        <td class="shrink">{% if key.last_used %}{{ key.last_used.strftime("%Y-%m-%d") }}{% else %}<span class="muted">never</span>{% endif %}</td>
         <td class="shrink">
           {% if key.revoked %}
             revoked {{ key.revoked.strftime("%Y-%m-%d") }}
+          {% elif key.lapsed %}
+            expired, unused for a year
           {% else %}
           <form method="POST" action="{{ url_for('link.revoke') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -47,6 +50,10 @@
   {% else %}
   <p class="muted">No applications are connected to your account.</p>
   {% endif %}
+
+  <p class="small muted link-help">
+    A connection stops working after a year without use.
+  </p>
 
   <p class="small muted link-help">
     To connect a new one, choose <i>Connect to AcoustID</i> in the application, then follow the link

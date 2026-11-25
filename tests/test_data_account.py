@@ -83,11 +83,15 @@ def test_lookup_user_api_key_account_key(conn: AppDB) -> None:
 @with_database
 def test_link_request_lifecycle(conn: AppDB) -> None:
     req = create_user_key_link_request(conn, 1, "nas")
-    assert lookup_user_api_key(conn, req.apikey) == UserKey(None, 1, USER_KEY_PENDING)
+    assert lookup_user_api_key(conn, req.apikey) == UserKey(
+        None, 1, USER_KEY_PENDING, req.id
+    )
 
     code = format_link_code(req.link_code).lower()
     assert approve_user_key_link_request(conn, code, 2) == req.apikey
-    assert lookup_user_api_key(conn, req.apikey) == UserKey(2, 1, USER_KEY_APPROVED)
+    assert lookup_user_api_key(conn, req.apikey) == UserKey(
+        2, 1, USER_KEY_APPROVED, req.id
+    )
 
     # The code is consumed, so it cannot bind the key a second time.
     assert approve_user_key_link_request(conn, req.link_code, 1) is None
@@ -96,7 +100,9 @@ def test_link_request_lifecycle(conn: AppDB) -> None:
     assert revoke_user_application_key(conn, req.id, 1) is None
     assert revoke_user_application_key(conn, req.id, 2) == req.apikey
     assert revoke_user_application_key(conn, req.id, 2) is None
-    assert lookup_user_api_key(conn, req.apikey) == UserKey(2, 1, USER_KEY_REVOKED)
+    assert lookup_user_api_key(conn, req.apikey) == UserKey(
+        2, 1, USER_KEY_REVOKED, req.id
+    )
 
 
 @with_database
@@ -104,7 +110,9 @@ def test_declined_link_request(conn: AppDB) -> None:
     req = create_user_key_link_request(conn, 1, None)
     assert decline_user_key_link_request(conn, req.link_code) == req.apikey
     assert approve_user_key_link_request(conn, req.link_code, 1) is None
-    assert lookup_user_api_key(conn, req.apikey) == UserKey(None, 1, USER_KEY_DECLINED)
+    assert lookup_user_api_key(conn, req.apikey) == UserKey(
+        None, 1, USER_KEY_DECLINED, req.id
+    )
 
 
 @with_database
@@ -113,7 +121,9 @@ def test_expired_link_request(conn: AppDB) -> None:
     expire_link_requests(conn)
     assert approve_user_key_link_request(conn, req.link_code, 1) is None
     assert decline_user_key_link_request(conn, req.link_code) is None
-    assert lookup_user_api_key(conn, req.apikey) == UserKey(None, 1, USER_KEY_EXPIRED)
+    assert lookup_user_api_key(conn, req.apikey) == UserKey(
+        None, 1, USER_KEY_EXPIRED, req.id
+    )
 
 
 @with_database
@@ -121,7 +131,9 @@ def test_approved_key_does_not_expire_with_its_link(conn: AppDB) -> None:
     req = create_user_key_link_request(conn, 1, None)
     approve_user_key_link_request(conn, req.link_code, 1)
     expire_link_requests(conn)
-    assert lookup_user_api_key(conn, req.apikey) == UserKey(1, 1, USER_KEY_APPROVED)
+    assert lookup_user_api_key(conn, req.apikey) == UserKey(
+        1, 1, USER_KEY_APPROVED, req.id
+    )
 
 
 @with_database
@@ -177,7 +189,7 @@ def test_refresh_cached_user_key_after_approval(conn: AppDB) -> None:
         refresh_cached_user_key(redis, conn, req.apikey)
         assert read_cached_user_key(redis, req.apikey) == (
             True,
-            UserKey(2, 1, USER_KEY_APPROVED),
+            UserKey(2, 1, USER_KEY_APPROVED, req.id),
         )
     finally:
         redis.delete(USER_KEY_CACHE_PREFIX + req.apikey)
