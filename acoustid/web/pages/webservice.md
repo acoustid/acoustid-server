@@ -39,31 +39,41 @@ before parsing the parameters.
 <span id="api_keys"></span>
 ### API Keys
 
-There are two kinds of API keys used by the web service.
+Requests carry up to two keys: one says which application is calling, the other on whose
+behalf.
 
-In order to use the web service from your application, you
-need to [register the application](/new-application). This will give you an API key
-that you can use in the <code>client</code> parameter.
-You can use the API key from the examples below for initial testing, but note that
-it will automatically expire after a few days, so don't use it in your actual application.
+#### Application key
 
-The **user API key**, sent in the <code>user</code> parameter, identifies the person on
-whose behalf your application makes the request. Submissions always need one. Lookups may
-include one, and from **1 January 2027** lookups require one. A user key that is sent is
-always checked, so a wrong one is an error even before that date.
+Identifies your application. Every request needs one, in the <code>client</code> parameter.
+It belongs to you as the developer: [register your application](/new-application) to get it,
+and ship it with your application.
 
-Don't put a user key in your application's code; each user should have their own.
-There are two ways to get one:
+The key in the examples on this page is for trying the service out. It stops working after a
+few days, so don't use it in your application.
 
- * **Copy it.** Every user gets a key after signing in on this website, and can paste it
-   into your application's settings.
- * **Link the application.** Your application asks for a key with
-   [Request a user key link](#request_link) and shows the user a link and a short code.
-   The user opens the link, or types the code at <code>https://acoustid.org/link</code>
-   on any device, and approves the request. The key your application received then works.
-   This suits applications without a convenient way to paste a key, such as a media server
-   on a NAS that is managed through a web interface. A key linked this way works only with
-   the application that requested it, and stops working after a year without being used.
+#### User key
+
+Identifies the person using your application, so that what they submit is credited to them
+and lookups can be attributed to them. It goes in the <code>user</code> parameter.
+
+ * **Submissions** always need one.
+ * **Lookups** may include one, and from **1 January 2027** they require one.
+ * A user key that is sent is always checked, so a wrong one is an error even before that date.
+
+The key belongs to the user, not to you, so never put one in your application's code. Your
+application gets it from the user in one of two ways:
+
+ * **The user copies it.** Everyone who signs in on this website has a key, shown on
+   [their API key page](/api-key), which they can paste into your application's settings.
+   This key works with any application.
+ * **Your application links itself.** It asks for a key with
+   [Request a user key link](#request_link) and shows the user a link and a short code. The
+   user opens the link, or types the code at <code>https://acoustid.org/link</code> on any
+   device, and approves the request; the key your application received then works. This suits
+   applications without a convenient way to paste a key, such as a media server on a NAS
+   managed through a web interface. A key linked this way works only with the application that
+   requested it, the user can disconnect it on [their connected applications page](/my-keys),
+   and it stops working after a year without use.
 
 <span id="key_headers"></span>
 ### Sending API Keys in Headers
