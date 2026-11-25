@@ -4,6 +4,7 @@ import json
 import logging
 import secrets
 import urllib.request as urllib2
+from typing import Any
 from urllib.parse import urlparse
 
 from flask import (
@@ -29,7 +30,12 @@ from acoustid.data.account import (
     lookup_account_id_by_openid,
     refresh_cached_user_key,
 )
-from acoustid.data.email import CONFIRMATION_TTL, mask_email
+from acoustid.data.email import (
+    CONFIRMATION_TTL,
+    mask_email,
+    normalize_email,
+    set_account_email,
+)
 from acoustid.models import Account, AccountGoogle, AccountOpenID
 from acoustid.utils import generate_api_key
 from acoustid.web import db
@@ -381,12 +387,10 @@ def handle_openid_login_response():
                     "openid": openid_url,
                 },
             )
+        # Not the email address: addresses sign people in now, and stay out
+        # of the logs.
         logger.info(
-            "Successfuly identified OpenID user %s (%d) with email '%s' and nickname '%s'",
-            openid_url,
-            account_id,
-            values.get("email", ""),
-            values.get("name", ""),
+            "Successfully identified OpenID user %s (%d)", openid_url, account_id
         )
         return login_user_and_redirect(account_id)
     elif info.status == openid.CANCEL:
@@ -490,7 +494,7 @@ def handle_google_oauth2_login():
             **{
                 "response_type": "code",
                 "access_type": "online",
-                "scope": "openid",
+                "scope": "openid email",
                 "redirect_uri": url_for(".google_login", _external=True),
                 "openid.realm": get_openid_realm(),
                 "state": generate_login_token("google_login_token"),
@@ -529,14 +533,52 @@ def handle_google_oauth2_login():
             ),
         )
 
+    # The signature is not checked. That is sound only because the token comes
+    # straight from Google's token endpoint over TLS, in exchange for a code
+    # redeemed with our client secret (OpenID Connect Core 3.1.3.7). It must
+    # never be taken from the browser, as in the implicit flow.
     header, payload, secret = str(response["id_token"]).split(".")
     payload += "=" * (4 - (len(payload) % 4))
     id_token = json.loads(base64.urlsafe_b64decode(payload))
 
     user = find_or_create_google_user(id_token["sub"], id_token.get("openid_id"))
     logger.info('Google user %s "%s" logged in', user.id, user.name)
+    store_google_email(user, id_token)
 
     return login_user_and_redirect(user.id)
+
+
+GMAIL_DOMAINS = ("gmail.com", "googlemail.com")
+
+
+def store_google_email(user: Account, id_token: dict[str, Any]) -> None:
+    """Give the account the address from Google's ID token, if Google has
+    verified it, Google hosts it, and the account has none yet.
+
+    An address another account has already verified is left alone: accounts
+    are never merged, and the unique index would refuse it anyway.
+    """
+    if user.email is not None:
+        return
+    # A JSON boolean, though older tokens had the string "true". Compared
+    # exactly, so nothing else that happens to be truthy counts.
+    verified = id_token.get("email_verified")
+    if not (verified is True or verified == "true"):
+        return
+    email = normalize_email(str(id_token.get("email") or ""))
+    if email is None:
+        return
+    # email_verified only says the address was verified once, when it was
+    # added to the Google account, possibly years ago. Only for an address
+    # Google itself hosts, Gmail or a Workspace domain (the hd claim), does
+    # signing in with Google show the person still controls it. Anything else
+    # could have passed to someone else since, who could then sign in by email.
+    domain = email.rpartition("@")[2]
+    if domain not in GMAIL_DOMAINS and not id_token.get("hd"):
+        return
+    if set_account_email(db.get_app_db(), user.id, email, only_if_unset=True):
+        db.session.expire(user, ["email", "email_verified"])
+        logger.info("Stored the email address from Google for user %s", user.id)
 
 
 @user_page.route("/login/google")
