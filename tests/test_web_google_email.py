@@ -208,3 +208,25 @@ def test_migrated_openid_account_gets_the_address(
     }
     assert google_login(app, monkeypatch, claims) == account_id
     assert account_email(app, account_id)[0] == email
+
+
+def test_does_not_replace_an_address_confirmed_meanwhile(
+    app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The account page confirms an address after the Google callback has
+    # loaded the account, and before it writes.
+    confirmed = unique_address()
+    real_set = set_account_email
+
+    def confirm_first(conn: Any, account_id: int, email: str, **kwargs: Any) -> bool:
+        assert real_set(conn, account_id, confirmed)
+        return real_set(conn, account_id, email, **kwargs)
+
+    monkeypatch.setattr("acoustid.web.views.user.set_account_email", confirm_first)
+    claims = {
+        "sub": uuid.uuid4().hex,
+        "email": unique_address(),
+        "email_verified": True,
+    }
+    account_id = google_login(app, monkeypatch, claims)
+    assert account_email(app, account_id)[0] == confirmed

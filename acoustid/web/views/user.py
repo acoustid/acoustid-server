@@ -576,7 +576,7 @@ def store_google_email(user: Account, id_token: dict[str, Any]) -> None:
     domain = email.rpartition("@")[2]
     if domain not in GMAIL_DOMAINS and not id_token.get("hd"):
         return
-    if set_account_email(db.get_app_db(), user.id, email):
+    if set_account_email(db.get_app_db(), user.id, email, only_if_unset=True):
         db.session.expire(user, ["email", "email_verified"])
         logger.info("Stored the email address from Google for user %s", user.id)
 

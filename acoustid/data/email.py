@@ -246,12 +246,16 @@ def find_account_by_email(conn: AppDB, email: str) -> int | None:
     return conn.execute(stmt).scalar()
 
 
-def set_account_email(conn: AppDB, account_id: int, email: str) -> bool:
-    """Record a confirmed address. False if another account already has it.
+def set_account_email(
+    conn: AppDB, account_id: int, email: str, only_if_unset: bool = False
+) -> bool:
+    """Record a confirmed address. False if another account already has it,
+    or with only_if_unset, if this one has an address by then.
 
     The unique index is what decides, so two accounts confirming the same
     address at once cannot both get it. The update runs in a savepoint, so a
-    refusal leaves the caller's transaction usable.
+    refusal leaves the caller's transaction usable. only_if_unset is decided
+    by the UPDATE itself, so an address confirmed meanwhile is not replaced.
     """
     account = schema.account
     stmt = (
@@ -259,12 +263,14 @@ def set_account_email(conn: AppDB, account_id: int, email: str) -> bool:
         .where(account.c.id == account_id)
         .values(email=email, email_verified=sql.func.now())
     )
+    if only_if_unset:
+        stmt = stmt.where(account.c.email.is_(None))
     try:
         with conn.begin_nested():
-            conn.execute(stmt)
+            updated = conn.execute(stmt).rowcount
     except IntegrityError:
         return False
-    return True
+    return updated > 0
 
 
 SIGNIN_TTL = datetime.timedelta(minutes=15)
