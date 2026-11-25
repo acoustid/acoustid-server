@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 def apply_proxy_fix(app: "WSGIApplication", config: Config) -> ProxyFix:
     """Make REMOTE_ADDR the address the outermost trusted proxy saw."""
+    if config.cluster.trusted_proxies < 0:
+        raise ValueError("cluster.trusted_proxies must not be negative")
     return ProxyFix(app, x_for=config.cluster.trusted_proxies)
 
 

@@ -5,6 +5,7 @@ import gzip
 import wsgiref.util
 from typing import TYPE_CHECKING, Any, Callable, List, Tuple, cast
 
+import pytest
 from six import BytesIO
 
 from acoustid.config import Config
@@ -210,3 +211,13 @@ def test_client_ip_without_proxies_in_front() -> None:
 
 def test_client_ip_default_trusts_one_proxy() -> None:
     assert remote_addr_seen(1, "192.0.2.1", "1.2.3.4, 203.0.113.7") == "203.0.113.7"
+
+
+def test_client_ip_with_fewer_entries_than_proxies() -> None:
+    """Not enough entries to trust any of them, so the peer address stands."""
+    assert remote_addr_seen(2, "192.0.2.1", "203.0.113.7") == "192.0.2.1"
+
+
+def test_negative_trusted_proxies_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        remote_addr_seen(-1, "192.0.2.1", "203.0.113.7")
