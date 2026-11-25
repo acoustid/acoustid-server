@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 import tests
-from acoustid.config import MailConfig
+from acoustid.config import Config, MailConfig
 from acoustid.mail import MailError, send_mail
 
 MAILPIT_URL = os.environ.get("ACOUSTID_TEST_MAILPIT_URL", "http://127.0.0.1:8025")
@@ -151,6 +151,27 @@ def test_send_mail_ignores_quit_failure() -> None:
     assert len(find_messages(to)) == 1
 
 
+def test_send_mail_no_quit_after_failed_send() -> None:
+    with (
+        mock.patch(
+            "smtplib.SMTP.send_message",
+            side_effect=smtplib.SMTPDataError(451, b"later"),
+        ),
+        mock.patch("smtplib.SMTP.quit") as quit,
+    ):
+        with pytest.raises(MailError) as exc_info:
+            send_mail(mail_config(), unique_address(), "Hi", "Hi\n")
+    assert isinstance(exc_info.value.__cause__, smtplib.SMTPDataError)
+    quit.assert_not_called()
+
+
+def test_send_mail_non_ascii_credentials() -> None:
+    with pytest.raises(MailError):
+        send_mail(
+            mail_config(username="\u00fc", password="x"), unique_address(), "Hi", "Hi\n"
+        )
+
+
 def test_send_mail_does_not_log_recipient(caplog: pytest.LogCaptureFixture) -> None:
     to = unique_address()
     refused = smtplib.SMTPRecipientsRefused({to: (550, b"no such user")})
@@ -174,6 +195,12 @@ def test_send_mail_does_not_log_recipient(caplog: pytest.LogCaptureFixture) -> N
         "{a} ",
         "a@b@example.com",
         "not-an-address",
+        "@example.com",
+        "user@",
+        "{a}\x85",
+        "{a}\u2028",
+        "user\x00{a}",
+        "=?utf-8?q?x?={a}",
         "",
     ],
 )
@@ -254,28 +281,40 @@ def test_mail_config_read_env() -> None:
     assert config.timeout == 3.5
 
 
-@pytest.mark.parametrize("option", ["port=0", "port=65536", "timeout=0", "timeout=-1"])
-def test_mail_config_rejects_bad_numbers(option: str) -> None:
-    parser = RawConfigParser()
-    parser.read_string("[mail]\n" + option + "\n")
+def load_config(tmp_path: Any, text: str, env: dict[str, str] = {}) -> Config:
+    path = tmp_path / "acoustid.conf"
+    path.write_text(text)
+    config = Config()
+    config.read(str(path))
+    with mock.patch.dict(os.environ, env):
+        config.read_env()
+    return config
+
+
+@pytest.mark.parametrize(
+    "option", ["port=0", "port=65536", "timeout=0", "timeout=-1", "timeout=inf"]
+)
+def test_mail_config_rejects_bad_numbers(tmp_path: Any, option: str) -> None:
     with pytest.raises(ValueError):
-        MailConfig().read(parser, "mail")
+        load_config(tmp_path, "[mail]\n" + option + "\n")
 
 
 def test_mail_config_warns_about_plain_text_credentials(
-    caplog: pytest.LogCaptureFixture,
+    tmp_path: Any, caplog: pytest.LogCaptureFixture
 ) -> None:
-    parser = RawConfigParser()
-    parser.read_string("[mail]\nsecurity=none\nusername=user\n")
-    MailConfig().read(parser, "mail")
-    assert "unencrypted" in caplog.text
+    load_config(tmp_path, "[mail]\nsecurity=none\nusername=user\n")
+    assert caplog.text.count("unencrypted") == 1
 
 
-def test_mail_config_rejects_unknown_security() -> None:
-    parser = RawConfigParser()
-    parser.read_string("[mail]\nsecurity=ssl\n")
+def test_mail_config_rejects_unknown_security(tmp_path: Any) -> None:
     with pytest.raises(ValueError, match="security"):
-        MailConfig().read(parser, "mail")
-    with mock.patch.dict(os.environ, {"X_MAIL_SECURITY": "ssl"}):
-        with pytest.raises(ValueError, match="security"):
-            MailConfig().read_env("X_")
+        load_config(tmp_path, "[mail]\nsecurity=ssl\n")
+    with pytest.raises(ValueError, match="security"):
+        load_config(tmp_path, "", {"ACOUSTID_MAIL_SECURITY": "ssl"})
+
+
+def test_mail_config_env_overrides_bad_file_value(tmp_path: Any) -> None:
+    config = load_config(
+        tmp_path, "[mail]\nsecurity=ssl\n", {"ACOUSTID_MAIL_SECURITY": "tls"}
+    )
+    assert config.mail.security == "tls"

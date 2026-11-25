@@ -29,11 +29,16 @@ def check_recipient(to: str) -> None:
     # The envelope recipients would otherwise be parsed out of the To header,
     # so "victim@example.com, attacker@example.com" would mail both.
     name, addr = parseaddr(to)
+    local, _, domain = addr.partition("@")
     if (
         name
         or addr != to
-        or addr.count("@") != 1
-        or any(c in addr for c in ',;<>"\\ \t\r\n')
+        or not local
+        or not domain
+        or "@" in domain
+        or not addr.isprintable()
+        or any(c in addr for c in ',;<>"\\ ')
+        or "=?" in addr
     ):
         raise ValueError("expected a single bare email address")
 
@@ -105,14 +110,19 @@ def send_mail(
         smtp = connect(config)
         try:
             smtp.send_message(msg, to_addrs=[to])
-        finally:
-            # The message is already accepted at this point, so a failed QUIT
-            # must not turn it into an error a caller might retry.
-            try:
-                smtp.quit()
-            except (OSError, smtplib.SMTPException):
-                smtp.close()
-    except (OSError, smtplib.SMTPException) as e:
+        except BaseException:
+            # No QUIT: after a timeout it would wait as long again.
+            smtp.close()
+            raise
+        # The message is already accepted at this point, so a failed QUIT must
+        # not turn it into an error a caller might retry.
+        try:
+            smtp.quit()
+        except (OSError, smtplib.SMTPException):
+            smtp.close()
+    except (OSError, smtplib.SMTPException, UnicodeError) as e:
+        # UnicodeError comes from non-ASCII credentials, a server problem
+        # rather than a bad recipient, so it must not escape as a ValueError.
         error = describe_error(e)
         logger.warning(
             "Failed to send mail via %s:%s: %s", config.host, config.port, error

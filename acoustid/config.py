@@ -2,6 +2,7 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import logging
+import math
 import os.path
 from configparser import RawConfigParser
 from typing import Any, Callable, Dict, List, Optional
@@ -678,7 +679,7 @@ class MailConfig(BaseConfig):
             )
         if not 0 < self.port < 65536:
             raise ValueError("mail port must be between 1 and 65535")
-        if not self.timeout > 0:
+        if not (self.timeout > 0 and math.isfinite(self.timeout)):
             raise ValueError("mail timeout must be positive")
         if self.security == "none" and self.username:
             logger.warning(
@@ -695,7 +696,6 @@ class MailConfig(BaseConfig):
         read_config_str_option(parser, section, self, "from_address", "from_address")
         if parser.has_option(section, "timeout"):
             self.timeout = parser.getfloat(section, "timeout")
-        self.validate()
 
     def read_env(self, prefix: str) -> None:
         read_env_item(self, "host", prefix + "MAIL_HOST")
@@ -705,7 +705,6 @@ class MailConfig(BaseConfig):
         read_env_item(self, "password", prefix + "MAIL_PASSWORD")
         read_env_item(self, "from_address", prefix + "MAIL_FROM_ADDRESS")
         read_env_item(self, "timeout", prefix + "MAIL_TIMEOUT", convert=float)
-        self.validate()
 
 
 class Config(object):
@@ -773,3 +772,5 @@ class Config(object):
         self.sentry.read_env(prefix)
         self.export.read_env(prefix)
         self.mail.read_env(prefix)
+        # After the environment, so it can override a bad value in the file.
+        self.mail.validate()
