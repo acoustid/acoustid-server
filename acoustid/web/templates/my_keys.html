@@ -1,0 +1,57 @@
+{% extends "_base.html" %}
+{% set nav = 'account' %}
+{% block content %}
+
+<div class="account wide">
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+    <div class="sub"><span>Applications you have allowed to use AcoustID on your behalf</span></div>
+  </div>
+
+  {% if keys %}
+  <table class="data my-keys">
+    <thead>
+      <tr><th>Application</th><th>Device</th><th>Approved</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for key in keys %}
+      <tr{% if key.revoked %} class="muted"{% endif %}>
+        <td><span class="link-app-name">{{ key.application_name|truncate(60, True) }}</span></td>
+        <td>{{ key.device or '' }}</td>
+        <td class="shrink">{{ key.approved.strftime("%Y-%m-%d") }}</td>
+        <td class="shrink">
+          {% if key.revoked %}
+            revoked {{ key.revoked.strftime("%Y-%m-%d") }}
+          {% else %}
+          <form method="POST" action="{{ url_for('link.revoke') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="id" value="{{ key.id }}">
+            <button type="submit" class="btn small">Revoke</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if has_live_keys %}
+  <details class="danger-zone">
+    <summary>Revoke all</summary>
+    <p>Every application on this list stops working until you connect it again.</p>
+    <form method="POST" action="{{ url_for('link.revoke_all') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn danger">Revoke all</button>
+    </form>
+  </details>
+  {% endif %}
+  {% else %}
+  <p class="muted">No applications are connected to your account.</p>
+  {% endif %}
+
+  <p class="small muted link-help">
+    To connect a new one, choose <i>Connect to AcoustID</i> in the application, then follow the link
+    or enter the code it shows at <a href="{{ url_for('link.link') }}">{{ url_for('link.link', _external=True) }}</a>.
+  </p>
+</div>
+
+{% endblock %}

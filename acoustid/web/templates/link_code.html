@@ -1,0 +1,25 @@
+{% extends "_base.html" %}
+{% set nav = 'account' %}
+{% block content %}
+
+<div class="account link-flow">
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+    <div class="sub"><span>Enter the code the application shows you.</span></div>
+  </div>
+
+  {% if error %}<div class="alert"><p>{{ error }}</p></div>{% endif %}
+
+  <form method="GET" action="{{ url_for('link.link') }}" class="link-code-form">
+    <input type="hidden" name="entered" value="1">
+    <div class="form-group">
+      <label for="code">Code</label>
+      <input type="text" name="code" id="code" value="{{ code }}" class="form-control link-code"
+             placeholder="XXXX-XXXX" autocomplete="off" autocapitalize="characters"
+             spellcheck="false" maxlength="20" required autofocus>
+    </div>
+    <button type="submit" class="btn primary">Continue</button>
+  </form>
+</div>
+
+{% endblock %}

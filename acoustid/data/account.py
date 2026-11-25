@@ -348,3 +348,64 @@ def refresh_cached_user_key(redis: Redis, conn: AppDB, apikey: str) -> None:
         cache_user_key(redis, apikey, lookup_user_api_key(conn, apikey), replace=True)
     except Exception:
         logger.error("Failed to update cached user key", exc_info=True)
+
+
+def get_pending_link_request(conn: AppDB, code: str) -> dict[str, Any] | None:
+    """What the consent screen shows about a link request still waiting for a
+    decision, or None if the code does not name one."""
+    key = schema.account_application_key
+    app = schema.application
+    query = (
+        sql.select(
+            key.c.id,
+            key.c.device,
+            key.c.created,
+            key.c.return_url,
+            key.c.link_expires,
+            app.c.id.label("application_id"),
+            app.c.name.label("application_name"),
+            app.c.created.label("application_created"),
+            app.c.website.label("application_website"),
+        )
+        .select_from(key.join(app, app.c.id == key.c.application_id))
+        .where(key.c.link_code == normalize_link_code(code))
+        .where(key.c.account_id.is_(None))
+        .where(key.c.declined.is_(None))
+        .where(key.c.link_expires > sql.func.clock_timestamp())
+    )
+    row = conn.execute(query).fetchone()
+    return dict(row._mapping) if row else None
+
+
+def list_user_application_keys(conn: AppDB, account_id: int) -> list[dict[str, Any]]:
+    """Keys the account has approved, live ones first."""
+    key = schema.account_application_key
+    app = schema.application
+    query = (
+        sql.select(
+            key.c.id,
+            key.c.device,
+            key.c.approved,
+            key.c.revoked,
+            key.c.last_used,
+            app.c.id.label("application_id"),
+            app.c.name.label("application_name"),
+        )
+        .select_from(key.join(app, app.c.id == key.c.application_id))
+        .where(key.c.account_id == account_id)
+        .order_by(key.c.revoked.is_not(None), key.c.approved.desc())
+    )
+    return [dict(row._mapping) for row in conn.execute(query)]
+
+
+def revoke_all_user_application_keys(conn: AppDB, account_id: int) -> list[str]:
+    """Returns the keys revoked."""
+    key = schema.account_application_key
+    stmt = (
+        key.update()
+        .where(key.c.account_id == account_id)
+        .where(key.c.revoked.is_(None))
+        .values(revoked=sql.func.now())
+        .returning(key.c.apikey)
+    )
+    return list(conn.execute(stmt).scalars())
