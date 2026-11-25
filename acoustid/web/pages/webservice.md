@@ -36,6 +36,7 @@ supports GZip-compressed bodies for HTTP POST requests. If you compress the body
 using GZip and set the "Content-Encoding" HTTP header to "gzip", we will decode it
 before parsing the parameters.
 
+<span id="api_keys"></span>
 ### API Keys
 
 There are two kinds of API keys used by the web service.
@@ -46,9 +47,27 @@ that you can use in the <code>client</code> parameter.
 You can use the API key from the examples below for initial testing, but note that
 it will automatically expire after a few days, so don't use it in your actual application.
 
-When submitting new fingerprints the database, you also need to provide the user
-API key. Every user gets this key after signing in on this website. You should not store
-this key in your application code, each user should provide their own.
+The **user API key**, sent in the <code>user</code> parameter, identifies the person on
+whose behalf your application makes the request. Submissions always need one. Lookups may
+include one, and from **1 January 2027** lookups require one. A user key that is sent is
+always checked, so a wrong one is an error even before that date.
+
+Don't put a user key in your application's code; each user should have their own.
+There are two ways to get one:
+
+ * **Copy it.** Every user gets a key after signing in on this website, and can paste it
+   into your application's settings.
+ * **Link the application.** Your application asks for a key with
+   [Request a user key link](#request_link) and shows the user a link and a short code.
+   The user opens the link, or types the code at <code>https://acoustid.org/link</code>
+   on any device, and approves the request. The key your application received then works.
+   This suits applications without a convenient way to paste a key, such as a media server
+   on a NAS that is managed through a web interface. A key linked this way works only with
+   the application that requested it, and stops working after a year without being used.
+
+Instead of the <code>client</code> and <code>user</code> parameters, the keys can be sent in
+the <code>Acoustid-App-Key</code> and <code>Acoustid-User-Key</code> HTTP headers, which keeps
+them out of URLs and the logs that record them.
 
 ### Methods
 
@@ -57,6 +76,8 @@ this key in your application code, each user should provide their own.
  * [Submit](#submit)
  * [Get submission status](#submission_status)
  * [List AcoustIDs by MBID](#list_by_mbid)
+ * [Request a user key link](#request_link)
+ * [User key link status](#link_status)
 
 <span id="lookup"></span>
 ### Lookup by fingerprint
@@ -94,6 +115,12 @@ this method to lookup the MusicBrainz metadata associated with this fingerprint.
 		<td>yes</td>
 		<td>{{ client_api_key }}</td>
 		<td>application's API key</td>
+	</tr>
+	<tr>
+		<td>user</td>
+		<td>from 2027</td>
+		<td>XXX</td>
+		<td>user's API key, see <a href="#api_keys">API keys</a></td>
 	</tr>
 	<tr>
 		<td>duration</td>
@@ -206,6 +233,12 @@ wich is a cluster of fingerprints.
 		<td>yes</td>
 		<td>{{ client_api_key }}</td>
 		<td>application's API key</td>
+	</tr>
+	<tr>
+		<td>user</td>
+		<td>from 2027</td>
+		<td>XXX</td>
+		<td>user's API key, see <a href="#api_keys">API keys</a></td>
 	</tr>
 	<tr>
 		<td>trackid</td>
@@ -503,3 +536,160 @@ Look up the status of two previously submitted fingerprints:
 	</tr>
 </table>
 
+
+<span id="request_link"></span>
+### Request a user key link
+
+Starts linking a user key to your application. The response contains the user key, and a
+link and code for the user to approve it with. Store the key straight away: it is the key
+your application will use from then on, and it starts working when the user approves the
+request. Nothing needs to be fetched or replaced afterwards.
+
+Show the user the link, and the code for typing in on another device. While you wait, call
+[User key link status](#link_status) every few seconds, and stop at the time given in
+<code>expires</code>, after which the code no longer works.
+
+#### URL
+
+    https://api.acoustid.org/v2/user/request_link
+
+#### Parameters
+
+<table class="table">
+	<tr>
+		<th>Name</th>
+		<th>Required</th>
+		<th>Values</th>
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>format</td>
+		<td>no</td>
+		<td>json, xml</td>
+		<td>response format</td>
+	</tr>
+	<tr>
+		<td>client</td>
+		<td>yes</td>
+		<td>{{ client_api_key }}</td>
+		<td>application's API key</td>
+	</tr>
+	<tr>
+		<td>device</td>
+		<td>no</td>
+		<td>living-room-nas</td>
+		<td>name of the machine the application runs on, shown to the user when they approve the request; the host name is a good default (at most 100 characters)</td>
+	</tr>
+	<tr>
+		<td>return_url</td>
+		<td>no</td>
+		<td>http://192.168.1.10:8095/settings</td>
+		<td>http or https URL to send the user back to after they approve or decline, for applications with a web interface (at most 2000 characters)</td>
+	</tr>
+</table>
+
+#### Examples
+
+<pre><code>https://api.acoustid.org/v2/user/request_link?client={{ client_api_key }}&device=living-room-nas</code></pre>
+
+    {
+      "status": "ok",
+      "user": {
+        "apikey": "UzBdV3X80J",
+        "link": {
+          "code": "WT14-9E3S",
+          "url": "https://acoustid.org/link?code=WT14-9E3S",
+          "expires": "2026-12-01T12:15:00+00:00"
+        }
+      }
+    }
+
+Requests are limited per IP address. A user only sees where they will be sent back to when they
+follow the link; after typing the code on another device, they stay on acoustid.org.
+
+
+<span id="link_status"></span>
+### User key link status
+
+Tells you the state of a user key, so your application can tell waiting for approval from
+having to start again. A key from [Request a user key link](#request_link) is rejected by the
+other methods until it is approved, with the same error as a wrong key. When that happens,
+check its status here before you discard the key.
+
+#### URL
+
+    https://api.acoustid.org/v2/user/link_status
+
+#### Parameters
+
+<table class="table">
+	<tr>
+		<th>Name</th>
+		<th>Required</th>
+		<th>Values</th>
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>format</td>
+		<td>no</td>
+		<td>json, xml</td>
+		<td>response format</td>
+	</tr>
+	<tr>
+		<td>client</td>
+		<td>yes</td>
+		<td>{{ client_api_key }}</td>
+		<td>application's API key</td>
+	</tr>
+	<tr>
+		<td>user</td>
+		<td>yes</td>
+		<td>XXX</td>
+		<td>the user key to check</td>
+	</tr>
+</table>
+
+#### States
+
+<table class="table">
+	<tr>
+		<th>State</th>
+		<th>What to do</th>
+	</tr>
+	<tr>
+		<td>pending</td>
+		<td>Waiting for the user. Keep the key and check again in a few seconds, until <code>expires</code>.</td>
+	</tr>
+	<tr>
+		<td>approved</td>
+		<td>The key works.</td>
+	</tr>
+	<tr>
+		<td>declined</td>
+		<td>The user declined. Discard the key; ask the user before requesting a new one.</td>
+	</tr>
+	<tr>
+		<td>expired</td>
+		<td>The code was not used in time, or the key was not used for a year. Discard the key and request a new link.</td>
+	</tr>
+	<tr>
+		<td>revoked</td>
+		<td>The user disconnected your application. Discard the key; ask the user before requesting a new one.</td>
+	</tr>
+	<tr>
+		<td>unknown</td>
+		<td>No such key. Discard it and request a new link.</td>
+	</tr>
+</table>
+
+#### Examples
+
+<pre><code>https://api.acoustid.org/v2/user/link_status?client={{ client_api_key }}&user=UzBdV3X80J</code></pre>
+
+    {
+      "status": "ok",
+      "key": {
+        "state": "pending",
+        "expires": "2026-12-01T12:15:00+00:00"
+      }
+    }
