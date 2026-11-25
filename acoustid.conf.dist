@@ -68,6 +68,15 @@ import_acoustid=http://data.acoustid.org/replication/acoustid-update-{seq}.xml.b
 [rate_limiter]
 #application.123=4
 
+[mail]
+#host=smtp.example.com
+#port=587
+#security=starttls
+#username=XXX
+#password=XXX
+#from_address=AcoustID <noreply@acoustid.org>
+#timeout=10
+
 [export]
 #directory=/var/lib/acoustid/data-export
 #max_days=30
