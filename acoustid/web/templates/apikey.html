@@ -8,6 +8,7 @@
     <div class="sub">
       <span>Signed in as {{ user.name }}</span>
       {% if user.mbuser %}<span>MusicBrainz account <a href="https://musicbrainz.org/user/{{ user.mbuser }}">{{ user.mbuser }}</a></span>{% endif %}
+      <span><a href="{{ url_for('user.logout') }}">Sign out</a></span>
     </div>
   </div>
 
