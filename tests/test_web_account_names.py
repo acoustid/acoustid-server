@@ -45,6 +45,12 @@ def test_musicbrainz_account(app: Flask) -> None:
     assert "user7" not in html
 
 
+def test_musicbrainz_name_with_a_slash(app: Flask) -> None:
+    # Links to that user's profile, not to a subpage of another user's.
+    html = render(app, SimpleNamespace(id=1, mbuser="foo/ratings", name=""))
+    assert 'href="https://musicbrainz.org/user/foo%2Fratings"' in html
+
+
 def test_other_account(app: Flask) -> None:
     html = render(app, SimpleNamespace(id=7, mbuser=None, name="Google Account"))
     assert html == '<span class="account-name muted">user7</span>'
@@ -93,8 +99,13 @@ def test_templates_show_accounts_only_through_the_macro() -> None:
     # The rule lives in one place: no template prints a stored account name.
     pattern = re.compile(r"(user|account)\.(name|mbuser)\b")
     offenders = []
-    for name in sorted(os.listdir(TEMPLATES)):
-        if not name.endswith(".html") or name == "_macros.html":
+    names = []
+    for root, _, files in os.walk(TEMPLATES):
+        for file in files:
+            names.append(os.path.relpath(os.path.join(root, file), TEMPLATES))
+    assert "mail/signin.txt" in names
+    for name in sorted(names):
+        if name == "_macros.html":
             continue
         with open(os.path.join(TEMPLATES, name)) as f:
             for number, line in enumerate(f, 1):
