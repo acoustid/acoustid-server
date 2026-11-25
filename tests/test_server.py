@@ -3,15 +3,17 @@
 
 import gzip
 import wsgiref.util
-from typing import TYPE_CHECKING, Any, Callable, List, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Tuple, cast
 
 from six import BytesIO
 
+from acoustid.config import Config
 from acoustid.server import (
     GzipRequestMiddleware,
     add_cors_headers,
     replace_double_slashes,
 )
+from acoustid.wsgi_utils import apply_proxy_fix
 
 if TYPE_CHECKING:
     from wsgiref.types import WSGIEnvironment
@@ -170,3 +172,41 @@ def test_gzip_request_middleware_still_passes_a_valid_body_through():
     seen, delivered = run_gzip_middleware(gzipped(b"Hello world!"))
     assert seen == []
     assert delivered == [b"Hello world!"]
+
+
+def remote_addr_seen(trusted_proxies: int, remote_addr: str, xff: str | None) -> str:
+    config = Config()
+    config.cluster.trusted_proxies = trusted_proxies
+    seen: dict[str, str] = {}
+
+    def app(environ: "WSGIEnvironment", start_response: Any) -> List[bytes]:
+        seen["ip"] = environ["REMOTE_ADDR"]
+        return []
+
+    environ: dict[str, Any] = {"REMOTE_ADDR": remote_addr}
+    if xff is not None:
+        environ["HTTP_X_FORWARDED_FOR"] = xff
+    wsgiref.util.setup_testing_defaults(environ)
+    apply_proxy_fix(cast(Any, app), config)(environ, dummy_start_response)
+    return seen["ip"]
+
+
+def test_client_ip_behind_two_proxies() -> None:
+    # The outer proxy appends the client, the inner one appends the outer.
+    assert remote_addr_seen(2, "192.0.2.1", "203.0.113.7, 198.51.100.1") == (
+        "203.0.113.7"
+    )
+
+
+def test_client_ip_ignores_a_spoofed_forwarded_for() -> None:
+    xff = "1.2.3.4, 5.6.7.8, 203.0.113.7, 198.51.100.1"
+    assert remote_addr_seen(2, "192.0.2.1", xff) == "203.0.113.7"
+
+
+def test_client_ip_without_proxies_in_front() -> None:
+    # A caller inside the cluster, talking to the servers directly.
+    assert remote_addr_seen(2, "10.0.0.5", None) == "10.0.0.5"
+
+
+def test_client_ip_default_trusts_one_proxy() -> None:
+    assert remote_addr_seen(1, "192.0.2.1", "1.2.3.4, 203.0.113.7") == "203.0.113.7"

@@ -561,10 +561,16 @@ class ClusterConfig(BaseConfig):
         self.role = "master"
         self.base_master_url = None
         self.secret = None
+        # How many proxies in front of the servers append to X-Forwarded-For.
+        # Only that many entries, counted from the right, are trusted; anything
+        # further left was sent by the client and can be anything.
+        self.trusted_proxies = 1
 
     def read_section(self, parser, section):
         # type: (RawConfigParser, str) -> None
         read_config_str_option(parser, section, self, "role", "role")
+        if parser.has_option(section, "trusted_proxies"):
+            self.trusted_proxies = parser.getint(section, "trusted_proxies")
         read_config_str_option(
             parser, section, self, "base_master_url", "base_master_url"
         )
@@ -574,6 +580,9 @@ class ClusterConfig(BaseConfig):
         read_env_item(self, "role", prefix + "CLUSTER_ROLE")
         read_env_item(self, "base_master_url", prefix + "CLUSTER_BASE_MASTER_URL")
         read_env_item(self, "secret", prefix + "CLUSTER_SECRET")
+        read_env_item(
+            self, "trusted_proxies", prefix + "CLUSTER_TRUSTED_PROXIES", convert=int
+        )
 
 
 class RateLimiterConfig(BaseConfig):

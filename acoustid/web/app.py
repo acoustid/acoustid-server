@@ -4,7 +4,6 @@ import pickle
 from flask import Flask, render_template, request, session
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.exceptions import HTTPException, NotFound
-from werkzeug.middleware.proxy_fix import ProxyFix
 
 from acoustid.script import Script
 from acoustid.web import db
@@ -15,6 +14,7 @@ from acoustid.web.views.general import general_page
 from acoustid.web.views.metadata import metadata_page
 from acoustid.web.views.stats import stats_page
 from acoustid.web.views.user import user_page
+from acoustid.wsgi_utils import apply_proxy_fix
 
 
 def make_application(config_filename=None, tests=False):
@@ -41,7 +41,7 @@ def make_application(config_filename=None, tests=False):
     app.acoustid_config = config  # type: ignore
     app.acoustid_config_filename = config_filename  # type: ignore
 
-    app.wsgi_app = ProxyFix(app.wsgi_app)  # type: ignore
+    app.wsgi_app = apply_proxy_fix(app.wsgi_app, config)  # type: ignore
 
     # can't use json because of python-openid
     app.session_interface = SecureCookieSessionInterface()

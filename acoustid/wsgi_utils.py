@@ -4,11 +4,15 @@ import logging
 import os
 import signal
 import sys
-from typing import Callable, List, Optional
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 import six
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from acoustid.config import Config
+
+if TYPE_CHECKING:
+    from _typeshed.wsgi import WSGIApplication
 
 if six.PY3:
     import subprocess
@@ -16,6 +20,11 @@ else:
     import subprocess32 as subprocess
 
 logger = logging.getLogger(__name__)
+
+
+def apply_proxy_fix(app: "WSGIApplication", config: Config) -> ProxyFix:
+    """Make REMOTE_ADDR the address the outermost trusted proxy saw."""
+    return ProxyFix(app, x_for=config.cluster.trusted_proxies)
 
 
 def call_setpgrp():
