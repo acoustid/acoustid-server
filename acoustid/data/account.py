@@ -143,7 +143,10 @@ def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
                     (key.c.revoked.is_not(None), USER_KEY_REVOKED),
                     (key.c.declined.is_not(None), USER_KEY_DECLINED),
                     (key.c.approved.is_not(None), USER_KEY_APPROVED),
-                    (key.c.link_expires <= sql.func.now(), USER_KEY_EXPIRED),
+                    (
+                        key.c.link_expires <= sql.func.clock_timestamp(),
+                        USER_KEY_EXPIRED,
+                    ),
                     else_=USER_KEY_PENDING,
                 ),
             ).where(key.c.apikey == apikey),
@@ -219,7 +222,7 @@ def _update_pending_link(code: str) -> Any:
         .where(key.c.link_code == normalize_link_code(code))
         .where(key.c.account_id.is_(None))
         .where(key.c.declined.is_(None))
-        .where(key.c.link_expires > sql.func.now())
+        .where(key.c.link_expires > sql.func.clock_timestamp())
         .returning(key.c.id)
     )
 
