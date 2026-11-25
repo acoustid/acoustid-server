@@ -29,6 +29,7 @@ from acoustid.data.email import (
     find_or_create_email_account,
     get_email_signin_address,
     get_email_signin_by_token,
+    hash_token,
     mask_email,
     normalize_email,
     signin_allowed,
@@ -50,6 +51,8 @@ signin_page = Blueprint("signin", __name__)
 SIGNIN_SESSION_KEY = "email_signin_ids"
 # Kept for asking again when the first email is slow to arrive.
 MAX_SIGNINS_PER_SESSION = 3
+# A hash of the address those requests are for.
+SIGNIN_ADDRESS_KEY = "email_signin_address"
 
 INVALID_LINK = (
     "This sign-in link is not valid. It may have been used already, or "
@@ -133,8 +136,11 @@ def request_signin() -> Any:
             entered,
             400,
         )
-    ids = signin_ids() + [signin.id]
-    session[SIGNIN_SESSION_KEY] = ids[-MAX_SIGNINS_PER_SESSION:]
+    # Earlier requests are kept only if they were for the same address.
+    address = hash_token(email)
+    ids = signin_ids() if session.get(SIGNIN_ADDRESS_KEY) == address else []
+    session[SIGNIN_SESSION_KEY] = (ids + [signin.id])[-MAX_SIGNINS_PER_SESSION:]
+    session[SIGNIN_ADDRESS_KEY] = address
     return redirect(url_for(".signin_code"), code=303)
 
 

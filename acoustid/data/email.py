@@ -22,7 +22,7 @@ from sqlalchemy import sql
 from sqlalchemy.exc import IntegrityError
 
 from acoustid import tables as schema
-from acoustid.db import AppDB
+from acoustid.db import AppDB, pg_advisory_xact_lock
 from acoustid.mail import check_recipient
 from acoustid.utils import generate_api_key
 
@@ -285,6 +285,7 @@ def create_email_signin(
 
 def live_signin(table: sql.TableClause) -> sql.ColumnElement[bool]:
     return sql.and_(
+        table.c.used.is_(None),
         table.c.expires > sql.func.now(),
         table.c.code_attempts < MAX_CODE_ATTEMPTS,
     )
@@ -310,14 +311,17 @@ class UsedSignin:
 
 
 def consume_email_signin_by_token(conn: AppDB, token: str) -> UsedSignin | None:
-    """Use a sign-in link up, and with it the code."""
+    """Use a sign-in link up, and with it the code.
+
+    The row stays, marked used, for the per-address limits to count."""
     if not token:
         return None
     table = schema.account_email_signin
     stmt = (
-        table.delete()
+        table.update()
         .where(table.c.token_hash == hash_token(token))
         .where(live_signin(table))
+        .values(used=sql.func.now())
         .returning(table.c.email, table.c.return_url)
     )
     row = conn.execute(stmt).first()
@@ -334,7 +338,13 @@ def get_email_signin_address(conn: AppDB, id: int) -> str | None:
 
 
 def signin_allowed(conn: AppDB, email: str) -> bool:
-    """Whether another sign-in email may go to this address this hour."""
+    """Whether another sign-in email may go to this address this hour.
+
+    Takes a lock on the address until the transaction ends, so that of two
+    concurrent requests only one can see room under the limit. The caller
+    inserts its request and commits while holding it.
+    """
+    pg_advisory_xact_lock(conn, "account_email_signin", email)
     table = schema.account_email_signin
     stmt = (
         sql.select(sql.func.count())
@@ -360,10 +370,13 @@ def consume_email_signin_by_code(
     """Use a sign-in request up by its code, and with it the link.
 
     ids are the requests this browser made, newest last, so the code from an
-    earlier email still works after asking for another. Using one uses them
-    all up. A wrong code counts against the newest, and the caller must
-    commit even then, or the count is lost. The rows are locked while they
-    are checked, so concurrent guesses are counted one after another.
+    earlier email still works after asking for another. Only those for the
+    same address as the newest are tried, so every guess is charged to the
+    address it is a guess at. Using one uses them all up; the rows stay,
+    marked used, for the per-address limits to count. A wrong code counts
+    against the newest, and the caller must commit even then, or the count
+    is lost. The rows are locked while they are checked, so concurrent
+    guesses are counted one after another.
 
     Raises TooManyWrongCodes if the address has had too many today.
     """
@@ -387,13 +400,18 @@ def consume_email_signin_by_code(
     if not rows:
         return None
     newest = rows[-1]
+    rows = [row for row in rows if row.email == newest.email]
     if wrong_codes_today(conn, newest.email) >= MAX_WRONG_CODES_PER_ADDRESS_PER_DAY:
         raise TooManyWrongCodes()
     code = normalize_code(code)
     for row in rows:
         expected = hash_code(secret, row.token_hash, code)
         if hmac.compare_digest(expected, row.code_hash):
-            conn.execute(table.delete().where(table.c.id.in_(ids)))
+            conn.execute(
+                table.update()
+                .where(table.c.id.in_([r.id for r in rows]))
+                .values(used=sql.func.now())
+            )
             return UsedSignin(email=row.email, return_url=row.return_url)
     conn.execute(
         table.update()

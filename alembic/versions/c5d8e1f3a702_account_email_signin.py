@@ -43,6 +43,7 @@ def upgrade_app():
             nullable=False,
         ),
         sa.Column("expires", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("used", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(

@@ -2,6 +2,8 @@
 # Distributed under the MIT license, see the LICENSE file for details.
 
 import re
+import threading
+import time
 import uuid
 from typing import Any, Iterator
 from unittest import mock
@@ -21,10 +23,13 @@ from acoustid.data.email import (
     MAX_SIGNINS_PER_ADDRESS_PER_HOUR,
     MAX_WRONG_CODES_PER_ADDRESS_PER_DAY,
     RATE_LIMIT_PREFIX,
+    create_email_signin,
     find_account_by_email,
     find_or_create_email_account,
     mask_email,
     set_account_email,
+    signin_allowed,
+    wrong_codes_today,
 )
 from acoustid.scripts.user_keys import run_cleanup_user_keys
 from tests import make_web_application
@@ -193,7 +198,9 @@ def test_new_account_by_code(app: Flask, client: FlaskClient) -> None:
     assert row.email_verified is not None
     assert row.name == EMAIL_ACCOUNT_NAME
     assert row.apikey
-    assert signin_rows(app) == []
+    # Kept, marked used, for the per-address limits.
+    [request] = signin_rows(app)
+    assert request.used is not None
 
 
 def test_existing_account_by_code(app: Flask, client: FlaskClient) -> None:
@@ -523,7 +530,9 @@ def test_code_from_an_earlier_email(app: Flask, client: FlaskClient) -> None:
     assert rv.status_code == 303
     assert signed_in_as(client) is not None
     # Both requests are used up.
-    assert signin_rows(app) == []
+    rows = signin_rows(app)
+    assert len(rows) == 2
+    assert all(row.used is not None for row in rows)
 
 
 def test_second_click_does_not_sign_out(app: Flask, client: FlaskClient) -> None:
@@ -565,3 +574,75 @@ def test_link_page_warns_when_signed_in(app: Flask, client: FlaskClient) -> None
     assert b"You are signed in to an AcoustID account already" in rv.data
     rv = app.test_client().get(link)
     assert b"You are signed in" not in rv.data
+
+
+def test_used_requests_still_count_against_the_address(app: Flask) -> None:
+    email = unique_address()
+    with mock.patch("redis.client.Pipeline.execute", side_effect=RedisError("gone")):
+        for _ in range(MAX_SIGNINS_PER_ADDRESS_PER_HOUR):
+            client = app.test_client()
+            request_signin(client, email)
+            _, code = read_mail(email, latest=True)
+            assert enter_code(client, wrong(code)).status_code == 400
+            assert enter_code(client, code).status_code == 303
+        rv = request_signin(app.test_client(), email)
+    assert rv.status_code == 400
+    assert b"Too many emails" in rv.data
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        assert wrong_codes_today(ctx.db.get_app_db(), email) == 3
+
+
+def test_codes_are_only_tried_for_the_newest_address(app: Flask) -> None:
+    victim = unique_address()
+    attacker = unique_address()
+    client = app.test_client()
+    request_signin(client, victim)
+    _, victim_code = read_mail(victim)
+    with client.session_transaction() as flask_session:
+        victim_ids = list(flask_session["email_signin_ids"])
+    request_signin(client, attacker)
+    with client.session_transaction() as flask_session:
+        # A new address starts a new list.
+        assert victim_ids[0] not in flask_session["email_signin_ids"]
+        # Even a session made to hold both only tries the newest address.
+        flask_session["email_signin_ids"] = (
+            victim_ids + flask_session["email_signin_ids"]
+        )
+    rv = enter_code(client, victim_code)
+    assert rv.status_code == 400
+    assert signed_in_as(client) is None
+    with app.acoustid_script.context() as ctx:  # type: ignore
+        conn = ctx.db.get_app_db()
+        assert wrong_codes_today(conn, victim) == 0
+        assert wrong_codes_today(conn, attacker) == 1
+
+
+def test_concurrent_requests_cannot_both_pass_the_limit(app: Flask) -> None:
+    email = unique_address()
+    for _ in range(MAX_SIGNINS_PER_ADDRESS_PER_HOUR - 1):
+        request_signin(app.test_client(), email)
+    script = app.acoustid_script  # type: ignore
+    first_holds_lock = threading.Event()
+    results: dict[str, bool] = {}
+
+    def first() -> None:
+        with script.context() as ctx:
+            conn = ctx.db.get_app_db()
+            results["first"] = signin_allowed(conn, email)
+            first_holds_lock.set()
+            time.sleep(0.5)
+            create_email_signin(conn, "secret", email, None)
+            ctx.db.session.commit()
+
+    def second() -> None:
+        first_holds_lock.wait()
+        with script.context() as ctx:
+            results["second"] = signin_allowed(ctx.db.get_app_db(), email)
+            ctx.db.session.rollback()
+
+    threads = [threading.Thread(target=first), threading.Thread(target=second)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(10)
+    assert results == {"first": True, "second": False}
