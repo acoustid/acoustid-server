@@ -102,7 +102,9 @@ def link_from_mail(email: str) -> str:
     message = get_message(summary["ID"])
     assert message["Subject"] == "Confirm your email address for AcoustID"
     match = re.search(r"https?://\S+/account/email/confirm\?token=\S+", message["Text"])
+    # The test config's base_url, whatever Host the request had.
     assert match is not None
+    assert match.group(0).startswith("http://acoustid.org/account/email/confirm?")
     assert match.group(0) in message["HTML"]
     url = urlparse(match.group(0))
     return url.path + "?" + url.query
@@ -513,3 +515,26 @@ def test_sentry_scrubs_email_addresses() -> None:
     }
     make_event_scrubber().scrub_event(cast("Event", event))
     assert "a@example.com" not in str(event).lower()
+
+
+def test_link_ignores_the_host_header(app: Flask) -> None:
+    # The whole session on a host the client chose.
+    host = "http://attacker.example"
+    client = app.test_client()
+    with client.session_transaction(base_url=host) as flask_session:
+        flask_session["id"] = ACCOUNT_ID
+    client.get("/api-key", base_url=host)
+    with client.session_transaction(base_url=host) as flask_session:
+        token = flask_session["api_key_csrf_token"]
+    email = unique_address()
+    rv = client.post(
+        "/account/email",
+        data={"csrf_token": token, "email": email},
+        base_url=host,
+    )
+    assert rv.status_code == 303
+    [summary] = find_messages(email)
+    message = get_message(summary["ID"])
+    assert "attacker.example" not in message["Text"]
+    assert "attacker.example" not in message["HTML"]
+    assert "http://acoustid.org/account/email/confirm?token=" in message["Text"]

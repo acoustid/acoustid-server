@@ -43,7 +43,7 @@
     <p>Your account has no email address.</p>
     {% endif %}
     <p class="small muted">
-      It is only used to sign you in, and is not shown to anyone else.
+      It is not shown to anyone else.
     </p>
     {% if email_error %}<div class="alert"><p>{{ email_error }}</p></div>{% endif %}
     <form method="POST" action="{{ url_for('email.change_email') }}" class="email-form">

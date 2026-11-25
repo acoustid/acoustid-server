@@ -97,7 +97,10 @@ def change_email() -> Any:
     token = create_email_confirmation(db.get_app_db(), user.id, email)
     # Committed before sending: a link that arrives must work.
     db.session.commit()
-    link = url_for(".confirm_email", token=token, _external=True)
+    # From the configured base URL, not the request: the Host header is the
+    # client's to choose, and this link goes out in a genuine AcoustID email.
+    base_url = current_app.acoustid_config.website.base_url.rstrip("/")  # type: ignore
+    link = base_url + url_for(".confirm_email", token=token)
     context = dict(link=link, minutes=int(CONFIRMATION_TTL.total_seconds() // 60))
     try:
         send_mail(
