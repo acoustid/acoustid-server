@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+{% set nav = 'account' %}
+{% block content %}
+
+<div class="account link-flow">
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+  </div>
+  {% if approved %}
+  <p>
+    <b class="link-app-name">{{ application_name|truncate(80, True) }}</b> can now use AcoustID on your
+    behalf. You can go back to the application.
+  </p>
+  {% else %}
+  <p>
+    <b class="link-app-name">{{ application_name|truncate(80, True) }}</b> was not connected to your account.
+  </p>
+  {% endif %}
+  <p class="links"><a href="{{ url_for('link.my_keys') }}">Connected applications</a></p>
+</div>
+
+{% endblock %}

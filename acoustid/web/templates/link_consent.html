@@ -1,0 +1,57 @@
+{% extends "_base.html" %}
+{% set nav = 'account' %}
+{% block content %}
+
+<div class="account link-flow">
+  <div class="page-head">
+    <h1>Connect <span class="link-app-name">{{ request_info.application_name|truncate(80, True) }}</span>?</h1>
+    <div class="sub"><span>Signed in as {{ g.user.name }}</span></div>
+  </div>
+
+  <p>
+    An application is asking to use AcoustID on your behalf. If you approve, its lookups and
+    fingerprint submissions will be counted under your account.
+  </p>
+
+  <dl class="link-details">
+    <dt>Application</dt>
+    <dd><span class="link-app-name">{{ request_info.application_name|truncate(80, True) }}</span>
+      <span class="muted">· #{{ request_info.application_id }}, registered {{ request_info.application_created.strftime("%Y-%m-%d") }}</span></dd>
+    {% if request_info.application_website %}
+    <dt>Website</dt>
+    <dd>{{ request_info.application_website|truncate(100, True) }}</dd>
+    {% endif %}
+    <dt>Device</dt>
+    <dd>{% if request_info.device %}{{ request_info.device }}{% else %}<span class="muted">not given</span>{% endif %}</dd>
+    <dt>Requested</dt>
+    <dd>{{ request_info.created.strftime("%Y-%m-%d %H:%M") }} UTC</dd>
+    <dt>Code</dt>
+    <dd><code>{{ code }}</code></dd>
+  </dl>
+
+  <p class="small muted">
+    The application's name and website are given by its developer and are not checked by AcoustID.
+    Approve only if you started this from a device you recognize, just now.
+  </p>
+
+  {% if return_host %}
+  <p class="small">After you decide, you will be sent back to <b>{{ return_host }}</b>.</p>
+  {% endif %}
+
+  <div class="link-actions">
+    <form method="POST" action="{{ url_for('link.approve') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="code" value="{{ code }}">
+      <input type="hidden" name="entered" value="{{ '1' if entered else '' }}">
+      <button type="submit" class="btn primary">Approve</button>
+    </form>
+    <form method="POST" action="{{ url_for('link.decline') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="code" value="{{ code }}">
+      <input type="hidden" name="entered" value="{{ '1' if entered else '' }}">
+      <button type="submit" class="btn">Decline</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

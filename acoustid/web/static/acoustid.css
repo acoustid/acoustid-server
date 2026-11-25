@@ -472,6 +472,15 @@ table.links tr:last-child td { border-bottom: 0; }
 .danger-zone summary:hover { color: var(--ink); }
 .danger-zone p { margin: 10px 0 12px; color: var(--ink-2); }
 .form-group .small { margin: 4px 0 0; }
+.account.wide { max-width: 860px; }
+.link-details { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; margin: 20px 0; }
+.link-details dt { color: var(--muted); }
+.link-details dd { margin: 0; }
+.link-app-name { overflow-wrap: anywhere; }
+.link-actions { display: flex; gap: 8px; margin-top: 24px; }
+.link-code { font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; max-width: 14em; }
+table.my-keys form { margin: 0; }
+.link-help { margin-top: 28px; }
 .intro { max-width: 640px; color: var(--ink-2); }
 .eyebrow a { color: inherit; }
 
