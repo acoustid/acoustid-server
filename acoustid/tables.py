@@ -66,8 +66,19 @@ account = Table(
     Column(
         "is_admin", Boolean, default=False, server_default=sql.false(), nullable=False
     ),
+    # Lowercased. Only ever set to an address the account has confirmed;
+    # a pending change is in account_email_confirmation until then.
+    Column("email", String),
+    Column("email_verified", DateTime(timezone=True)),
     Index("account_idx_mbuser", "mbuser", unique=True),
     Index("account_idx_apikey", "apikey", unique=True),
+    # A verified address names exactly one account.
+    Index(
+        "account_idx_email",
+        "email",
+        unique=True,
+        postgresql_where=sql.text("email_verified IS NOT NULL"),
+    ),
     info={"bind_key": "app"},
 )
 
@@ -86,6 +97,28 @@ account_google = Table(
     Column("google_user_id", String, primary_key=True),
     Column("account_id", Integer, ForeignKey("account.id"), nullable=False),
     Index("account_google_idx_account_id", "account_id"),
+    info={"bind_key": "app"},
+)
+
+# Links sent to confirm an email address for an account. A row is deleted when
+# its link is used, and expired rows by the daily cleanup.
+account_email_confirmation = Table(
+    "account_email_confirmation",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    # SHA-256 of the token in the link, hex. The token itself is not stored.
+    Column("token_hash", String, nullable=False),
+    Column("account_id", Integer, ForeignKey("account.id"), nullable=False),
+    Column("email", String, nullable=False),
+    Column(
+        "created",
+        DateTime(timezone=True),
+        server_default=sql.func.current_timestamp(),
+        nullable=False,
+    ),
+    Column("expires", DateTime(timezone=True), nullable=False),
+    Index("account_email_confirmation_idx_token_hash", "token_hash", unique=True),
+    Index("account_email_confirmation_idx_account_id", "account_id"),
     info={"bind_key": "app"},
 )
 

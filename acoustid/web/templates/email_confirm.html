@@ -1,0 +1,24 @@
+{% extends "_base.html" %}
+{% set nav = 'account' %}
+{% block content %}
+
+<div class="account">
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+    <div class="sub"><span>Signed in as {{ g.user.name }}</span></div>
+  </div>
+
+  {% if error %}
+  <div class="alert"><p>{{ error }}</p></div>
+  <p class="links"><a href="{{ url_for('user.api_key') }}">Your account</a></p>
+  {% else %}
+  <p>Use <b>{{ email }}</b> as the email address of your AcoustID account?</p>
+  <form method="POST" action="{{ url_for('email.confirm_email_post') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button type="submit" class="btn primary">Confirm this address</button>
+  </form>
+  {% endif %}
+</div>
+
+{% endblock %}

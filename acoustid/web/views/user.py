@@ -10,6 +10,7 @@ from flask import (
     Blueprint,
     abort,
     current_app,
+    make_response,
     redirect,
     render_template,
     request,
@@ -21,12 +22,14 @@ from openid import fetchers, oidutil
 from openid.consumer import consumer as openid
 from openid.extensions import ax
 from rauth import OAuth2Service
+from werkzeug.wrappers import Response
 
 from acoustid.data.account import (
     insert_account,
     lookup_account_id_by_openid,
     refresh_cached_user_key,
 )
+from acoustid.data.email import CONFIRMATION_TTL, mask_email
 from acoustid.models import Account, AccountGoogle, AccountOpenID
 from acoustid.utils import generate_api_key
 from acoustid.web import db
@@ -545,24 +548,70 @@ def logout():
     return redirect(url_for("general.index"))
 
 
-# Where the CSRF token for replacing the API key is kept in the session.
-API_KEY_TOKEN_KEY = "api_key_csrf_token"
+# Where the CSRF token for the forms on the account page is kept in the
+# session. The name predates the other forms.
+ACCOUNT_CSRF_TOKEN_KEY = "api_key_csrf_token"
+
+# What the account page says after a redirect. Kept in the session, so a link
+# cannot make the page say something.
+NOTICE_KEY = "account_notice"
+
+NOTICES = {
+    "sent": "We sent a confirmation link to {email}. It works for {minutes} minutes.",
+    "confirmed": "Your email address is now {email}.",
+}
 
 
-@user_page.route("/api-key")
-def api_key():
-    user = require_user()
-    # A CSRF token for the form that replaces the key, kept in the session.
-    token = session.get(API_KEY_TOKEN_KEY)
+def account_csrf_token() -> str:
+    token = session.get(ACCOUNT_CSRF_TOKEN_KEY)
     if not token:
-        token = session[API_KEY_TOKEN_KEY] = secrets.token_urlsafe(32)
-    return render_template(
+        token = session[ACCOUNT_CSRF_TOKEN_KEY] = secrets.token_urlsafe(32)
+    return token
+
+
+def check_account_csrf_token() -> None:
+    token = session.get(ACCOUNT_CSRF_TOKEN_KEY)
+    sent = request.form.get("csrf_token", "")
+    if not token or not hmac.compare_digest(token, sent):
+        abort(400)
+
+
+def set_notice(name: str, email: str) -> None:
+    session[NOTICE_KEY] = (name, mask_email(email))
+
+
+def pop_notice() -> str | None:
+    notice = session.pop(NOTICE_KEY, None)
+    if not notice:
+        return None
+    name, email = notice
+    minutes = int(CONFIRMATION_TTL.total_seconds() // 60)
+    return NOTICES[name].format(email=email, minutes=minutes)
+
+
+def render_account_page(
+    user: Account,
+    email_value: str = "",
+    email_error: str | None = None,
+    status: int = 200,
+) -> Response:
+    body = render_template(
         "apikey.html",
         title="Your account",
         user=user,
         apikey=user.apikey,
-        csrf_token=token,
+        masked_email=mask_email(user.email) if user.email else None,
+        email_value=email_value,
+        email_error=email_error,
+        notice=pop_notice(),
+        csrf_token=account_csrf_token(),
     )
+    return make_response(body, status)
+
+
+@user_page.route("/api-key")
+def api_key():
+    return render_account_page(require_user())
 
 
 # POST only, and with the token from the account page, so another site can't
@@ -570,10 +619,7 @@ def api_key():
 @user_page.route("/new-api-key", methods=["POST"])
 def new_api_key():
     user = require_user()
-    token = session.get(API_KEY_TOKEN_KEY)
-    sent = request.form.get("csrf_token", "")
-    if not token or not hmac.compare_digest(token, sent):
-        abort(400)
+    check_account_csrf_token()
     old_apikey = user.apikey
     user.apikey = generate_api_key()
     db.session.commit()

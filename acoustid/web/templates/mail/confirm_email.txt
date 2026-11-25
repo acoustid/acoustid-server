@@ -1,0 +1,14 @@
+Someone, hopefully you, asked to use this address for an AcoustID account.
+
+To confirm it, open this link while signed in to that account:
+
+{{ link }}
+
+The link works once, for {{ minutes }} minutes.
+
+If you did not ask for this, ignore this email. Nothing changes unless the
+link is used.
+
+--
+AcoustID
+https://acoustid.org/

@@ -12,6 +12,8 @@
     </div>
   </div>
 
+  {% if notice %}<div class="notice"><p>{{ notice }}</p></div>{% endif %}
+
   <section>
     <div class="section-head"><h2>API key</h2></div>
     <p>
@@ -31,6 +33,26 @@
         <button type="submit" class="btn danger">Replace my API key</button>
       </form>
     </details>
+  </section>
+
+  <section id="email">
+    <div class="section-head"><h2>Email address</h2></div>
+    {% if masked_email %}
+    <p>Your account's email address is <b>{{ masked_email }}</b>.</p>
+    {% else %}
+    <p>Your account has no email address.</p>
+    {% endif %}
+    <p class="small muted">
+      It is not shown to anyone else.
+    </p>
+    {% if email_error %}<div class="alert"><p>{{ email_error }}</p></div>{% endif %}
+    <form method="POST" action="{{ url_for('email.change_email') }}" class="email-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="email" name="email" value="{{ email_value }}" required maxlength="254"
+             autocomplete="email" aria-label="Email address" placeholder="you@example.com">
+      <button type="submit" class="btn">{% if masked_email %}Change{% else %}Add{% endif %}</button>
+    </form>
+    <p class="small muted">We will send a link to the new address. It replaces the old one once you open the link.</p>
   </section>
 
   <section>
