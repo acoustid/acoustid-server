@@ -101,6 +101,29 @@ class TrackListByPUIDHandler(APIHandler):
         return response
 
 
+def parse_musicbrainz_userinfo(resp: requests.Response) -> str:
+    """The MusicBrainz username from a 200 userinfo response.
+
+    Anything other than a JSON object with a string "sub" -- an error page or
+    an OAuth error document served with a 200 -- is the caller's token being
+    no good, not a server error. Only the keys are logged: the body of an
+    error document can echo the token.
+    """
+    try:
+        userinfo = resp.json()
+    except ValueError:
+        logger.warning("MusicBrainz userinfo returned a non-JSON body")
+        raise errors.InvalidMusicBrainzAccessTokenError()
+    sub = userinfo.get("sub") if isinstance(userinfo, dict) else None
+    if not isinstance(sub, str) or not sub:
+        logger.warning(
+            "MusicBrainz userinfo carries no sub (keys=%r)",
+            sorted(userinfo) if isinstance(userinfo, dict) else type(userinfo).__name__,
+        )
+        raise errors.InvalidMusicBrainzAccessTokenError()
+    return sub
+
+
 class UserCreateMusicBrainzHandlerParams(APIHandlerParams):
     def parse(self, values, db):
         super(UserCreateMusicBrainzHandlerParams, self).parse(values, db)
@@ -121,7 +144,7 @@ class UserCreateMusicBrainzHandler(APIHandler):
         )
         if resp.status_code != requests.codes.ok:
             raise errors.InvalidMusicBrainzAccessTokenError()
-        mbuser = resp.json()["sub"]
+        mbuser = parse_musicbrainz_userinfo(resp)
         app_db = self.ctx.db.get_app_db()
         account = get_account_details_by_mbuser(app_db, mbuser)
         if account is not None:
