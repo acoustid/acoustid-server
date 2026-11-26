@@ -13,6 +13,7 @@ import uuid
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -287,7 +288,11 @@ class APIHandlerParams(object):
         self.application_version = values.get("clientversion")
 
     def _parse_user(
-        self, values: MultiDict, db: DatabaseContext, required: bool = True
+        self,
+        values: MultiDict,
+        db: DatabaseContext,
+        required: bool = True,
+        missing_error: Callable[[], errors.WebServiceError] | None = None,
     ) -> None:
         """Validate the `user` parameter and resolve it to an account.
 
@@ -300,6 +305,8 @@ class APIHandlerParams(object):
         account_apikey = values.get("user")
         if not account_apikey:
             if required:
+                if missing_error is not None:
+                    raise missing_error()
                 raise errors.MissingParameterError("user")
             return
         key = check_user_api_key(self.config, db, account_apikey, self.redis)
@@ -571,6 +578,8 @@ class LookupHandlerParams(APIHandlerParams):
                 self.application_requires_user_key
                 and datetime.date.today() >= const.LOOKUP_USER_REQUIRED_FROM
             ),
+            # Submissions keep code 2 for a missing key, as they always had.
+            missing_error=errors.UserKeyRequiredError,
         )
         self.meta = values.get("meta")
         if self.meta == "0" or not self.meta:

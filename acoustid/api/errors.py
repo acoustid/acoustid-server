@@ -28,6 +28,7 @@ ERROR_UNKNOWN_APPLICATION = 17
 ERROR_FINGERPRINT_NOT_FOUND = 18
 ERROR_REQUEST_TOO_LARGE = 19
 ERROR_INVALID_PARAMETER = 20
+ERROR_USER_KEY_REQUIRED = 21
 
 error_name_by_code = {}
 for name, value in list(globals().items()):
@@ -59,6 +60,19 @@ class MissingParameterError(WebServiceError):
         message = 'missing required parameter "%s"' % (name,)
         WebServiceError.__init__(self, ERROR_MISSING_PARAMETER, message)
         self.parameter = name
+
+
+class UserKeyRequiredError(MissingParameterError):
+    """A lookup without a user key, once lookups require one.
+
+    Its own code, so a client can tell "ask the user to connect" from a bug
+    in its request. The message stays the one MissingParameterError gives:
+    clients written before the code existed match on it.
+    """
+
+    def __init__(self) -> None:
+        MissingParameterError.__init__(self, "user")
+        self.code = ERROR_USER_KEY_REQUIRED
 
 
 class InvalidFingerprintError(WebServiceError):
