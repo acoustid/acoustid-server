@@ -57,7 +57,9 @@ Identifies the person using your application, so that what they submit is credit
 and lookups can be attributed to them. It goes in the <code>user</code> parameter.
 
  * **Submissions** always need one.
- * **Lookups** may include one, and from **1 January 2027** they require one.
+ * **Lookups** may include one, and from **1 January 2027** they require one. A lookup
+   without one is then refused with error code 21, <code>user_key_required</code>, which
+   tells your application to ask the user to connect.
 
 The key belongs to the user, not to you, so never put one in your application's code. Your
 application gets it from the user in one of two ways:

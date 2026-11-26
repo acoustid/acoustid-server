@@ -976,6 +976,29 @@ def test_lookup_requires_a_user_key_from_the_cutover(ctx):
         with pytest.raises(errors.MissingParameterError) as caught:
             params.parse(lookup_values(), ctx.db)
     assert caught.value.parameter == "user"
+    # Its own code, so a client knows to ask the user to connect, but the
+    # message of a missing parameter, which clients already match on.
+    assert caught.value.code == errors.ERROR_USER_KEY_REQUIRED
+    assert caught.value.message == 'missing required parameter "user"'
+    assert caught.value.code_name == "user_key_required"
+
+
+@with_script_context
+def test_submit_without_a_user_key_keeps_the_missing_parameter_code(ctx):
+    # type: (ScriptContext) -> None
+    params = SubmitHandlerParams(ctx.config)
+    values = MultiDict(
+        {
+            "format": "json",
+            "client": "app1key",
+            "duration": str(TEST_1_LENGTH),
+            "fingerprint": TEST_1_FP,
+        }
+    )
+    with pytest.raises(errors.MissingParameterError) as caught:
+        params.parse(values, ctx.db)
+    assert caught.value.code == errors.ERROR_MISSING_PARAMETER
+    assert caught.value.parameter == "user"
 
 
 @with_script_context
