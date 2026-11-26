@@ -79,7 +79,7 @@ fetchers.setDefaultFetcher(fetcher)
 @user_page.route("/login", methods=["GET", "POST"])
 def login():
     if "id" in session:
-        return redirect(url_for("general.index"))
+        return redirect(url_for("user.api_key"))
     errors = list(request.args.getlist("error"))
     if request.method == "POST":
         login_method = request.form.get("login")
@@ -130,7 +130,9 @@ def login_user_and_redirect(user_id, return_url=None):
         return_url = request.values.get("return_url")
     if return_url and is_our_url(return_url):
         return redirect(return_url)
-    return redirect(url_for("general.index"))
+    # The account page, as after an email sign-in: the key is what most
+    # people sign in for.
+    return redirect(url_for("user.api_key"))
 
 
 def generate_login_token(session_key):

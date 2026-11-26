@@ -92,7 +92,7 @@ def sign_in(used: UsedSignin) -> Response:
 @signin_page.route("/login/email", methods=["POST"])
 def request_signin() -> Any:
     if "id" in session:
-        return redirect(url_for("general.index"))
+        return redirect(url_for("user.api_key"))
     check_account_csrf_token()
     entered = request.form.get("email", "")
     return_url = request.form.get("return_url") or None

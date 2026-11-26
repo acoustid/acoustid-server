@@ -1394,7 +1394,22 @@ def test_musicbrainz_login_succeeds_when_the_responses_are_well_formed(
     rv = attempt_musicbrainz_login(app)
 
     assert rv.status_code == 302
-    assert urlparse(rv.headers["Location"]).path != "/login"
+    # The account page, where the key is, unless the sign-in had a return URL.
+    assert urlparse(rv.headers["Location"]).path == "/api-key"
+
+
+def test_signed_in_users_are_sent_from_the_login_pages_to_their_account(
+    app: Flask,
+) -> None:
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = 2
+    rv = client.get("/login")
+    assert rv.status_code == 302
+    assert urlparse(rv.headers["Location"]).path == "/api-key"
+    rv = client.post("/login/email", data={"email": "someone@example.com"})
+    assert rv.status_code == 302
+    assert urlparse(rv.headers["Location"]).path == "/api-key"
 
 
 MODERATED_MBID = "b81f83ee-4da4-11e0-9ed8-0025225356f3"
