@@ -192,6 +192,40 @@ def test_link_status_of_declined_and_expired_requests(ctx: ScriptContext) -> Non
 
 
 @with_script_context
+def test_link_status_of_a_key_linked_to_another_application(ctx: ScriptContext) -> None:
+    """Unknown to any other application, as it is for its lookups.
+
+    Otherwise a client that checks the status of a key its lookups refuse is
+    told the key is approved, and keeps a key that will never work for it.
+    """
+    _, data = request_link(ctx)
+    apikey = data["user"]["apikey"]
+    assert (
+        approve_user_key_link_request(
+            ctx.db.get_app_db(), data["user"]["link"]["code"], 2
+        )
+        == apikey
+    )
+    ctx.db.session.commit()
+
+    assert link_status(ctx, apikey) == {"state": "approved"}
+    status, other = call(UserLinkStatusHandler, ctx, client="app2key", user=apikey)
+    assert status == 200, other
+    assert other["key"] == {"state": "unknown"}
+
+    # A pending one too: its state is not the other application's business.
+    _, data = request_link(ctx)
+    status, other = call(
+        UserLinkStatusHandler, ctx, client="app2key", user=data["user"]["apikey"]
+    )
+    assert other["key"] == {"state": "unknown"}
+
+    # An account's own key works with any application, so any may ask.
+    status, other = call(UserLinkStatusHandler, ctx, client="app2key", user="user1key")
+    assert other["key"] == {"state": "approved"}
+
+
+@with_script_context
 def test_link_status_of_other_keys(ctx: ScriptContext) -> None:
     assert link_status(ctx, "user1key") == {"state": "approved"}
     assert link_status(ctx, "no-such-key") == {"state": "unknown"}

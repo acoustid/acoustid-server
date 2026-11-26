@@ -42,6 +42,7 @@ from acoustid.data.account import (
     lookup_user_api_key,
     mark_user_key_used,
     read_cached_user_key,
+    user_key_works_with,
 )
 from acoustid.data.application import (
     lookup_application_id_by_apikey,
@@ -314,7 +315,7 @@ class APIHandlerParams(object):
             raise errors.InvalidUserAPIKeyError()
         # Checked here rather than inside the cached function, which is keyed
         # on the user key alone.
-        if key.application_id is not None and key.application_id != self.application_id:
+        if not user_key_works_with(key, self.application_id):
             raise errors.InvalidUserAPIKeyError()
         self.account_id = key.account_id
         self.user_key_id = key.key_id

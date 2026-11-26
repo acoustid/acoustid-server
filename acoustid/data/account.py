@@ -127,6 +127,16 @@ class UserKey(NamedTuple):
     key_id: int | None = None
 
 
+def user_key_works_with(key: UserKey, application_id: int) -> bool:
+    """Whether the application may use the key: an account's own key works
+    with any application, a linked key only with the one that requested it.
+
+    The one rule for both using a key and asking about it, so that a key
+    link_status reports as approved is one a lookup accepts.
+    """
+    return key.application_id is None or key.application_id == application_id
+
+
 def lookup_user_api_key(conn: AppDB, apikey: str) -> UserKey | None:
     """Resolve a user key, either account.apikey or one from the link flow."""
     account = schema.account
@@ -259,9 +269,13 @@ class UserKeyStatus(NamedTuple):
     expires: datetime.datetime | None
 
 
-def get_user_key_status(conn: AppDB, apikey: str) -> UserKeyStatus | None:
+def get_user_key_status(
+    conn: AppDB, apikey: str, application_id: int
+) -> UserKeyStatus | None:
+    """The state of a key, as the given application sees it. A key linked to
+    another application does not exist for it."""
     key = lookup_user_api_key(conn, apikey)
-    if key is None:
+    if key is None or not user_key_works_with(key, application_id):
         return None
     expires = None
     if key.state == USER_KEY_PENDING:

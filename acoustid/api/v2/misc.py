@@ -315,7 +315,9 @@ class UserLinkStatusHandler(APIHandler):
 
     def _handle_internal(self, params: APIHandlerParams) -> dict[str, Any]:
         assert isinstance(params, UserLinkStatusHandlerParams)
-        status = get_user_key_status(self.ctx.db.get_app_db(), params.user_apikey)
+        status = get_user_key_status(
+            self.ctx.db.get_app_db(), params.user_apikey, params.application_id
+        )
         if status is None:
             return {"key": {"state": "unknown"}}
         result: dict[str, Any] = {"state": status.state}
