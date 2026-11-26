@@ -6,6 +6,9 @@
   <title>{% if title %}{{ title }} | AcoustID{% else %}AcoustID · open source audio identification{% endif %}</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='acoustid.css') }}">
+  {# Before first paint, so the phone menu starts collapsed rather than
+     flashing open. Without JavaScript the links simply stay visible. #}
+  <script>document.documentElement.classList.add("js")</script>
   {% block extra_css %}{% endblock %}
   <script defer src="{{ url_for('static', filename='fp.js') }}"></script>
   <script defer src="{{ url_for('static', filename='charts.js') }}"></script>
@@ -33,7 +36,12 @@
       <img src="{{ url_for('static', filename='acoustid.svg') }}" alt="AcoustID">
       <small>open source audio identification</small>
     </a>
-    <nav class="nav">
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <svg class="nav-toggle-icon nav-icon-open" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M3 6h16M3 11h16M3 16h16"/></svg>
+      <svg class="nav-toggle-icon nav-icon-close" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M5 5l12 12M17 5L5 17"/></svg>
+      <span class="visually-hidden">Menu</span>
+    </button>
+    <nav class="nav" id="site-nav">
       <a href="{{ url_for('general.docs') }}"{% if nav == 'docs' %} class="active"{% endif %}>Documentation</a>
       <a href="{{ url_for('general.webservice') }}"{% if nav == 'webservice' %} class="active"{% endif %}>Web service</a>
       <a href="{{ url_for('stats.stats') }}"{% if nav == 'stats' %} class="active"{% endif %}>Statistics</a>

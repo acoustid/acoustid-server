@@ -23,6 +23,23 @@ function setPressed(group, button) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // The phone menu button.
+  const navToggle = document.querySelector(".nav-toggle");
+  if (navToggle) {
+    const nav = document.getElementById(navToggle.getAttribute("aria-controls"));
+    const setOpen = (open) => {
+      navToggle.setAttribute("aria-expanded", open);
+      nav.classList.toggle("open", open);
+    };
+    navToggle.addEventListener("click", () => setOpen(navToggle.getAttribute("aria-expanded") !== "true"));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && nav.classList.contains("open")) {
+        setOpen(false);
+        navToggle.focus();
+      }
+    });
+  }
+
   // Fingerprint thumbnails and inline drawings.
   for (const canvas of document.querySelectorAll("canvas[data-fp]")) {
     const frames = canvas.dataset.frames ? Number(canvas.dataset.frames) : null;

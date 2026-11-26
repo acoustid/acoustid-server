@@ -76,6 +76,11 @@ code, .mono { font-family: var(--mono); font-size: 0.88em; }
 
 .wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; }
 
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
 /* Header */
 
 .site-header { border-bottom: 1px solid var(--line); background: var(--bg); }
@@ -91,6 +96,33 @@ a.brand { display: flex; align-items: baseline; gap: 12px; color: var(--muted); 
 .nav a { color: var(--ink); font-size: 15px; font-weight: 600; }
 .nav a:hover { color: var(--link); text-decoration: none; }
 .nav a.active { color: var(--brand-red); }
+
+/* Phones: the links go behind a menu button. Only with JavaScript (the "js"
+   class), which the button needs; without it they wrap as on a wide screen. */
+.nav-toggle { display: none; }
+@media (max-width: 800px) {
+  .js .site-header .wrap { flex-wrap: wrap; gap: 0 16px; min-height: 56px; padding-block: 8px; }
+  .js .nav-toggle {
+    display: flex; align-items: center; justify-content: center;
+    margin-left: auto; width: 44px; height: 44px; margin-right: -10px;
+    background: none; border: 0; border-radius: 6px; color: var(--ink); cursor: pointer;
+  }
+  .js .nav-toggle:hover { background: var(--bg-soft); }
+  .nav-toggle-icon path { stroke: currentColor; stroke-width: 2; stroke-linecap: round; fill: none; }
+  .nav-toggle .nav-icon-close,
+  .nav-toggle[aria-expanded="true"] .nav-icon-open { display: none; }
+  .nav-toggle[aria-expanded="true"] .nav-icon-close { display: block; }
+  .js .nav { display: none; }
+  .js .nav.open {
+    display: flex; flex-direction: column; align-items: stretch; gap: 0;
+    flex-basis: 100%; margin: 6px 0 2px; border-top: 1px solid var(--line);
+  }
+  .js .nav.open a { font-size: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+  .js .nav.open a:last-child { border-bottom: 0; }
+}
+@media (max-width: 420px) {
+  .brand small { display: none; }
+}
 
 /* Footer */
 
