@@ -53,4 +53,7 @@ USER_KEY_LIFETIME_DAYS = 365
 # so link_status can still say "declined" or "expired", then deleted.
 ABANDONED_LINK_REQUEST_RETENTION = datetime.timedelta(days=30)
 # Per-user daily lookup counts are kept this long, for spotting outliers.
-USER_LOOKUP_STATS_RETENTION = datetime.timedelta(days=30)
+USER_LOOKUP_STATS_RETENTION = datetime.timedelta(days=90)
+# Per-IP user agent counts are personal data; the privacy policy promises
+# they are deleted after this long.
+USER_AGENT_STATS_RETENTION = datetime.timedelta(days=90)

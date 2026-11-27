@@ -35,6 +35,7 @@ def create_schedule(script: Script) -> Scheduler:
     # day of lost headroom.
     schedule.every().hour.do(run_task("manage_fpindex_changelog"))
     schedule.every().day.at("00:40").do(run_task("cleanup_user_keys"))
+    schedule.every().day.at("00:50").do(run_task("cleanup_user_agent_stats"))
     return schedule
 
 

@@ -18,6 +18,7 @@ from acoustid.scripts.update_lookup_stats import (
 )
 from acoustid.scripts.update_stats import run_update_stats
 from acoustid.scripts.update_user_agent_stats import (
+    run_cleanup_user_agent_stats,
     run_update_all_user_agent_stats,
     run_update_user_agent_stats,
 )
@@ -39,6 +40,7 @@ TASKS: Dict[str, TaskFunc] = {
     "merge_missing_mbid": run_merge_missing_mbid,
     "manage_fpindex_changelog": run_manage_fpindex_changelog,
     "cleanup_user_keys": run_cleanup_user_keys,
+    "cleanup_user_agent_stats": run_cleanup_user_agent_stats,
 }
 
 

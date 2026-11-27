@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from acoustid import const
 from acoustid import tables as schema
-from acoustid.db import AppDB
+from acoustid.db import AppDB, DatabaseContext
 
 logger = logging.getLogger(__name__)
 
@@ -323,6 +323,23 @@ def update_user_lookup_stats(
         )
     )
     db.execute(stmt)
+
+
+def delete_old_user_agent_stats(db: DatabaseContext) -> int:
+    """Delete user agent stats older than the retention period, one day at
+    a time, committing after each day so no single delete gets large."""
+    table = schema.stats_user_agents
+    cutoff = datetime.date.today() - const.USER_AGENT_STATS_RETENTION
+    total = 0
+    while True:
+        # A commit releases the connection, so get it again for every day.
+        conn = db.get_app_db()
+        oldest = conn.execute(sql.select(sql.func.min(table.c.date))).scalar()
+        if oldest is None or oldest >= cutoff:
+            return total
+        deleted = conn.execute(table.delete().where(table.c.date == oldest))
+        total += deleted.rowcount
+        db.session.commit()
 
 
 def delete_old_user_lookup_stats(db: AppDB) -> int:
