@@ -31,18 +31,6 @@
       </div>
       <p class="small muted">We will send you a link and a code. If no account has this address, signing in makes one.</p>
     </form>
-
-    <details class="auth-openid"{% if errors %} open{% endif %}>
-      <summary>Signed in with OpenID before?</summary>
-      <form action="{{ url_for('user.login') }}" method="POST" class="openid-form">
-        <input type="hidden" name="return_url" value="{{ return_url or '' }}">
-        <input type="hidden" name="login" value="openid">
-        <label for="openid_identifier" class="small muted">Your OpenID URL</label>
-        <input name="openid_identifier" id="openid_identifier" type="url" required
-               placeholder="https://example.com/openid" class="form-control">
-        <button type="submit" class="btn">Sign in</button>
-      </form>
-    </details>
   </div>
 
   <aside class="auth-aside">

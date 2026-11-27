@@ -28,8 +28,8 @@ We want to be able to track fingerprint submission for statistical and
 data quality reasons. If every user has an unique API key, we can generate 
 list of top contributors and similar statistics. Additionally, if we need 
 to do some data cleanup, it's much easier to do if we know the source of 
-the data. You can use any [OpenID][oid] provider to log in or you can use your 
-existing MusicBrainz user account.
+the data. You can sign in with your MusicBrainz account, your Google account,
+or your email address.
 
 <span id="api_key_not_working"></span>
 ### Why is my API key not working?
@@ -43,5 +43,4 @@ If you are developing an new application and need an API key for the "client" pa
 you need an [application API key](/my-applications). You need to
 [register your application](/new-application) to get one.
 
-[oid]: http://openid.net/
 

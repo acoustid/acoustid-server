@@ -449,11 +449,6 @@ textarea.form-control { min-height: 6em; }
 .auth-email label { font-weight: 600; }
 .auth-email p { margin: 0; }
 .code-input { font-family: var(--mono, monospace); font-size: 20px !important; letter-spacing: 4px; width: 9em; }
-.auth-openid { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; font-size: 14px; }
-.auth-openid summary { cursor: pointer; color: var(--muted); }
-.auth-openid summary:hover { color: var(--ink); }
-.auth-openid .openid-form { margin-top: 12px; display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; }
-.auth-openid .openid-form label { grid-column: 1 / -1; }
 .auth-aside { background: var(--bg-soft); border-top: 3px solid var(--link); padding: 18px 22px; }
 .auth-aside h2 { font-size: 1.15rem; margin-bottom: 10px; }
 .auth-aside ul { margin: 0 0 12px; padding-left: 18px; color: var(--ink-2); font-size: 15px; }

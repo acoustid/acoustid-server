@@ -26,7 +26,6 @@ def app(config_file: str) -> Iterator[Flask]:
     with app.acoustid_script.context() as ctx:  # type: ignore
         conn = ctx.db.get_app_db()
         conn.execute(schema.account_google.delete())
-        conn.execute(schema.account_openid.delete())
         conn.execute(schema.account.delete().where(schema.account.c.id > 2))
         conn.execute(schema.account.update().values(email=None, email_verified=None))
         ctx.db.session.commit()
@@ -182,32 +181,6 @@ def test_conflict_keeps_the_google_link(
     claims = {"sub": uuid.uuid4().hex, "email": email, "email_verified": True}
     first = google_login(app, monkeypatch, claims)
     assert google_login(app, monkeypatch, claims) == first
-
-
-def test_migrated_openid_account_gets_the_address(
-    app: Flask, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    openid = "https://www.google.com/accounts/o8/id?id=%s" % uuid.uuid4().hex
-    with app.acoustid_script.context() as ctx:  # type: ignore
-        conn = ctx.db.get_app_db()
-        account_id = conn.execute(
-            schema.account.insert()
-            .values(name="OpenID User", apikey=uuid.uuid4().hex[:10])
-            .returning(schema.account.c.id)
-        ).scalar_one()
-        conn.execute(
-            schema.account_openid.insert().values(account_id=account_id, openid=openid)
-        )
-        ctx.db.session.commit()
-    email = unique_address()
-    claims = {
-        "sub": uuid.uuid4().hex,
-        "openid_id": openid,
-        "email": email,
-        "email_verified": True,
-    }
-    assert google_login(app, monkeypatch, claims) == account_id
-    assert account_email(app, account_id)[0] == email
 
 
 def test_does_not_replace_an_address_confirmed_meanwhile(
