@@ -83,6 +83,7 @@ add_page_route("database", nav="docs")
 add_page_route("docs", nav="docs")
 add_page_route("faq", nav="docs")
 add_page_route("license")
+add_page_route("privacy")
 add_page_route("server", nav="docs")
 
 

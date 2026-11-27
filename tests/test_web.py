@@ -149,6 +149,29 @@ def test_contact_page(app: Flask) -> None:
     assert "info@acoustid.org" in rv.text
 
 
+def test_privacy_page(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/privacy")
+    assert rv.status_code == 200
+    assert "<h1>Privacy policy</h1>" in rv.text
+    assert "<h2>Who we are</h2>" in rv.text
+    assert "<strong>Hetzner</strong>" in rv.text
+    assert '<a href="mailto:info@acoustid.org">info@acoustid.org</a>' in rv.text
+    assert "Last updated: November 27, 2026" in rv.text
+
+
+def test_footer_links_to_privacy_not_data_license(app: Flask) -> None:
+    client = app.test_client()
+
+    rv = client.get("/contact")
+    footer = rv.text.split('<footer class="site-footer">', 1)[1]
+    assert 'href="/privacy">Privacy</a>' in footer
+    assert "Data license" not in footer
+    # The license page itself stays, for the links to it elsewhere.
+    assert client.get("/license").status_code == 200
+
+
 def test_track_page(app: Flask) -> None:
     client = app.test_client()
 
