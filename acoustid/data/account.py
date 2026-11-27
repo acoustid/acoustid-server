@@ -37,13 +37,6 @@ def lookup_account_id_by_mbuser(conn: AppDB, mbuser: str) -> int | None:
     return conn.execute(query).scalar()
 
 
-def lookup_account_id_by_openid(conn: AppDB, openid: str) -> int | None:
-    query = sql.select(schema.account_openid.c.account_id).where(
-        schema.account_openid.c.openid == openid
-    )
-    return conn.execute(query).scalar()
-
-
 def get_account_details(conn: AppDB, id: int) -> dict[str, Any] | None:
     query = sql.select(schema.account).where(schema.account.c.id == id)
     row = conn.execute(query).fetchone()
@@ -86,15 +79,6 @@ def insert_account(conn: AppDB, data: dict[str, Any]) -> tuple[int, str]:
     row = conn.execute(insert_stmt).fetchone()
     if row is None:
         raise Exception("Failed to insert account")
-
-    if "openid" in data:
-        insert_openid_stmt = schema.account_openid.insert().values(
-            {
-                "account_id": row.id,
-                "openid": data["openid"],
-            }
-        )
-        conn.execute(insert_openid_stmt)
     logger.debug("Inserted account %r with data %r", row.id, data)
     return row.id, row.apikey
 

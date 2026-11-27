@@ -72,8 +72,9 @@ We do not share personal data with anyone else, unless the law requires it.
 - User agents and IP addresses per application: 90 days.
 - Your account, including the IP address it was created from: until you ask us
   to delete it.
-- Submissions: permanently, because they are part of the database. If you
-  delete your account, the link between your submissions and you is removed.
+- Submissions: permanently, because they are part of the database. We never
+  delete them from the public dataset, even on request. If you delete your
+  account, the link between your submissions and you is removed.
 - Backups: up to 6 months.
 
 ## Cookies

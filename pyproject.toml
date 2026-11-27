@@ -22,7 +22,6 @@ dependencies = [
     "nats-py>=2.9.0",
     "psycogreen",
     "psycopg2",
-    "python3-openid==3.1.0",
     "pytz",
     "rauth==0.7.3",
     "redis",

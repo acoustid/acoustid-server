@@ -46,7 +46,8 @@ def make_application(config_filename=None, tests=False):
 
     app.wsgi_app = apply_proxy_fix(app.wsgi_app, config)  # type: ignore
 
-    # can't use json because of python-openid
+    # Pickle dates from python-openid, which kept objects in the session.
+    # Switching to JSON would invalidate every existing session cookie.
     app.session_interface = SecureCookieSessionInterface()
     app.session_interface.serializer = pickle  # type: ignore
 

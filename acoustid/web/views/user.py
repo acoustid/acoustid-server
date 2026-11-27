@@ -3,9 +3,7 @@ import hmac
 import json
 import logging
 import secrets
-import urllib.request as urllib2
 from typing import Any
-from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
@@ -19,24 +17,17 @@ from flask import (
     url_for,
 )
 from itsdangerous import URLSafeSerializer
-from openid import fetchers, oidutil
-from openid.consumer import consumer as openid
-from openid.extensions import ax
 from rauth import OAuth2Service
 from werkzeug.wrappers import Response
 
-from acoustid.data.account import (
-    insert_account,
-    lookup_account_id_by_openid,
-    refresh_cached_user_key,
-)
+from acoustid.data.account import refresh_cached_user_key
 from acoustid.data.email import (
     CONFIRMATION_TTL,
     mask_email,
     normalize_email,
     set_account_email,
 )
-from acoustid.models import Account, AccountGoogle, AccountOpenID
+from acoustid.models import Account, AccountGoogle
 from acoustid.utils import generate_api_key
 from acoustid.web import db
 from acoustid.web.utils import is_our_url, require_user
@@ -59,23 +50,6 @@ class LoginError(Exception):
         self.message = message
 
 
-# monkey-patch uidutil.log to use the standard logging framework
-openid_logger = logging.getLogger("openid")
-
-
-def log_openid_messages(message, level=0):
-    openid_logger.info(message)
-
-
-oidutil.log = log_openid_messages
-
-
-# force the use urllib2 with a timeout
-fetcher = fetchers.Urllib2Fetcher()
-fetcher.urlopen = lambda req: urllib2.urlopen(req, timeout=5)
-fetchers.setDefaultFetcher(fetcher)
-
-
 @user_page.route("/login", methods=["GET", "POST"])
 def login():
     if "id" in session:
@@ -87,8 +61,6 @@ def login():
             return musicbrainz_login()
         elif login_method == "google":
             return google_login()
-        elif login_method == "openid":
-            return openid_login()
     return render_login_page(errors, request.values.get("return_url"))
 
 
@@ -293,146 +265,7 @@ def musicbrainz_login():
     return response
 
 
-def validate_openid_identifier(openid_url):
-    """Reject identifiers that cannot possibly be OpenID URLs.
-
-    python-openid prepends "http://" to anything without a scheme, so a bare
-    username becomes http://username/ and an email address becomes
-    http://user@example.com/ -- both fail DNS resolution deep inside the
-    fetcher. Catch them here, where we can still say something useful.
-    """
-    openid_url = openid_url.strip()
-    if not openid_url:
-        raise LoginError("Please enter your OpenID URL.")
-    if "@" in openid_url:
-        raise LoginError(
-            "That looks like an email address. OpenID needs the URL of your "
-            "OpenID provider, for example https://example.com/openid."
-        )
-    url = openid_url if "://" in openid_url else "http://" + openid_url
-    try:
-        hostname = urlparse(url).hostname or ""
-    except ValueError:
-        # urlparse raises on unbalanced square brackets ("Invalid IPv6 URL").
-        hostname = ""
-    if "." not in hostname.strip("."):
-        raise LoginError(
-            "That does not look like an OpenID URL. It should be a full "
-            "address, for example https://example.com/openid."
-        )
-    return openid_url
-
-
-def handle_openid_login_request():
-    openid_url = validate_openid_identifier(request.form.get("openid_identifier", ""))
-    try:
-        consumer = openid.Consumer(session, None)
-        openid_req = consumer.begin(openid_url)
-    except openid.DiscoveryFailure as e:
-        raise LoginError(
-            "We could not find an OpenID provider at that address.",
-            "OpenID discovery failed for %r: %s" % (openid_url, e),
-        )
-    else:
-        if openid_req is None:
-            raise LoginError(
-                "We could not find an OpenID provider at that address.",
-                "No OpenID services found for %r" % (openid_url,),
-            )
-        else:
-            ax_req = ax.FetchRequest()
-            ax_req.add(
-                ax.AttrInfo("http://schema.openid.net/contact/email", alias="email")
-            )
-            ax_req.add(
-                ax.AttrInfo("http://axschema.org/namePerson/friendly", alias="nickname")
-            )
-            openid_req.addExtension(ax_req)
-            url = openid_req.redirectURL(
-                get_openid_realm(),
-                url_for(
-                    ".openid_login",
-                    return_url=request.values.get("return_url"),
-                    _external=True,
-                ),
-            )
-            return redirect(url)
-    raise Exception("OpenID login failed")
-
-
-def handle_openid_login_response():
-    conn = db.get_app_db()
-    consumer = openid.Consumer(session, None)
-    info = consumer.complete(request.args, request.url)
-    if info.status == openid.SUCCESS:
-        openid_url = info.identity_url
-        values = {}
-        ax_resp = ax.FetchResponse.fromSuccessResponse(info)
-        if ax_resp:
-            attrs = {
-                "email": "http://schema.openid.net/contact/email",
-                "name": "http://schema.openid.net/namePerson/friendly",
-            }
-            for name, uri in attrs.items():
-                try:
-                    value = ax_resp.getSingle(uri)
-                    if value:
-                        values[name] = value
-                except KeyError:
-                    pass
-        account_id = lookup_account_id_by_openid(conn, openid_url)
-        if not account_id:
-            account_id, account_api_key = insert_account(
-                conn,
-                {
-                    "name": "OpenID User",
-                    "openid": openid_url,
-                },
-            )
-        # Not the email address: addresses sign people in now, and stay out
-        # of the logs.
-        logger.info(
-            "Successfully identified OpenID user %s (%d)", openid_url, account_id
-        )
-        return login_user_and_redirect(account_id)
-    elif info.status == openid.CANCEL:
-        raise LoginError("OpenID login was canceled.")
-    else:
-        raise LoginError(
-            "OpenID login failed.",
-            "OpenID login failed with status %r: %s"
-            % (info.status, getattr(info, "message", None)),
-        )
-
-
-def handle_openid_login():
-    if "openid.mode" in request.args:
-        return handle_openid_login_response()
-    else:
-        return handle_openid_login_request()
-
-
-@user_page.route("/login/openid")
-def openid_login():
-    try:
-        response = handle_openid_login()
-        db.session.commit()
-    except LoginError as e:
-        logger.warning("OpenID login failed: %s", e)
-        db.session.rollback()
-        return redirect(url_for(".login", error=e.message))
-    except Exception:
-        logger.exception("OpenID login failed")
-        db.session.rollback()
-        return redirect(url_for(".login", error="OpenID login failed"))
-    return response
-
-
-def get_openid_realm():
-    return url_for("general.index", _external=True).rstrip("/")
-
-
-def find_or_create_google_user(google_user_id, openid=None):
+def find_or_create_google_user(google_user_id):
     user = (
         db.session.query(Account)
         .join(AccountGoogle)
@@ -442,29 +275,13 @@ def find_or_create_google_user(google_user_id, openid=None):
     if user is not None:
         return user
 
-    if openid is not None:
-        user = (
-            db.session.query(Account)
-            .join(AccountOpenID)
-            .filter(AccountOpenID.openid == openid)
-            .first()
-        )
-        if user is not None:
-            db.session.query(AccountOpenID).filter(
-                AccountOpenID.openid == openid
-            ).delete()
-            logger.info(
-                "Migrated OpenID user %s to Google user %s", openid, google_user_id
-            )
-
-    if user is None:
-        user = Account()
-        user.name = "Google Account"
-        user.apikey = generate_api_key()
-        user.submission_count = 0
-        db.session.add(user)
-        db.session.flush()
-        logger.info("Created user %s (%s)", user.id, user.name)
+    user = Account()
+    user.name = "Google Account"
+    user.apikey = generate_api_key()
+    user.submission_count = 0
+    db.session.add(user)
+    db.session.flush()
+    logger.info("Created user %s (%s)", user.id, user.name)
 
     google_user = AccountGoogle()
     google_user.account = user
@@ -498,7 +315,6 @@ def handle_google_oauth2_login():
                 "access_type": "online",
                 "scope": "openid email",
                 "redirect_uri": url_for(".google_login", _external=True),
-                "openid.realm": get_openid_realm(),
                 "state": generate_login_token("google_login_token"),
             }
         )
@@ -543,7 +359,7 @@ def handle_google_oauth2_login():
     payload += "=" * (4 - (len(payload) % 4))
     id_token = json.loads(base64.urlsafe_b64decode(payload))
 
-    user = find_or_create_google_user(id_token["sub"], id_token.get("openid_id"))
+    user = find_or_create_google_user(id_token["sub"])
     logger.info('Google user %s "%s" logged in', user.id, user.name)
     store_google_email(user, id_token)
 

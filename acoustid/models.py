@@ -11,12 +11,6 @@ class Account(Base):
     __table__ = tables.account
 
 
-class AccountOpenID(Base):
-    __table__ = tables.account_openid
-
-    account = relationship("Account")
-
-
 class AccountGoogle(Base):
     __table__ = tables.account_google
 
