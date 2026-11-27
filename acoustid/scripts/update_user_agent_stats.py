@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from acoustid.data.stats import (
     NUM_PARTITIONS,
+    delete_old_user_agent_stats,
     unpack_user_agent_stats_key,
     update_user_agent_stats,
 )
@@ -80,3 +81,9 @@ def run_update_user_agent_stats(script: Script, partition: int) -> None:
                     continue
                 redis.hincrby(root_key, key, -count)
             ctx.db.session.commit()
+
+
+def run_cleanup_user_agent_stats(script: Script) -> None:
+    with script.context() as ctx:
+        deleted = delete_old_user_agent_stats(ctx.db)
+        logger.info("Deleted %d old user agent stats rows", deleted)
