@@ -315,3 +315,30 @@ def test_track_page_buttons_only_for_signed_in(app: Flask, client: FlaskClient) 
     rv = client.get("/track/eb31d1c3-950e-468b-9e36-e46fa75b1291")
     assert rv.status_code == 200
     assert "toggle-track-mbid" in rv.text
+
+
+def test_link_does_not_replace_a_link_made_meanwhile(
+    app: Flask, client: FlaskClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two link flows for one account: the second must not overwrite the first."""
+    first, second = mb_name(), mb_name()
+    stub_musicbrainz(monkeypatch, second)
+    query = start_link(client)
+    # The other flow finished between this one's checks and its write. Here it
+    # simply finishes first; the write must still see it.
+    from acoustid.web.views import user as user_views
+
+    original = user_views.link_musicbrainz_account
+
+    def link_after_the_other(user: Any, mb_user_name: str) -> None:
+        set_account(app, ACCOUNT_ID, mbuser=first)
+        original(user, mb_user_name)
+
+    monkeypatch.setattr(user_views, "link_musicbrainz_account", link_after_the_other)
+
+    rv = come_back(client, query)
+
+    assert urlparse(rv.headers["Location"]).path == "/api-key"
+    assert get_mbuser(app, ACCOUNT_ID) == first
+    rv = client.get("/api-key")
+    assert "already linked to a different MusicBrainz account" in rv.text

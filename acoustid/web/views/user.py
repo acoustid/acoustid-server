@@ -18,6 +18,7 @@ from flask import (
 )
 from itsdangerous import URLSafeSerializer
 from rauth import OAuth2Service
+from sqlalchemy import sql
 from sqlalchemy.exc import IntegrityError
 from werkzeug.wrappers import Response
 
@@ -305,13 +306,29 @@ def link_musicbrainz_account(user: Account, mb_user_name: str) -> None:
     taken = db.session.query(Account.id).filter(Account.mbuser == mb_user_name).first()
     if taken is not None:
         raise MusicBrainzLinkConflict(mb_user_name, user.id)
+    # Only onto an account that still has no link: two callbacks for the same
+    # account, each with a different MusicBrainz user, would otherwise both
+    # pass the checks above and the second would silently replace the first.
+    stmt = (
+        sql.update(Account)
+        .where(Account.id == user.id, Account.mbuser.is_(None))
+        .values(mbuser=mb_user_name)
+        .execution_options(synchronize_session=False)
+    )
     try:
         with db.session.begin_nested():
-            user.mbuser = mb_user_name
+            updated = db.session.execute(stmt).rowcount
     except IntegrityError:
         # Someone signed in with the same MusicBrainz account in the meantime,
         # which made a new account for it. The unique index has the last word.
         raise MusicBrainzLinkConflict(mb_user_name, user.id)
+    db.session.expire(user, ["mbuser"])
+    if not updated:
+        raise LoginError(
+            "Your account is already linked to a different MusicBrainz account.",
+            "account %s was linked to another MusicBrainz user while linking %r"
+            % (user.id, mb_user_name),
+        )
 
 
 def finish_musicbrainz_link(state: dict[str, Any], mb_user_name: str) -> Response:
