@@ -61,7 +61,7 @@ def test_other_account(app: Flask) -> None:
 def test_bot_account(app: Flask, mbuser: str | None) -> None:
     # Shown as the bot whatever its MusicBrainz link, never as a profile link.
     html = render(app, SimpleNamespace(id=BOT_ACCOUNT_ID, mbuser=mbuser, name=""))
-    assert "AcoustID bot" in html
+    assert ">acoustid_bot</span>" in html
     assert "bot-icon" in html
     assert "<a " not in html
     assert "user%d" % BOT_ACCOUNT_ID not in html
@@ -72,7 +72,7 @@ def test_bot_name_is_not_the_bot(app: Flask) -> None:
     html = render(
         app, SimpleNamespace(id=7, mbuser="acoustid_bot", name="acoustid_bot")
     )
-    assert "AcoustID bot" not in html
+    assert "bot-icon" not in html
     assert "mb-icon" in html
 
 

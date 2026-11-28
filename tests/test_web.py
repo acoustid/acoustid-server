@@ -1539,7 +1539,7 @@ def test_edit_history_shows_the_bot_account_as_a_bot(
     for url in ["/edits", "/mbid/%s" % MODERATED_MBID, "/track/" + TRACK_1_GID]:
         rv = client.get(url)
         assert rv.status_code == 200
-        assert "AcoustID bot" in rv.text, url
+        assert ">acoustid_bot</span>" in rv.text, url
         assert "musicbrainz.org/user/" not in rv.text, url
 
 
