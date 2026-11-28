@@ -19,7 +19,7 @@
 {% if account is none -%}
 <span class="muted">(deleted account)</span>
 {%- elif account.id == BOT_ACCOUNT_ID -%}
-<span class="account-name bot" title="Changes made automatically by AcoustID"><svg class="bot-icon" width="11" height="11" viewBox="0 0 24 24" role="img" aria-label="Bot"><line x1="12" y1="1.5" x2="12" y2="5" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="1.8" r="1.8" fill="currentColor"/><rect x="3" y="5" width="18" height="15" rx="4" fill="currentColor"/><rect x="0" y="10" width="3" height="5" rx="1" fill="currentColor"/><rect x="21" y="10" width="3" height="5" rx="1" fill="currentColor"/><circle cx="8.5" cy="11.5" r="2.2" fill="#fff"/><circle cx="15.5" cy="11.5" r="2.2" fill="#fff"/><rect x="8" y="16" width="8" height="1.8" rx="0.9" fill="#fff"/></svg>acoustid_bot</span>
+<span class="account-name bot" title="Changes made automatically by AcoustID"><img class="bot-icon" src="{{ url_for('static', filename='bot.svg') }}" alt="Bot">acoustid_bot</span>
 {%- elif account.mbuser -%}
 <a class="account-name mb" href="https://musicbrainz.org/user/{{ account.mbuser|urlencode|replace('/', '%2F') }}" title="MusicBrainz user {{ account.mbuser }}"><svg class="mb-icon" width="10" height="11" viewBox="0 0 25 28" role="img" aria-label="MusicBrainz"><polygon fill="#ba478f" points="12 0 0 7 0 21 12 28"/><polygon fill="#eb743b" points="13 0 25 7 25 21 13 28"/></svg>{{ account.mbuser }}</a>
 {%- else -%}
