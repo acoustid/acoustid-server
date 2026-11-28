@@ -18,6 +18,7 @@ from flask import (
 )
 from itsdangerous import URLSafeSerializer
 from rauth import OAuth2Service
+from sqlalchemy.exc import IntegrityError
 from werkzeug.wrappers import Response
 
 from acoustid.data.account import refresh_cached_user_key
@@ -149,8 +150,8 @@ def check_login_token(session_key, state):
         )
 
 
-def handle_musicbrainz_oauth2_login():
-    musicbrainz = OAuth2Service(
+def musicbrainz_oauth2_service() -> OAuth2Service:
+    return OAuth2Service(
         name="musicbrainz",
         client_id=current_app.config["MB_OAUTH_CLIENT_ID"],
         client_secret=current_app.config["MB_OAUTH_CLIENT_SECRET"],
@@ -159,29 +160,44 @@ def handle_musicbrainz_oauth2_login():
         access_token_url="https://musicbrainz.org/oauth2/token",
     )
 
-    serializer = URLSafeSerializer(current_app.config["SECRET_KEY"])
 
-    code = request.args.get("code")
-    if not code:
-        token = generate_login_token("mb_login_token")
-        url = musicbrainz.get_authorize_url(
-            **{
-                "response_type": "code",
-                "scope": "profile",
-                "redirect_uri": url_for(".musicbrainz_login", _external=True),
-                "state": serializer.dumps(
-                    {
-                        "return_url": request.values.get("return_url"),
-                        "token": token,
-                    }
-                ),
-            }
-        )
-        return redirect(url)
+def musicbrainz_state_serializer() -> URLSafeSerializer:
+    return URLSafeSerializer(current_app.config["SECRET_KEY"])
+
+
+def start_musicbrainz_oauth2(
+    return_url: str | None, link_account_id: int | None = None
+) -> Response:
+    """Send the browser to MusicBrainz to approve signing in, or linking.
+
+    Both come back to the same callback, the only redirect URL registered with
+    MusicBrainz; the signed state says which of the two it was.
+    """
+    state: dict[str, Any] = {
+        "return_url": return_url,
+        "token": generate_login_token("mb_login_token"),
+    }
+    if link_account_id is not None:
+        state["link"] = link_account_id
+    url = musicbrainz_oauth2_service().get_authorize_url(
+        **{
+            "response_type": "code",
+            "scope": "profile",
+            "redirect_uri": url_for(".musicbrainz_login", _external=True),
+            "state": musicbrainz_state_serializer().dumps(state),
+        }
+    )
+    return redirect(url)
+
+
+def finish_musicbrainz_oauth2(code: str) -> tuple[dict[str, Any], str]:
+    """Check the callback and exchange its code: the state and the MusicBrainz
+    user name."""
+    musicbrainz = musicbrainz_oauth2_service()
 
     serialized_state = request.args.get("state")
     if serialized_state:
-        state = serializer.loads(serialized_state)
+        state = musicbrainz_state_serializer().loads(serialized_state)
     else:
         state = {}
 
@@ -243,10 +259,89 @@ def handle_musicbrainz_oauth2_login():
             % (sorted(userinfo),),
         )
 
-    user = find_or_create_musicbrainz_user(userinfo["sub"])
+    return state, userinfo["sub"]
+
+
+def handle_musicbrainz_oauth2_login() -> Response:
+    code = request.args.get("code")
+    if not code:
+        return start_musicbrainz_oauth2(request.values.get("return_url"))
+
+    state, mb_user_name = finish_musicbrainz_oauth2(code)
+    if "link" in state:
+        return finish_musicbrainz_link(state, mb_user_name)
+
+    user = find_or_create_musicbrainz_user(mb_user_name)
     logger.info('MusicBrainz user %s "%s" logged in', user.id, user.name)
 
     return login_user_and_redirect(user.id, return_url=state.get("return_url"))
+
+
+class MusicBrainzLinkConflict(LoginError):
+    """The MusicBrainz account belongs to another AcoustID account already.
+
+    Accounts are never merged here: each has its own API key, and its own
+    submissions and edits. Someone has to look at both and decide.
+    """
+
+    def __init__(self, mb_user_name: str, account_id: int) -> None:
+        super().__init__(
+            "That MusicBrainz account is linked to another AcoustID account.",
+            "MusicBrainz user %r is already linked to another account than %s"
+            % (mb_user_name, account_id),
+        )
+        self.mb_user_name = mb_user_name
+
+
+def link_musicbrainz_account(user: Account, mb_user_name: str) -> None:
+    if user.mbuser == mb_user_name:
+        return
+    if user.mbuser is not None:
+        raise LoginError(
+            "Your account is already linked to a different MusicBrainz account.",
+            "account %s is already linked to MusicBrainz user %r, not %r"
+            % (user.id, user.mbuser, mb_user_name),
+        )
+    taken = db.session.query(Account.id).filter(Account.mbuser == mb_user_name).first()
+    if taken is not None:
+        raise MusicBrainzLinkConflict(mb_user_name, user.id)
+    try:
+        with db.session.begin_nested():
+            user.mbuser = mb_user_name
+    except IntegrityError:
+        # Someone signed in with the same MusicBrainz account in the meantime,
+        # which made a new account for it. The unique index has the last word.
+        raise MusicBrainzLinkConflict(mb_user_name, user.id)
+
+
+def finish_musicbrainz_link(state: dict[str, Any], mb_user_name: str) -> Response:
+    # The link is for the account that asked for it. If the browser has since
+    # signed out, or into another account, it is for nobody.
+    account_id = session.get("id")
+    if account_id is None or account_id != state["link"]:
+        raise LoginError(
+            "You were signed out while linking your MusicBrainz account. "
+            "Please sign in and try again.",
+            "MusicBrainz link was started for account %r, the session has %r"
+            % (state["link"], account_id),
+        )
+    user = db.session.get(Account, account_id)
+    if user is None:
+        raise LoginError(
+            "Please sign in and try again.",
+            "MusicBrainz link was started for account %r, which is gone"
+            % (account_id,),
+        )
+    link_musicbrainz_account(user, mb_user_name)
+    logger.info("Linked account %s to MusicBrainz user %r", user.id, mb_user_name)
+
+    # Back to whatever needed the link, typically an edit to confirm.
+    return_url = state.get("return_url")
+    if return_url and is_our_url(return_url):
+        return redirect(return_url)
+    # The notice is at the top of the page, so no jumping to the section.
+    set_notice("mb_linked", mbuser=mb_user_name)
+    return redirect(url_for(".api_key"))
 
 
 @user_page.route("/login/musicbrainz")
@@ -257,12 +352,27 @@ def musicbrainz_login():
     except LoginError as e:
         logger.warning("MusicBrainz login failed: %s", e)
         db.session.rollback()
-        return redirect(url_for(".login", error=e.message))
+        return musicbrainz_error_redirect(e)
     except Exception:
         logger.exception("MusicBrainz login failed")
         db.session.rollback()
-        return redirect(url_for(".login", error="MusicBrainz login failed"))
+        return musicbrainz_error_redirect(LoginError("MusicBrainz login failed"))
     return response
+
+
+def musicbrainz_error_redirect(error: LoginError) -> Response:
+    """Show the error where the person will see it.
+
+    The login page sends anyone already signed in on to the account page, so
+    an error for them -- which is to say, for a link -- is shown there.
+    """
+    if "id" not in session:
+        return redirect(url_for(".login", error=error.message))
+    if isinstance(error, MusicBrainzLinkConflict):
+        session[MB_ERROR_KEY] = ("conflict", error.mb_user_name)
+    else:
+        session[MB_ERROR_KEY] = ("error", error.message)
+    return redirect(url_for(".api_key", _anchor="musicbrainz"))
 
 
 def find_or_create_google_user(google_user_id):
@@ -433,7 +543,13 @@ NOTICE_KEY = "account_notice"
 NOTICES = {
     "sent": "We sent a confirmation link to {email}. It works for {minutes} minutes.",
     "confirmed": "Your email address is now {email}.",
+    "mb_linked": "Your account is now linked to the MusicBrainz account {mbuser}.",
+    "mb_unlinked": "Your account is no longer linked to a MusicBrainz account.",
 }
+
+# Why linking a MusicBrainz account failed, for the account page. Like the
+# notices, kept in the session rather than taken from the URL.
+MB_ERROR_KEY = "account_mb_error"
 
 
 def account_csrf_token() -> str:
@@ -450,17 +566,35 @@ def check_account_csrf_token() -> None:
         abort(400)
 
 
-def set_notice(name: str, email: str) -> None:
-    session[NOTICE_KEY] = (name, mask_email(email))
+def set_notice(name: str, email: str | None = None, mbuser: str | None = None) -> None:
+    params = {}
+    if email is not None:
+        params["email"] = mask_email(email)
+    if mbuser is not None:
+        params["mbuser"] = mbuser
+    session[NOTICE_KEY] = (name, params)
 
 
 def pop_notice() -> str | None:
     notice = session.pop(NOTICE_KEY, None)
     if not notice:
         return None
-    name, email = notice
+    name, params = notice
+    if isinstance(params, str):
+        # Set before notices took more than the masked address.
+        params = {"email": params}
     minutes = int(CONFIRMATION_TTL.total_seconds() // 60)
-    return NOTICES[name].format(email=email, minutes=minutes)
+    return NOTICES[name].format(minutes=minutes, **params)
+
+
+def pop_musicbrainz_error() -> dict[str, str] | None:
+    error = session.pop(MB_ERROR_KEY, None)
+    if not error:
+        return None
+    kind, value = error
+    if kind == "conflict":
+        return {"conflict": value}
+    return {"message": value}
 
 
 def render_account_page(
@@ -478,6 +612,8 @@ def render_account_page(
         email_value=email_value,
         email_error=email_error,
         notice=pop_notice(),
+        mb_linked=user.mbuser is not None,
+        mb_error=pop_musicbrainz_error(),
         csrf_token=account_csrf_token(),
     )
     return make_response(body, status)
@@ -500,3 +636,35 @@ def new_api_key():
     for apikey in (old_apikey, user.apikey):
         refresh_cached_user_key(db.get_redis(), db.get_app_db(), apikey)
     return redirect(url_for(".api_key"))
+
+
+@user_page.route("/account/musicbrainz/link", methods=["POST"])
+def link_musicbrainz():
+    """Start linking a MusicBrainz account to the signed-in account.
+
+    POST with the account page's token, so another site cannot start it.
+    """
+    user = require_user()
+    check_account_csrf_token()
+    if user.mbuser:
+        return redirect(url_for(".api_key", _anchor="musicbrainz"))
+    return start_musicbrainz_oauth2(
+        request.form.get("return_url") or None, link_account_id=user.id
+    )
+
+
+@user_page.route("/account/musicbrainz/unlink", methods=["POST"])
+def unlink_musicbrainz():
+    user = require_user()
+    check_account_csrf_token()
+    # Without an email address, MusicBrainz may be the only way left to sign
+    # in. The page does not offer it then; this is for a stale form.
+    if user.mbuser and user.email:
+        logger.info(
+            "Unlinked account %s from MusicBrainz user %r", user.id, user.mbuser
+        )
+        user.mbuser = None
+        db.session.commit()
+        set_notice("mb_unlinked")
+        return redirect(url_for(".api_key"))
+    return redirect(url_for(".api_key", _anchor="musicbrainz"))

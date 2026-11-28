@@ -126,7 +126,7 @@ def change_email() -> Any:
             "We could not send the email right now. Please try again later.",
         )
     count_mail("sent_total", kind="confirmation")
-    set_notice("sent", email)
+    set_notice("sent", email=email)
     return redirect(url_for("user.api_key"), code=303)
 
 
@@ -180,5 +180,5 @@ def confirm_email_post() -> Any:
             "Accounts are not merged; sign in to that account instead."
         )
     db.session.commit()
-    set_notice("confirmed", email)
+    set_notice("confirmed", email=email)
     return redirect(url_for("user.api_key"), code=303)

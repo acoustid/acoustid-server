@@ -82,7 +82,9 @@
           <td>{{ bar(rec.submission_count, max_rec_sources) }}</td>
           <td class="shrink">
             <a class="small" href="{{ url_for('.mbid', mbid=rec.mbid) }}">Other tracks</a>
-            {% if moderator %}
+            {# Shown to anyone signed in: without a MusicBrainz account, the
+               button leads to the page that offers to link one. #}
+            {% if signed_in %}
             <form action="{{ url_for('.toggle_track_mbid') }}" method="POST" style="display:inline">
               <input type="hidden" name="state" value="{{ 0 if rec.disabled else 1 }}">
               <input type="hidden" name="track_id" value="{{ track.id }}">
