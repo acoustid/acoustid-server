@@ -18,8 +18,10 @@
 {% macro account_name(account) -%}
 {% if account is none -%}
 <span class="muted">(deleted account)</span>
+{%- elif account.id == BOT_ACCOUNT_ID -%}
+<span class="account-name bot" title="Changes made automatically by AcoustID"><img class="bot-icon" src="{{ url_for('static', filename='bot.svg') }}" alt="Bot">acoustid_bot</span>
 {%- elif account.mbuser -%}
-<a class="account-name mb" href="https://musicbrainz.org/user/{{ account.mbuser|urlencode|replace('/', '%2F') }}" title="MusicBrainz user {{ account.mbuser }}"><svg class="mb-icon" width="10" height="11" viewBox="0 0 25 28" role="img" aria-label="MusicBrainz"><polygon fill="#ba478f" points="12 0 0 7 0 21 12 28"/><polygon fill="#eb743b" points="13 0 25 7 25 21 13 28"/></svg>{{ account.mbuser }}</a>
+<a class="account-name mb" href="https://musicbrainz.org/user/{{ account.mbuser|urlencode|replace('/', '%2F') }}" title="MusicBrainz user {{ account.mbuser }}"><img class="mb-icon" src="{{ url_for('static', filename='musicbrainz.svg') }}" alt="MusicBrainz">{{ account.mbuser }}</a>
 {%- else -%}
 <span class="account-name muted">user{{ account.id }}</span>
 {%- endif %}

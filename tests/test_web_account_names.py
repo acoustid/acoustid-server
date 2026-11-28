@@ -10,6 +10,7 @@ import pytest
 from flask import Flask, render_template_string
 
 from acoustid import tables as schema
+from acoustid.data.account import BOT_ACCOUNT_ID
 from tests import make_web_application
 
 TEMPLATES = os.path.join(
@@ -39,7 +40,7 @@ def test_musicbrainz_account(app: Flask) -> None:
     html = render(app, SimpleNamespace(id=7, mbuser="Some User", name="ignored"))
     assert 'href="https://musicbrainz.org/user/Some%20User"' in html
     assert 'class="mb-icon"' in html
-    assert 'aria-label="MusicBrainz"' in html
+    assert 'alt="MusicBrainz"' in html
     assert ">Some User</a>" in html
     assert "ignored" not in html
     assert "user7" not in html
@@ -54,6 +55,25 @@ def test_musicbrainz_name_with_a_slash(app: Flask) -> None:
 def test_other_account(app: Flask) -> None:
     html = render(app, SimpleNamespace(id=7, mbuser=None, name="Google Account"))
     assert html == '<span class="account-name muted">user7</span>'
+
+
+@pytest.mark.parametrize("mbuser", ["someone", None])
+def test_bot_account(app: Flask, mbuser: str | None) -> None:
+    # Shown as the bot whatever its MusicBrainz link, never as a profile link.
+    html = render(app, SimpleNamespace(id=BOT_ACCOUNT_ID, mbuser=mbuser, name=""))
+    assert ">acoustid_bot</span>" in html
+    assert "bot-icon" in html
+    assert "<a " not in html
+    assert "user%d" % BOT_ACCOUNT_ID not in html
+
+
+def test_bot_name_is_not_the_bot(app: Flask) -> None:
+    # Anyone can be called acoustid_bot at MusicBrainz.
+    html = render(
+        app, SimpleNamespace(id=7, mbuser="acoustid_bot", name="acoustid_bot")
+    )
+    assert "bot-icon" not in html
+    assert "mb-icon" in html
 
 
 def test_deleted_account(app: Flask) -> None:

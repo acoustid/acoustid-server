@@ -173,7 +173,6 @@
     {% for edit in edits %}
     <li>
       <span class="small muted">{{ edit.created.strftime("%b %d, %Y %H:%M:%S") }}</span><br>
-      User
       {{ account_name(edit.account) }}
       {{ 'disabled' if edit.disabled else 'enabled' }} the link to
       {% if edit.track_gid %}

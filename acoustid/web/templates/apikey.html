@@ -79,7 +79,7 @@
       You will also be able to sign in with MusicBrainz.</p>
     <form method="POST" action="{{ url_for('user.link_musicbrainz') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="btn"><svg class="mb-icon" width="12" height="13" viewBox="0 0 25 28" aria-hidden="true"><polygon fill="#ba478f" points="12 0 0 7 0 21 12 28"/><polygon fill="#eb743b" points="13 0 25 7 25 21 13 28"/></svg> Link MusicBrainz account</button>
+      <button type="submit" class="btn"><img class="mb-icon" src="{{ url_for('static', filename='musicbrainz.svg') }}" alt=""> Link MusicBrainz account</button>
     </form>
     <p class="small muted">You will be sent to musicbrainz.org to approve it, and then back here.</p>
     {% endif %}

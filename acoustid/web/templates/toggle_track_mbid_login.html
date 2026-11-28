@@ -16,7 +16,7 @@
   <form method="POST" action="{{ url_for('user.link_musicbrainz') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="return_url" value="{{ return_url }}">
-    <button type="submit" class="btn primary"><svg class="mb-icon" width="12" height="13" viewBox="0 0 25 28" aria-hidden="true"><polygon fill="#ba478f" points="12 0 0 7 0 21 12 28"/><polygon fill="#eb743b" points="13 0 25 7 25 21 13 28"/></svg> Link MusicBrainz account</button>
+    <button type="submit" class="btn primary"><img class="mb-icon" src="{{ url_for('static', filename='musicbrainz.svg') }}" alt=""> Link MusicBrainz account</button>
     <a class="btn" href="{{ url_for('.track', track_id_or_gid=track_gid) }}">Cancel</a>
   </form>
 </div>

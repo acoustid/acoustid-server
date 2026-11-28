@@ -1526,6 +1526,23 @@ def test_mbid_page_history_covers_links_the_page_does_not_show(
     assert TRACK_2_GID in rv.text
 
 
+def test_edit_history_shows_the_bot_account_as_a_bot(
+    app: Flask, edit_history: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Edits by the bot account are labelled as automatic, not as the
+    MusicBrainz user or account number it happens to have."""
+    # The fixture's moderator stands in for the bot.
+    monkeypatch.setitem(app.jinja_env.globals, "BOT_ACCOUNT_ID", edit_history)
+    client = app.test_client()
+    with client.session_transaction() as flask_session:
+        flask_session["id"] = edit_history
+    for url in ["/edits", "/mbid/%s" % MODERATED_MBID, "/track/" + TRACK_1_GID]:
+        rv = client.get(url)
+        assert rv.status_code == 200
+        assert ">acoustid_bot</span>" in rv.text, url
+        assert "musicbrainz.org/user/" not in rv.text, url
+
+
 def test_audit_page_requires_a_moderator(app: Flask) -> None:
     client = app.test_client()
     assert client.get("/edits").status_code == 302

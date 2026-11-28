@@ -168,6 +168,8 @@ section { margin-top: 52px; }
 
 .muted { color: var(--muted); }
 .account-name.mb { white-space: nowrap; }
+.account-name.bot { white-space: nowrap; color: var(--ink-2); }
+.bot-icon { width: 0.9em; height: 0.9em; margin-right: 4px; vertical-align: -0.1em; }
 .mb-icon { width: 0.8em; height: 0.9em; margin-right: 3px; vertical-align: -0.08em; }
 .small { font-size: 14px; }
 
