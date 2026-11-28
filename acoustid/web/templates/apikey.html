@@ -72,18 +72,8 @@
     {% if mb_linked %}
     <p>Linked to {{ account_name(user) }}. You can enable and disable the links between
       AcoustIDs and MusicBrainz recordings, and sign in here with MusicBrainz.</p>
-    <details class="danger-zone">
-      <summary>Unlink MusicBrainz account</summary>
-      {% if masked_email %}
-      <p>You will still sign in with <b>{{ masked_email }}</b>, but you will no longer be able to edit.</p>
-      <form method="POST" action="{{ url_for('user.unlink_musicbrainz') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="btn danger">Unlink</button>
-      </form>
-      {% else %}
-      <p>Add an email address first. Without it you would have no way left to sign in.</p>
-      {% endif %}
-    </details>
+    <p class="small muted">The link can't be removed here, as your edits are shown under it. If you
+      need it removed, email <a href="mailto:info@acoustid.org">info@acoustid.org</a>.</p>
     {% else %}
     <p>Link your MusicBrainz account to fix AcoustIDs that point to the wrong recording.
       You will also be able to sign in with MusicBrainz.</p>

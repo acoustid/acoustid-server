@@ -561,7 +561,6 @@ NOTICES = {
     "sent": "We sent a confirmation link to {email}. It works for {minutes} minutes.",
     "confirmed": "Your email address is now {email}.",
     "mb_linked": "Your account is now linked to the MusicBrainz account {mbuser}.",
-    "mb_unlinked": "Your account is no longer linked to a MusicBrainz account.",
 }
 
 # Why linking a MusicBrainz account failed, for the account page. Like the
@@ -668,20 +667,3 @@ def link_musicbrainz():
     return start_musicbrainz_oauth2(
         request.form.get("return_url") or None, link_account_id=user.id
     )
-
-
-@user_page.route("/account/musicbrainz/unlink", methods=["POST"])
-def unlink_musicbrainz():
-    user = require_user()
-    check_account_csrf_token()
-    # Without an email address, MusicBrainz may be the only way left to sign
-    # in. The page does not offer it then; this is for a stale form.
-    if user.mbuser and user.email:
-        logger.info(
-            "Unlinked account %s from MusicBrainz user %r", user.id, user.mbuser
-        )
-        user.mbuser = None
-        db.session.commit()
-        set_notice("mb_unlinked")
-        return redirect(url_for(".api_key"))
-    return redirect(url_for(".api_key", _anchor="musicbrainz"))

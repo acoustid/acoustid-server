@@ -164,7 +164,8 @@ def test_link(app: Flask, client: FlaskClient, monkeypatch: pytest.MonkeyPatch) 
 
     rv = client.get("/api-key")
     assert "is now linked to the MusicBrainz account %s" % name in rv.text
-    assert "Unlink MusicBrainz account" in rv.text
+    assert "Linked to" in rv.text
+    assert 'action="/account/musicbrainz/link"' not in rv.text
 
 
 def test_link_returns_to_the_edit(
@@ -245,42 +246,6 @@ def test_link_rejects_bad_state(
 def test_account_page_offers_link(app: Flask, client: FlaskClient) -> None:
     rv = client.get("/api-key")
     assert 'action="/account/musicbrainz/link"' in rv.text
-    assert "Unlink" not in rv.text
-
-
-def test_unlink(app: Flask, client: FlaskClient) -> None:
-    set_account(app, ACCOUNT_ID, mbuser=mb_name(), email="someone@example.com")
-
-    rv = client.post(
-        "/account/musicbrainz/unlink", data={"csrf_token": csrf_token(client)}
-    )
-
-    assert rv.status_code == 302
-    assert get_mbuser(app, ACCOUNT_ID) is None
-    rv = client.get("/api-key")
-    assert "no longer linked to a MusicBrainz account" in rv.text
-
-
-def test_unlink_needs_an_email_address(app: Flask, client: FlaskClient) -> None:
-    name = mb_name()
-    set_account(app, ACCOUNT_ID, mbuser=name)
-
-    rv = client.get("/api-key")
-    assert "Add an email address first" in rv.text
-    assert 'action="/account/musicbrainz/unlink"' not in rv.text
-
-    client.post("/account/musicbrainz/unlink", data={"csrf_token": csrf_token(client)})
-    assert get_mbuser(app, ACCOUNT_ID) == name
-
-
-def test_unlink_needs_the_csrf_token(app: Flask, client: FlaskClient) -> None:
-    name = mb_name()
-    set_account(app, ACCOUNT_ID, mbuser=name, email="someone@example.com")
-
-    rv = client.post("/account/musicbrainz/unlink", data={"csrf_token": "wrong"})
-
-    assert rv.status_code == 400
-    assert get_mbuser(app, ACCOUNT_ID) == name
 
 
 def test_edit_without_musicbrainz_offers_link(app: Flask, client: FlaskClient) -> None:
