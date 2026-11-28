@@ -40,7 +40,7 @@ def test_musicbrainz_account(app: Flask) -> None:
     html = render(app, SimpleNamespace(id=7, mbuser="Some User", name="ignored"))
     assert 'href="https://musicbrainz.org/user/Some%20User"' in html
     assert 'class="mb-icon"' in html
-    assert 'aria-label="MusicBrainz"' in html
+    assert 'alt="MusicBrainz"' in html
     assert ">Some User</a>" in html
     assert "ignored" not in html
     assert "user7" not in html
