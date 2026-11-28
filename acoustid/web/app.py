@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, session
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.exceptions import HTTPException, NotFound
 
+from acoustid.data.account import BOT_ACCOUNT_ID
 from acoustid.script import Script
 from acoustid.web import db
 from acoustid.web.filters import register_filters
@@ -59,6 +60,9 @@ def make_application(config_filename=None, tests=False):
         )
 
     register_filters(app)
+    # A global rather than a context value: macros imported from another
+    # template see globals, but not the context.
+    app.jinja_env.globals["BOT_ACCOUNT_ID"] = BOT_ACCOUNT_ID
 
     @app.errorhandler(404)
     def page_not_found(error: HTTPException):

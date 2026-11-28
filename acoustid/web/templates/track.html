@@ -244,7 +244,6 @@
     {% for edit in edits %}
     <li>
       <span class="small muted">{{ edit.created.strftime("%b %d, %Y %H:%M:%S") }}</span><br>
-      User
       {{ account_name(edit.account) }}
       {{ 'disabled' if edit.disabled else 'enabled' }}
       {% if edit.mbid %}<a href="#{{ edit.mbid }}">{{ edit.mbid }}</a>{% else %}<span class="muted">unknown</span>{% endif %}

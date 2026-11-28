@@ -20,6 +20,13 @@ from acoustid.utils import generate_api_key
 logger = logging.getLogger(__name__)
 
 
+# The account automatic changes are made under, such as disabling an MBID that
+# MusicBrainz no longer knows: "acoustid_bot" in production. By id, not name:
+# a name is not unique, and signing in with a MusicBrainz user called
+# acoustid_bot would make another account with it.
+BOT_ACCOUNT_ID = 142570
+
+
 def lookup_account_id_by_name(conn: AppDB, name: str) -> int | None:
     query = sql.select(schema.account.c.id).where(schema.account.c.name == name)
     return conn.execute(query).scalar()

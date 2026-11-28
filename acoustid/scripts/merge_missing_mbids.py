@@ -9,11 +9,10 @@ from contextlib import ExitStack
 from typing import cast
 from uuid import UUID
 
-from acoustid.data.account import lookup_account_id_by_name
+from acoustid.data.account import BOT_ACCOUNT_ID
 from acoustid.data.musicbrainz import get_last_replication_date
 from acoustid.data.track import disable_mbid, merge_missing_mbid
 from acoustid.db import (
-    AppDB,
     FingerprintDB,
     IngestDB,
     MusicBrainzDB,
@@ -47,9 +46,6 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
             script.db_engines["musicbrainz"].connect()
         )
         musicbrainz_db = cast(MusicBrainzDB, musicbrainz_db_conn)
-
-        app_db_conn = stack.enter_context(script.db_engines["app"].connect())
-        app_db = cast(AppDB, app_db_conn)
 
         if not pg_try_advisory_xact_lock(fingerprint_db, "merge_missing_mbid", mbid):
             logger.info("MBID %s is already being merged", mbid)
@@ -88,16 +84,11 @@ def run_merge_missing_mbid(script: Script, mbid: str) -> None:
             return
 
         logger.info("MBID %s has been unknown for too long, disabling", mbid)
-        acoustid_bot_id = lookup_account_id_by_name(app_db, "acoustid_bot")
-        if acoustid_bot_id is None:
-            logger.error("acoustid_bot account not found")
-            return
-
         disable_mbid(
             fingerprint_db=fingerprint_db,
             ingest_db=ingest_db,
             mbid=mbid,
-            account_id=acoustid_bot_id,
+            account_id=BOT_ACCOUNT_ID,
             note="MBID has been unknown for too long",
         )
         fingerprint_db_txn.prepare()
