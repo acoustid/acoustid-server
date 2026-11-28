@@ -19,6 +19,7 @@ from acoustid.utils import is_uuid
 from acoustid.web import db
 from acoustid.web.grouping import MetaRow, group_metadata
 from acoustid.web.utils import require_moderator, require_user
+from acoustid.web.views.user import account_csrf_token
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,7 @@ def track(track_id_or_gid: str) -> str:
         fingerprints=fingerprints,
         recordings=recordings,
         moderator=moderator,
+        signed_in=current_account_id is not None,
         track=track,
         edits=edits,
         more_edits=more_edits,
@@ -688,8 +690,20 @@ def toggle_track_mbid() -> str | Response:
     if not track_id or not mbid or not track_gid:
         return redirect(url_for("general.index"))
     if not is_moderator(app_db, user.id):
-        title = "MusicBrainz account required"
-        return render_template("toggle_track_mbid_login.html", title=title)
+        # Linking comes back here, to the confirmation for this same change.
+        return render_template(
+            "toggle_track_mbid_login.html",
+            title="MusicBrainz account required",
+            track_gid=track_gid,
+            csrf_token=account_csrf_token(),
+            return_url=url_for(
+                ".toggle_track_mbid",
+                track_gid=track_gid,
+                mbid=mbid,
+                state=int(state),
+                _external=True,
+            ),
+        )
     query = sql.select(schema.track_mbid.c.id, schema.track_mbid.c.disabled).where(
         sql.and_(
             schema.track_mbid.c.track_id == track_id, schema.track_mbid.c.mbid == mbid

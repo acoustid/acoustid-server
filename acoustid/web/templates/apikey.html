@@ -55,6 +55,36 @@
     <p class="small muted">We will send a link to the new address. It replaces the old one once you open the link.</p>
   </section>
 
+  <section id="musicbrainz">
+    <div class="section-head"><h2>MusicBrainz account</h2></div>
+    {% if mb_error %}
+    <div class="alert"><p>
+      {% if mb_error.conflict %}
+      The MusicBrainz account <b>{{ mb_error.conflict }}</b> is already linked to a different
+      AcoustID account, and the two can't be merged here. Email
+      <a href="mailto:info@acoustid.org">info@acoustid.org</a>, say which MusicBrainz account
+      it is, and we will sort it out.
+      {% else %}
+      {{ mb_error.message }}
+      {% endif %}
+    </p></div>
+    {% endif %}
+    {% if mb_linked %}
+    <p>Linked to {{ account_name(user) }}. You can enable and disable the links between
+      AcoustIDs and MusicBrainz recordings, and sign in here with MusicBrainz.</p>
+    <p class="small muted">The link can't be removed here, as your edits are shown under it. If you
+      need it removed, email <a href="mailto:info@acoustid.org">info@acoustid.org</a>.</p>
+    {% else %}
+    <p>Link your MusicBrainz account to fix AcoustIDs that point to the wrong recording.
+      You will also be able to sign in with MusicBrainz.</p>
+    <form method="POST" action="{{ url_for('user.link_musicbrainz') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn"><svg class="mb-icon" width="12" height="13" viewBox="0 0 25 28" aria-hidden="true"><polygon fill="#ba478f" points="12 0 0 7 0 21 12 28"/><polygon fill="#eb743b" points="13 0 25 7 25 21 13 28"/></svg> Link MusicBrainz account</button>
+    </form>
+    <p class="small muted">You will be sent to musicbrainz.org to approve it, and then back here.</p>
+    {% endif %}
+  </section>
+
   <section>
     <div class="section-head"><h2>Connected applications</h2></div>
     <p>
